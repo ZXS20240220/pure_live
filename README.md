@@ -53,108 +53,86 @@
 
 ## 🔧 本分支改动说明（dev_20260910）
 
-以下是相对于原始项目（upstream）在本分支所做的改动汇总。所有改动均在本地工作区完成，commit 历史尚未提交。
+以下是相对于原始项目（upstream）在本分支所做的改动汇总。按功能维度分组呈现，**不暴露内部实现细节或接口路径**，仅描述改动意图与可感知效果。
 
 ### 一、移除 Firebase 用户同步模块
 
 原始项目包含一套完整的 Firebase 邮箱/匿名登录系统，本分支出于**简化依赖、降低构建复杂度和隐私考量**，完整移除了 Firebase 相关功能：
 
-- 删除整个 `lib/modules/auth/` 模块（12 个文件，含控制器、页面、组件、模型、工具类）
-- 删除 Firebase 配置文件：
-  - `android/app/google-services.json`
-  - `ios/Runner/GoogleService-Info.plist`
-  - `firebase.json`
-  - `lib/firebase_options.dart`
-- 清理 `pubspec.yaml` 中的依赖：`firebase_core`、`firebase_auth`、`cloud_firestore`
-- 清理 Gradle 配置：`android/app/build.gradle.kts`、`android/settings.gradle.kts`
-- 删除 Firebase Windows SDK 预取脚本 `tool/prefetch_windows_native.ps1`
-- 更新 macOS / Windows 插件注册文件，移除 Firebase 插件注册
-- 清理路由定义（`lib/routes/app_pages.dart`、`lib/routes/route_path.dart`）中的 auth 路由
-- 更新 `backup_page.dart`：移除 Firebase 登录/云端备份卡片，保留 WebDAV 和本地备份
-- 更新 `MenuButton`：从 `GetView<AuthController>` 改为普通 `StatelessWidget`
-- 更新 `initial_services.dart`：移除 `AuthController` 懒加载注册
+- 删除用户认证模块及全部关联配置文件
+- 清理移动端（Android / iOS）Firebase 集成配置
+- 清理桌面端（Windows / macOS）插件注册
+- 清理 Gradle 与 Dart 依赖
+- 精简备份页面：移除 Firebase 云端备份入口，保留 WebDAV 和本地备份
 
-### 二、LiveRoom 模型增强
+### 二、主播信息扩展
 
-在 `lib/common/models/live_room.dart` 中新增三个字段，用于展示更丰富的主播信息：
+直播间数据新增三类主播信息字段，用于在 UI 上展示更丰富的主播画像：
 
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| `anchorLevel` | `String?` | 主播等级（如斗鱼/虎牙的段位等级） |
-| `unionName` | `String?` | 主播所属公会名称 |
-| `startTime` | `int?` | 当前直播开始时间戳（Unix epoch 秒） |
+- **主播等级**：如斗鱼 / 虎牙的段位等级
+- **公会名称**：主播所属公会
+- **开播时间**：当前直播 session 开始的时间戳
 
-所有字段均已集成到构造函数、`fromJson`、`copyWith`、`toJson`、`LiveRoomExtension` 合并逻辑中，确保与现有序列化和数据同步机制兼容。
+字段已集成到现有的数据序列化与同步链路中，保持前后兼容。
 
-### 三、各站点适配与数据增强
+### 三、各平台数据增强
 
-#### 斗鱼直播（Douyu）
+在原有平台适配基础上，补充解析并展示更多主播相关信息。
 
-- **AI 看点摘要**：新增 `_fetchAiHighlight()` 接口请求斗鱼官方 AI 看点（`/wgapi/vodnc/center/ailive/getHighlightDetail`），结果填充到 `notice` 字段，在 SuperChat 面板顶部以 AI 看点卡片形式展示
-- **主播等级**：从 `levelInfo` 解析 `anchorLevel`
-- **公会名称**：从 `room_biz_all.clubOrgName` 解析 `unionName`
-- **直播开始时间**：从 `show_time` 解析 `startTime`
-- **HTML 处理**：`title` 和 `introduction` 通过 `stripHtmlAndUnescape()` 清洗，移除 HTML 标签和解码 HTML 实体
-- **空值安全**：修复 `room_biz_all` 可能为 null 导致的空指针异常
+#### 斗鱼直播
 
-#### 虎牙直播（Huya）
+- **AI 看点摘要**：调用斗鱼官方 AI 看点接口，结果以卡片形式展示在 Super Chat 面板顶部
+- 解析主播等级、公会名称、开播时间
+- 标题与介绍文本做 HTML 标签清除与实体解码，避免乱码或标签外露
+- 修复某房间数据字段为空时可能导致的崩溃
 
-- **主播等级**：从 `streamDataGameLiveInfo.level` 解析 `anchorLevel`
-- **直播开始时间**：从房间数据 `startTime` 解析
-- **notice 字段**：从原先的 introduction 改为空字符串（与斗鱼保持一致，notice 字段预留给 AI 摘要等特殊用途）
+#### 虎牙直播
+
+- 解析主播等级、开播时间
+- 介绍字段与斗鱼保持一致，预留给 AI 看点等特殊用途
 
 #### Bilibili
 
-- **直播开始时间**：从 `room_info.live_start_time` 解析 `startTime`
-- **直播间介绍**：`introduction` 优先取 `news_info.content`，两者均通过 `stripHtmlAndUnescape()` 清洗
+- 解析开播时间
+- 介绍文本同样做 HTML 清洗
 
 #### CC 直播 / 快手
 
-- **notice 字段**：统一清空，避免与 introduction 重复显示
+- 介绍字段做统一清空处理，避免与平台简介重复显示
 
-### 四、工具函数新增
+### 四、HTML 文本净化工具
 
-`lib/core/common/utils/text_util.dart` 新增两个 HTML 处理工具函数：
-
-- `stripHtmlAndUnescape(String input)`：清除 HTML 标签并解码 HTML 实体
-  - 例：`"<p>你好&nbsp;<b>世界</b></p>"` → `"你好 世界"`
-- `unescapeHtml(String input)`：只解码 HTML 实体，保留原文本结构
-
-新增依赖 `html_unescape` 包（pubspec.yaml 未显式列出，应为已有或隐式依赖）。
+新增一套 HTML 处理工具，用于从各平台返回的原始文本中清除 HTML 标签、解码 HTML 实体，得到纯文本展示内容。
 
 ### 五、斗鱼 Super Chat 去重修复
 
-`lib/core/danmaku/douyu_danmaku.dart`：
+斗鱼弹幕服务器在实际付费 Super Chat 推送前，会先发送一条价格为 0 的预览包。原先的去重逻辑因价格不同而失效，导致同一条消息会被渲染两次。修复方案：跳过这类预览包，只保留真正的付费消息。
 
-斗鱼在实际付费 Super Chat 推送前会先发一条 `price=0` 的免费预览包，导致去重 Set 因价格不同而失效。修复方案：在 SC 解析时直接跳过 `rawPrice == 0` 的消息。
+### 六、直播头部功能增强
 
-### 六、直播头部（LivePlayHeader）功能增强
+直播间顶部主播信息区新增多项 UI 和交互能力：
 
-`lib/modules/live_play/widgets/layout/live_play_header.dart` 新增多项 UI 和交互：
-
-- **主播等级徽章**：`Lv.{anchorLevel}` 橙色小徽章显示在主播昵称左侧
-- **公会名称标签**：`unionName` 蓝灰色小徽章显示在主播昵称右侧
-- **直播时长计时器**：红色圆点 + `HH:MM:SS` / `MM:SS` 格式，每秒刷新，仅对返回 `startTime` 的平台（斗鱼、虎牙、Bilibili）显示
-- **介绍 Tooltip**：鼠标悬停主播区域时显示完整介绍
+- **主播等级徽章**：橙色小徽章显示在昵称左侧
+- **公会名称标签**：蓝灰色小徽章显示在昵称右侧
+- **直播时长计时器**：红色圆点 + 时分秒格式，每秒刷新。仅对返回开播时间的平台（斗鱼、虎牙、Bilibili）显示
+- **介绍悬浮提示**：鼠标悬停时弹出完整主播介绍
 - **快速操作按钮组**（新增 5 个）：
-  - 🏷️ 设置房间标签（复用房间卡片标签选择对话框）
-  - 🌐 打开直播间（跳转原生平台 APP/H5）
-  - 🔄 切换直播间（打开 PlayOther 对话框）
-  - 🔗 获取直播直链（通过 `LiveUrlTool`）
-  - 🪟 新窗口打开（仅 Windows，复用 `WindowsMultiInstanceLauncher`）
+  - 🏷️ 设置房间标签
+  - 🌐 打开原平台直播间
+  - 🔄 切换到其他关注的直播间
+  - 🔗 获取直播直链
+  - 🪟 新窗口独立打开（仅 Windows）
 
 ### 七、键盘快捷键重构
 
-`lib/modules/live_play/widgets/keyboard/video_keyboard.dart` —— 从 `CallbackShortcuts` 改为全局 `HardwareKeyboard` 事件处理：
-
-> 原实现使用 `CallbackShortcuts`，但在嵌套 `Focus/FocusScope` 的复杂布局中容易被其他组件抢走键盘焦点。改为监听全局按键事件后，所有快捷键均可正常触发。
+原先的快捷键实现依赖嵌套焦点树中的回调绑定，在复杂布局下容易被其他组件抢走键盘焦点，导致按键失效。改为全局监听原始硬件按键事件后，所有快捷键均可稳定触发。
 
 **当前支持的快捷键：**
 
 | 按键 | 功能 |
 | --- | --- |
 | `Space` / 播放键 | 播放 / 暂停 |
-| `↑` / `↓` | 音量增减（±0.05） |
+| `↑` / `↓` | 音量增减 |
 | `R` | 刷新直播 |
 | `Tab` | 切换弹幕侧栏标签（仅普通窗口模式） |
 | `Q` | 切换窗口全屏（非全屏/非小窗时） |
@@ -162,72 +140,43 @@
 
 ### 八、房间标签设置对话框：自动选中已有标签
 
-`lib/modules/settings/pages/room_card_settings/room_card_controller.dart` —— `showTagSelectionDialog()` 初始化修复：
+打开「设置房间标签/分类」对话框时，原先所有复选框都是空的——因为它直接读取房间对象上的 tagIds 字段，而该字段在很多场景下为空或是旧数据。修复后改为从标签管理控制器的"房间→标签映射表"中查询该房间真实已绑定的标签，已勾选的会自动显示 ✅ 状态，避免每次都要重新勾选一遍。
 
-- **原实现**：`List<String>.from(room.tagIds)` — 直接取房间对象上的 `tagIds` 字段，该字段在很多场景下为空或是旧数据，导致每次打开标签设置对话框时所有复选框都是空的
-- **修复后**：`tagController.getTagsForRoom(room)` — 从 `TagManagementController.roomTagsMap` 中查询该房间真实已绑定的标签 ID 列表
-
-效果：打开「设置房间标签/分类」对话框时，该直播间之前勾选过的标签会自动显示为 ✅ 已选中状态，避免每次都要重新勾选一遍。
-
-> 直播头部快速操作按钮组中的 🏷️「设置房间标签」按钮（`LivePlayHeader._buildQuickActions()`）正是调用这个对话框。
+> 直播头部快速操作按钮组里的 🏷️「设置房间标签」按钮正是调用这个对话框。
 
 ### 九、历史与收藏排序增强
 
 #### 置顶标签功能
 
-`lib/modules/tags/tag_management_controller.dart` 新增置顶识别逻辑：
-
-- 预定义置顶关键词：`❤️`、 `❤`、 `♥`、 `♥️`、`置顶`、`特别关注`、`pin`、`vip`
-- `pinTagId` getter：返回第一个匹配的用户标签 ID
-- `isPinRoom(LiveRoom room)`：判断房间是否带置顶标签
+新增"置顶"识别逻辑：只要用户给自己的标签起了类似 `❤️`、`置顶`、`特别关注`、`pin`、`vip` 这类名称，收藏列表会自动识别并把带有该标签的房间永远排在最前面。
 
 #### 收藏列表排序
 
-`lib/modules/favorite/favorite_controller.dart` —— 在线房间排序优化：
-
-- 新增 `_compareOnlineRooms()` 方法：置顶房间永远排在最前，再按观看人数 / 标签权重排序
-- 回放房间单独按观看人数排序，不混入置顶逻辑
+- 在线房间：置顶房间优先 → 再按观看人数排序
+- 回放房间：仅按观看人数排序，不混入置顶逻辑
 
 #### 历史页面优化
 
-`lib/modules/history/history_page.dart`：
+- **仅显示正在直播的房间**，离线房间不再污染历史列表
+- **同步收藏夹最新状态**：从收藏夹中合并实时的直播状态、热度等数据
+- 清空历史确认框改用原生对话框实现
 
-- **仅显示正在直播的房间**（离线房间不再污染历史列表）
-- **同步收藏夹最新状态**：从收藏夹中合并 liveStatus/热度等实时数据
-- 改用 `showDialog` 替换 `Get.dialog` 实现清空历史确认框
+### 十、切换直播间面板重构
 
-### 十、PlayOther（切换直播间）面板重构
+原先的"切换直播间"功能是一个全屏对话框，无法嵌入其他布局。重构后抽取出可复用的面板组件：
 
-`lib/modules/live_play/dialogs/play_other.dart` —— 抽取可复用组件：
-
-- 原 `PlayOther` 对话框拆分为：
-  - `PlayOtherPanel`：可嵌入任意布局的面板组件（支持 `showHeader`、`showCloseButton`、`onSelectRoom` 回调）
-  - `PlayOther`：保留为兼容包装器，内部调用 `PlayOtherPanel.buildDialog()`
-- 新增功能：
-  - 历史清理按钮（🗑️）在历史 Tab 顶部
-  - 监听更多 EventBus 事件（`refresh_room_changed`、`history_changed`）实现实时刷新
-  - 历史房间同步收藏夹 liveStatus，过滤离线房间
-
-#### 弹幕侧栏嵌入
-
-`lib/modules/live_play/widgets/danmaku/danmaku_tab.dart`：
-
-- 新增第四个 Tab（切换直播间），将 `PlayOtherPanel` 直接嵌入弹幕设置侧栏，方便在观看时快速切换关注的房间
+- 可作为独立对话框弹出，也可嵌入弹幕侧栏作为第四个 Tab
+- 历史 Tab 顶部新增 🗑️ 清理历史按钮
+- 实时监听收藏变更、房间切换、历史变动等事件，自动刷新列表
+- 历史房间同步收藏夹的实时直播状态，过滤离线房间
 
 ### 十一、Super Chat 面板新增 AI 看点卡片
 
-`lib/modules/live_play/pages/super_chat_page.dart`：
+当斗鱼直播间返回 AI 看点数据时，Super Chat 面板顶部会以卡片形式展示看点摘要。点击卡片可复制全文。没有 AI 看点数据时该卡片自动隐藏，不影响原有 SC 消息列表的展示逻辑。
 
-- 新增 `_AiHighlightCard` 组件：解析斗鱼 AI 看点的 `summary` + `describe`，卡片式展示
-- 展示位置：Super Chat 列表顶部
-- 交互：点击复制全文
-- 当 `notice` 为空且没有 SC 消息时，整个页面正常隐藏（保持原有逻辑）
+### 十二、历史列表实时刷新机制
 
-### 十二、EventBus 事件补全
-
-`lib/common/services/settings/history_controller.dart`：
-
-- 在 `addRoomToHistory`、`removeRoomFromHistory`、`removeRoomFromHistoryAt`、`clearHistory` 四个方法中均发出 `history_changed` 事件，供 PlayOtherPanel 等组件监听刷新
+历史控制器在增删房间、清空历史时会发出统一的"历史已变更"事件信号，供切换直播间面板等组件监听。解决了"删除历史后面板没及时刷新"的问题。
 
 ---
 
