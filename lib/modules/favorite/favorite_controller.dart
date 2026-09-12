@@ -400,24 +400,8 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
         ..sort((a, b) => a.order.compareTo(b.order));
     }
 
-    nextOnline.sort((a, b) {
-      if (selectedTagId.value == TagManagementController.allTagKey) {
-        return _compareAudience(a, b);
-      }
-      int sa = _getRoomTagScore(a);
-      int sb = _getRoomTagScore(b);
-      if (sa != sb) return sb.compareTo(sa);
-      return _compareAudience(a, b);
-    });
-    nextReplay.sort((a, b) {
-      if (selectedTagId.value == TagManagementController.allTagKey) {
-        return _compareAudience(a, b);
-      }
-      int sa = _getRoomTagScore(a);
-      int sb = _getRoomTagScore(b);
-      if (sa != sb) return sb.compareTo(sa);
-      return _compareAudience(a, b);
-    });
+    nextOnline.sort(_compareOnlineRooms);
+    nextReplay.sort(_compareAudience);
 
     // Build and sort plain lists first, then publish each result once. The old
     // clear/addAll/sort sequence notified every Obx grid several times for one
@@ -502,6 +486,21 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
       preferRealOnline: app.preferRealOnlineCounts.v,
       platformEnabled: app.isRealOnlineEnabledFor,
     );
+  }
+
+  /// Pin-tagged rooms first, then delegating to the active sort policy.
+  int _compareOnlineRooms(LiveRoom a, LiveRoom b) {
+    final aPinned = tagController.isPinRoom(a);
+    final bPinned = tagController.isPinRoom(b);
+    if (aPinned != bPinned) return aPinned ? -1 : 1;
+
+    if (selectedTagId.value == TagManagementController.allTagKey) {
+      return _compareAudience(a, b);
+    }
+    final sa = _getRoomTagScore(a);
+    final sb = _getRoomTagScore(b);
+    if (sa != sb) return sb.compareTo(sa);
+    return _compareAudience(a, b);
   }
 
   int _getRoomTagScore(LiveRoom room) {

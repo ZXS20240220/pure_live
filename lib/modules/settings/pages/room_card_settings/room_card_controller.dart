@@ -227,7 +227,7 @@ class RoomCardController {
     FavoriteController favoriteController,
     TagManagementController tagController,
   ) {
-    final tempSelectedIds = List<String>.from(room.tagIds);
+    final tempSelectedIds = tagController.getTagsForRoom(room);
     final nameController = TextEditingController();
     final descController = TextEditingController();
     final screenWidth = MediaQuery.of(context).size.width;

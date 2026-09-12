@@ -5,35 +5,229 @@
 
 <h1 align="center">纯粹直播（Pure Live）</h1>
 
-<h4 align="center">基于 Flutter 的开源多平台直播聚合播放器</h4>
+<h4 align="center">基于 Flutter 的开源多平台直播聚合播放器 · Windows 个人改造分支</h4>
 
 <p align="center">
   A third-party live stream aggregator built with Flutter.
 </p>
 
-<p align="center">
-  <a href="https://github.com/liuchuancong/pure_live/releases/latest">
-    <img alt="Latest Release" src="https://img.shields.io/github/v/release/liuchuancong/pure_live">
-  </a>
-  <a href="https://github.com/liuchuancong/pure_live/actions/workflows/feature-build.yml">
-    <img alt="Manual Build" src="https://github.com/liuchuancong/pure_live/actions/workflows/feature-build.yml/badge.svg">
-  </a>
-  <a href="https://github.com/liuchuancong/pure_live">
-    <img alt="Stars" src="https://img.shields.io/github/stars/liuchuancong/pure_live?color=yellow">
-  </a>
-  <a href="https://github.com/liuchuancong/pure_live/releases">
-    <img alt="Downloads" src="https://img.shields.io/github/downloads/liuchuancong/pure_live/total?style=flat-square">
-  </a>
-  <a href="LICENSE">
-    <img alt="License" src="https://img.shields.io/github/license/liuchuancong/pure_live?color=blue">
-  </a>
-</p>
+> ⚠️ **本仓库是个人 fork 学习分支**，非官方发布，**仅针对 Windows 版本**，且**不提供任何 Release 构建物**。源码仅供学习交流，请勿用于商业用途或广泛宣传。
 
-> 纯粹直播（Pure Live）是一款开源的第三方多平台直播聚合播放器，使用 Flutter 构建，支持 Android、Android TV、Windows、Linux、macOS 和 iOS 等平台。
+---
 
-- **最新稳定版**：[v3.1.1](https://github.com/liuchuancong/pure_live/releases/tag/v3.1.1)
+## 📌 项目来源与声明
 
-![Pure Live 界面预览](assets/images/banner.png)
+### 原始项目
+
+本项目 fork 自 **[liuchuancong/pure_live](https://github.com/liuchuancong/pure_live)**（[upstream](https://github.com/liuchuancong/pure_live)），主仓库及 Release 分支请以原作者为准。
+
+- **原始仓库地址**：https://github.com/liuchuancong/pure_live
+- **本 fork 地址**：https://github.com/ZXS20240220/pure_live
+- **当前分支**：`dev_20260910`
+
+### 分支范围
+
+- **目标平台**：本分支所有改动均在 Windows 桌面环境下开发和测试，**iOS / Android / macOS / Linux 未验证**。代码层面使用了少量 `Platform.isWindows` 条件编译（如多实例窗口启动），其他平台编译应能通过，但功能正确性不做任何保证。
+- **不提供 Release 构建物**：本仓库**不会在 GitHub Releases 或其他渠道发布任何 `.exe`、`.zip`、`.msix` 等可执行文件**。原因如下：
+  1. **个人自用**：分支改造仅服务于自身使用场景，没有打包分发的需求。
+  2. **缺少签名证书**：正式签名证书需要专门申请和保管，自签名构建物会触发 Windows Defender SmartScreen 警告，反而误导下载者。
+  3. **保持干净**：避免引入与原项目 Release 体系混淆的构建产物。
+  4. **学习定位**：发布二进制文件会模糊"学习 / 自用"的边界，违反 AGPL v3 下 fork 分支应明确标注的原则。
+
+> 需要可执行文件的请自行参考原项目的 [本地构建说明](https://github.com/liuchuancong/pure_live#-本地构建与验证) 进行编译，或直接下载 [原项目 Releases](https://github.com/liuchuancong/pure_live/releases)。
+
+### 使用声明
+
+- 本分支的所有改动均**仅作为个人学习和自用目的**，不做任何形式的宣传、推荐或分发。
+- 不保证本分支构建产物的稳定性和安全性，使用时请自行承担风险。
+- 项目中涉及的第三方直播平台 API 可能随时变化或失效，相关改动仅用于学习研究。
+- 如发现本分支存在 License 违规、安全问题或其他不当之处，请及时反馈。
+
+### 参与说明
+
+> 📌 **欢迎贡献维护型修复、测试和文档**！
+> - 如发现 License 使用不当，请提交 Issue 或 Pull Request
+> - 本仓库 Issue 聚焦可复现 Bug；新增功能和产品建议统一提交到[原项目](https://github.com/liuchuancong/pure_live/issues/new/choose)
+
+---
+
+## 🔧 本分支改动说明（dev_20260910）
+
+以下是相对于原始项目（upstream）在本分支所做的改动汇总。所有改动均在本地工作区完成，commit 历史尚未提交。
+
+### 一、移除 Firebase 用户同步模块
+
+原始项目包含一套完整的 Firebase 邮箱/匿名登录系统，本分支出于**简化依赖、降低构建复杂度和隐私考量**，完整移除了 Firebase 相关功能：
+
+- 删除整个 `lib/modules/auth/` 模块（12 个文件，含控制器、页面、组件、模型、工具类）
+- 删除 Firebase 配置文件：
+  - `android/app/google-services.json`
+  - `ios/Runner/GoogleService-Info.plist`
+  - `firebase.json`
+  - `lib/firebase_options.dart`
+- 清理 `pubspec.yaml` 中的依赖：`firebase_core`、`firebase_auth`、`cloud_firestore`
+- 清理 Gradle 配置：`android/app/build.gradle.kts`、`android/settings.gradle.kts`
+- 删除 Firebase Windows SDK 预取脚本 `tool/prefetch_windows_native.ps1`
+- 更新 macOS / Windows 插件注册文件，移除 Firebase 插件注册
+- 清理路由定义（`lib/routes/app_pages.dart`、`lib/routes/route_path.dart`）中的 auth 路由
+- 更新 `backup_page.dart`：移除 Firebase 登录/云端备份卡片，保留 WebDAV 和本地备份
+- 更新 `MenuButton`：从 `GetView<AuthController>` 改为普通 `StatelessWidget`
+- 更新 `initial_services.dart`：移除 `AuthController` 懒加载注册
+
+### 二、LiveRoom 模型增强
+
+在 `lib/common/models/live_room.dart` 中新增三个字段，用于展示更丰富的主播信息：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `anchorLevel` | `String?` | 主播等级（如斗鱼/虎牙的段位等级） |
+| `unionName` | `String?` | 主播所属公会名称 |
+| `startTime` | `int?` | 当前直播开始时间戳（Unix epoch 秒） |
+
+所有字段均已集成到构造函数、`fromJson`、`copyWith`、`toJson`、`LiveRoomExtension` 合并逻辑中，确保与现有序列化和数据同步机制兼容。
+
+### 三、各站点适配与数据增强
+
+#### 斗鱼直播（Douyu）
+
+- **AI 看点摘要**：新增 `_fetchAiHighlight()` 接口请求斗鱼官方 AI 看点（`/wgapi/vodnc/center/ailive/getHighlightDetail`），结果填充到 `notice` 字段，在 SuperChat 面板顶部以 AI 看点卡片形式展示
+- **主播等级**：从 `levelInfo` 解析 `anchorLevel`
+- **公会名称**：从 `room_biz_all.clubOrgName` 解析 `unionName`
+- **直播开始时间**：从 `show_time` 解析 `startTime`
+- **HTML 处理**：`title` 和 `introduction` 通过 `stripHtmlAndUnescape()` 清洗，移除 HTML 标签和解码 HTML 实体
+- **空值安全**：修复 `room_biz_all` 可能为 null 导致的空指针异常
+
+#### 虎牙直播（Huya）
+
+- **主播等级**：从 `streamDataGameLiveInfo.level` 解析 `anchorLevel`
+- **直播开始时间**：从房间数据 `startTime` 解析
+- **notice 字段**：从原先的 introduction 改为空字符串（与斗鱼保持一致，notice 字段预留给 AI 摘要等特殊用途）
+
+#### Bilibili
+
+- **直播开始时间**：从 `room_info.live_start_time` 解析 `startTime`
+- **直播间介绍**：`introduction` 优先取 `news_info.content`，两者均通过 `stripHtmlAndUnescape()` 清洗
+
+#### CC 直播 / 快手
+
+- **notice 字段**：统一清空，避免与 introduction 重复显示
+
+### 四、工具函数新增
+
+`lib/core/common/utils/text_util.dart` 新增两个 HTML 处理工具函数：
+
+- `stripHtmlAndUnescape(String input)`：清除 HTML 标签并解码 HTML 实体
+  - 例：`"<p>你好&nbsp;<b>世界</b></p>"` → `"你好 世界"`
+- `unescapeHtml(String input)`：只解码 HTML 实体，保留原文本结构
+
+新增依赖 `html_unescape` 包（pubspec.yaml 未显式列出，应为已有或隐式依赖）。
+
+### 五、斗鱼 Super Chat 去重修复
+
+`lib/core/danmaku/douyu_danmaku.dart`：
+
+斗鱼在实际付费 Super Chat 推送前会先发一条 `price=0` 的免费预览包，导致去重 Set 因价格不同而失效。修复方案：在 SC 解析时直接跳过 `rawPrice == 0` 的消息。
+
+### 六、直播头部（LivePlayHeader）功能增强
+
+`lib/modules/live_play/widgets/layout/live_play_header.dart` 新增多项 UI 和交互：
+
+- **主播等级徽章**：`Lv.{anchorLevel}` 橙色小徽章显示在主播昵称左侧
+- **公会名称标签**：`unionName` 蓝灰色小徽章显示在主播昵称右侧
+- **直播时长计时器**：红色圆点 + `HH:MM:SS` / `MM:SS` 格式，每秒刷新，仅对返回 `startTime` 的平台（斗鱼、虎牙、Bilibili）显示
+- **介绍 Tooltip**：鼠标悬停主播区域时显示完整介绍
+- **快速操作按钮组**（新增 5 个）：
+  - 🏷️ 设置房间标签（复用房间卡片标签选择对话框）
+  - 🌐 打开直播间（跳转原生平台 APP/H5）
+  - 🔄 切换直播间（打开 PlayOther 对话框）
+  - 🔗 获取直播直链（通过 `LiveUrlTool`）
+  - 🪟 新窗口打开（仅 Windows，复用 `WindowsMultiInstanceLauncher`）
+
+### 七、键盘快捷键重构
+
+`lib/modules/live_play/widgets/keyboard/video_keyboard.dart` —— 从 `CallbackShortcuts` 改为全局 `HardwareKeyboard` 事件处理：
+
+> 原实现使用 `CallbackShortcuts`，但在嵌套 `Focus/FocusScope` 的复杂布局中容易被其他组件抢走键盘焦点。改为监听全局按键事件后，所有快捷键均可正常触发。
+
+**当前支持的快捷键：**
+
+| 按键 | 功能 |
+| --- | --- |
+| `Space` / 播放键 | 播放 / 暂停 |
+| `↑` / `↓` | 音量增减（±0.05） |
+| `R` | 刷新直播 |
+| `Tab` | 切换弹幕侧栏标签（仅普通窗口模式） |
+| `Q` | 切换窗口全屏（非全屏/非小窗时） |
+| `Esc` | 退出全屏 / 退出窗口全屏 / 返回（原有逻辑） |
+
+### 八、房间标签设置对话框：自动选中已有标签
+
+`lib/modules/settings/pages/room_card_settings/room_card_controller.dart` —— `showTagSelectionDialog()` 初始化修复：
+
+- **原实现**：`List<String>.from(room.tagIds)` — 直接取房间对象上的 `tagIds` 字段，该字段在很多场景下为空或是旧数据，导致每次打开标签设置对话框时所有复选框都是空的
+- **修复后**：`tagController.getTagsForRoom(room)` — 从 `TagManagementController.roomTagsMap` 中查询该房间真实已绑定的标签 ID 列表
+
+效果：打开「设置房间标签/分类」对话框时，该直播间之前勾选过的标签会自动显示为 ✅ 已选中状态，避免每次都要重新勾选一遍。
+
+> 直播头部快速操作按钮组中的 🏷️「设置房间标签」按钮（`LivePlayHeader._buildQuickActions()`）正是调用这个对话框。
+
+### 九、历史与收藏排序增强
+
+#### 置顶标签功能
+
+`lib/modules/tags/tag_management_controller.dart` 新增置顶识别逻辑：
+
+- 预定义置顶关键词：`❤️`、 `❤`、 `♥`、 `♥️`、`置顶`、`特别关注`、`pin`、`vip`
+- `pinTagId` getter：返回第一个匹配的用户标签 ID
+- `isPinRoom(LiveRoom room)`：判断房间是否带置顶标签
+
+#### 收藏列表排序
+
+`lib/modules/favorite/favorite_controller.dart` —— 在线房间排序优化：
+
+- 新增 `_compareOnlineRooms()` 方法：置顶房间永远排在最前，再按观看人数 / 标签权重排序
+- 回放房间单独按观看人数排序，不混入置顶逻辑
+
+#### 历史页面优化
+
+`lib/modules/history/history_page.dart`：
+
+- **仅显示正在直播的房间**（离线房间不再污染历史列表）
+- **同步收藏夹最新状态**：从收藏夹中合并 liveStatus/热度等实时数据
+- 改用 `showDialog` 替换 `Get.dialog` 实现清空历史确认框
+
+### 十、PlayOther（切换直播间）面板重构
+
+`lib/modules/live_play/dialogs/play_other.dart` —— 抽取可复用组件：
+
+- 原 `PlayOther` 对话框拆分为：
+  - `PlayOtherPanel`：可嵌入任意布局的面板组件（支持 `showHeader`、`showCloseButton`、`onSelectRoom` 回调）
+  - `PlayOther`：保留为兼容包装器，内部调用 `PlayOtherPanel.buildDialog()`
+- 新增功能：
+  - 历史清理按钮（🗑️）在历史 Tab 顶部
+  - 监听更多 EventBus 事件（`refresh_room_changed`、`history_changed`）实现实时刷新
+  - 历史房间同步收藏夹 liveStatus，过滤离线房间
+
+#### 弹幕侧栏嵌入
+
+`lib/modules/live_play/widgets/danmaku/danmaku_tab.dart`：
+
+- 新增第四个 Tab（切换直播间），将 `PlayOtherPanel` 直接嵌入弹幕设置侧栏，方便在观看时快速切换关注的房间
+
+### 十一、Super Chat 面板新增 AI 看点卡片
+
+`lib/modules/live_play/pages/super_chat_page.dart`：
+
+- 新增 `_AiHighlightCard` 组件：解析斗鱼 AI 看点的 `summary` + `describe`，卡片式展示
+- 展示位置：Super Chat 列表顶部
+- 交互：点击复制全文
+- 当 `notice` 为空且没有 SC 消息时，整个页面正常隐藏（保持原有逻辑）
+
+### 十二、EventBus 事件补全
+
+`lib/common/services/settings/history_controller.dart`：
+
+- 在 `addRoomToHistory`、`removeRoomFromHistory`、`removeRoomFromHistoryAt`、`clearHistory` 四个方法中均发出 `history_changed` 事件，供 PlayOtherPanel 等组件监听刷新
 
 ---
 
@@ -66,7 +260,6 @@ Pure Live 聚合多个第三方直播平台，并支持自定义直播源：
 可以按照分区、平台和频道进行管理。
 
 ---
-
 
 ## 文档
 
@@ -179,7 +372,7 @@ Windows、Linux、macOS 等桌面平台使用对应平台的播放器实现。
 
 配置会保存到本地，下次进入直播间后继续生效。
 
-“最佳观看”模板默认将弹幕限制在画面顶部约 20% 区域，以减少弹幕对画面的遮挡。
+"最佳观看"模板默认将弹幕限制在画面顶部约 20% 区域，以减少弹幕对画面的遮挡。
 
 主播放器、小窗以及 Windows 桌面端统一使用 px/s 速度和逻辑帧时钟。
 
@@ -201,7 +394,7 @@ Android 支持根据设备显示模式动态适配刷新率：
 
 ## 🔍 搜索与直播互动
 
-支持跨平台直播搜索，并提供独立的平台分页状态。平台选择栏可访问屏幕外项目，但首尾严格有界；“全部”搜索按平台完成顺序渐进显示，单个平台超时或失败不会挡住其他结果。
+支持跨平台直播搜索，并提供独立的平台分页状态。平台选择栏可访问屏幕外项目，但首尾严格有界；"全部"搜索按平台完成顺序渐进显示，单个平台超时或失败不会挡住其他结果。
 
 搜索结果支持：
 
@@ -291,7 +484,7 @@ Android 支持 ASMR 助眠模式。
 
 可以将直播保存到本地，在直播结束后进行回放。
 
-选择自定义位置时，程序只写入该位置下带所有权标记的 `PureLiveRecords` 专用子目录；“清空录制文件目录”和自动容量限制均只处理该目录，不会遍历删除所选父目录中的其他文件。
+选择自定义位置时，程序只写入该位置下带所有权标记的 `PureLiveRecords` 专用子目录；"清空录制文件目录"和自动容量限制均只处理该目录，不会遍历删除所选父目录中的其他文件。
 
 支持配合：
 
@@ -339,21 +532,11 @@ Android 支持 ASMR 助眠模式。
 
 ---
 
-## 🔐 Firebase 用户同步
-
-项目支持可选的 Firebase 用户同步功能。
-
-Firebase 不是 Pure Live 使用的必要条件。
-
-如果需要使用 Firebase 功能，可以 Fork 项目，并在自己的 Firebase 项目中配置对应服务。
-
-应用不会要求所有用户必须注册账号。
-
----
-
 ## 📥 下载
 
-前往 [维护分支 GitHub Releases](https://github.com/liuchuancong/pure_live/releases/latest) 获取最新安装包，并使用同一 Release 的 `SHA256SUMS.txt` 校验完整性。
+前往 [原始项目 GitHub Releases](https://github.com/liuchuancong/pure_live/releases/latest) 获取官方安装包。
+
+> ⚠️ **本分支不发布任何 Release 构建物**（原因见上方"分支范围"说明）。如需自用，请自行参考下方本地构建说明编译。
 
 ### Android
 
@@ -385,21 +568,23 @@ EXE 安装向导支持选择其他磁盘，并把设置、关注、历史、IPTV
 
 ### macOS
 
-源码保留 Intel x64、Apple Silicon arm64 与 Universal 构建能力。本维护分支缺少持续使用的 macOS 设备，相关产物只在 Release 明确列出时成立，并标为社区验证。
+源码保留 Intel x64、Apple Silicon arm64 与 Universal 构建能力。
 
 ### Linux
 
-源码保留 Linux x64 构建能力。Linux 网页搜索会交给系统浏览器，原生搜索与播放继续在应用内完成；本维护分支缺少常规运行验证。
+源码保留 Linux x64 构建能力。Linux 网页搜索会交给系统浏览器，原生搜索与播放继续在应用内完成。
 
 ### iOS
 
-源码保留 iOS arm64 设备构建能力。相关 `.app`、签名和 IPA 状态以具体 Release 说明为准，本维护分支缺少持续使用的 iOS 设备。
+源码保留 iOS arm64 设备构建能力。
 
 ---
 
 ## 🧪 本地构建与验证
 
-项目固定使用 Flutter `3.47.0` / Dart `3.13.0`、AGP `9.3.1`、Gradle `9.5.0` 与 Java 25 构建运行时，Android 应用和插件字节码目标保持 Java/Kotlin 17。资源档位、串行平台阶段和增量缓存规则见 [构建资源策略](BUILD_POLICY.md)。正式交付的完整质量门禁：
+项目固定使用 Flutter `3.47.0` / Dart `3.13.0`、AGP `9.3.1`、Gradle `9.5.0` 与 Java 25 构建运行时，Android 应用和插件字节码目标保持 Java/Kotlin 17。
+
+完整质量门禁：
 
 ```powershell
 PowerShell -ExecutionPolicy Bypass -File .\tool\local_ci.ps1 -Scope Full
@@ -412,19 +597,14 @@ PowerShell -ExecutionPolicy Bypass -File .\tool\build_local_release.ps1 `
   -Target AndroidArm64 -Configuration Release -FullRegression -RequireReleaseSigning
 ```
 
-当前稳定版的源码基线、修复范围、验证证据、实际构建平台和产物校验见顶部版本条目及对应阶段文档；通用门禁和单平台串行发布流程见[构建与发布](docs/BUILD_AND_RELEASE.md)。
-
 ## 🤝 参与开发
 
 - **主开发者**：[@liuchuancong](https://github.com/liuchuancong)
 - **协助开发者**：[@wzgrx](https://github.com/wzgrx/pure_live)
 - **协助开发者**：[@RebornQ](https://github.com/RebornQ)
 
-> 📌 **欢迎贡献维护型修复、测试和文档**！
-> - 如发现 License 使用不当，请提交 Issue 或 Pull Request
-> - 本仓库 Issue 聚焦可复现 Bug；新增功能和产品建议统一提交到[原项目](https://github.com/liuchuancong/pure_live/issues/new/choose)
-
 ### 代码参考
+
 - [dart_simple_live](https://github.com/xiaoyaocz/dart_simple_live)
 - [pure_live (Jackiu1997)](https://github.com/Jackiu1997/pure_live)
 
@@ -432,7 +612,7 @@ PowerShell -ExecutionPolicy Bypass -File .\tool\build_local_release.ps1 `
 
 ## 🌟 Star 趋势
 
-如果 Pure Live 对你有帮助，欢迎给项目一个 ⭐ Star：
+如果 Pure Live 对你有帮助，欢迎给原项目一个 ⭐ Star：
 
 ## Star History
 
@@ -448,10 +628,10 @@ PowerShell -ExecutionPolicy Bypass -File .\tool\build_local_release.ps1 `
 
 ## ☕ 捐助支持
 
-如果您觉得本项目对您有帮助，欢迎扫码支持开发者一杯咖啡 ☕
+如果您觉得本项目对您有帮助，欢迎支持**原项目**开发者一杯咖啡 ☕
 
 <p align="center">
   <img src="https://github.com/liuchuancong/pure_live/blob/master/assets/images/wechat.png" width="350" alt="WeChat Donate">
 </p>
 
-> 您的支持是我持续维护的动力！感谢 ❤️
+> 您的支持是原作者持续维护的动力！感谢 ❤️

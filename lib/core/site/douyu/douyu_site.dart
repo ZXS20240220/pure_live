@@ -5,6 +5,7 @@ import 'package:html_unescape/html_unescape.dart';
 import 'package:pure_live/model/live_category.dart';
 import 'package:pure_live/model/live_anchor_item.dart';
 import 'package:pure_live/core/common/http_client.dart';
+import 'package:pure_live/core/common/utils/text_util.dart';
 import 'package:pure_live/model/live_play_quality.dart';
 import 'package:pure_live/core/interface/live_site.dart';
 import 'package:pure_live/core/danmaku/douyu_danmaku.dart';
@@ -389,9 +390,11 @@ class DouyuSite
   @override
   Future<LiveRoom> getRoomDetail({required String platform, required String roomId}) async {
     try {
-      final roomInfo = await _fetchRoomInfo(roomId);
+      final results = await Future.wait([_fetchRoomInfo(roomId), _fetchAiHighlight(roomId)]);
+      final roomInfo = results[0] as Map<dynamic, dynamic>;
+      final aiHighlight = results[1] as String;
 
-      return _buildRoom(roomInfo, roomId: roomId);
+      return _buildRoom(roomInfo, roomId: roomId, aiHighlight: aiHighlight);
     } catch (e) {
       if (Get.isRegistered<PlayerController>()) {
         final PlayerController playerController = Get.find<PlayerController>();
@@ -411,9 +414,11 @@ class DouyuSite
     required String platform,
     required String roomId,
   }) async {
-    final roomInfo = await _fetchRoomInfo(roomId);
+    final results = await Future.wait([_fetchRoomInfo(roomId), _fetchAiHighlight(roomId)]);
+    final roomInfo = results[0] as Map<dynamic, dynamic>;
+    final aiHighlight = results[1] as String;
 
-    return _buildRoom(roomInfo, roomId: roomId);
+    return _buildRoom(roomInfo, roomId: roomId, aiHighlight: aiHighlight);
   }
 
   @override
@@ -440,32 +445,79 @@ class DouyuSite
             'Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.43',
       },
     );
-    Map roomInfo;
 
     if (result is String) {
-      roomInfo = json.decode(result)['room'];
-    } else {
-      roomInfo = result['room'];
+      return json.decode(result) as Map<dynamic, dynamic>;
     }
-    return roomInfo;
+    return result as Map<dynamic, dynamic>;
   }
 
-  LiveRoom _buildRoom(Map<dynamic, dynamic> roomInfo, {required String roomId}) {
+  Future<String> _fetchAiHighlight(String roomId) async {
+    try {
+      final result = await HttpClient.instance.postJson(
+        'https://www.douyu.com/wgapi/vodnc/center/ailive/getHighlightDetail',
+        data: {'rid': int.tryParse(roomId) ?? 0, 'sort': 0},
+        header: {
+          'referer':
+              'https://www.douyu.com/pages/ai-live-summary?rid=$roomId&sort=0&sourcekey=ai-live-summary',
+          'user-agent': DouyuUtils.requestHeaders(roomId)['user-agent'],
+          'content-type': 'application/json',
+        },
+      );
+      if (result is! Map) return '';
+      final data = result['data'];
+      if (data is! Map) return '';
+      final highlightList = data['highlightList'];
+      if (highlightList is! List || highlightList.isEmpty) return '';
+      final first = highlightList.first;
+      if (first is! Map) return '';
+      final highlightTitle = (first['summary'] ?? first['title'] ?? '').toString().trim();
+      final highlightBody = (first['describe'] ?? '').toString().trim();
+      // 组合：标题 + 双换行 + 正文。两者都有值时拼起来，否则退到任一非空值
+      if (highlightTitle.isNotEmpty && highlightBody.isNotEmpty) {
+        return '$highlightTitle\n\n$highlightBody';
+      }
+      return highlightBody.isNotEmpty ? highlightBody : highlightTitle;
+    } catch (_) {
+      return '';
+    }
+  }
+
+  LiveRoom _buildRoom(
+    Map<dynamic, dynamic> payload, {
+    required String roomId,
+    String aiHighlight = '',
+  }) {
+    final roomInfo = payload['room'] ?? const <dynamic, dynamic>{};
+    final childCate = payload['child_cate'];
+
     final live = isLiveRoomPayload(roomInfo);
     final replay = _asInt(roomInfo['videoLoop']) == 1;
 
+    final levelInfo = roomInfo['levelInfo'];
+    final roomBizAll = roomInfo['room_biz_all'];
+
     return LiveRoom(
       cover: roomInfo['room_pic'].toString(),
-      watching: roomInfo['room_biz_all']['hot'].toString(),
-      popularity: roomInfo['room_biz_all']['hot'].toString(),
+      watching: (roomBizAll is Map ? roomBizAll['hot'] : '')?.toString() ?? '',
+      popularity: (roomBizAll is Map ? roomBizAll['hot'] : '')?.toString() ?? '',
       audienceMetricType: AudienceMetricType.popularity,
       roomId: roomInfo['room_id'].toString(),
-      title: roomInfo['room_name'].toString(),
+      title: stripHtmlAndUnescape(roomInfo['room_name'].toString()),
       nick: roomInfo['owner_name'].toString(),
       avatar: roomInfo['owner_avatar'].toString(),
-      introduction: roomInfo['show_details'].toString(),
-      area: roomInfo['second_lvl_name']?.toString() ?? '',
-      notice: '',
+      introduction: stripHtmlAndUnescape(roomInfo['show_details'].toString()),
+      area: () {
+        final second = roomInfo['second_lvl_name']?.toString().trim() ?? '';
+        final child = childCate is Map ? childCate['name']?.toString().trim() ?? '' : '';
+        if (second.isNotEmpty && child.isNotEmpty && second != child) {
+          return '$second / $child';
+        }
+        return second.isNotEmpty ? second : child;
+      }(),
+      notice: aiHighlight,
+      anchorLevel: levelInfo is Map ? levelInfo['level']?.toString() ?? '' : '',
+      unionName: roomBizAll is Map ? roomBizAll['clubOrgName']?.toString() ?? '' : '',
       liveStatus: live ? LiveStatus.live : LiveStatus.offline,
       status: live,
       danmakuData: roomInfo['room_id'].toString(),
@@ -473,6 +525,7 @@ class DouyuSite
       platform: Sites.douyuSite,
       link: 'https://www.douyu.com/$roomId',
       isRecord: replay,
+      startTime: live && !replay ? _asInt(roomInfo['show_time']) : null,
     );
   }
 
@@ -572,7 +625,8 @@ class DouyuSite
 
   @override
   Future<bool> getLiveStatus({required String platform, required String roomId}) async {
-    var roomInfo = await _fetchRoomInfo(roomId);
+    final payload = await _fetchRoomInfo(roomId);
+    final roomInfo = payload['room'] ?? const <dynamic, dynamic>{};
     return isLiveRoomPayload(roomInfo);
   }
 

@@ -1,3 +1,4 @@
+import 'package:html_unescape/html_unescape.dart';
 import 'package:pure_live/core/common/core_log.dart';
 
 String readableCount(String info) {
@@ -15,6 +16,22 @@ String readableCount(String info) {
     return info;
   }
   return info;
+}
+
+/// 清除字符串中的 HTML 标签并解码 HTML 实体。
+///
+/// 例如："<p>你好&nbsp;<b>世界</b></p>" → "你好 世界"
+String stripHtmlAndUnescape(String input) {
+  final noTags = input.replaceAll(RegExp(r'<[^>]*>'), '');
+  final unescaped = HtmlUnescape().convert(noTags);
+  return unescaped.replaceAll(RegExp(r'\s+'), ' ').trim();
+}
+
+/// 只解码 HTML 实体（保留原文本结构）。
+///
+/// 例如："技术主播&nbsp;每一顿都是教学" → "技术主播 每一顿都是教学"
+String unescapeHtml(String input) {
+  return HtmlUnescape().convert(input).trim();
 }
 
 /// 统计人数 字符串转 int

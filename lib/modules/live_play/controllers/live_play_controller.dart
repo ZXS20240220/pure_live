@@ -62,6 +62,7 @@ class LivePlayController extends GetxController
     i18n('super_chat'),
     i18n('danmaku_settings'),
     i18n('block_list'),
+    i18n('switch_live_room'),
   ];
 
   bool _floatingResourcesReleased = false;

@@ -182,23 +182,24 @@ class _HistoryPageState extends State<HistoryPage> {
   Future<void> _clearHistory() async {
     final controller = SettingsService.to.history;
     if (controller.historyRooms.v.isEmpty) return;
-    final result = await Get.dialog<bool>(
-      AlertDialog(
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
         title: Text(i18n('clear_history'), style: AppTextStyles.t16Bold),
         content: Text(i18n('clear_history_confirm'), style: AppTextStyles.t14),
         actions: [
           TextButton(
-            onPressed: () => Get.back(result: false),
+            onPressed: () => Navigator.of(ctx).pop(false),
             child: Text(i18n('cancel'), style: AppTextStyles.t14Muted),
           ),
           TextButton(
-            onPressed: () => Get.back(result: true),
+            onPressed: () => Navigator.of(ctx).pop(true),
             child: Text(i18n('confirm'), style: AppTextStyles.t14Primary),
           ),
         ],
       ),
     );
-    if (result == true) controller.clearHistory();
+    if (confirmed == true) controller.clearHistory();
   }
 
   @override
@@ -231,7 +232,18 @@ class _HistoryPageState extends State<HistoryPage> {
       ),
       body: Obx(() {
         const dense = true;
-        final rooms = SettingsService.to.history.historyRooms.v;
+        final allRooms = SettingsService.to.history.historyRooms.v;
+        // 同步收藏夹最新状态 + 过滤：只显示正在直播的房间
+        final favoriteMap = {
+          for (final fav in SettingsService.to.fav.favoriteRooms.v) fav.identityKey: fav,
+        };
+        final rooms = allRooms
+            .map((room) {
+              final fav = favoriteMap[room.identityKey];
+              return fav != null ? preserveHistoryMetadata(fav, room) : room;
+            })
+            .where((room) => room.isLiveNow)
+            .toList();
         return LayoutBuilder(
           builder: (context, constraint) {
             final width = constraint.maxWidth;

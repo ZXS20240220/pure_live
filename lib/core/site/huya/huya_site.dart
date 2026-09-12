@@ -550,6 +550,8 @@ class HuyaSite
 
       final subSid = int.tryParse(firstStream['lSubChannelId']?.toString() ?? '') ?? 0;
 
+      final startTime = int.tryParse(roomDataJson['startTime']?.toString() ?? '');
+
       if (!isLive) {
         return LiveRoom(
           cover: cover,
@@ -563,13 +565,16 @@ class HuyaSite
           nick: nick,
           avatar: avatar,
           introduction: title,
-          notice: streamDataGameLiveInfo['introduction']?.toString() ?? '',
+          notice: '',
+          anchorLevel: streamDataGameLiveInfo['level']?.toString() ?? '',
+          unionName: '',
           isRecord: isReplay,
           status: false,
           liveStatus: LiveStatus.offline,
           platform: platform,
           link: 'https://www.huya.com/$roomId',
           danmakuData: HuyaDanmakuArgs(ayyuid: uid, topSid: topSid, subSid: subSid),
+          startTime: null,
         );
       }
 
@@ -626,7 +631,9 @@ class HuyaSite
         nick: nick,
         avatar: avatar,
         introduction: title,
-        notice: streamDataGameLiveInfo['introduction']?.toString() ?? '',
+        notice: '',
+        anchorLevel: streamDataGameLiveInfo['level']?.toString() ?? '',
+        unionName: '',
         isRecord: false,
         status: true,
         liveStatus: LiveStatus.live,
@@ -640,6 +647,7 @@ class HuyaSite
         ),
         danmakuData: HuyaDanmakuArgs(ayyuid: uid, topSid: topSid, subSid: subSid),
         link: 'https://www.huya.com/$roomId',
+        startTime: startTime != null && startTime > 0 ? startTime : null,
       );
     } catch (e, stackTrace) {
       CoreLog.error('Huya room detail failed: $e');
@@ -758,7 +766,7 @@ class HuyaSite
       nick: profile['nick']?.toString() ?? '',
       avatar: profile['avatar180']?.toString() ?? '',
       introduction: liveData['introduction']?.toString() ?? '',
-      notice: data['welcomeText']?.toString() ?? '',
+      notice: '',
       isRecord: state == 'REPLAY',
       status: live,
       liveStatus: live ? LiveStatus.live : LiveStatus.offline,

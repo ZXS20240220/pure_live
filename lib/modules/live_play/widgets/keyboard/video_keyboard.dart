@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 import 'package:pure_live/common/index.dart';
+import 'package:pure_live/modules/live_play/controllers/live_play_controller.dart';
 import 'package:pure_live/modules/live_play/controllers/player_state.dart';
 import 'package:pure_live/modules/live_play/widgets/video_player/video_controller.dart';
 
@@ -29,72 +30,102 @@ class _VideoKeyboardShortcutsState extends State<VideoKeyboardShortcuts> {
   }
 
   bool _handleGlobalKey(KeyEvent event) {
-    if (event is! KeyDownEvent || event.logicalKey != LogicalKeyboardKey.escape) return false;
+    if (event is! KeyDownEvent) return false;
+
+    // --- Playback control (Space / Media keys) ---
+    if (event.logicalKey == LogicalKeyboardKey.space ||
+        event.logicalKey == LogicalKeyboardKey.mediaPlayPause) {
+      GlobalPlayerService.instance.player.togglePlayPause();
+      return true;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.mediaPlay) {
+      GlobalPlayerService.instance.player.resume();
+      return true;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.mediaPause) {
+      GlobalPlayerService.instance.player.pause();
+      return true;
+    }
+
+    // --- Video-controller-required shortcuts ---
+    final controller = widget.controller;
+    if (controller != null) {
+      if (event.logicalKey == LogicalKeyboardKey.keyR) {
+        controller.refresh();
+        return true;
+      }
+      // Q: 切换窗口宽屏（隐藏侧栏）。全屏 / 画中画时不生效。
+      if (event.logicalKey == LogicalKeyboardKey.keyQ) {
+        final state = GlobalPlayerState.to;
+        if (state.isFullscreen.value || state.isPipMode.value) {
+          return false;
+        }
+        controller.toggleWindowFullScreen();
+        return true;
+      }
+      // Tab: 切换侧栏标签页（向后循环）。仅在普通窗口（侧栏可见）时生效。
+      if (event.logicalKey == LogicalKeyboardKey.tab) {
+        final state = GlobalPlayerState.to;
+        if (state.isFullscreen.value || state.isPipMode.value || state.isWindowFullscreen.value) {
+          return false;
+        }
+        if (Get.isRegistered<LivePlayController>()) {
+          final tabController = Get.find<LivePlayController>().tabController;
+          final total = tabController.length;
+          if (total > 0) {
+            final current = tabController.index;
+            final next = (current + 1) % total;
+            tabController.animateTo(next);
+          }
+        }
+        return true;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+        _adjustVolume(controller, 0.05);
+        return true;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+        _adjustVolume(controller, -0.05);
+        return true;
+      }
+    }
+
+    // --- Escape (existing logic) ---
+    if (event.logicalKey != LogicalKeyboardKey.escape) return false;
 
     switch (resolveEscapePresentationAction(
       pip: GlobalPlayerState.to.isPipMode.value,
-      // A room which failed before creating its VideoController can still
-      // inherit a stale global presentation flag.  It has no controller with
-      // which to exit that presentation, so Escape must retain its route-pop
-      // contract instead of becoming a dead key.
-      fullscreen: widget.controller != null && GlobalPlayerState.to.isFullscreen.value,
-      widescreen: widget.controller != null && GlobalPlayerState.to.isWindowFullscreen.value,
+      fullscreen: controller != null && GlobalPlayerState.to.isFullscreen.value,
+      widescreen: controller != null && GlobalPlayerState.to.isWindowFullscreen.value,
     )) {
       case EscapePresentationAction.exitFullscreen:
-        widget.controller!.toggleFullScreen();
+        controller!.toggleFullScreen();
         return true;
       case EscapePresentationAction.exitWidescreen:
-        widget.controller!.toggleWindowFullScreen();
+        controller!.toggleWindowFullScreen();
         return true;
       case EscapePresentationAction.popRoute:
-        // Desktop Flutter does not translate an unhandled Escape key into a
-        // Navigator pop. Returning false here left a normal live room open,
-        // even though the same key correctly exited fullscreen. Route the
-        // normal-room action explicitly while preserving the page's existing
-        // PopScope/lifecycle cleanup.
         unawaited(Navigator.of(context).maybePop());
         return true;
       case EscapePresentationAction.none:
-        // PiP owns its own close path and must not be mutated by the parent
-        // room shortcut.
         return false;
     }
   }
 
+  Future<void> _adjustVolume(VideoController controller, double delta) async {
+    final current = await controller.volume() ?? 1.0;
+    final next = (current + delta).clamp(0.0, 1.0);
+    controller.setVolume(next);
+    controller.updateVolumn(next);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final controller = widget.controller;
-    return CallbackShortcuts(
-      bindings: {
-        const SingleActivator(LogicalKeyboardKey.mediaPlay): () =>
-            GlobalPlayerService.instance.player.resume(),
-        const SingleActivator(LogicalKeyboardKey.mediaPause): () =>
-            GlobalPlayerService.instance.player.pause(),
-        const SingleActivator(LogicalKeyboardKey.mediaPlayPause): () =>
-            GlobalPlayerService.instance.player.togglePlayPause(),
-        const SingleActivator(LogicalKeyboardKey.space): () =>
-            GlobalPlayerService.instance.player.togglePlayPause(),
-        if (controller != null)
-          const SingleActivator(LogicalKeyboardKey.keyR): controller.refresh,
-        if (controller != null)
-          const SingleActivator(LogicalKeyboardKey.arrowUp): () async {
-            double? volume = await controller.volume();
-            volume = (volume ?? 1.0) + 0.05;
-            volume = volume.clamp(0.0, 1.0);
-            controller.setVolume(volume);
-            controller.updateVolumn(volume);
-          },
-        if (controller != null)
-          const SingleActivator(LogicalKeyboardKey.arrowDown): () async {
-            double? volume = await controller.volume();
-            volume = (volume ?? 1.0) - 0.05;
-            volume = volume.clamp(0.0, 1.0);
-            controller.setVolume(volume);
-            controller.updateVolumn(volume);
-          },
-      },
-      child: widget.child,
-    );
+    // No more CallbackShortcuts — all shortcuts go through the
+    // HardwareKeyboard global handler (_handleGlobalKey) above.
+    // This avoids breakage caused by nested Focus/FocusScope widgets
+    // further down the tree stealing the keyboard focus.
+    return widget.child;
   }
 }
 

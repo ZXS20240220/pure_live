@@ -338,7 +338,7 @@ class CCSite implements LiveSite, LiveSiteRoomRefresher, LiveSiteRecordRoomResol
       nick: roomInfo['nickname'].toString(),
       avatar: roomInfo['purl'].toString(),
       introduction: roomInfo['personal_label'],
-      notice: roomInfo['personal_label'],
+      notice: '',
       status: live,
       liveStatus: live ? LiveStatus.live : LiveStatus.offline,
       platform: Sites.ccSite,

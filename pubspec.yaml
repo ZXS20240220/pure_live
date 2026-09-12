@@ -46,10 +46,6 @@ dependencies:
   connectivity_plus: ^7.3.1 # 网络连接状态监听
   webdav_client: ^1.2.2 # WebDAV文件存储客户端
 
-  firebase_core: ^4.10.0
-  firebase_auth: ^6.5.2
-  cloud_firestore: ^6.5.0
-
   win32_registry: ^3.0.3
   best_form_validator: ^1.4.0
   flutter_spinkit: ^5.2.2

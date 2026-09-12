@@ -1,79 +1,33 @@
 import 'dart:async';
 
 import 'package:pure_live/common/index.dart';
+import 'package:pure_live/common/services/settings/history_controller.dart';
 import 'package:pure_live/plugins/event_bus.dart';
 import 'package:pure_live/plugins/cache_manager.dart';
 import 'package:pure_live/common/widgets/common_avatar.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:pure_live/modules/live_play/controllers/live_play_controller.dart';
 import 'package:pure_live/modules/live_play/widgets/content_first_panel_layout.dart';
+import 'package:pure_live/modules/tags/tag_management_controller.dart';
 
-class PlayOther extends StatefulWidget {
-  const PlayOther({required this.controller, super.key});
+/// A reusable panel widget that shows online/recording/history rooms.
+/// Can be embedded as a right-side tab or wrapped in a dialog ([PlayOther]).
+class PlayOtherPanel extends StatefulWidget {
+  const PlayOtherPanel({
+    required this.controller,
+    required this.onSelectRoom,
+    super.key,
+    this.showHeader = true,
+    this.showCloseButton = true,
+  });
+
   final LivePlayController controller;
+  final void Function(LiveRoom room) onSelectRoom;
+  final bool showHeader;
+  final bool showCloseButton;
 
-  @override
-  State<PlayOther> createState() => _PlayOtherState();
-}
-
-class _PlayOtherState extends State<PlayOther> with SingleTickerProviderStateMixin {
-  late final TabController tabController;
-  final onlineRooms = <LiveRoom>[].obs;
-  final recordingRooms = <LiveRoom>[].obs;
-  final historyRooms = <LiveRoom>[].obs;
-  final loadingFinish = false.obs;
-  final refreshing = false.obs;
-  StreamSubscription<dynamic>? subscription;
-
-  @override
-  void initState() {
-    super.initState();
-
-    tabController = TabController(
-      length: 3,
-      vsync: this,
-      animationDuration: pureLiveTabTransitionDuration,
-    );
-
-    _updateRooms();
-    subscription = EventBus.instance.listen('refresh_favorite_finish', (_) => _updateRooms());
-  }
-
-  void _updateRooms() {
-    final allRooms = SettingsService.to.fav.favoriteRooms.v;
-
-    final liveList = allRooms.where((room) => room.isLiveNow && room.isRecord == false).toList()
-      ..sort(_compareAudience);
-    final recordList =
-        allRooms.where((room) => room.effectiveLiveStatus == LiveStatus.replay).toList()
-          ..sort(_compareAudience);
-    onlineRooms.assignAll(liveList);
-    recordingRooms.assignAll(recordList);
-    historyRooms.assignAll(SettingsService.to.history.historyRooms.v);
-    loadingFinish.value = true;
-    refreshing.value = false;
-  }
-
-  int _compareAudience(LiveRoom left, LiveRoom right) {
-    final app = SettingsService.to.app;
-    return LiveRoom.compareAudienceRanking(
-      left,
-      right,
-      preferRealOnline: app.preferRealOnlineCounts.v,
-      platformEnabled: app.isRealOnlineEnabledFor,
-    );
-  }
-
-  @override
-  void dispose() {
-    tabController.dispose();
-    subscription?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+  /// Construct a dialog that wraps this panel (fullscreen / floating usage).
+  static Widget buildDialog(BuildContext context, LivePlayController controller) {
     final layout = resolveContentFirstPanelLayout(
       MediaQuery.sizeOf(context),
       ContentFirstPanelKind.roomHistory,
@@ -87,39 +41,171 @@ class _PlayOtherState extends State<PlayOther> with SingleTickerProviderStateMix
       child: SizedBox(
         width: layout.size.width.clamp(200, 400),
         height: layout.size.height,
-        child: Column(
-          children: [
-            SizedBox(
-              height: 44,
-              child: Padding(
-                padding: const EdgeInsets.only(left: 12, right: 4),
-                child: Row(
-                  children: [
-                    Icon(Icons.video_library_rounded, size: 18, color: theme.colorScheme.primary),
-                    const SizedBox(width: 7),
-                    Expanded(
-                      child: Text(
-                        i18n('switch_live_room'),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-                      ),
+        child: PlayOtherPanel(
+          controller: controller,
+          showHeader: true,
+          showCloseButton: true,
+          onSelectRoom: (room) {
+            Navigator.of(context).pop();
+            controller.switchRoom(room);
+          },
+        ),
+      ),
+    );
+  }
+
+  @override
+  State<PlayOtherPanel> createState() => _PlayOtherPanelState();
+}
+
+class _PlayOtherPanelState extends State<PlayOtherPanel> with SingleTickerProviderStateMixin {
+  late final TabController tabController;
+  final onlineRooms = <LiveRoom>[].obs;
+  final recordingRooms = <LiveRoom>[].obs;
+  final historyRooms = <LiveRoom>[].obs;
+  final loadingFinish = false.obs;
+  final refreshing = false.obs;
+  final List<StreamSubscription<dynamic>> _subscriptions = [];
+
+  @override
+  void initState() {
+    super.initState();
+
+    tabController = TabController(
+      length: 3,
+      vsync: this,
+      animationDuration: pureLiveTabTransitionDuration,
+    );
+
+    _updateRooms();
+    _subscriptions.add(EventBus.instance.listen('refresh_favorite_finish', (_) => _updateRooms()));
+    _subscriptions.add(EventBus.instance.listen('refresh_room_changed', (_) => _updateRooms()));
+    _subscriptions.add(EventBus.instance.listen('history_changed', (_) => _updateRooms()));
+  }
+
+  void _updateRooms() {
+    final allRooms = SettingsService.to.fav.favoriteRooms.v;
+    final tagController = Get.find<TagManagementController>();
+
+    final liveList = allRooms.where((room) => room.isLiveNow && room.isRecord == false).toList()
+      ..sort((a, b) => _compareOnlineRooms(a, b, tagController));
+    final recordList =
+        allRooms.where((room) => room.effectiveLiveStatus == LiveStatus.replay).toList()
+          ..sort(_compareAudience);
+    onlineRooms.assignAll(liveList);
+    recordingRooms.assignAll(recordList);
+
+    // Sync latest liveStatus from favorites into history rooms,
+    // so rooms that went offline after being watched get filtered out correctly.
+    final favMap = <String, LiveRoom>{};
+    for (final fav in allRooms) {
+      favMap[fav.identityKey] = fav;
+    }
+    final syncedHistory = SettingsService.to.history.historyRooms.v.map((room) {
+      final fav = favMap[room.identityKey];
+      if (fav != null) {
+        return preserveHistoryMetadata(fav, room);
+      }
+      return room;
+    }).toList();
+    historyRooms.assignAll(syncedHistory.where((room) => room.isLiveNow).toList());
+
+    loadingFinish.value = true;
+    refreshing.value = false;
+  }
+
+  Future<void> _confirmClearHistory(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(i18n('clear_history')),
+        content: Text(i18n('clear_history_confirm')),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(i18n('cancel'))),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: Text(i18n('confirm'))),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      SettingsService.to.history.clearHistory();
+      _updateRooms();
+    }
+  }
+
+  int _compareAudience(LiveRoom left, LiveRoom right) {
+    final app = SettingsService.to.app;
+    return LiveRoom.compareAudienceRanking(
+      left,
+      right,
+      preferRealOnline: app.preferRealOnlineCounts.v,
+      platformEnabled: app.isRealOnlineEnabledFor,
+    );
+  }
+
+  int _compareOnlineRooms(LiveRoom a, LiveRoom b, TagManagementController tagController) {
+    final aPinned = tagController.isPinRoom(a);
+    final bPinned = tagController.isPinRoom(b);
+    if (aPinned != bPinned) return aPinned ? -1 : 1;
+    return _compareAudience(a, b);
+  }
+
+  @override
+  void dispose() {
+    tabController.dispose();
+    for (final sub in _subscriptions) {
+      sub.cancel();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      children: [
+        if (widget.showHeader)
+          SizedBox(
+            height: 44,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 12, right: 4),
+              child: Row(
+                children: [
+                  Icon(Icons.video_library_rounded, size: 18, color: theme.colorScheme.primary),
+                  const SizedBox(width: 7),
+                  Expanded(
+                    child: Text(
+                      i18n('switch_live_room'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
                     ),
-                    Obx(
-                      () => IconButton(
-                        tooltip: i18n('refresh'),
-                        visualDensity: VisualDensity.compact,
-                        constraints: const BoxConstraints.tightFor(width: 34, height: 34),
-                        padding: EdgeInsets.zero,
-                        onPressed: refreshing.value
-                            ? null
-                            : () {
-                                refreshing.value = true;
-                                EventBus.instance.emit('refresh_favorite_rooms', true);
-                              },
-                        icon: const Icon(Icons.refresh_rounded, size: 18),
-                      ),
+                  ),
+                  Obx(
+                    () => IconButton(
+                      tooltip: i18n('refresh'),
+                      visualDensity: VisualDensity.compact,
+                      constraints: const BoxConstraints.tightFor(width: 34, height: 34),
+                      padding: EdgeInsets.zero,
+                      onPressed: refreshing.value
+                          ? null
+                          : () {
+                              refreshing.value = true;
+                              EventBus.instance.emit('refresh_favorite_rooms', true);
+                            },
+                      icon: const Icon(Icons.refresh_rounded, size: 18),
                     ),
+                  ),
+                  Obx(
+                    () => IconButton(
+                      tooltip: i18n('clear_history'),
+                      visualDensity: VisualDensity.compact,
+                      constraints: const BoxConstraints.tightFor(width: 34, height: 34),
+                      padding: EdgeInsets.zero,
+                      onPressed: historyRooms.isEmpty ? null : () => _confirmClearHistory(context),
+                      icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+                    ),
+                  ),
+                  if (widget.showCloseButton)
                     IconButton(
                       tooltip: i18n('close'),
                       visualDensity: VisualDensity.compact,
@@ -130,66 +216,64 @@ class _PlayOtherState extends State<PlayOther> with SingleTickerProviderStateMix
                         Navigator.of(context).pop();
                       },
                     ),
-                  ],
-                ),
-              ),
-            ),
-            SizedBox(
-              height: 38,
-              child: TabBar(
-                controller: tabController,
-                physics: const PureLiveBoundedScrollPhysics(),
-                labelColor: theme.colorScheme.primary,
-                unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
-                indicatorSize: TabBarIndicatorSize.label,
-                dividerHeight: 0,
-                labelPadding: const EdgeInsets.symmetric(horizontal: 10),
-                tabs: [
-                  _CompactTab(icon: Icons.sensors_rounded, label: i18n('online_room_title')),
-                  _CompactTab(
-                    icon: Icons.fiber_smart_record_rounded,
-                    label: i18n('recording_room_title'),
-                  ),
-                  _CompactTab(icon: Icons.history_rounded, label: i18n('watch_history')),
                 ],
               ),
             ),
-            const Divider(height: 1),
-            Expanded(
-              child: Stack(
-                children: [
-                  Obx(
-                    () => loadingFinish.value
-                        ? TabBarView(
-                            controller: tabController,
-                            physics: const PureLiveBoundedScrollPhysics(),
-                            children: [
-                              _buildRoomGrid(onlineRooms, history: false),
-                              _buildRoomGrid(recordingRooms, history: false),
-                              _buildRoomGrid(historyRooms, history: true),
-                            ],
-                          )
-                        : const AppStatusView(type: AppStatusType.loading, title: '', subtitle: ''),
-                  ),
-                  Obx(
-                    () => refreshing.value
-                        ? const Positioned(
-                            left: 0,
-                            right: 0,
-                            top: 0,
-                            child: LinearProgressIndicator(
-                              minHeight: 2,
-                              backgroundColor: Colors.transparent,
-                            ),
-                          )
-                        : const SizedBox.shrink(),
-                  ),
-                ],
+          ),
+        SizedBox(
+          height: 38,
+          child: TabBar(
+            controller: tabController,
+            physics: const PureLiveBoundedScrollPhysics(),
+            labelColor: theme.colorScheme.primary,
+            unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
+            indicatorSize: TabBarIndicatorSize.label,
+            dividerHeight: 0,
+            labelPadding: const EdgeInsets.symmetric(horizontal: 10),
+            tabs: [
+              _CompactTab(icon: Icons.sensors_rounded, label: i18n('online_room_title')),
+              _CompactTab(
+                icon: Icons.fiber_smart_record_rounded,
+                label: i18n('recording_room_title'),
               ),
-            ),
-          ],
+              _CompactTab(icon: Icons.history_rounded, label: i18n('watch_history')),
+            ],
+          ),
         ),
-      ),
+        const Divider(height: 1),
+        Expanded(
+          child: Stack(
+            children: [
+              Obx(
+                () => loadingFinish.value
+                    ? TabBarView(
+                        controller: tabController,
+                        physics: const PureLiveBoundedScrollPhysics(),
+                        children: [
+                          _buildRoomGrid(onlineRooms, history: false),
+                          _buildRoomGrid(recordingRooms, history: false),
+                          _buildRoomGrid(historyRooms, history: true),
+                        ],
+                      )
+                    : const AppStatusView(type: AppStatusType.loading, title: '', subtitle: ''),
+              ),
+              Obx(
+                () => refreshing.value
+                    ? const Positioned(
+                        left: 0,
+                        right: 0,
+                        top: 0,
+                        child: LinearProgressIndicator(
+                          minHeight: 2,
+                          backgroundColor: Colors.transparent,
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -230,15 +314,23 @@ class _PlayOtherState extends State<PlayOther> with SingleTickerProviderStateMix
               room: room,
               history: history,
               largeScreen: isLargeScreen,
-              onTap: () {
-                Navigator.of(context).pop();
-                widget.controller.switchRoom(room);
-              },
+              onTap: () => widget.onSelectRoom(room),
             );
           },
         );
       },
     );
+  }
+}
+
+/// Backward-compatible dialog wrapper kept so existing call sites are untouched.
+class PlayOther extends StatelessWidget {
+  const PlayOther({required this.controller, super.key});
+  final LivePlayController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return PlayOtherPanel.buildDialog(context, controller);
   }
 }
 

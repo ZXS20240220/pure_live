@@ -5,7 +5,6 @@ import 'package:pure_live/common/index.dart';
 import 'package:pure_live/plugins/file_utils.dart';
 import 'package:pure_live/plugins/db_service.dart';
 import 'package:pure_live/modules/iptv/iptv_manage.dart';
-import 'package:pure_live/modules/auth/utils/constants.dart';
 import 'package:pure_live/core/iptv/local/database.dart' as database;
 import 'package:pure_live/core/iptv/services/epg_import_manager.dart';
 import 'package:pure_live/core/iptv/services/iptv_import_manager.dart';
@@ -621,7 +620,7 @@ class _IptvPageState extends State<IptvPage> with SingleTickerProviderStateMixin
                     ),
                     autofocus: true,
                   ),
-                  spacer(12.0),
+                  const SizedBox(height: 12.0),
                   TextField(
                     controller: textEditingController,
                     decoration: InputDecoration(

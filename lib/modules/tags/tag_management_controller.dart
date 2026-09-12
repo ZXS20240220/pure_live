@@ -8,6 +8,10 @@ class TagManagementController extends GetxController {
   final RxMap<String, List<String>> roomTagsMap = <String, List<String>>{}.obs;
   final RxList<LiveTag> tags = <LiveTag>[].obs;
   static const Map<String, String> allTag = {'all': '全部'};
+
+  /// Tag names that mark a room as pinned to the top of live-only lists.
+  /// Matching is case-insensitive and trims whitespace.
+  static const List<String> _pinTagNames = ['❤️', '❤', '♥', '♥️', '置顶', '特别关注', 'pin', 'vip'];
   static String get allTagKey => allTag.keys.first;
   static String get allTagLabel => allTag.values.first;
   @override
@@ -84,6 +88,26 @@ class TagManagementController extends GetxController {
 
   List<String> getTagsForRoom(LiveRoom room) {
     return roomTagsMap[room.identityKey] ?? roomTagsMap[room.normalizedRoomId] ?? [];
+  }
+
+  /// Returns the id of the first user tag whose name matches one of the
+  /// pin tag markers, or `null` if none exists.
+  String? get pinTagId {
+    for (final tag in tags) {
+      final clean = tag.name.trim().toLowerCase();
+      for (final marker in _pinTagNames) {
+        if (clean == marker.toLowerCase()) return tag.id;
+      }
+    }
+    return null;
+  }
+
+  /// Whether [room] carries the pin tag and should be forced to the top of
+  /// live-online-only sort orders.
+  bool isPinRoom(LiveRoom room) {
+    final pinId = pinTagId;
+    if (pinId == null) return false;
+    return getTagsForRoom(room).contains(pinId);
   }
 
   bool addTag(String name, String description) {

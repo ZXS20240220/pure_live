@@ -1,5 +1,6 @@
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/services/utils/backup_migration_util.dart';
+import 'package:pure_live/plugins/event_bus.dart';
 
 const int defaultHistoryLimit = 50;
 const int unlimitedHistoryLimit = 0;
@@ -77,20 +78,24 @@ class HistoryController extends GetxController {
       watchedAt: DateTime.now().millisecondsSinceEpoch,
       limit: historyLimit.v,
     );
+    EventBus.instance.emit('history_changed', true);
   }
 
   void removeRoomFromHistory(LiveRoom room) {
     historyRooms.v = List<LiveRoom>.from(historyRooms.v)
       ..removeWhere((entry) => entry.hasSameIdentity(room));
+    EventBus.instance.emit('history_changed', true);
   }
 
   void removeRoomFromHistoryAt(int index) {
     if (index < 0 || index >= historyRooms.v.length) return;
     historyRooms.v = List<LiveRoom>.from(historyRooms.v)..removeAt(index);
+    EventBus.instance.emit('history_changed', true);
   }
 
   void clearHistory() {
     historyRooms.v = <LiveRoom>[];
+    EventBus.instance.emit('history_changed', true);
   }
 
   Map<String, dynamic> toJson() {

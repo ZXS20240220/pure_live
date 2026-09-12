@@ -127,6 +127,8 @@ class LiveRoom {
   /// Cumulative viewers for the current live session.
   String? totalViewers = '';
   String? followers = '';
+  String? anchorLevel = '';
+  String? unionName = '';
   String? platform = 'UNKNOWN';
   List<String> tagIds = [];
 
@@ -165,6 +167,12 @@ class LiveRoom {
   /// Local epoch-millisecond timestamp used by the viewing-history UI.
   int? lastWatchedAt;
 
+  /// Epoch-second timestamp when the current live session started.
+  /// Populated by douyu (show_time), huya (TT_ROOM_DATA.startTime),
+  /// and bilibili (room_info.live_start_time). Null for platforms that
+  /// do not expose the field and for offline/replay rooms.
+  int? startTime;
+
   // 添加未命名的默认构造函数
   LiveRoom({
     this.roomId,
@@ -181,6 +189,8 @@ class LiveRoom {
     this.onlineViewers = '',
     this.totalViewers = '',
     this.followers = '0',
+    this.anchorLevel = '',
+    this.unionName = '',
     this.platform,
     LiveStatus? liveStatus,
     this.data,
@@ -197,6 +207,7 @@ class LiveRoom {
     this.catchUpStart,
     this.catchUpEnd,
     this.lastWatchedAt,
+    this.startTime,
     List<String>? tagIds,
   }) : liveStatus = liveStatus ?? _legacyStatusToLiveStatus(status: status, isRecord: isRecord),
        tagIds = tagIds ?? [];
@@ -219,6 +230,8 @@ class LiveRoom {
       onlineViewers = json['onlineViewers']?.toString() ?? '',
       totalViewers = json['totalViewers']?.toString() ?? '',
       followers = json['followers']?.toString() ?? '0',
+      anchorLevel = json['anchorLevel']?.toString() ?? '',
+      unionName = json['unionName']?.toString() ?? '',
       platform = json['platform'] ?? 'UNKNOWN',
       tagIds = List<String>.from(json['tagIds'] ?? []),
       liveStatus = _liveStatusFromJson(json),
@@ -233,7 +246,8 @@ class LiveRoom {
       isCatchUp = json['isCatchUp'] ?? false,
       catchUpStart = json['catchUpStart'],
       catchUpEnd = json['catchUpEnd'],
-      lastWatchedAt = json['lastWatchedAt'] is num ? (json['lastWatchedAt'] as num).toInt() : null {
+      lastWatchedAt = json['lastWatchedAt'] is num ? (json['lastWatchedAt'] as num).toInt() : null,
+      startTime = json['startTime'] is num ? (json['startTime'] as num).toInt() : null {
     // Earlier builds stored Huya's userCount/URI 8006 popularity in the
     // concurrent-viewer field. Current captures confirm both are popularity.
     if (normalizedPlatformId == 'huya' && _hasExplicitAudienceValue(onlineViewers)) {
@@ -262,6 +276,8 @@ class LiveRoom {
     String? onlineViewers,
     String? totalViewers,
     String? followers,
+    String? anchorLevel,
+    String? unionName,
     String? platform,
     String? introduction,
     String? notice,
@@ -278,6 +294,7 @@ class LiveRoom {
     int? catchUpStart,
     int? catchUpEnd,
     int? lastWatchedAt,
+    int? startTime,
     List<String>? tagIds,
   }) {
     return LiveRoom(
@@ -295,6 +312,8 @@ class LiveRoom {
       onlineViewers: onlineViewers ?? this.onlineViewers,
       totalViewers: totalViewers ?? this.totalViewers,
       followers: followers ?? this.followers,
+      anchorLevel: anchorLevel ?? this.anchorLevel,
+      unionName: unionName ?? this.unionName,
       platform: platform ?? this.platform,
       introduction: introduction ?? this.introduction,
       notice: notice ?? this.notice,
@@ -311,6 +330,7 @@ class LiveRoom {
       catchUpStart: catchUpStart ?? this.catchUpStart,
       catchUpEnd: catchUpEnd ?? this.catchUpEnd,
       lastWatchedAt: lastWatchedAt ?? this.lastWatchedAt,
+      startTime: startTime ?? this.startTime,
       tagIds: tagIds ?? this.tagIds,
     );
   }
@@ -377,7 +397,7 @@ class LiveRoom {
 
   @override
   String toString() {
-    return 'LiveRoom{roomId: $roomId, userId: $userId, link: $link, title: $title, nick: $nick, avatar: $avatar, cover: $cover, area: $area, watching: $watching, followers: $followers, platform: $platform, tagIds: $tagIds, introduction: $introduction, notice: $notice, status: $status, data: $data, danmakuData: $danmakuData, isRecord: $isRecord, liveStatus: $liveStatus, catchUpUrl: $catchUpUrl, isCatchUp: $isCatchUp, lastWatchedAt: $lastWatchedAt}';
+    return 'LiveRoom{roomId: $roomId, userId: $userId, link: $link, title: $title, nick: $nick, avatar: $avatar, cover: $cover, area: $area, watching: $watching, followers: $followers, anchorLevel: $anchorLevel, unionName: $unionName, platform: $platform, tagIds: $tagIds, introduction: $introduction, notice: $notice, status: $status, data: $data, danmakuData: $danmakuData, isRecord: $isRecord, liveStatus: $liveStatus, catchUpUrl: $catchUpUrl, isCatchUp: $isCatchUp, lastWatchedAt: $lastWatchedAt}';
   }
 
   double getSavedVolume() {
@@ -403,6 +423,8 @@ class LiveRoom {
       'onlineViewers': onlineViewers,
       'totalViewers': totalViewers,
       'followers': followers,
+      'anchorLevel': anchorLevel,
+      'unionName': unionName,
       'platform': platform,
       'tagIds': tagIds,
       'liveStatus': effectiveLiveStatus.index,
@@ -420,6 +442,7 @@ class LiveRoom {
       'catchUpStart': catchUpStart,
       'catchUpEnd': catchUpEnd,
       'lastWatchedAt': lastWatchedAt,
+      'startTime': startTime,
     };
   }
 
@@ -668,6 +691,8 @@ extension LiveRoomExtension on LiveRoom {
       onlineViewers: _preferValue(incoming.onlineViewers, onlineViewers),
       totalViewers: _preferValue(incoming.totalViewers, totalViewers),
       followers: _preferValue(incoming.followers, followers),
+      anchorLevel: _preferValue(incoming.anchorLevel, anchorLevel),
+      unionName: _preferValue(incoming.unionName, unionName),
 
       tagIds: tagIds,
 
@@ -694,6 +719,7 @@ extension LiveRoomExtension on LiveRoom {
       catchUpEnd: incoming.catchUpEnd ?? catchUpEnd,
 
       lastWatchedAt: incoming.lastWatchedAt ?? lastWatchedAt,
+      startTime: incoming.startTime ?? startTime,
     );
   }
 

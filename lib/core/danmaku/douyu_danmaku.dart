@@ -156,6 +156,10 @@ class DouyuDanmaku implements LiveDanmaku {
     final duration = int.tryParse(jsonData['cet']?.toString() ?? '');
     final rawPrice = int.tryParse(jsonData['cprice']?.toString() ?? '');
     if (chat is! Map || now == null || duration == null || rawPrice == null) return null;
+    // Douyu pushes a free preview (price=0) before the paid confirmation.
+    // Skip it so only the actual paid SC enters the list, otherwise the Set
+    // dedup fails because price differs between the two packets.
+    if (rawPrice == 0) return null;
     final face = chat['ic']?.toString() ?? '';
     final startTime = DateTime.fromMillisecondsSinceEpoch(now);
     final superChat = LiveSuperChatMessage(

@@ -2,11 +2,8 @@ import java.util.Properties
 
 plugins {
     id("com.android.application")
-    id("com.google.gms.google-services") apply false
     id("dev.flutter.flutter-gradle-plugin")
 }
-
-apply(plugin = "com.google.gms.google-services")
 
 val keystorePropertiesFile = rootProject.file("key.properties")
 val keystoreProperties = Properties().apply {
