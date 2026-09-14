@@ -15,6 +15,7 @@ class RoomCardPage extends StatelessWidget {
     this.showDelete = false,
     this.debug = false,
     this.onDelete,
+    this.isPinned = false,
   });
 
   final LiveRoom room;
@@ -25,6 +26,7 @@ class RoomCardPage extends StatelessWidget {
   final String? statusPendingLabel;
   final bool showDelete;
   final VoidCallback? onDelete;
+  final bool isPinned;
 
   @override
   Widget build(BuildContext context) {
@@ -41,6 +43,7 @@ class RoomCardPage extends StatelessWidget {
       onDelete: onDelete,
       onTap: () => controller.onTap(context),
       onLongPress: () => controller.onLongPress(context),
+      isPinned: isPinned,
     ).build(context);
   }
 }

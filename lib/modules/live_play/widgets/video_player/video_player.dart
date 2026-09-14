@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/global/platform_utils.dart';
 import 'package:pure_live/player/core/live_audio_service.dart';
-import 'package:pure_live/modules/live_play/widgets/video_player/video_loading.dart';
 import 'package:pure_live/modules/live_play/widgets/video_player/video_controller.dart';
 import 'package:pure_live/modules/live_play/widgets/video_player/video_controller_panel.dart';
+import 'package:pure_live/modules/live_play/widgets/video_player/video_loading.dart';
 
 class VideoPlayer extends StatefulWidget {
   final VideoController controller;

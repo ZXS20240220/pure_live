@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/services/settings/history_controller.dart';
+import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/plugins/event_bus.dart';
 import 'package:pure_live/plugins/cache_manager.dart';
 import 'package:pure_live/common/widgets/common_avatar.dart';
@@ -315,6 +316,12 @@ class _PlayOtherPanelState extends State<PlayOtherPanel> with SingleTickerProvid
               history: history,
               largeScreen: isLargeScreen,
               onTap: () => widget.onSelectRoom(room),
+              onRemoveFromHistory: history
+                  ? () {
+                      SettingsService.to.history.removeRoomFromHistory(room);
+                      _updateRooms();
+                    }
+                  : null,
             );
           },
         );
@@ -369,11 +376,13 @@ class _RoomSwitchCard extends StatelessWidget {
     required this.history,
     required this.largeScreen,
     required this.onTap,
+    this.onRemoveFromHistory,
   });
   final LiveRoom room;
   final bool history;
   final bool largeScreen;
   final VoidCallback onTap;
+  final VoidCallback? onRemoveFromHistory;
 
   String _historyLabel() {
     final value = room.lastWatchedAt;
@@ -384,6 +393,13 @@ class _RoomSwitchCard extends StatelessWidget {
 
     return i18n('watched_at', args: {'time': formatHistoryWatchedAt(value)});
   }
+
+  bool get _themeShowDelete {
+    final config = SettingsService.to.roomCardConfig;
+    return config.isMobileViewport ? config.mobileShowDelete : config.desktopShowDelete;
+  }
+
+  bool get _effectiveShowDelete => history && onRemoveFromHistory != null && _themeShowDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -429,7 +445,12 @@ class _RoomSwitchCard extends StatelessWidget {
     return Column(
       children: [
         Expanded(
-          child: _RoomSwitchCover(room: room, meta: meta),
+          child: _RoomSwitchCover(
+            room: room,
+            meta: meta,
+            showDelete: _effectiveShowDelete,
+            onDelete: onRemoveFromHistory,
+          ),
         ),
         SizedBox(
           height: 48,
@@ -529,9 +550,16 @@ class _RoomSwitchCard extends StatelessWidget {
 }
 
 class _RoomSwitchCover extends StatelessWidget {
-  const _RoomSwitchCover({required this.room, required this.meta});
+  const _RoomSwitchCover({
+    required this.room,
+    required this.meta,
+    this.showDelete = false,
+    this.onDelete,
+  });
   final LiveRoom room;
   final String meta;
+  final bool showDelete;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -589,6 +617,23 @@ class _RoomSwitchCover extends StatelessWidget {
             },
           ),
         Positioned(top: 7, right: 7, child: context.buildPlatformTag(room.platform!, mini: true)),
+        if (showDelete)
+          Positioned(
+            top: 7,
+            left: 7,
+            child: GestureDetector(
+              onTap: onDelete,
+              behavior: HitTestBehavior.opaque,
+              child: Tooltip(
+                message: i18n('history_remove_room'),
+                child: Container(
+                  padding: const EdgeInsets.all(5),
+                  decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                  child: const Icon(RemixIcons.delete_bin_line, color: Colors.white, size: 16),
+                ),
+              ),
+            ),
+          ),
         Positioned(
           left: 0,
           right: 0,

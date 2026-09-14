@@ -10,6 +10,7 @@ class RoomCard extends StatelessWidget {
     this.statusPendingLabel,
     this.showDelete = false,
     this.onDelete,
+    this.isPinned = false,
   });
 
   final LiveRoom room;
@@ -18,6 +19,7 @@ class RoomCard extends StatelessWidget {
   final String? statusPendingLabel;
   final bool showDelete;
   final VoidCallback? onDelete;
+  final bool isPinned;
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +41,7 @@ class RoomCard extends StatelessWidget {
         statusPendingLabel: statusPendingLabel,
         onDelete: onDelete,
         debug: false,
+        isPinned: isPinned,
       );
     });
   }

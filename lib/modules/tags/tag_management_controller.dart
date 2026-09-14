@@ -9,16 +9,21 @@ class TagManagementController extends GetxController {
   final RxList<LiveTag> tags = <LiveTag>[].obs;
   static const Map<String, String> allTag = {'all': '全部'};
 
-  /// Tag names that mark a room as pinned to the top of live-only lists.
-  /// Matching is case-insensitive and trims whitespace.
-  static const List<String> _pinTagNames = ['❤️', '❤', '♥', '♥️', '置顶', '特别关注', 'pin', 'vip'];
+  static const String untaggedTagKey = '__untagged__';
+  static const String untaggedTagLabel = '无标签';
+
+  static const Set<String> reservedTagNames = {'无标签', '全部', 'all', 'untagged'};
+
   static String get allTagKey => allTag.keys.first;
   static String get allTagLabel => allTag.values.first;
+
   @override
   void onInit() {
     super.onInit();
     _loadTags();
+    _invalidateValidIdsCache();
     _loadRoomTagsMapping();
+    _sanitizeRoomTagsMap();
   }
 
   void _loadTags() {
@@ -40,21 +45,68 @@ class TagManagementController extends GetxController {
     await HivePrefUtil.setAnyPref(_roomTagsMappingKey, roomTagsMap);
   }
 
-  void setRoomTags(LiveRoom room, List<String> newTagIds) {
-    final roomKey = room.identityKey;
-    if (newTagIds.isEmpty) {
-      roomTagsMap.remove(roomKey);
-    } else {
-      roomTagsMap[roomKey] = List<String>.from(newTagIds);
+  void _loadRoomTagsMapping() {
+    final Map<dynamic, dynamic>? storedMap = HivePrefUtil.getAnyPref(_roomTagsMappingKey);
+    if (storedMap != null) {
+      final convertedMap = storedMap.map((key, value) {
+        return MapEntry(key.toString(), List<String>.from(value as List));
+      });
+      roomTagsMap.assignAll(convertedMap);
     }
-
-    roomTagsMap.refresh();
-    saveRoomTagsMapping();
   }
 
-  /// Moves the legacy room-number-only mapping to platform-scoped identities.
-  /// A legacy tag is copied to every matching platform room before the old key
-  /// is removed, preserving data while allowing future edits to diverge.
+  void _sanitizeRoomTagsMap() {
+    if (roomTagsMap.isEmpty) return;
+    final validTagIds = tags.map((t) => t.id).toSet();
+    var changed = false;
+    for (final key in List<String>.from(roomTagsMap.keys)) {
+      final ids = roomTagsMap[key];
+      if (ids == null) {
+        roomTagsMap.remove(key);
+        changed = true;
+        continue;
+      }
+      final valid = ids.where((id) => validTagIds.contains(id)).toList();
+      if (valid.length != ids.length) {
+        changed = true;
+        if (valid.isEmpty) {
+          roomTagsMap.remove(key);
+        } else {
+          roomTagsMap[key] = valid;
+        }
+      }
+    }
+    if (changed) {
+      roomTagsMap.refresh();
+      saveRoomTagsMapping();
+    }
+  }
+
+  void setRoomTags(LiveRoom room, List<String> newTagIds) {
+    final roomKey = room.identityKey;
+    final legacyKey = room.normalizedRoomId;
+    var mapChanged = false;
+
+    if (newTagIds.isEmpty) {
+      if (roomTagsMap.remove(roomKey) != null) mapChanged = true;
+      if (legacyKey.isNotEmpty && legacyKey != roomKey) {
+        if (roomTagsMap.remove(legacyKey) != null) mapChanged = true;
+      }
+    } else {
+      roomTagsMap[roomKey] = List<String>.from(newTagIds);
+      mapChanged = true;
+      if (legacyKey.isNotEmpty && legacyKey != roomKey && roomTagsMap.containsKey(legacyKey)) {
+        roomTagsMap.remove(legacyKey);
+        mapChanged = true;
+      }
+    }
+
+    if (mapChanged) {
+      roomTagsMap.refresh();
+      saveRoomTagsMapping();
+    }
+  }
+
   void migrateLegacyRoomTagKeys(Iterable<LiveRoom> rooms) {
     var changed = false;
     final migratedLegacyKeys = <String>{};
@@ -75,35 +127,22 @@ class TagManagementController extends GetxController {
     saveRoomTagsMapping();
   }
 
-  void _loadRoomTagsMapping() {
-    final Map<dynamic, dynamic>? storedMap = HivePrefUtil.getAnyPref(_roomTagsMappingKey);
-
-    if (storedMap != null) {
-      final convertedMap = storedMap.map((key, value) {
-        return MapEntry(key.toString(), List<String>.from(value as List));
-      });
-      roomTagsMap.assignAll(convertedMap);
-    }
-  }
-
   List<String> getTagsForRoom(LiveRoom room) {
-    return roomTagsMap[room.identityKey] ?? roomTagsMap[room.normalizedRoomId] ?? [];
+    final ids = roomTagsMap[room.identityKey] ?? roomTagsMap[room.normalizedRoomId] ?? <String>[];
+    if (ids.isEmpty) return <String>[];
+    final validIds = _cachedValidIds;
+    if (validIds.isEmpty) return <String>[];
+    return ids.where((id) => validIds.contains(id)).toList();
   }
 
-  /// Returns the id of the first user tag whose name matches one of the
-  /// pin tag markers, or `null` if none exists.
-  String? get pinTagId {
-    for (final tag in tags) {
-      final clean = tag.name.trim().toLowerCase();
-      for (final marker in _pinTagNames) {
-        if (clean == marker.toLowerCase()) return tag.id;
-      }
-    }
-    return null;
+  Set<String> _cachedValidIds = {};
+
+  void _invalidateValidIdsCache() {
+    _cachedValidIds = tags.map((t) => t.id).toSet();
   }
 
-  /// Whether [room] carries the pin tag and should be forced to the top of
-  /// live-online-only sort orders.
+  String? get pinTagId => tags.isEmpty ? null : tags.first.id;
+
   bool isPinRoom(LiveRoom room) {
     final pinId = pinTagId;
     if (pinId == null) return false;
@@ -113,6 +152,7 @@ class TagManagementController extends GetxController {
   bool addTag(String name, String description) {
     final cleanName = name.trim();
     if (cleanName.isEmpty) return false;
+    if (reservedTagNames.contains(cleanName.toLowerCase())) return false;
 
     final exists = tags.any((tag) => tag.name.toLowerCase() == cleanName.toLowerCase());
     if (exists) return false;
@@ -125,8 +165,53 @@ class TagManagementController extends GetxController {
     );
 
     tags.add(newTag);
+    _invalidateValidIdsCache();
     saveTags();
     return true;
+  }
+
+  LiveTag? findTagByName(String name) {
+    final cleanName = name.trim().toLowerCase();
+    if (cleanName.isEmpty) return null;
+    if (reservedTagNames.contains(cleanName)) return null;
+    for (final tag in tags) {
+      if (tag.name.trim().toLowerCase() == cleanName) return tag;
+    }
+    return null;
+  }
+
+  LiveTag? ensureTagByNameSafe(String name) {
+    final cleanName = name.trim();
+    if (cleanName.isEmpty) return null;
+    if (reservedTagNames.contains(cleanName.toLowerCase())) return null;
+    final existing = findTagByName(cleanName);
+    if (existing != null) return existing;
+    final newTag = LiveTag(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: cleanName,
+      description: '',
+      order: tags.length,
+    );
+    tags.add(newTag);
+    _invalidateValidIdsCache();
+    saveTags();
+    return newTag;
+  }
+
+  LiveTag ensureTagByName(String name) {
+    final cleanName = name.trim();
+    final existing = findTagByName(cleanName);
+    if (existing != null) return existing;
+    final newTag = LiveTag(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: cleanName,
+      description: '',
+      order: tags.length,
+    );
+    tags.add(newTag);
+    _invalidateValidIdsCache();
+    saveTags();
+    return newTag;
   }
 
   void updateAllTags(List<LiveTag> newList) {
@@ -135,12 +220,14 @@ class TagManagementController extends GetxController {
       tags[i].order = i;
     }
     tags.refresh();
+    _invalidateValidIdsCache();
     saveTags();
   }
 
   bool updateTag(int index, String newName, String newDescription) {
     final cleanName = newName.trim();
     if (cleanName.isEmpty) return false;
+    if (reservedTagNames.contains(cleanName.toLowerCase())) return false;
 
     if (tags[index].name != cleanName) {
       final exists = tags.any((tag) => tag.name.toLowerCase() == cleanName.toLowerCase());
@@ -150,16 +237,15 @@ class TagManagementController extends GetxController {
     tags[index].name = cleanName;
     tags[index].description = newDescription.trim();
     tags.refresh();
+    _invalidateValidIdsCache();
     saveTags();
     return true;
   }
 
   void pinToTop(int index) {
     if (index <= 0 || index >= tags.length) return;
-
     final targetTag = tags.removeAt(index);
     tags.insert(0, targetTag);
-
     _refreshSequentialOrders();
   }
 
@@ -168,7 +254,23 @@ class TagManagementController extends GetxController {
   }
 
   void deleteTag(int index) {
-    tags.removeAt(index);
+    if (index < 0 || index >= tags.length) return;
+    final removed = tags.removeAt(index);
+    var mapChanged = false;
+    for (final roomKey in List<String>.from(roomTagsMap.keys)) {
+      final ids = roomTagsMap[roomKey];
+      if (ids == null || !ids.contains(removed.id)) continue;
+      ids.remove(removed.id);
+      mapChanged = true;
+      if (ids.isEmpty) {
+        roomTagsMap.remove(roomKey);
+      }
+    }
+    if (mapChanged) {
+      roomTagsMap.refresh();
+      saveRoomTagsMapping();
+    }
+    _invalidateValidIdsCache();
     _refreshSequentialOrders();
   }
 
@@ -192,6 +294,7 @@ class TagManagementController extends GetxController {
       final list = storedTags.map((e) => LiveTag.fromJson(Map<String, dynamic>.from(e))).toList();
       list.sort((a, b) => a.order.compareTo(b.order));
       tags.assignAll(list);
+      _invalidateValidIdsCache();
       saveTags();
     }
 
@@ -201,6 +304,7 @@ class TagManagementController extends GetxController {
         return MapEntry(key.toString(), List<String>.from(value as List));
       });
       roomTagsMap.assignAll(convertedMap);
+      _sanitizeRoomTagsMap();
       saveRoomTagsMapping();
     }
   }

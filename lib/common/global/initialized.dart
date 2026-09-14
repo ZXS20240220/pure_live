@@ -60,11 +60,17 @@ class AppInitializer {
     await _initWindowsSingleInstance(args, instanceId);
 
     await AppPathManager().initialize(instanceId: instanceId);
-    await EasyLocalization.ensureInitialized();
-    final Directory hiveDir = await AppPathManager().getDir(AppPathManager.dirHiveDB);
-
-    await Hive.initFlutter(hiveDir.path);
-    await HivePrefUtil.init();
+    // EasyLocalization only reads translation assets; Hive needs the hive dir
+    // from AppPathManager. Both only depend on initialize() above having set
+    // basePath, so they can run in parallel on the event loop.
+    await Future.wait([
+      EasyLocalization.ensureInitialized(),
+      () async {
+        final Directory hiveDir = await AppPathManager().getDir(AppPathManager.dirHiveDB);
+        await Hive.initFlutter(hiveDir.path);
+        await HivePrefUtil.init();
+      }(),
+    ]);
     final migrationReport = await SettingsUpgradeMigration.migrate(
       target: Hive.box('app_settings'),
       legacyHiveFiles: AppPathManager().legacyHiveFiles,

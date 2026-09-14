@@ -31,8 +31,12 @@ class _VideoKeyboardShortcutsState extends State<VideoKeyboardShortcuts> {
 
   bool _handleGlobalKey(KeyEvent event) {
     if (event is! KeyDownEvent) return false;
+    if (!mounted) return false;
+    if (ModalRoute.of(context)?.isCurrent != true) return false;
 
-    // --- Playback control (Space / Media keys) ---
+    final escape = event.logicalKey == LogicalKeyboardKey.escape;
+    if (!escape && isEditingFocused()) return false;
+
     if (event.logicalKey == LogicalKeyboardKey.space ||
         event.logicalKey == LogicalKeyboardKey.mediaPlayPause) {
       GlobalPlayerService.instance.player.togglePlayPause();
@@ -47,14 +51,12 @@ class _VideoKeyboardShortcutsState extends State<VideoKeyboardShortcuts> {
       return true;
     }
 
-    // --- Video-controller-required shortcuts ---
     final controller = widget.controller;
     if (controller != null) {
       if (event.logicalKey == LogicalKeyboardKey.keyR) {
         controller.refresh();
         return true;
       }
-      // Q: 切换窗口宽屏（隐藏侧栏）。全屏 / 画中画时不生效。
       if (event.logicalKey == LogicalKeyboardKey.keyQ) {
         final state = GlobalPlayerState.to;
         if (state.isFullscreen.value || state.isPipMode.value) {
@@ -63,7 +65,6 @@ class _VideoKeyboardShortcutsState extends State<VideoKeyboardShortcuts> {
         controller.toggleWindowFullScreen();
         return true;
       }
-      // Tab: 切换侧栏标签页（向后循环）。仅在普通窗口（侧栏可见）时生效。
       if (event.logicalKey == LogicalKeyboardKey.tab) {
         final state = GlobalPlayerState.to;
         if (state.isFullscreen.value || state.isPipMode.value || state.isWindowFullscreen.value) {
@@ -88,10 +89,37 @@ class _VideoKeyboardShortcutsState extends State<VideoKeyboardShortcuts> {
         _adjustVolume(controller, -0.05);
         return true;
       }
+      if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+        final player = GlobalPlayerService.instance.player;
+        if (!player.canSeek) return false;
+        controller.enableController();
+        final bigStep = HardwareKeyboard.instance.isShiftPressed;
+        final step = bigStep ? const Duration(seconds: 30) : const Duration(seconds: 5);
+        player.seekRelative(-step);
+        return true;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+        final player = GlobalPlayerService.instance.player;
+        if (!player.canSeek) return false;
+        controller.enableController();
+        final bigStep = HardwareKeyboard.instance.isShiftPressed;
+        final step = bigStep ? const Duration(seconds: 30) : const Duration(seconds: 5);
+        player.seekRelative(step);
+        return true;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.keyE) {
+        final player = GlobalPlayerService.instance.player;
+        if (!player.canSeek) return false;
+        controller.enableController();
+        player.seekToLiveEdge();
+        if (!player.isPlayingNow) {
+          player.resume();
+        }
+        return true;
+      }
     }
 
-    // --- Escape (existing logic) ---
-    if (event.logicalKey != LogicalKeyboardKey.escape) return false;
+    if (!escape) return false;
 
     switch (resolveEscapePresentationAction(
       pip: GlobalPlayerState.to.isPipMode.value,

@@ -8,14 +8,20 @@ import 'package:pure_live/common/services/settings/metered_network_service.dart'
 class PlaybackCachePolicy {
   PlaybackCachePolicy({required this.isLocalPlayback, required this.currentPlayer});
 
-  static const int lowMemoryBufferSize = 64 * 1024 * 1024;
-  static const int defaultBufferSize = 1500 * 1024 * 1024;
+  // Forward cache cap. Kept close to mpv's default (~143 MB) so the playhead
+  // stays near the live edge instead of being pushed left by a huge
+  // pre-read buffer. The back-buffer remains large for timeshift seeking.
+  static const int lowMemoryBufferSize = 32 * 1024 * 1024;
+  static const int defaultBufferSize = 150 * 1024 * 1024;
 
   static const int lowMemoryBackBufferSize = 16 * 1024 * 1024;
   static const int defaultBackBufferSize = 256 * 1024 * 1024;
 
-  static const int lowMemoryReadaheadSeconds = 10;
-  static const int defaultReadaheadSeconds = 60;
+  // Keep the forward (pre-read) buffer small so the playhead stays near the
+  // live edge, matching mpv's native OSC behaviour. The back-buffer
+  // (demuxer-max-back-bytes) remains large for timeshift seeking.
+  static const int lowMemoryReadaheadSeconds = 3;
+  static const int defaultReadaheadSeconds = 5;
 
   final bool Function() isLocalPlayback;
   final Player? Function() currentPlayer;
@@ -36,6 +42,8 @@ class PlaybackCachePolicy {
   bool get enabled => userEnabled || networkForced;
 
   int get bufferSize => enabled ? lowMemoryBufferSize : defaultBufferSize;
+
+  int get backBufferSize => enabled ? lowMemoryBackBufferSize : defaultBackBufferSize;
 
   int get readaheadSeconds => enabled ? lowMemoryReadaheadSeconds : defaultReadaheadSeconds;
 
@@ -82,14 +90,12 @@ class PlaybackCachePolicy {
         return;
       }
 
-      final cacheSize = _prefetchSuspended ? 0 : bufferSize;
-
+      final forwardSize = _prefetchSuspended ? 0 : bufferSize;
+      final backSize = _prefetchSuspended ? 0 : backBufferSize;
       final readahead = _prefetchSuspended ? 0 : readaheadSeconds;
 
-      await native.setProperty('demuxer-max-bytes', cacheSize.toString());
-
-      await native.setProperty('demuxer-max-back-bytes', cacheSize.toString());
-
+      await native.setProperty('demuxer-max-bytes', forwardSize.toString());
+      await native.setProperty('demuxer-max-back-bytes', backSize.toString());
       await native.setProperty('demuxer-readahead-secs', readahead.toString());
 
       Log.d(
@@ -98,7 +104,8 @@ class PlaybackCachePolicy {
         'metered=${MeteredNetworkService.to.isMetered}, '
         'forced=$networkForced, '
         'suspended=$_prefetchSuspended, '
-        'cache=$cacheSize, '
+        'forward=$forwardSize, '
+        'back=$backSize, '
         'readahead=$readahead',
       );
     } catch (e, s) {

@@ -1,10 +1,6 @@
+import 'dart:async';
 import 'dart:math' as math;
 
-/// Maps [items] with a bounded worker pool.
-///
-/// Unlike fixed `Future.wait` batches, a worker immediately takes the next
-/// item after finishing. One slow endpoint therefore occupies only one worker
-/// instead of blocking every request in the following batch.
 Future<List<R?>> boundedAsyncMap<T, R>(
   Iterable<T> items, {
   required int maxConcurrent,
@@ -18,15 +14,46 @@ Future<List<R?>> boundedAsyncMap<T, R>(
   final workerCount = math.min(math.max(1, maxConcurrent), source.length);
   var nextIndex = 0;
 
+  final cancelSignal = StreamController<void>.broadcast(sync: true);
+  StreamSubscription<void>? cancelListener;
+  if (shouldCancel != null) {
+    final cancelFn = shouldCancel;
+    cancelListener = Stream.periodic(const Duration(milliseconds: 30))
+        .takeWhile((_) => !cancelFn())
+        .listen(
+          null,
+          onDone: () {
+            if (cancelFn() && !cancelSignal.isClosed) {
+              cancelSignal.add(null);
+            }
+          },
+        );
+  }
+
   Future<void> worker() async {
     while (true) {
       if (shouldCancel?.call() == true) return;
       final index = nextIndex++;
       if (index >= source.length) return;
-      results[index] = await task(source[index]);
+      final taskFuture = task(source[index]);
+      if (shouldCancel == null) {
+        results[index] = await taskFuture;
+      } else {
+        final taskDone = taskFuture.then((_) => true);
+        final cancelled = cancelSignal.stream.first.then((_) => false);
+        final wasCancelled = !(await Future.any([taskDone, cancelled]));
+        if (wasCancelled) return;
+        if (shouldCancel()) return;
+        results[index] = await taskFuture;
+      }
     }
   }
 
-  await Future.wait(List<Future<void>>.generate(workerCount, (_) => worker()));
+  try {
+    await Future.wait(List<Future<void>>.generate(workerCount, (_) => worker()));
+  } finally {
+    await cancelListener?.cancel();
+    await cancelSignal.close();
+  }
   return results;
 }

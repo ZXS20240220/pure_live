@@ -658,7 +658,10 @@ class VideoController with ChangeNotifier implements DanmakuSettingsBinding {
 
   // 音量管理
   void registerVolumeListener() {
-    final volumeSub = _volumeController.addListener(room.saveCurrentVolume, fetchInitialVolume: true);
+    final volumeSub = _volumeController.addListener(
+      room.saveCurrentVolume,
+      fetchInitialVolume: true,
+    );
     _addSubscription(volumeSub);
   }
 
@@ -718,7 +721,9 @@ class VideoController with ChangeNotifier implements DanmakuSettingsBinding {
 
   void _handleControllerHideDeadline() {
     showControllerTimer = null;
-    if (_isDisposed || _isMouseOverController || _isMouseOverPlayer) return;
+    if (_isDisposed || _isMouseOverController || _isMouseOverPlayer || _interactionActive) {
+      return;
+    }
     final deadline = _controllerHideDeadlineMs;
     if (deadline == null) return;
     final remainingMs = deadline - _controllerIdleClock.elapsedMilliseconds;
@@ -737,6 +742,24 @@ class VideoController with ChangeNotifier implements DanmakuSettingsBinding {
     showControllerTimer?.cancel();
     showControllerTimer = null;
     _controllerHideDeadlineMs = null;
+  }
+
+  /// Lock the controls visible while the user drags the seekbar. Pointer
+  /// moves during a drag don't fire `MouseRegion.onHover`, so without this
+  /// the auto-hide deadline expires mid-drag. See [releaseController].
+  void holdController() {
+    if (_isDisposed) return;
+    _interactionActive = true;
+    stopHideController();
+    showController.value = true;
+  }
+
+  /// Release the lock acquired by [holdController] and restart the normal
+  /// auto-hide countdown.
+  void releaseController() {
+    if (_isDisposed) return;
+    _interactionActive = false;
+    enableController();
   }
 
   // 鼠标进入控制器区域
@@ -1179,6 +1202,12 @@ class VideoController with ChangeNotifier implements DanmakuSettingsBinding {
   // 添加鼠标状态跟踪
   bool _isMouseOverController = false;
   bool _isMouseOverPlayer = false;
+
+  /// Set while the user is actively interacting with the seekbar (dragging).
+  /// Prevents the auto-hide timer from firing, because pointer-move events
+  /// during a drag do not reach `MouseRegion.onHover` and so the deadline
+  /// would otherwise expire mid-drag and hide the controls.
+  bool _interactionActive = false;
   Timer? _defaultFullscreenTimer;
   Timer? _controllerTransitionTimer;
   Timer? _debounceTimer;

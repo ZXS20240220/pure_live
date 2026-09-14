@@ -58,234 +58,296 @@ class TagManagementPage extends GetView<TagManagementController> {
                       ),
                     );
                   }
+                  final roomCountByTag = <String, int>{};
+                  for (final tagIds in controller.roomTagsMap.values) {
+                    for (final id in tagIds) {
+                      roomCountByTag[id] = (roomCountByTag[id] ?? 0) + 1;
+                    }
+                  }
+
                   final children = List.generate(controller.tags.length, (index) {
                     final tag = controller.tags[index];
+                    final roomCount = roomCountByTag[tag.id] ?? 0;
                     return Material(
                       key: ValueKey(tag.id),
                       color: Colors.transparent,
-                      child: Container(
-                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.secondary.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: theme.colorScheme.secondary.withValues(alpha: 0.3),
-                            width: 1.0,
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
+                      child: Stack(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.secondary.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: theme.colorScheme.secondary.withValues(alpha: 0.3),
+                                width: 1.0,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Expanded(
-                                  child: GestureDetector(
-                                    onTap: () {
-                                      showDialog(
-                                        context: context,
-                                        builder: (context) => AlertDialog(
-                                          title: Row(
-                                            children: [
-                                              const SizedBox(width: 8),
-                                              Text(
-                                                i18n('tag_detail'),
-                                                style: AppTextStyles.t16.copyWith(
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          titlePadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-                                          contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(20),
-                                          ),
-                                          content: Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                i18n('tag_name_label'),
-                                                style: AppTextStyles.t12.copyWith(
-                                                  color: theme.colorScheme.primary,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 6),
-                                              Text(
-                                                tag.name,
-                                                style: AppTextStyles.t16.copyWith(
-                                                  fontWeight: FontWeight.w600,
-                                                  color: theme.colorScheme.onSurface,
-                                                ),
-                                              ),
-
-                                              if (tag.description.isNotEmpty) ...[
-                                                const SizedBox(height: 18),
-                                                Text(
-                                                  i18n('tag_desc_label'),
-                                                  style: AppTextStyles.t12.copyWith(
-                                                    color: theme.colorScheme.onSurfaceVariant
-                                                        .withValues(alpha: 0.6),
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 6),
-                                                Container(
-                                                  width: double.infinity,
-                                                  padding: const EdgeInsets.all(12),
-                                                  decoration: BoxDecoration(
-                                                    color: theme.colorScheme.surfaceContainerHighest
-                                                        .withValues(alpha: 0.2),
-                                                    borderRadius: BorderRadius.circular(12),
-                                                    border: Border.all(
-                                                      color: theme.dividerColor.withValues(
-                                                        alpha: 0.05,
-                                                      ),
-                                                      width: 0.5,
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          showDialog(
+                                            context: context,
+                                            builder: (context) => AlertDialog(
+                                              title: Row(
+                                                children: [
+                                                  const SizedBox(width: 8),
+                                                  Text(
+                                                    i18n('tag_detail'),
+                                                    style: AppTextStyles.t16.copyWith(
+                                                      fontWeight: FontWeight.bold,
                                                     ),
                                                   ),
+                                                ],
+                                              ),
+                                              titlePadding: const EdgeInsets.fromLTRB(
+                                                24,
+                                                20,
+                                                24,
+                                                0,
+                                              ),
+                                              contentPadding: const EdgeInsets.fromLTRB(
+                                                24,
+                                                16,
+                                                24,
+                                                12,
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(20),
+                                              ),
+                                              content: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    i18n('tag_name_label'),
+                                                    style: AppTextStyles.t12.copyWith(
+                                                      color: theme.colorScheme.primary,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 6),
+                                                  Text(
+                                                    tag.name,
+                                                    style: AppTextStyles.t16.copyWith(
+                                                      fontWeight: FontWeight.w600,
+                                                      color: theme.colorScheme.onSurface,
+                                                    ),
+                                                  ),
+
+                                                  if (tag.description.isNotEmpty) ...[
+                                                    const SizedBox(height: 18),
+                                                    Text(
+                                                      i18n('tag_desc_label'),
+                                                      style: AppTextStyles.t12.copyWith(
+                                                        color: theme.colorScheme.onSurfaceVariant
+                                                            .withValues(alpha: 0.6),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 6),
+                                                    Container(
+                                                      width: double.infinity,
+                                                      padding: const EdgeInsets.all(12),
+                                                      decoration: BoxDecoration(
+                                                        color: theme
+                                                            .colorScheme
+                                                            .surfaceContainerHighest
+                                                            .withValues(alpha: 0.2),
+                                                        borderRadius: BorderRadius.circular(12),
+                                                        border: Border.all(
+                                                          color: theme.dividerColor.withValues(
+                                                            alpha: 0.05,
+                                                          ),
+                                                          width: 0.5,
+                                                        ),
+                                                      ),
+                                                      child: Text(
+                                                        tag.description,
+                                                        style: AppTextStyles.t14.copyWith(
+                                                          color: theme.colorScheme.onSurfaceVariant,
+                                                          height: 1.4,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ],
+                                              ),
+                                              actionsPadding: const EdgeInsets.fromLTRB(
+                                                0,
+                                                0,
+                                                16,
+                                                16,
+                                              ),
+                                              actions: [
+                                                ElevatedButton(
+                                                  style: ElevatedButton.styleFrom(
+                                                    elevation: 0,
+                                                    backgroundColor: theme.colorScheme.primary,
+                                                    foregroundColor: theme.colorScheme.onPrimary,
+                                                    padding: const EdgeInsets.symmetric(
+                                                      horizontal: 24,
+                                                      vertical: 10,
+                                                    ),
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius: BorderRadius.circular(10),
+                                                    ),
+                                                  ),
+                                                  onPressed: () => Navigator.pop(context),
                                                   child: Text(
-                                                    tag.description,
-                                                    style: AppTextStyles.t14.copyWith(
-                                                      color: theme.colorScheme.onSurfaceVariant,
-                                                      height: 1.4,
+                                                    i18n('confirm'),
+                                                    style: const TextStyle(
+                                                      fontWeight: FontWeight.bold,
                                                     ),
                                                   ),
                                                 ),
                                               ],
-                                            ],
+                                            ),
+                                          );
+                                        },
+                                        child: Text(
+                                          tag.name,
+                                          style: AppTextStyles.t14.copyWith(
+                                            fontWeight: FontWeight.w600,
                                           ),
-                                          actionsPadding: const EdgeInsets.fromLTRB(0, 0, 16, 16),
-                                          actions: [
-                                            ElevatedButton(
-                                              style: ElevatedButton.styleFrom(
-                                                elevation: 0,
-                                                backgroundColor: theme.colorScheme.primary,
-                                                foregroundColor: theme.colorScheme.onPrimary,
-                                                padding: const EdgeInsets.symmetric(
-                                                  horizontal: 24,
-                                                  vertical: 10,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+
+                                const SizedBox(height: 4),
+                                Expanded(
+                                  child: Text(
+                                    tag.description.isNotEmpty
+                                        ? tag.description
+                                        : i18n('no_description_placeholder'),
+                                    style: AppTextStyles.t11.copyWith(
+                                      color: tag.description.isNotEmpty
+                                          ? theme.disabledColor
+                                          : theme.disabledColor.withValues(alpha: 0.4),
+                                      fontStyle: tag.description.isNotEmpty
+                                          ? FontStyle.normal
+                                          : FontStyle.italic,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                Container(
+                                  margin: const EdgeInsets.only(top: 6),
+                                  padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.surfaceContainer.withValues(
+                                      alpha: 0.5,
+                                    ),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                    children: [
+                                      Expanded(
+                                        child: InkWell(
+                                          borderRadius: BorderRadius.circular(6),
+                                          onTap: () => controller.pinToTop(index),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(vertical: 6),
+                                            child: ReorderableDragStartListener(
+                                              index: index,
+                                              child: Icon(
+                                                Remix.sort_number_desc,
+                                                size: 16,
+                                                color: theme.colorScheme.primary.withValues(
+                                                  alpha: 0.8,
                                                 ),
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius: BorderRadius.circular(10),
-                                                ),
-                                              ),
-                                              onPressed: () => Navigator.pop(context),
-                                              child: Text(
-                                                i18n('confirm'),
-                                                style: const TextStyle(fontWeight: FontWeight.bold),
                                               ),
                                             ),
-                                          ],
+                                          ),
                                         ),
-                                      );
-                                    },
-                                    child: Text(
-                                      tag.name,
-                                      style: AppTextStyles.t14.copyWith(
-                                        fontWeight: FontWeight.w600,
                                       ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
+                                      Container(
+                                        width: 1,
+                                        height: 14,
+                                        color: theme.dividerColor.withValues(alpha: 0.1),
+                                      ),
+                                      Expanded(
+                                        child: InkWell(
+                                          borderRadius: BorderRadius.circular(6),
+                                          onTap: () =>
+                                              _showTagDialog(context, index: index, tag: tag),
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(vertical: 6),
+                                            child: Icon(
+                                              Remix.edit_line,
+                                              size: 16,
+                                              color: theme.colorScheme.onSurfaceVariant,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      Container(
+                                        width: 1,
+                                        height: 14,
+                                        color: theme.dividerColor.withValues(alpha: 0.1),
+                                      ),
+                                      Expanded(
+                                        child: InkWell(
+                                          borderRadius: BorderRadius.circular(6),
+                                          onTap: () => _confirmDelete(context, index, tag.name),
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(vertical: 6),
+                                            child: Icon(
+                                              Remix.delete_bin_line,
+                                              size: 16,
+                                              color: theme.colorScheme.error.withValues(alpha: 0.7),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
                             ),
-
-                            const SizedBox(height: 4),
-                            Expanded(
-                              child: Text(
-                                tag.description.isNotEmpty
-                                    ? tag.description
-                                    : i18n('no_description_placeholder'),
-                                style: AppTextStyles.t11.copyWith(
-                                  color: tag.description.isNotEmpty
-                                      ? theme.disabledColor
-                                      : theme.disabledColor.withValues(alpha: 0.4),
-                                  fontStyle: tag.description.isNotEmpty
-                                      ? FontStyle.normal
-                                      : FontStyle.italic,
+                          ),
+                          Positioned(
+                            top: 6,
+                            right: 6,
+                            child: IgnorePointer(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.primary,
+                                  borderRadius: BorderRadius.circular(10),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.15),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 1),
+                                    ),
+                                  ],
                                 ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
+                                constraints: const BoxConstraints(minWidth: 18),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  roomCount > 99 ? '99+' : roomCount.toString(),
+                                  style: TextStyle(
+                                    color: theme.colorScheme.onPrimary,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    height: 1.1,
+                                  ),
+                                ),
                               ),
                             ),
-                            Container(
-                              margin: const EdgeInsets.only(top: 6),
-                              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.surfaceContainer.withValues(alpha: 0.5),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                children: [
-                                  // 1. 置顶按钮
-                                  Expanded(
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(6),
-                                      onTap: () => controller.pinToTop(index),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(vertical: 6),
-                                        child: ReorderableDragStartListener(
-                                          index: index,
-                                          child: Icon(
-                                            Remix.sort_number_desc,
-                                            size: 16,
-                                            color: theme.colorScheme.primary.withValues(alpha: 0.8),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  // 分割线
-                                  Container(
-                                    width: 1,
-                                    height: 14,
-                                    color: theme.dividerColor.withValues(alpha: 0.1),
-                                  ),
-                                  // 2. 编辑按钮
-                                  Expanded(
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(6),
-                                      onTap: () => _showTagDialog(context, index: index, tag: tag),
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(vertical: 6),
-                                        child: Icon(
-                                          Remix.edit_line,
-                                          size: 16,
-                                          color: theme.colorScheme.onSurfaceVariant,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  // 分割线
-                                  Container(
-                                    width: 1,
-                                    height: 14,
-                                    color: theme.dividerColor.withValues(alpha: 0.1),
-                                  ),
-                                  // 3. 删除按钮
-                                  Expanded(
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(6),
-                                      onTap: () => _confirmDelete(context, index, tag.name),
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(vertical: 6),
-                                        child: Icon(
-                                          Remix.delete_bin_line,
-                                          size: 16,
-                                          color: theme.colorScheme.error.withValues(alpha: 0.7),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     );
                   });

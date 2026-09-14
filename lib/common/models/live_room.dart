@@ -138,6 +138,9 @@ class LiveRoom {
   /// 公告
   String? notice;
 
+  /// 斗鱼 AI 看点完整列表（highlightList 全部条目）
+  List<Map<String, dynamic>>? aiHighlights;
+
   /// 状态
   bool? status;
 
@@ -198,6 +201,7 @@ class LiveRoom {
     this.isRecord = false,
     this.status = false,
     this.notice,
+    this.aiHighlights,
     this.introduction,
     this.epgId,
     this.currentProgramme,
@@ -237,6 +241,7 @@ class LiveRoom {
       liveStatus = _liveStatusFromJson(json),
       status = json['status'] ?? false,
       notice = json['notice'] ?? '',
+      aiHighlights = _parseAiHighlights(json['aiHighlights']),
       introduction = json['introduction'] ?? '',
       isRecord = json['isRecord'] ?? false,
       epgId = json['epgId'] ?? '',
@@ -281,6 +286,7 @@ class LiveRoom {
     String? platform,
     String? introduction,
     String? notice,
+    List<Map<String, dynamic>>? aiHighlights,
     bool? status,
     dynamic data,
     dynamic danmakuData,
@@ -317,6 +323,7 @@ class LiveRoom {
       platform: platform ?? this.platform,
       introduction: introduction ?? this.introduction,
       notice: notice ?? this.notice,
+      aiHighlights: aiHighlights ?? this.aiHighlights,
       status: status ?? this.status,
       data: data ?? this.data,
       danmakuData: danmakuData ?? this.danmakuData,
@@ -433,6 +440,7 @@ class LiveRoom {
       // boolean into the next process or backup restore.
       'status': isLiveNow,
       'notice': notice,
+      'aiHighlights': aiHighlights,
       'introduction': introduction,
       'epgId': epgId,
       'currentProgramme': currentProgramme,
@@ -454,6 +462,15 @@ class LiveRoom {
     // Preserve that distinction; callers needing an explicit pending state pass
     // LiveStatus.unknown and effectiveLiveStatus still normalizes null to it.
     return null;
+  }
+
+  static List<Map<String, dynamic>>? _parseAiHighlights(dynamic raw) {
+    if (raw is! List) return null;
+    final out = <Map<String, dynamic>>[];
+    for (final e in raw) {
+      if (e is Map) out.add(Map<String, dynamic>.from(e));
+    }
+    return out.isEmpty ? null : out;
   }
 
   static LiveStatus _liveStatusFromJson(Map<String, dynamic> json) {
@@ -699,6 +716,8 @@ extension LiveRoomExtension on LiveRoom {
       introduction: _preferValue(incoming.introduction, introduction),
       notice: _preferValue(incoming.notice, notice),
 
+      aiHighlights: incoming.aiHighlights ?? aiHighlights,
+
       status: incoming.status ?? status,
       liveStatus: incoming.liveStatus ?? liveStatus,
       isRecord: incoming.isRecord ?? isRecord,
@@ -741,6 +760,8 @@ extension LiveRoomExtension on LiveRoom {
       area: _getValueIfEmpty(area, detail.area),
       nick: _getValueIfEmpty(nick, detail.nick),
       avatar: _getValueIfEmpty(avatar, detail.avatar),
+      notice: _getValueIfEmpty(notice, detail.notice),
+      aiHighlights: aiHighlights ?? detail.aiHighlights,
     );
   }
 

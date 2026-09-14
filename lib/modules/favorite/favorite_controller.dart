@@ -9,6 +9,10 @@ import 'package:pure_live/core/interface/live_site.dart';
 import 'package:pure_live/modules/tags/tag_management_controller.dart';
 import 'package:pure_live/modules/favorite/favorite_startup_policy.dart';
 import 'package:pure_live/common/services/settings/refresh_config_controller.dart';
+import 'package:pure_live/routes/route_observer_controller.dart';
+import 'package:pure_live/common/consts/app_consts.dart';
+
+enum OnlineSortMode { audience, startTime }
 
 class FavoriteController extends LocalReactivePageController<LiveRoom>
     with GetTickerProviderStateMixin, WidgetsBindingObserver {
@@ -38,6 +42,10 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
   Future<void>? _startupRefresh;
   FavoriteVerificationPreview? _verificationPreview;
   final Map<String, DateTime> _refreshFailureCooldown = {};
+  final Map<String, int> _fakeStartTime = {};
+  int? getFakeStartTime(String identityKey) => _fakeStartTime[identityKey];
+  final Set<String> _lastOnlineKeys = {};
+  bool _onlineBaselineCaptured = false;
   static const Duration _refreshFailureRetryAfter = Duration(minutes: 5);
   // Treat returning to the app as a fresh launch after a short debounce.  A
   // two-minute window left just-ended rooms visibly "live" when users reopened
@@ -49,8 +57,16 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
   final onlineRooms = <LiveRoom>[].obs;
   final offlineRooms = <LiveRoom>[].obs;
   final replayRooms = <LiveRoom>[].obs;
-  final selectedTagId = TagManagementController.allTagKey.obs;
+  final multiSelectMode = false.obs;
+  final selectedTagIds = <String>{TagManagementController.allTagKey}.obs;
   final visibleTags = <LiveTag>[].obs;
+  final visibleUntaggedCount = 0.obs;
+  final searchKeyword = ''.obs;
+  final enablePinned = true.obs;
+  final onlineSortMode = OnlineSortMode.audience.obs;
+
+  final showRefreshShield = false.obs;
+  final cancelRequested = false.obs;
 
   FavoriteController() : super();
 
@@ -75,8 +91,15 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     );
 
     _workers.add(
-      ever(selectedTagId, (_) {
+      ever(selectedTagIds, (_) {
         if (!_selectionTransaction) applyLocalFilter();
+      }),
+    );
+    _workers.add(
+      ever(multiSelectMode, (enabled) {
+        if (!enabled) {
+          selectedTagIds.assignAll({TagManagementController.allTagKey});
+        }
       }),
     );
     _workers.add(
@@ -93,6 +116,13 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     _workers.add(ever(tagController.roomTagsMap, (_) => applyLocalFilter()));
     _workers.add(ever(SettingsService.to.app.preferRealOnlineCounts, (_) => applyLocalFilter()));
     _workers.add(ever(SettingsService.to.app.realOnlinePlatforms, (_) => applyLocalFilter()));
+    _workers.add(ever(enablePinned, (_) => applyLocalFilter()));
+    _workers.add(ever(onlineSortMode, (_) => applyLocalFilter()));
+    _workers.add(
+      debounce(searchKeyword, (_) {
+        if (!_selectionTransaction) applyLocalFilter(resyncSource: false);
+      }, time: const Duration(milliseconds: 200)),
+    );
 
     // Begin verification during controller startup instead of waiting for the
     // first rendered frame. Persisted metadata remains useful, but its old
@@ -125,7 +155,7 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     if (isEnabled && interval > 0) {
       _autoRefreshTimer = Timer.periodic(
         Duration(minutes: interval),
-        (_) => unawaited(_fullRefreshRooms(showLoading: false)),
+        (_) => unawaited(_fullRefreshRooms(showLoading: false, bypassFailureCooldown: true)),
       );
     }
   }
@@ -133,7 +163,7 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
   void debounceRefresh() {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 300), () {
-      unawaited(_fullRefreshRooms(showLoading: false));
+      unawaited(_fullRefreshRooms(showLoading: false, bypassFailureCooldown: true));
     });
   }
 
@@ -191,6 +221,54 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     });
   }
 
+  bool _isUserOnFavoritePage() {
+    try {
+      final route = RouteObserverController.to.currentRoute.value;
+      final onHome = route.isEmpty || route == RoutePath.kInitial || route == RoutePath.kFavorite;
+      if (!onHome) return false;
+      return tabBottomIndex.value == HomeMenu.favorites.index;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void requestCancelRefresh() {
+    if (!showRefreshShield.value) return;
+    cancelRequested.value = true;
+    _refreshEpoch++;
+    _startupRefresh = null;
+    showRefreshShield.value = false;
+    loadding.value = false;
+  }
+
+  Set<String> _pruneSelectedTagsForRooms(List<LiveRoom> candidateRooms) {
+    final selected = selectedTagIds;
+    if (selected.contains(TagManagementController.allTagKey)) {
+      return selected;
+    }
+
+    final hasUntagged = selected.contains(TagManagementController.untaggedTagKey);
+    final realTags = selected.where((id) => id != TagManagementController.untaggedTagKey).toSet();
+
+    final remaining = <String>{};
+    if (hasUntagged) {
+      final hasUntaggedRoom = candidateRooms.any(
+        (room) => tagController.getTagsForRoom(room).isEmpty,
+      );
+      if (hasUntaggedRoom) remaining.add(TagManagementController.untaggedTagKey);
+    }
+    for (final tagId in realTags) {
+      if (candidateRooms.any((room) => tagController.getTagsForRoom(room).contains(tagId))) {
+        remaining.add(tagId);
+      }
+    }
+
+    if (remaining.isEmpty) {
+      return {TagManagementController.allTagKey};
+    }
+    return remaining;
+  }
+
   /// Commits a settled platform page as one local filter transaction.
   ///
   /// The previous listener reset the tag and then changed the site in two Rx
@@ -200,13 +278,28 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     final availableSites = Sites().availableSites(containsAll: true);
     if (index < 0 || index >= availableSites.length) return;
     final nextPlatformId = availableSites[index].id;
-    final resetTag = selectedTagId.value != TagManagementController.allTagKey;
+    final resetTag = !selectedTagIds.contains(TagManagementController.allTagKey);
     if (tabSiteIndex.value == index && selectedPlatformId == nextPlatformId && !resetTag) return;
 
     _selectionTransaction = true;
     tabSiteIndex.value = index;
     selectedPlatformId = nextPlatformId;
-    if (resetTag) selectedTagId.value = TagManagementController.allTagKey;
+    if (resetTag) {
+      final bucket = switch (tabOnlineIndex.value) {
+        0 => onlineRooms,
+        1 => replayRooms,
+        _ => offlineRooms,
+      };
+      final List<LiveRoom> candidateRooms;
+      if (nextPlatformId == Sites.allSite) {
+        candidateRooms = List<LiveRoom>.from(bucket);
+      } else {
+        final normalizedId = nextPlatformId.trim().toLowerCase();
+        candidateRooms = bucket.where((r) => r.normalizedPlatformId == normalizedId).toList();
+      }
+      final pruned = _pruneSelectedTagsForRooms(candidateRooms);
+      selectedTagIds.assignAll(pruned);
+    }
     _selectionTransaction = false;
     currentPage = 1;
     applyLocalFilter(resyncSource: false);
@@ -214,12 +307,31 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
 
   void selectStatusIndex(int index) {
     if (index < 0 || index >= tabController.length) return;
-    final resetTag = selectedTagId.value != TagManagementController.allTagKey;
+    final resetTag = !selectedTagIds.contains(TagManagementController.allTagKey);
     if (tabOnlineIndex.value == index && !resetTag) return;
 
     _selectionTransaction = true;
     tabOnlineIndex.value = index;
-    if (resetTag) selectedTagId.value = TagManagementController.allTagKey;
+    if (resetTag) {
+      final currentAvailableSites = Sites().availableSites(containsAll: true);
+      final siteId = (tabSiteIndex.value >= 0 && tabSiteIndex.value < currentAvailableSites.length)
+          ? currentAvailableSites[tabSiteIndex.value].id
+          : Sites.allSite;
+      final bucket = switch (index) {
+        0 => onlineRooms,
+        1 => replayRooms,
+        _ => offlineRooms,
+      };
+      final List<LiveRoom> candidateRooms;
+      if (siteId == Sites.allSite) {
+        candidateRooms = List<LiveRoom>.from(bucket);
+      } else {
+        final normalizedId = siteId.trim().toLowerCase();
+        candidateRooms = bucket.where((r) => r.normalizedPlatformId == normalizedId).toList();
+      }
+      final pruned = _pruneSelectedTagsForRooms(candidateRooms);
+      selectedTagIds.assignAll(pruned);
+    }
     _selectionTransaction = false;
     currentPage = 1;
     applyLocalFilter(resyncSource: false);
@@ -239,9 +351,32 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
   }
 
   void changeSelectedTag(String tagId) {
-    if (selectedTagId.value == tagId) return;
     currentPage = 1;
-    selectedTagId.value = tagId;
+    final isAll = tagId == TagManagementController.allTagKey;
+    final isUntagged = tagId == TagManagementController.untaggedTagKey;
+    final isVirtual = isAll || isUntagged;
+
+    if (multiSelectMode.value) {
+      if (isVirtual) {
+        selectedTagIds.assignAll({tagId});
+      } else {
+        final ids = <String>{...selectedTagIds};
+        ids.remove(TagManagementController.allTagKey);
+        ids.remove(TagManagementController.untaggedTagKey);
+        if (ids.contains(tagId)) {
+          ids.remove(tagId);
+        } else {
+          ids.add(tagId);
+        }
+        if (ids.isEmpty) {
+          ids.add(TagManagementController.allTagKey);
+        }
+        selectedTagIds.assignAll(ids);
+      }
+    } else {
+      if (selectedTagIds.length == 1 && selectedTagIds.first == tagId) return;
+      selectedTagIds.assignAll({tagId});
+    }
   }
 
   void updateRoomTags(LiveRoom room, List<String> newTagIds) {
@@ -270,14 +405,17 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
       }).toList();
     }
 
-    if (selectedTagId.value == TagManagementController.allTagKey) {
-      return siteFiltered;
+    if (selectedTagIds.contains(TagManagementController.allTagKey)) {
+      return siteFiltered.where(_matchesSearchKeyword).toList();
     }
 
-    return siteFiltered.where((room) {
-      final List<String> ids = tagController.getTagsForRoom(room);
-      return ids.contains(selectedTagId.value);
-    }).toList();
+    return siteFiltered
+        .where((room) {
+          final List<String> ids = tagController.getTagsForRoom(room);
+          return selectedTagIds.every((requiredTag) => ids.contains(requiredTag));
+        })
+        .where(_matchesSearchKeyword)
+        .toList();
   }
 
   List<LiveRoom> getFilteredRooms({Iterable<LiveRoom>? roomSnapshot, bool resyncSource = true}) {
@@ -323,14 +461,22 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
       }).toList();
     }
 
-    if (selectedTagId.value == TagManagementController.allTagKey) {
-      return siteFiltered;
+    if (selectedTagIds.contains(TagManagementController.allTagKey)) {
+      return siteFiltered.where(_matchesSearchKeyword).toList();
     }
 
-    return siteFiltered.where((room) {
-      final List<String> ids = tagController.getTagsForRoom(room);
-      return ids.contains(selectedTagId.value);
-    }).toList();
+    final hasUntagged = selectedTagIds.contains(TagManagementController.untaggedTagKey);
+    final realTagIds = selectedTagIds.where((id) => id != TagManagementController.untaggedTagKey);
+
+    return siteFiltered
+        .where((room) {
+          final List<String> ids = tagController.getTagsForRoom(room);
+          if (hasUntagged && ids.isNotEmpty) return false;
+          if (hasUntagged && realTagIds.isEmpty) return true;
+          return realTagIds.every((requiredTag) => ids.contains(requiredTag));
+        })
+        .where(_matchesSearchKeyword)
+        .toList();
   }
 
   int favoriteCountForSite(String siteId, {int? statusIndex}) {
@@ -391,8 +537,7 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
 
       for (var room in target) {
         if (activeSite.id == Sites.allSite || room.normalizedPlatformId == normalizedSiteId) {
-          final ids = tagController.getTagsForRoom(room);
-          tagIds.addAll(ids);
+          tagIds.addAll(tagController.getTagsForRoom(room));
         }
       }
 
@@ -400,12 +545,31 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
         ..sort((a, b) => a.order.compareTo(b.order));
     }
 
+    final currentOnlineKeys = nextOnline.map((r) => r.identityKey).toSet();
+    if (_onlineBaselineCaptured) {
+      final newlyOnline = currentOnlineKeys.difference(_lastOnlineKeys);
+      final endedOnline = _lastOnlineKeys.difference(currentOnlineKeys);
+      if (newlyOnline.isNotEmpty) {
+        final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+        for (final room in nextOnline) {
+          if (newlyOnline.contains(room.identityKey) && room.startTime == null) {
+            _fakeStartTime[room.identityKey] = now;
+          }
+        }
+      }
+      if (endedOnline.isNotEmpty) {
+        _fakeStartTime.removeWhere((key, _) => endedOnline.contains(key));
+      }
+    } else {
+      _onlineBaselineCaptured = true;
+    }
+    _lastOnlineKeys
+      ..clear()
+      ..addAll(currentOnlineKeys);
+
     nextOnline.sort(_compareOnlineRooms);
     nextReplay.sort(_compareAudience);
 
-    // Build and sort plain lists first, then publish each result once. The old
-    // clear/addAll/sort sequence notified every Obx grid several times for one
-    // background refresh, causing visible hitches with many favourites.
     _assignIfSnapshotChanged(onlineRooms, nextOnline);
     _assignIfSnapshotChanged(offlineRooms, nextOffline);
     _assignIfSnapshotChanged(replayRooms, nextReplay);
@@ -455,9 +619,8 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     final siteId = sites[tabSiteIndex.value].id;
     final tagIds = <String>{};
     for (final room in source) {
-      if (siteId == Sites.allSite || room.normalizedPlatformId == siteId) {
-        tagIds.addAll(tagController.getTagsForRoom(room));
-      }
+      if (siteId != Sites.allSite && room.normalizedPlatformId != siteId) continue;
+      tagIds.addAll(tagController.getTagsForRoom(room));
     }
     final next = tagController.tags.where((tag) => tagIds.contains(tag.id)).toList(growable: false)
       ..sort((left, right) => left.order.compareTo(right.order));
@@ -488,29 +651,44 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     );
   }
 
-  /// Pin-tagged rooms first, then delegating to the active sort policy.
   int _compareOnlineRooms(LiveRoom a, LiveRoom b) {
-    final aPinned = tagController.isPinRoom(a);
-    final bPinned = tagController.isPinRoom(b);
-    if (aPinned != bPinned) return aPinned ? -1 : 1;
-
-    if (selectedTagId.value == TagManagementController.allTagKey) {
-      return _compareAudience(a, b);
+    if (enablePinned.value) {
+      final aPinned = tagController.isPinRoom(a);
+      final bPinned = tagController.isPinRoom(b);
+      if (aPinned != bPinned) return aPinned ? -1 : 1;
     }
-    final sa = _getRoomTagScore(a);
-    final sb = _getRoomTagScore(b);
-    if (sa != sb) return sb.compareTo(sa);
+
+    if (!selectedTagIds.contains(TagManagementController.allTagKey)) {
+      final sa = _getRoomTagScore(a);
+      final sb = _getRoomTagScore(b);
+      if (sa != sb) return sb.compareTo(sa);
+    }
+
+    return switch (onlineSortMode.value) {
+      OnlineSortMode.startTime => _compareStartTime(a, b),
+      _ => _compareAudience(a, b),
+    };
+  }
+
+  int _compareStartTime(LiveRoom a, LiveRoom b) {
+    final aTime = a.startTime ?? _fakeStartTime[a.identityKey];
+    final bTime = b.startTime ?? _fakeStartTime[b.identityKey];
+    if (aTime != null && bTime != null) return bTime.compareTo(aTime);
+    if (aTime != null) return -1;
+    if (bTime != null) return 1;
     return _compareAudience(a, b);
   }
 
   int _getRoomTagScore(LiveRoom room) {
     final ids = tagController.getTagsForRoom(room);
     if (ids.isEmpty) return 0;
+    final requiredIds = selectedTagIds;
 
     int highest = 0;
     const maxScore = 1000000;
 
     for (var id in ids) {
+      if (!requiredIds.contains(id)) continue;
       final idx = tagController.tags.indexWhere((t) => id == t.id);
       if (idx != -1) {
         final tag = tagController.tags[idx];
@@ -521,10 +699,70 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     return highest;
   }
 
+  bool _matchesSearchKeyword(LiveRoom room) {
+    final raw = searchKeyword.value.trim();
+    if (raw.isEmpty) return true;
+
+    final keywords = raw
+        .split(RegExp(r'\s+'))
+        .map((s) => s.trim().toLowerCase())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    if (keywords.isEmpty) return true;
+
+    final title = room.title?.trim().toLowerCase() ?? '';
+    final nick = room.nick?.trim().toLowerCase() ?? '';
+    final roomId = room.roomId?.trim().toLowerCase() ?? '';
+    final tagNames = tagController
+        .getTagsForRoom(room)
+        .map(
+          (id) => tagController.tags
+              .firstWhere(
+                (t) => t.id == id,
+                orElse: () => LiveTag(id: '', name: ''),
+              )
+              .name
+              .toLowerCase(),
+        )
+        .toList();
+
+    return keywords.any((kw) {
+      if (title.contains(kw)) return true;
+      if (nick.contains(kw)) return true;
+      if (roomId.contains(kw)) return true;
+      if (tagNames.any((name) => name.contains(kw))) return true;
+      return false;
+    });
+  }
+
+  void _recalculateUntaggedCount() {
+    final sites = Sites().availableSites(containsAll: true);
+    if (tabSiteIndex.value < 0 || tabSiteIndex.value >= sites.length) {
+      if (visibleUntaggedCount.value != 0) visibleUntaggedCount.value = 0;
+      return;
+    }
+    final source = switch (tabOnlineIndex.value) {
+      0 => onlineRooms,
+      1 => replayRooms,
+      2 => offlineRooms,
+      _ => onlineRooms,
+    };
+    final siteId = sites[tabSiteIndex.value].id;
+    int count = 0;
+    for (final room in source) {
+      if (siteId != Sites.allSite && room.normalizedPlatformId != siteId) continue;
+      if (tagController.getTagsForRoom(room).isEmpty) count++;
+    }
+    if (visibleUntaggedCount.value != count) {
+      visibleUntaggedCount.value = count;
+    }
+  }
+
   void applyLocalFilter({bool resyncSource = true}) {
     if (!resyncSource) _refreshVisibleTagsFromSyncedRooms();
     final filtered = getFilteredRooms(resyncSource: resyncSource);
     updateLocalReactivePool(filtered);
+    _recalculateUntaggedCount();
   }
 
   @override
@@ -538,6 +776,8 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
       return;
     }
     currentPage = 1;
+    cancelRequested.value = false;
+    showRefreshShield.value = true;
     await _fullRefreshFilterRooms(showLoading: true, bypassFailureCooldown: true);
   }
 
@@ -549,6 +789,7 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     await _runRoomRefresh(
       roomsToRefresh,
       showLoading: showLoading,
+      markFullRefresh: true,
       invalidateUnverified: true,
       bypassFailureCooldown: bypassFailureCooldown,
     );
@@ -568,6 +809,8 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
       return;
     }
     final roomsToRefresh = getAllRooms();
+    cancelRequested.value = false;
+    showRefreshShield.value = _isUserOnFavoritePage();
     await _runRoomRefresh(
       roomsToRefresh,
       showLoading: showLoading,
@@ -594,6 +837,8 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     final persisted = List<LiveRoom>.from(SettingsService.to.fav.favoriteRooms.v);
     _verificationPreview = buildFavoriteVerificationPreview(persisted);
     isVerifyingFavorites.value = true;
+    cancelRequested.value = false;
+    showRefreshShield.value = true;
     if (persisted.isNotEmpty) {
       // Keep cached metadata and bucket positions, but publish every status as
       // unknown. This avoids both stale "live" claims and the clear/reorder/
@@ -658,6 +903,8 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
         applyLocalFilter();
         if (emitFinish) EventBus.instance.emit('refresh_favorite_finish', true);
       } finally {
+        showRefreshShield.value = false;
+        cancelRequested.value = false;
         if (showLoading && refreshEpoch == _refreshEpoch && !isClosed) {
           loadding.value = false;
         }
@@ -758,4 +1005,91 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
   }
 
   String _roomKey(LiveRoom room) => favoriteRoomIdentity(room);
+
+  String _mainCategoryOf(String rawArea) {
+    final trimmed = rawArea.trim();
+    if (trimmed.isEmpty) return '';
+    final parts = trimmed.split('/');
+    for (final part in parts) {
+      final p = part.trim();
+      if (p.isNotEmpty) return p;
+    }
+    return '';
+  }
+
+  Future<
+    ({int totalRooms, int noAreaRooms, int successRooms, int skippedExistingTag, int createdTags})
+  >
+  autoMatchAreaTags({void Function(int current, int total, String? status)? onProgress}) async {
+    final allRooms = List<LiveRoom>.from(SettingsService.to.fav.favoriteRooms.v);
+    final total = allRooms.length;
+
+    onProgress?.call(0, total, null);
+
+    final mainCategories = <String>{};
+    int noAreaRooms = 0;
+
+    for (final room in allRooms) {
+      final category = _mainCategoryOf(room.area ?? '');
+      if (category.isEmpty) {
+        noAreaRooms++;
+        continue;
+      }
+      mainCategories.add(category);
+    }
+
+    onProgress?.call(total ~/ 3, total, null);
+
+    int createdTags = 0;
+    final categoryTagIds = <String, String>{};
+    for (final name in mainCategories) {
+      final before = tagController.findTagByName(name);
+      final tag = tagController.ensureTagByName(name);
+      if (before == null) createdTags++;
+      categoryTagIds[name] = tag.id;
+      await Future.microtask(() {});
+    }
+
+    int successRooms = 0;
+    int skippedExistingTag = 0;
+    int processed = 0;
+
+    for (final room in allRooms) {
+      processed++;
+      final category = _mainCategoryOf(room.area ?? '');
+      if (category.isEmpty) {
+        onProgress?.call(processed, total, null);
+        await Future.microtask(() {});
+        continue;
+      }
+      final targetTagId = categoryTagIds[category];
+      if (targetTagId == null) {
+        onProgress?.call(processed, total, null);
+        await Future.microtask(() {});
+        continue;
+      }
+
+      final existingIds = List<String>.from(tagController.getTagsForRoom(room));
+      if (existingIds.contains(targetTagId)) {
+        skippedExistingTag++;
+      } else {
+        existingIds.add(targetTagId);
+        tagController.setRoomTags(room, existingIds);
+        successRooms++;
+      }
+
+      onProgress?.call(processed, total, null);
+      await Future.microtask(() {});
+    }
+
+    applyLocalFilter();
+
+    return (
+      totalRooms: total,
+      noAreaRooms: noAreaRooms,
+      successRooms: successRooms,
+      skippedExistingTag: skippedExistingTag,
+      createdTags: createdTags,
+    );
+  }
 }

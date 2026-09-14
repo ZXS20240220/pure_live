@@ -1,4 +1,3 @@
-import 'package:flutter/services.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/modules/live_play/widgets/layout/super_chat_card.dart';
 import 'package:pure_live/modules/live_play/controllers/live_play_controller.dart';
@@ -12,13 +11,11 @@ class SuperChatPage extends StatelessWidget {
 
     return Obx(() {
       final messages = controller.superChats;
-      final notice = controller.state.value.room.detail?.notice?.trim() ?? '';
-      final hasNotice = notice.isNotEmpty;
-
-      // 后手：两者都为空时不渲染（和原逻辑一致）
-      if (messages.isEmpty && !hasNotice) {
-        return const SizedBox.shrink();
-      }
+      final detail = controller.state.value.room.detail;
+      final notice = detail?.notice?.trim() ?? '';
+      final aiHighlights = detail?.aiHighlights;
+      final hasHighlight = (aiHighlights != null && aiHighlights.isNotEmpty) || notice.isNotEmpty;
+      final hasContent = messages.isNotEmpty || hasHighlight;
 
       final uniqueMessages = <String, LiveSuperChatMessage>{};
       for (final message in messages) {
@@ -29,106 +26,471 @@ class SuperChatPage extends StatelessWidget {
       }
 
       final list = uniqueMessages.values.toList();
-      final itemCount = (hasNotice ? 1 : 0) + list.length;
 
-      return ListView.builder(
-        primary: false,
-        physics: const PureLiveScrollPhysics(),
-        padding: const EdgeInsets.all(8),
-        itemCount: itemCount,
-        itemBuilder: (context, index) {
-          if (hasNotice && index == 0) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _AiHighlightCard(text: notice),
-            );
-          }
-          final messageIndex = hasNotice ? index - 1 : index;
-          final message = list[messageIndex];
-          return Padding(padding: const EdgeInsets.only(bottom: 8), child: SuperChatCard(message));
-        },
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '醒目留言 | 高能弹幕 | AI看点',
+                    style: Theme.of(context).textTheme.titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.autorenew, size: 18),
+                  tooltip: i18n('refresh'),
+                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints(),
+                  padding: EdgeInsets.zero,
+                  onPressed: () {
+                    controller.refreshSuperChatAndHighlights();
+                  },
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          if (!hasContent)
+            const Expanded(
+              child: Center(child: Text('暂无内容', style: TextStyle(fontSize: 12))),
+            )
+          else
+            Expanded(
+              child: _AiHighlightOverlay(
+                aiHighlights: aiHighlights,
+                noticeText: notice,
+                child: ListView.builder(
+                  primary: false,
+                  physics: const PureLiveScrollPhysics(),
+                  padding: const EdgeInsets.all(8),
+                  itemCount: (hasHighlight ? 1 : 0) + list.length,
+                  itemBuilder: (context, index) {
+                    if (hasHighlight && index == 0) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _AiHighlightCompact(aiHighlights: aiHighlights, noticeText: notice),
+                      );
+                    }
+                    final messageIndex = hasHighlight ? index - 1 : index;
+                    final message = list[messageIndex];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: SuperChatCard(message),
+                    );
+                  },
+                ),
+              ),
+            ),
+        ],
       );
     });
   }
 }
 
-/// AI 看点 / 主播公告的轻量提示卡片。
-/// 仅当 [text] 非空时由 [SuperChatPage] 置顶渲染。
-class _AiHighlightCard extends StatelessWidget {
-  const _AiHighlightCard({required this.text});
+class _AiHighlightOverlay extends StatefulWidget {
+  const _AiHighlightOverlay({
+    required this.child,
+    required this.aiHighlights,
+    required this.noticeText,
+  });
 
-  final String text;
+  final Widget child;
+  final List<Map<String, dynamic>>? aiHighlights;
+  final String noticeText;
+
+  @override
+  State<_AiHighlightOverlay> createState() => _AiHighlightOverlayState();
+}
+
+class _AiHighlightOverlayState extends State<_AiHighlightOverlay> {
+  bool _expanded = false;
+
+  void _toggle() => setState(() => _expanded = !_expanded);
+
+  void _collapse() => setState(() => _expanded = false);
+
+  @override
+  Widget build(BuildContext context) {
+    final hasData =
+        (widget.aiHighlights != null && widget.aiHighlights!.isNotEmpty) ||
+        widget.noticeText.isNotEmpty;
+
+    return Stack(
+      children: [
+        widget.child,
+        if (_expanded && hasData)
+          Positioned.fill(
+            child: _AiHighlightExpanded(
+              aiHighlights: widget.aiHighlights,
+              noticeText: widget.noticeText,
+              onCollapse: _collapse,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _AiHighlightCompact extends StatelessWidget {
+  const _AiHighlightCompact({required this.aiHighlights, required this.noticeText});
+
+  final List<Map<String, dynamic>>? aiHighlights;
+  final String noticeText;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    // 后端用 \n\n 分隔 AI 看点标题和正文
-    final parts = text.split('\n\n');
-    final title = parts.isNotEmpty ? parts[0].trim() : '';
-    final body = parts.length > 1 ? parts.sublist(1).join('\n\n').trim() : '';
+    final first = aiHighlights?.first;
+    final title = _extractTitle(first, noticeText);
+    final body = _extractBody(first, noticeText);
+
+    return Builder(
+      builder: (context) {
+        final overlayState = context.findAncestorStateOfType<_AiHighlightOverlayState>();
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: overlayState?._toggle,
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: colorScheme.primary.withValues(alpha: 0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.visibility_outlined,
+                        size: 15,
+                        color: colorScheme.onPrimaryContainer,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        'AI 看点',
+                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: colorScheme.onPrimaryContainer,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (first != null) ...[
+                        const SizedBox(width: 10),
+                        Icon(
+                          Icons.local_fire_department_rounded,
+                          size: 14,
+                          color: Colors.orange.shade700,
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          _formatHeat(first['heat']),
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: colorScheme.onPrimaryContainer,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _formatTimeRange(first),
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: colorScheme.onPrimaryContainer.withValues(alpha: 0.75),
+                          ),
+                        ),
+                      ],
+                      if (aiHighlights != null && aiHighlights!.length > 1) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: colorScheme.primary.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '${aiHighlights!.length}条',
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: colorScheme.onPrimaryContainer,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                      const Spacer(),
+                      Icon(
+                        Icons.keyboard_arrow_down,
+                        size: 18,
+                        color: colorScheme.onPrimaryContainer,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  _FadeTitle(
+                    text: title,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: colorScheme.onPrimaryContainer,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (body.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      body,
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(color: colorScheme.onPrimaryContainer, height: 1.5),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _AiHighlightExpanded extends StatelessWidget {
+  const _AiHighlightExpanded({
+    required this.aiHighlights,
+    required this.noticeText,
+    required this.onCollapse,
+  });
+
+  final List<Map<String, dynamic>>? aiHighlights;
+  final String noticeText;
+  final VoidCallback onCollapse;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final count = aiHighlights?.length ?? 0;
+    final effectiveList = aiHighlights ?? const <Map<String, dynamic>>[];
+    final hasNoticeOnly = aiHighlights == null && noticeText.isNotEmpty;
+
+    return Container(
+      padding: const EdgeInsets.all(8),
+      color: colorScheme.surface,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onCollapse,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer.withValues(alpha: 0.85),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: colorScheme.primary.withValues(alpha: 0.4)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.visibility_outlined, size: 16, color: colorScheme.onPrimaryContainer),
+                  const SizedBox(width: 6),
+                  Text(
+                    'AI 看点${count > 0 ? ' · $count条' : ''}',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: colorScheme.onPrimaryContainer,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const Spacer(),
+                  Icon(Icons.keyboard_arrow_up, size: 18, color: colorScheme.onPrimaryContainer),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: hasNoticeOnly
+                ? _NoticeOnlyBody(noticeText: noticeText)
+                : ListView.separated(
+                    physics: const PureLiveScrollPhysics(),
+                    itemCount: effectiveList.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      return _HighlightItemCard(data: effectiveList[index]);
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HighlightItemCard extends StatelessWidget {
+  const _HighlightItemCard({required this.data});
+
+  final Map<String, dynamic> data;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final title = _extractTitle(data, '');
+    final body = _extractBody(data, '');
 
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: colorScheme.primaryContainer.withValues(alpha: 0.6),
+        color: colorScheme.primaryContainer.withValues(alpha: 0.35),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.3)),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.visibility_outlined, size: 16, color: colorScheme.onPrimaryContainer),
-              const SizedBox(width: 6),
+              Expanded(
+                child: _FadeTitle(
+                  text: title,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: colorScheme.onPrimaryContainer,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(Icons.local_fire_department_rounded, size: 13, color: Colors.orange.shade700),
+              const SizedBox(width: 2),
               Text(
-                'AI 看点',
-                style: Theme.of(context).textTheme.labelMedium
+                _formatHeat(data['heat']),
+                style: Theme.of(context).textTheme.labelSmall
                     ?.copyWith(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.w600),
               ),
-              const Spacer(),
-              GestureDetector(
-                onTap: () {
-                  Clipboard.setData(ClipboardData(text: text));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(i18n('toolbox_copy_success')),
-                      duration: const Duration(seconds: 1),
-                    ),
-                  );
-                },
-                child: Icon(
-                  Icons.copy_rounded,
-                  size: 16,
-                  color: colorScheme.primary.withValues(alpha: 0.7),
-                ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.access_time_rounded,
+                size: 12,
+                color: colorScheme.onPrimaryContainer.withValues(alpha: 0.8),
+              ),
+              const SizedBox(width: 2),
+              Text(
+                _formatTimeRange(data),
+                style: Theme.of(context).textTheme.labelSmall
+                    ?.copyWith(color: colorScheme.onPrimaryContainer.withValues(alpha: 0.8)),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          // AI 看点的短标题（从 API 的 summary/title 来）
           if (body.isNotEmpty) ...[
-            Text(
-              title,
-              style: Theme.of(context).textTheme.bodyMedium
-                  ?.copyWith(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 6),
-            // describe 正文
+            const SizedBox(height: 8),
             Text(
               body,
-              style: Theme.of(context).textTheme.bodySmall
-                  ?.copyWith(color: colorScheme.onPrimaryContainer, height: 1.5),
+              style: Theme.of(context).textTheme.bodyMedium
+                  ?.copyWith(color: colorScheme.onPrimaryContainer, height: 1.6),
             ),
-          ] else
-            // 其他平台（快手/虎牙）或降级场景：没有标题/正文分离，直接全部显示
-            Text(
-              title,
-              style: Theme.of(context).textTheme.bodySmall
-                  ?.copyWith(color: colorScheme.onPrimaryContainer, height: 1.5),
-            ),
+          ],
         ],
       ),
     );
   }
 }
+
+class _NoticeOnlyBody extends StatelessWidget {
+  const _NoticeOnlyBody({required this.noticeText});
+
+  final String noticeText;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final title = _extractTitle(null, noticeText);
+    final body = _extractBody(null, noticeText);
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.2)),
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.w700),
+            ),
+            if (body.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Divider(height: 1, color: colorScheme.primary.withValues(alpha: 0.25)),
+              const SizedBox(height: 10),
+              Text(
+                body,
+                style: Theme.of(context).textTheme.bodyMedium
+                    ?.copyWith(color: colorScheme.onPrimaryContainer, height: 1.7),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FadeTitle extends StatelessWidget {
+  const _FadeTitle({required this.text, required this.style});
+
+  final String text;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: text,
+      waitDuration: const Duration(milliseconds: 400),
+      child: Text(text, maxLines: 1, overflow: TextOverflow.fade, softWrap: false, style: style),
+    );
+  }
+}
+
+String _extractTitle(Map<String, dynamic>? data, String noticeText) {
+  if (data != null) {
+    final t = (data['summary'] ?? data['title'] ?? '').toString().trim();
+    if (t.isNotEmpty) return t;
+  }
+  final parts = noticeText.split('\n\n');
+  return parts.isNotEmpty ? parts[0].trim() : noticeText.trim();
+}
+
+String _extractBody(Map<String, dynamic>? data, String noticeText) {
+  if (data != null) {
+    final b = (data['describe'] ?? '').toString().trim();
+    if (b.isNotEmpty) return b;
+  }
+  final parts = noticeText.split('\n\n');
+  if (parts.length > 1) return parts.sublist(1).join('\n\n').trim();
+  return '';
+}
+
+String _formatHeat(dynamic raw) {
+  if (raw == null) return '';
+  final n = int.tryParse(raw.toString());
+  if (n == null) return raw.toString();
+  if (n >= 10000) return '${(n / 10000).toStringAsFixed(1)}w';
+  return n.toString();
+}
+
+String _formatTimeRange(Map<String, dynamic> data) {
+  final start = data['startTime'];
+  final end = data['endTime'];
+  if (start == null) return '';
+  final startDt = DateTime.fromMillisecondsSinceEpoch((start as int) * 1000);
+  final endDt = end != null && end != 0
+      ? DateTime.fromMillisecondsSinceEpoch((end as int) * 1000)
+      : DateTime.now();
+  return '${_fmtTime(startDt)} ~ ${_fmtTime(endDt)}';
+}
+
+String _fmtTime(DateTime dt) =>
+    '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';

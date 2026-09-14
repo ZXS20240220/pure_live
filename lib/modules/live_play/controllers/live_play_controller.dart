@@ -397,6 +397,34 @@ class LivePlayController extends GetxController
     if (superChats.isNotEmpty) superChats.clear();
   }
 
+  Future<void> refreshSuperChatAndHighlights() async {
+    final detail = state.value.room.detail;
+    final roomId = detail?.roomId;
+    final platform = detail?.platform;
+    if (roomId == null || platform == null) return;
+
+    clearSuperChats();
+
+    final loadEpoch = ++_roomLoadEpoch;
+
+    try {
+      final fetchedRoom = await currentSite.liveSite.getRoomDetail(
+        roomId: roomId,
+        platform: platform,
+      );
+      if (isClosed || _ownerClosed) return;
+      if (!_isRoomLoadCurrent(loadEpoch, roomId, platform)) return;
+
+      var liveRoom = fetchedRoom.withAudienceFallbackFrom(detail!);
+      liveRoom = liveRoom.fillFromDetail(detail);
+      updateRoom(detail: liveRoom);
+      unawaited(getSuperChatMessage(roomId, platform: platform, loadEpoch: loadEpoch));
+    } catch (e) {
+      if (!_isRoomLoadCurrent(loadEpoch, roomId, platform)) return;
+      addSystemMessage('刷新失败');
+    }
+  }
+
   /// Restores the normal room presentation for one system-back attempt.
   ///
   /// The route-local PopScope owns whether the route can pop. Keeping teardown

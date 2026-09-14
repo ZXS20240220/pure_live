@@ -22,6 +22,7 @@ import 'package:pure_live/modules/live_play/controllers/live_play_controller.dar
 import 'package:pure_live/modules/live_play/widgets/content_first_panel_layout.dart';
 import 'package:pure_live/modules/live_play/widgets/video_player/volume_control.dart';
 import 'package:pure_live/modules/live_play/widgets/video_player/video_controller.dart';
+import 'package:pure_live/modules/live_play/widgets/video_player/live_progress_bar.dart';
 import 'package:pure_live/modules/live_play/widgets/danmaku/danmaku_settings_binding.dart';
 import 'package:pure_live/modules/live_play/widgets/local_interaction/local_danmaku_style_editor.dart';
 
@@ -790,23 +791,38 @@ class BrightnessVolumnDargAreaState extends State<BrightnessVolumnDargArea> {
   VideoController get controller => widget.controller;
 
   Timer? _hideBVTimer;
+  Timer? _activateTimer;
   bool _hideBVStuff = true;
-  bool _isDargLeft = true;
+  bool _isBrightness = false;
+  bool _isActivated = false;
   double _updateDargVarVal = 1.0;
+  double _cachedBrightness = 0.5;
+
+  static const Duration _activateDelay = Duration(milliseconds: 300);
+
+  static const double _dragPixelsPerFullRange = 560.0;
+  static const double _wheelDyPerStep = 120.0;
+  static const double _wheelStepRatio = 0.05;
 
   @override
   void initState() {
     super.initState();
+    if (PlatformUtils.isMobile) {
+      controller.brightness().then((v) {
+        if (mounted) _cachedBrightness = v;
+      });
+    }
   }
 
   @override
   void dispose() {
     _hideBVTimer?.cancel();
+    _activateTimer?.cancel();
     super.dispose();
   }
 
   void updateVolumn(double? volume) {
-    _isDargLeft = false;
+    _isBrightness = false;
     _cancelAndRestartHideBVTimer();
     setState(() {
       _updateDargVarVal = volume!;
@@ -816,60 +832,72 @@ class BrightnessVolumnDargAreaState extends State<BrightnessVolumnDargArea> {
   void _cancelAndRestartHideBVTimer() {
     _hideBVTimer?.cancel();
     _hideBVTimer = Timer(const Duration(seconds: 1), () {
+      if (!mounted) return;
       setState(() => _hideBVStuff = true);
     });
     setState(() => _hideBVStuff = false);
   }
 
-  void _onVerticalDragUpdate(Offset position, Offset delta) async {
+  void _syncBaseValue(Offset position) {
+    final size = MediaQuery.of(context).size;
+    final isLeft = position.dx <= (size.width / 2);
+
+    if (Platform.isWindows && isLeft) {
+      _isBrightness = false;
+      _updateDargVarVal = controller.currentVolume.value;
+      return;
+    }
+
+    final newIsBrightness = isLeft && PlatformUtils.isMobile;
+
+    if (newIsBrightness != _isBrightness) {
+      _isBrightness = newIsBrightness;
+      _updateDargVarVal = _isBrightness ? _cachedBrightness : controller.currentVolume.value;
+    } else if (_hideBVStuff) {
+      _updateDargVarVal = _isBrightness ? _cachedBrightness : controller.currentVolume.value;
+    }
+  }
+
+  void _applyVerticalDelta(double dy) {
     if (controller.showLocked.value) return;
 
-    if (delta.distance < 0.5) return;
+    double deltaValue = -(dy / _dragPixelsPerFullRange);
+    double nextValue = (_updateDargVarVal + deltaValue).clamp(0.0, 1.0);
 
-    final size = MediaQuery.of(context).size;
-    final width = size.width;
-    final height = size.height;
+    if ((nextValue - _updateDargVarVal).abs() < 0.001) return;
 
-    final dargLeft = (position.dx > (width / 2)) ? false : true;
-
-    if (Platform.isWindows && dargLeft) return;
-
-    if (_hideBVStuff || _isDargLeft != dargLeft) {
-      _isDargLeft = dargLeft;
-      if (_isDargLeft) {
-        if (PlatformUtils.isMobile) {
-          double v = await controller.brightness();
-          setState(() => _updateDargVarVal = v);
-        }
-      } else {
-        double? v = await controller.volume();
-        setState(() => _updateDargVarVal = v ?? 1.0);
-      }
+    _updateDargVarVal = nextValue;
+    if (_isBrightness) {
+      _cachedBrightness = nextValue;
+      controller.setBrightness(nextValue);
+    } else {
+      controller.setVolume(nextValue);
     }
+    setState(() {});
+  }
 
-    _cancelAndRestartHideBVTimer();
+  void _applyScrollDelta(double dy) {
+    if (controller.showLocked.value) return;
 
-    double sensitivity = 0.25;
-    double deltaValue = -(delta.dy / (height / 2)) * sensitivity;
+    double deltaValue = -(dy / _wheelDyPerStep) * _wheelStepRatio;
+    double nextValue = (_updateDargVarVal + deltaValue).clamp(0.0, 1.0);
 
-    double dragRange = _updateDargVarVal + deltaValue;
+    if ((nextValue - _updateDargVarVal).abs() < 0.001) return;
 
-    dragRange = dragRange.clamp(0.0, 1.0);
-
-    if ((dragRange - _updateDargVarVal).abs() > 0.001) {
-      if (_isDargLeft) {
-        controller.setBrightness(dragRange);
-      } else {
-        controller.setVolume(dragRange);
-      }
-      setState(() => _updateDargVarVal = dragRange);
+    _updateDargVarVal = nextValue;
+    if (_isBrightness) {
+      _cachedBrightness = nextValue;
+      controller.setBrightness(nextValue);
+    } else {
+      controller.setVolume(nextValue);
     }
+    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
     IconData iconData;
-    if (_isDargLeft) {
+    if (_isBrightness) {
       iconData = _updateDargVarVal <= 0
           ? Icons.brightness_low
           : _updateDargVarVal < 0.5
@@ -886,53 +914,77 @@ class BrightnessVolumnDargAreaState extends State<BrightnessVolumnDargArea> {
     final int percentage = (_updateDargVarVal * 100).round();
 
     return Listener(
+      onPointerDown: (event) {
+        if (event.buttons != kPrimaryButton) return;
+        _syncBaseValue(event.position);
+        if (Platform.isWindows && _isBrightness) return;
+        _activateTimer?.cancel();
+        _isActivated = false;
+        _activateTimer = Timer(_activateDelay, () {
+          if (!mounted) return;
+          _isActivated = true;
+          _cancelAndRestartHideBVTimer();
+        });
+      },
+      onPointerMove: (event) {
+        if (!_isActivated) return;
+        _applyVerticalDelta(event.delta.dy);
+        _cancelAndRestartHideBVTimer();
+      },
+      onPointerUp: (_) {
+        _activateTimer?.cancel();
+        _isActivated = false;
+      },
+      onPointerCancel: (_) {
+        _activateTimer?.cancel();
+        _isActivated = false;
+      },
       onPointerSignal: (event) {
         if (event is PointerScrollEvent) {
-          _onVerticalDragUpdate(event.localPosition, event.scrollDelta);
+          _syncBaseValue(event.position);
+          if (Platform.isWindows && _isBrightness) return;
+          _applyScrollDelta(event.scrollDelta.dy);
+          _cancelAndRestartHideBVTimer();
         }
       },
-      child: GestureDetector(
-        onVerticalDragUpdate: (details) =>
-            _onVerticalDragUpdate(details.localPosition, details.delta),
-        child: Container(
-          color: Colors.transparent,
-          alignment: Alignment.center,
-          child: AnimatedOpacity(
-            opacity: !_hideBVStuff ? 0.8 : 0.0,
-            duration: const Duration(milliseconds: 300),
-            child: Card(
-              color: Colors.black,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Icon(iconData, color: Colors.white),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: SizedBox(
-                          width: 100,
-                          height: 20,
-                          child: LinearProgressIndicator(
-                            value: _updateDargVarVal,
-                            backgroundColor: Colors.white38,
-                            valueColor: const AlwaysStoppedAnimation(Colors.white),
-                          ),
+      child: Container(
+        color: Colors.transparent,
+        alignment: Alignment.center,
+        child: AnimatedOpacity(
+          opacity: !_hideBVStuff ? 0.8 : 0.0,
+          duration: const Duration(milliseconds: 300),
+          child: Card(
+            color: Colors.black,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Icon(iconData, color: Colors.white),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: SizedBox(
+                        width: 100,
+                        height: 20,
+                        child: LinearProgressIndicator(
+                          value: _updateDargVarVal,
+                          backgroundColor: Colors.white38,
+                          valueColor: const AlwaysStoppedAnimation(Colors.white),
                         ),
                       ),
                     ),
-                    Text(
-                      '$percentage%',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                      ),
+                  ),
+                  Text(
+                    '$percentage%',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -1844,21 +1896,26 @@ class BottomActionBar extends StatelessWidget {
   final VideoController controller;
   final double barHeight;
 
+  /// Vertical space reserved for the live cache progress bar above the
+  /// playback button row.
+  static const double progressBarSlot = 28.0;
+
   @override
   Widget build(BuildContext context) {
     return Obx(() {
       bool shouldShow =
           (controller.showController.value || controller.isMenuOpen.value) &&
           !controller.showLocked.value;
+      final totalHeight = barHeight + progressBarSlot;
       return AnimatedPositioned(
-        bottom: shouldShow ? 0 : -barHeight,
+        bottom: shouldShow ? 0 : -totalHeight,
         left: 0,
         right: 0,
-        height: barHeight,
+        height: totalHeight,
         duration: const Duration(milliseconds: 300),
         child: Container(
-          height: barHeight,
-          alignment: Alignment.centerLeft,
+          height: totalHeight,
+          alignment: Alignment.bottomLeft,
           padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -1867,55 +1924,65 @@ class BottomActionBar extends StatelessWidget {
               colors: [Colors.transparent, Colors.black45],
             ),
           ),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final localInteraction = controller.livePlayController.localInteractionController;
-              final fullscreen = GlobalPlayerState.to.fullscreenUI;
-              final compact = constraints.maxWidth < 760;
-              final left = _buildLeftActions(
-                compact: fullscreen && compact && localInteraction.enabled.value,
-              );
-              final right = _buildRightActions(compact: fullscreen && compact);
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              LiveProgressBar(controller: controller),
+              SizedBox(
+                height: barHeight,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final localInteraction =
+                        controller.livePlayController.localInteractionController;
+                    final fullscreen = GlobalPlayerState.to.fullscreenUI;
+                    final compact = constraints.maxWidth < 760;
+                    final left = _buildLeftActions(
+                      compact: fullscreen && compact && localInteraction.enabled.value,
+                    );
+                    final right = _buildRightActions(compact: fullscreen && compact);
 
-              if (fullscreen && localInteraction.enabled.value) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Row(
-                    children: [
-                      left,
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Align(
-                          alignment: Alignment.center,
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 420),
-                            child: FullscreenLocalDanmakuComposer(controller: controller),
+                    if (fullscreen && localInteraction.enabled.value) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Row(
+                          children: [
+                            left,
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Align(
+                                alignment: Alignment.center,
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(maxWidth: 420),
+                                  child: FullscreenLocalDanmakuComposer(controller: controller),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            right,
+                          ],
+                        ),
+                      );
+                    }
+
+                    return SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const PureLiveBoundedScrollPhysics(),
+                      clipBehavior: Clip.hardEdge,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [left, right],
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      right,
-                    ],
-                  ),
-                );
-              }
-
-              return SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                physics: const PureLiveBoundedScrollPhysics(),
-                clipBehavior: Clip.hardEdge,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [left, right],
-                    ),
-                  ),
+                    );
+                  },
                 ),
-              );
-            },
+              ),
+            ],
           ),
         ),
       );
@@ -1927,6 +1994,7 @@ class BottomActionBar extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         PlayPauseButton(controller: controller),
+        LiveEdgeButton(controller: controller),
         if (!compact) RefreshButton(controller: controller),
         if (!compact) FavoriteButton(controller: controller),
         if (SettingsService.to.danmaku.enableDanmakuDisplay.v) ...[
@@ -2150,13 +2218,51 @@ class RefreshButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: controller.refresh,
-      child: Container(
-        alignment: Alignment.center,
-        padding: const EdgeInsets.only(right: 6),
-        child: const Icon(Icons.refresh_rounded, color: Colors.white),
+    return Tooltip(
+      message: i18n('refresh'),
+      child: GestureDetector(
+        onTap: controller.refresh,
+        child: Container(
+          alignment: Alignment.center,
+          padding: const EdgeInsets.only(right: 6),
+          child: const Icon(Icons.autorenew_rounded, color: Colors.white),
+        ),
       ),
+    );
+  }
+}
+
+/// Jumps the playhead back to the live edge. Only shown for live streams
+/// that expose a seekable cache window (`player.canSeek`). Bound to the E
+/// key in [VideoKeyboardShortcuts].
+class LiveEdgeButton extends StatelessWidget {
+  const LiveEdgeButton({super.key, required this.controller});
+
+  final VideoController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final player = GlobalPlayerService.instance.player;
+    return StreamBuilder<Duration>(
+      stream: player.positionStream,
+      builder: (context, _) {
+        if (!player.canSeek) return const SizedBox.shrink();
+        return Tooltip(
+          message: i18n('live_edge_back_to_live'),
+          child: GestureDetector(
+            onTap: () {
+              controller.enableController();
+              player.seekToLiveEdge();
+              if (!player.isPlayingNow) player.resume();
+            },
+            child: Container(
+              alignment: Alignment.center,
+              padding: const EdgeInsets.only(right: 6, left: 6),
+              child: const Icon(Icons.refresh_rounded, color: Colors.white, size: 22),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -2470,7 +2576,7 @@ class SettingsPanel extends StatelessWidget {
               child: Row(
                 children: [
                   Container(
-                    width: 3.5,
+                    width: 3,
                     height: 18,
                     decoration: BoxDecoration(
                       color: colorScheme.primary,

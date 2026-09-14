@@ -255,7 +255,7 @@ class _HomePageState extends State<HomePage>
               adjustedIndex = -1;
             }
 
-            return !isTablet
+            final body = !isTablet
                 ? HomeMobileView(
                     body: currentWidget,
                     index: adjustedIndex,
@@ -269,6 +269,57 @@ class _HomePageState extends State<HomePage>
                     showRecord: activeMenuIds.contains(HomeMenu.record.id),
                     onDestinationSelected: onDestinationSelected,
                   );
+
+            return Stack(
+              children: [
+                body,
+                Obx(() {
+                  if (!favoriteController.showRefreshShield.value) {
+                    return const SizedBox.shrink();
+                  }
+                  return Positioned.fill(
+                    child: GestureDetector(
+                      onTap: () {},
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        color: Colors.black54,
+                        alignment: Alignment.center,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 280),
+                          child: Card(
+                            elevation: 8,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const CircularProgressIndicator(),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    i18n('favorite_refreshing_all'),
+                                    textAlign: TextAlign.center,
+                                    style: Theme.of(context).textTheme.bodyMedium,
+                                  ),
+                                  const SizedBox(height: 20),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: OutlinedButton.icon(
+                                      onPressed: favoriteController.requestCancelRefresh,
+                                      icon: const Icon(Icons.cancel_outlined, size: 18),
+                                      label: Text(i18n('cancel')),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ],
+            );
           });
         },
       ),

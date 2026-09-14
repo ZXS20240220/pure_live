@@ -135,6 +135,7 @@ class _MultiviewPageState extends State<MultiviewPage> {
     await WidgetsBinding.instance.endOfFrame;
     await WidgetsBinding.instance.endOfFrame;
     if (!mounted) return;
+    Navigator.of(context).pop();
   }
 
   bool _handleGlobalKeyEvent(KeyEvent event) {
@@ -145,8 +146,7 @@ class _MultiviewPageState extends State<MultiviewPage> {
       _closeRoomPanel();
       return true;
     }
-    if (_displayMode == _DisplayMode.normal) return false;
-    unawaited(_changeDisplayMode(_DisplayMode.normal));
+    _handleBackIntent();
     return true;
   }
 
@@ -372,11 +372,12 @@ class _MultiviewPageState extends State<MultiviewPage> {
   @override
   Widget build(BuildContext context) {
     return LivePlayBackScope(
-      presentationActive: _displayMode != _DisplayMode.normal,
+      presentationActive: true,
       onExitPresentation: _handleBackIntent,
       child: switch (_displayMode) {
         _DisplayMode.normal => Scaffold(
           appBar: AppBar(
+            leading: BackButton(onPressed: _handleBackIntent),
             title: Text(i18n('multiview_title')),
             actions: [
               IconButton(

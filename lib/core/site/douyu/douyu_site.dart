@@ -392,9 +392,9 @@ class DouyuSite
     try {
       final results = await Future.wait([_fetchRoomInfo(roomId), _fetchAiHighlight(roomId)]);
       final roomInfo = results[0] as Map<dynamic, dynamic>;
-      final aiHighlight = results[1] as String;
+      final aiHighlights = results[1] as List<Map<String, dynamic>>?;
 
-      return _buildRoom(roomInfo, roomId: roomId, aiHighlight: aiHighlight);
+      return _buildRoom(roomInfo, roomId: roomId, aiHighlights: aiHighlights);
     } catch (e) {
       if (Get.isRegistered<PlayerController>()) {
         final PlayerController playerController = Get.find<PlayerController>();
@@ -416,9 +416,9 @@ class DouyuSite
   }) async {
     final results = await Future.wait([_fetchRoomInfo(roomId), _fetchAiHighlight(roomId)]);
     final roomInfo = results[0] as Map<dynamic, dynamic>;
-    final aiHighlight = results[1] as String;
+    final aiHighlights = results[1] as List<Map<String, dynamic>>?;
 
-    return _buildRoom(roomInfo, roomId: roomId, aiHighlight: aiHighlight);
+    return _buildRoom(roomInfo, roomId: roomId, aiHighlights: aiHighlights);
   }
 
   @override
@@ -452,7 +452,7 @@ class DouyuSite
     return result as Map<dynamic, dynamic>;
   }
 
-  Future<String> _fetchAiHighlight(String roomId) async {
+  Future<List<Map<String, dynamic>>?> _fetchAiHighlight(String roomId) async {
     try {
       final result = await HttpClient.instance.postJson(
         'https://www.douyu.com/wgapi/vodnc/center/ailive/getHighlightDetail',
@@ -464,29 +464,25 @@ class DouyuSite
           'content-type': 'application/json',
         },
       );
-      if (result is! Map) return '';
+      if (result is! Map) return null;
       final data = result['data'];
-      if (data is! Map) return '';
+      if (data is! Map) return null;
       final highlightList = data['highlightList'];
-      if (highlightList is! List || highlightList.isEmpty) return '';
-      final first = highlightList.first;
-      if (first is! Map) return '';
-      final highlightTitle = (first['summary'] ?? first['title'] ?? '').toString().trim();
-      final highlightBody = (first['describe'] ?? '').toString().trim();
-      // 组合：标题 + 双换行 + 正文。两者都有值时拼起来，否则退到任一非空值
-      if (highlightTitle.isNotEmpty && highlightBody.isNotEmpty) {
-        return '$highlightTitle\n\n$highlightBody';
+      if (highlightList is! List || highlightList.isEmpty) return null;
+      final out = <Map<String, dynamic>>[];
+      for (final e in highlightList) {
+        if (e is Map) out.add(Map<String, dynamic>.from(e));
       }
-      return highlightBody.isNotEmpty ? highlightBody : highlightTitle;
+      return out.isEmpty ? null : out;
     } catch (_) {
-      return '';
+      return null;
     }
   }
 
   LiveRoom _buildRoom(
     Map<dynamic, dynamic> payload, {
     required String roomId,
-    String aiHighlight = '',
+    List<Map<String, dynamic>>? aiHighlights,
   }) {
     final roomInfo = payload['room'] ?? const <dynamic, dynamic>{};
     final childCate = payload['child_cate'];
@@ -496,6 +492,15 @@ class DouyuSite
 
     final levelInfo = roomInfo['levelInfo'];
     final roomBizAll = roomInfo['room_biz_all'];
+
+    final notice = () {
+      if (aiHighlights == null || aiHighlights.isEmpty) return '';
+      final first = aiHighlights.first;
+      final title = (first['summary'] ?? first['title'] ?? '').toString().trim();
+      final body = (first['describe'] ?? '').toString().trim();
+      if (title.isNotEmpty && body.isNotEmpty) return '$title\n\n$body';
+      return body.isNotEmpty ? body : title;
+    }();
 
     return LiveRoom(
       cover: roomInfo['room_pic'].toString(),
@@ -508,14 +513,15 @@ class DouyuSite
       avatar: roomInfo['owner_avatar'].toString(),
       introduction: stripHtmlAndUnescape(roomInfo['show_details'].toString()),
       area: () {
+        final first = roomInfo['first_lvl_name']?.toString().trim() ?? '';
         final second = roomInfo['second_lvl_name']?.toString().trim() ?? '';
+        if (second.isNotEmpty) return second;
+        if (first.isNotEmpty) return first;
         final child = childCate is Map ? childCate['name']?.toString().trim() ?? '' : '';
-        if (second.isNotEmpty && child.isNotEmpty && second != child) {
-          return '$second / $child';
-        }
-        return second.isNotEmpty ? second : child;
+        return child;
       }(),
-      notice: aiHighlight,
+      notice: notice,
+      aiHighlights: aiHighlights,
       anchorLevel: levelInfo is Map ? levelInfo['level']?.toString() ?? '' : '',
       unionName: roomBizAll is Map ? roomBizAll['clubOrgName']?.toString() ?? '' : '',
       liveStatus: live ? LiveStatus.live : LiveStatus.offline,
@@ -525,7 +531,7 @@ class DouyuSite
       platform: Sites.douyuSite,
       link: 'https://www.douyu.com/$roomId',
       isRecord: replay,
-      startTime: live && !replay ? _asInt(roomInfo['show_time']) : null,
+      startTime: _asInt(roomInfo['show_time']),
     );
   }
 

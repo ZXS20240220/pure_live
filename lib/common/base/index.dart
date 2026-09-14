@@ -11,3 +11,5 @@ export 'package:pure_live/common/base/server_fixed_page_controller.dart';
 export 'package:pure_live/common/base/server_remote_page_controller.dart';
 export 'package:pure_live/common/base/local_reactive_page_controller.dart';
 export 'package:pure_live/common/base/server_all_page_controller.dart';
+// utils
+export 'package:pure_live/common/base/focus_util.dart';

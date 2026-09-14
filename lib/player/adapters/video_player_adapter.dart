@@ -230,6 +230,27 @@ class BetterPlayerAdapter implements UnifiedPlayer, BetterPlayerAccessor {
   }
 
   @override
+  Future<void> seekTo(Duration position) async {}
+
+  @override
+  Future<void> seekRelative(Duration offset) async {}
+
+  @override
+  Future<void> seekToLiveEdge() async {}
+
+  @override
+  Stream<Duration> get positionStream => const Stream.empty();
+
+  @override
+  Duration get currentPosition => Duration.zero;
+
+  @override
+  Duration get liveEdgePosition => Duration.zero;
+
+  @override
+  bool get canSeek => false;
+
+  @override
   bool get isInitialized => _initialized;
   @override
   bool get isPlayingNow => _playingSubject.value;

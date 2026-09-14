@@ -29,17 +29,44 @@ void main() {
     Get.testMode = true;
     addTearDown(Get.reset);
     final tags = <LiveTag>[LiveTag(id: 'sleep', name: '助眠')].obs;
-    final selected = TagManagementController.allTagKey.obs;
+    final selected = <String>{TagManagementController.allTagKey}.obs;
+    final multiSelect = false.obs;
+    final untaggedCount = 0.obs;
 
     await tester.pumpWidget(
       GetMaterialApp(
         home: Scaffold(
           body: FavoriteTagStrip(
             tags: tags,
-            selectedTagId: selected,
+            selectedTagIds: selected,
+            visibleUntaggedCount: untaggedCount,
+            multiSelectMode: multiSelect,
+            onMultiSelectChanged: (v) => multiSelect.value = v,
             allLabel: '全部',
             labelStyle: const TextStyle(fontSize: 12),
-            onSelected: (tagId) => selected.value = tagId,
+            onSelected: (tagId) {
+              final isAll = tagId == TagManagementController.allTagKey;
+              if (multiSelect.value) {
+                if (isAll) {
+                  selected.assignAll({tagId});
+                } else {
+                  final ids = <String>{...selected};
+                  ids.remove(TagManagementController.allTagKey);
+                  if (ids.contains(tagId)) {
+                    ids.remove(tagId);
+                  } else {
+                    ids.add(tagId);
+                  }
+                  if (ids.isEmpty) {
+                    ids.add(TagManagementController.allTagKey);
+                  }
+                  selected.assignAll(ids);
+                }
+              } else {
+                if (selected.length == 1 && selected.first == tagId) return;
+                selected.assignAll({tagId});
+              }
+            },
           ),
         ),
       ),
@@ -55,13 +82,13 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('favorite_tag_sleep')));
     await tester.pump();
-    expect(selected.value, 'sleep');
+    expect(selected.value, {'sleep'});
     expect(chip(TagManagementController.allTagKey).selected, isFalse);
     expect(chip('sleep').selected, isTrue);
 
     await tester.tap(find.byKey(ValueKey('favorite_tag_${TagManagementController.allTagKey}')));
     await tester.pump();
-    expect(selected.value, TagManagementController.allTagKey);
+    expect(selected.value, {TagManagementController.allTagKey});
     expect(chip(TagManagementController.allTagKey).selected, isTrue);
     expect(chip('sleep').selected, isFalse);
   });

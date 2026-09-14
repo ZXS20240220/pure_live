@@ -2,6 +2,7 @@ import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/global/platform_utils.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:pure_live/modules/settings/pages/room_card_settings/room_card_config_controller.dart';
+import 'package:pure_live/modules/tags/tag_management_controller.dart';
 
 @visibleForTesting
 bool shouldWrapFavoritePullToRefresh({
@@ -86,6 +87,8 @@ class RoomGridView extends GetView<FavoriteController> {
               itemCount: displayList.length,
               itemBuilder: (context, index) {
                 final room = displayList[index];
+                final tagController = Get.find<TagManagementController>();
+                final isPinned = controller.enablePinned.value && tagController.isPinRoom(room);
                 return RoomCard(
                   key: ValueKey('${room.platform}:${room.roomId}'),
                   room: room,
@@ -94,6 +97,7 @@ class RoomGridView extends GetView<FavoriteController> {
                   statusPendingLabel: isVerifyingFavorites
                       ? i18n('favorite_status_verifying')
                       : i18n('favorite_status_unknown'),
+                  isPinned: isPinned,
                 );
               },
             );

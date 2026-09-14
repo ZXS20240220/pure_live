@@ -17,6 +17,7 @@ class RoomCardRenderer {
     this.onTap,
     this.onLongPress,
     this.debug = false,
+    this.isPinned = false,
   });
 
   final LiveRoom room;
@@ -29,6 +30,7 @@ class RoomCardRenderer {
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final bool debug;
+  final bool isPinned;
 
   bool get isDense => dense || config.denseMode;
 
@@ -50,6 +52,24 @@ class RoomCardRenderer {
   bool get showLiveBadge => config.showLiveBadge;
 
   bool get showRecordBadge => config.showRecordBadge;
+
+  bool get _shouldShowLastLiveTime {
+    if (room.isLiveNow) return false;
+    final ts = room.startTime;
+    return ts != null && ts > 0;
+  }
+
+  String get _lastLiveTimeText {
+    final ts = room.startTime;
+    if (ts == null || ts <= 0) return '';
+    final dt = DateTime.fromMillisecondsSinceEpoch(ts * 1000);
+    final y = dt.year;
+    final mo = dt.month.toString().padLeft(2, '0');
+    final d = dt.day.toString().padLeft(2, '0');
+    final h = dt.hour.toString().padLeft(2, '0');
+    final mi = dt.minute.toString().padLeft(2, '0');
+    return '上次直播\n$y-$mo-$d $h:$mi';
+  }
 
   bool get showDeleteButton => debug ? config.showDelete : (showDelete && config.showDelete);
 
@@ -378,6 +398,11 @@ class RoomCardRenderer {
     final showAudienceBadge = this.showAudienceBadge;
     final showPlatformTag = this.showPlatformTag;
     final showDebugFlash = this.showDebugFlash;
+    final showPinBadge = isPinned;
+
+    const badgeSlot = 32.0;
+    const pinSlot = 24.0;
+    final rightPadding = config.coverPositionPadding;
 
     return AspectRatio(
       aspectRatio: config.coverAspectRatio > 0 ? config.coverAspectRatio : 16 / 9,
@@ -393,6 +418,32 @@ class RoomCardRenderer {
               child: _buildCoverImage(context, isDark, effectiveDense),
             ),
 
+            if (_shouldShowLastLiveTime)
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: isDark ? 0.55 : 0.45),
+                  ),
+                  child: Center(
+                    child: Text(
+                      _lastLiveTimeText,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: effectiveDense ? 11 : 13,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.3,
+                        height: 1.4,
+                        shadows: const [
+                          Shadow(color: Colors.black54, blurRadius: 4, offset: Offset(0, 1)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
             if (showPlatformTag)
               Positioned(
                 left: config.coverPositionPadding,
@@ -402,9 +453,10 @@ class RoomCardRenderer {
 
             if (showRecordBadge)
               Positioned(
-                right: showDeleteButton
-                    ? config.coverPositionPadding + 32
-                    : config.coverPositionPadding,
+                right:
+                    rightPadding +
+                    (showDeleteButton ? badgeSlot : 0) +
+                    (showPinBadge ? pinSlot : 0),
                 top: config.coverPositionPadding,
                 child: CountChip(
                   icon: Icons.videocam_rounded,
@@ -425,9 +477,16 @@ class RoomCardRenderer {
 
             if (showDeleteButton)
               Positioned(
-                right: config.coverPositionPadding,
+                right: rightPadding + (showPinBadge ? pinSlot : 0),
                 top: config.coverPositionPadding,
                 child: _buildDeleteButton(effectiveDense),
+              ),
+
+            if (showPinBadge)
+              Positioned(
+                right: rightPadding,
+                top: config.coverPositionPadding,
+                child: _buildPinBadge(context, effectiveDense),
               ),
 
             if (showDebugFlash)
@@ -696,6 +755,32 @@ class RoomCardRenderer {
           RemixIcons.delete_bin_line,
           color: config.deleteButtonIconColor,
           size: effectiveDense ? config.denseDeleteButtonSize : config.deleteButtonSize,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPinBadge(BuildContext context, bool effectiveDense) {
+    return Tooltip(
+      message: i18n('favorite_pinned_badge'),
+      child: Container(
+        width: 24,
+        height: 24,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.primary,
+          borderRadius: BorderRadius.circular(6),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Icon(
+          RemixIcons.pushpin_fill,
+          color: Theme.of(context).colorScheme.onPrimary,
+          size: effectiveDense ? 14 : 16,
         ),
       ),
     );

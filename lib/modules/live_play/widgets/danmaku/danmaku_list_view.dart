@@ -495,64 +495,120 @@ class DanmakuItem extends StatelessWidget {
 
     final textColor = isDark ? Colors.white70 : Colors.black87;
 
+    final showLevel = danmaku.userLevel.isNotEmpty && danmaku.userLevel != '0';
+    final showFans = danmaku.fansName.isNotEmpty;
+
     return RepaintBoundary(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: cardBgColor, // 动态背景色
+            color: cardBgColor,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: vibrantColor.withValues(alpha: 0.08), width: 0.5),
           ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  margin: const EdgeInsets.only(top: 6, right: 10),
-                  decoration: BoxDecoration(color: vibrantColor, shape: BoxShape.circle),
-                ),
-
-                Expanded(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onSecondaryTap: () => _showActions(context),
-                    onLongPress: () => _showActions(context),
-                    onDoubleTap: _copyMessage,
-                    child: Text.rich(
-                      TextSpan(
-                        children: [
-                          TextSpan(
-                            text: '${danmaku.userName}: ',
-                            style: AppTextStyles.t14.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: textColor,
-                            ),
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onSecondaryTap: () => _showActions(context),
+            onLongPress: () => _showActions(context),
+            onDoubleTap: _copyMessage,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Text.rich(
+                TextSpan(
+                  style: AppTextStyles.t14.copyWith(
+                    fontWeight: FontWeight.w500,
+                    color: textColor,
+                    height: 1.45,
+                  ),
+                  children: [
+                    if (showLevel)
+                      WidgetSpan(
+                        alignment: PlaceholderAlignment.middle,
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 5),
+                          child: _LevelBadge(level: danmaku.userLevel, color: vibrantColor),
+                        ),
+                      ),
+                    if (showFans)
+                      WidgetSpan(
+                        alignment: PlaceholderAlignment.middle,
+                        child: Padding(
+                          padding: EdgeInsets.only(right: showLevel ? 5 : 5),
+                          child: _FansBadge(
+                            fansName: danmaku.fansName,
+                            fansLevel: danmaku.fansLevel,
                           ),
-                          TextSpan(
-                            children: parseEmojis(
-                              danmaku.message,
-                              AppTextStyles.t14.fontSize!,
-                              textColor,
-                            ),
-                            style: AppTextStyles.t14.copyWith(
-                              height: 1.45,
-                              fontWeight: FontWeight.w500,
-                              color: textColor,
-                            ),
-                          ),
-                        ],
+                        ),
+                      ),
+                    TextSpan(
+                      text: '${danmaku.userName}: ',
+                      style: AppTextStyles.t14.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: textColor,
                       ),
                     ),
-                  ),
+                    TextSpan(
+                      children: parseEmojis(
+                        danmaku.message,
+                        AppTextStyles.t14.fontSize!,
+                        textColor,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LevelBadge extends StatelessWidget {
+  final String level;
+  final Color color;
+  const _LevelBadge({required this.level, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final textColor = color.computeLuminance() > 0.5 ? Colors.black : Colors.white;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        level,
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: textColor, height: 1.2),
+      ),
+    );
+  }
+}
+
+class _FansBadge extends StatelessWidget {
+  final String fansName;
+  final String fansLevel;
+  const _FansBadge({required this.fansName, required this.fansLevel});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0x33FFFFFF),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: const Color(0x55FFFFFF), width: 0.5),
+      ),
+      child: Text(
+        [fansName, fansLevel].where((s) => s.isNotEmpty).join(' '),
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: Colors.white70,
+          height: 1.2,
         ),
       ),
     );

@@ -135,6 +135,18 @@ class _AboutPageState extends State<AboutPage> {
                 launchUrl(Uri.parse(VersionUtil.projectUrl), mode: LaunchMode.externalApplication);
               },
             ),
+            context.buildTile(
+              icon: Remix.git_branch_line,
+              title: i18n('fork_repository'),
+              subtitle: 'https://github.com/ZXS20240220/pure_live/tree/dev_20260910',
+              isLong: true,
+              onTap: () {
+                launchUrl(
+                  Uri.parse('https://github.com/ZXS20240220/pure_live/tree/dev_20260910'),
+                  mode: LaunchMode.externalApplication,
+                );
+              },
+            ),
             buildTile(
               icon: Remix.error_warning_line,
               title: i18n('project_alert'),
@@ -226,7 +238,8 @@ class _AboutPageState extends State<AboutPage> {
   void showCheckUpdateDialog(BuildContext context) async {
     showDialog(
       context: Get.context!,
-      builder: (context) => VersionUtil.hasNewVersion() ? const NewVersionDialog() : const NoNewVersionDialog(),
+      builder: (context) =>
+          VersionUtil.hasNewVersion() ? const NewVersionDialog() : const NoNewVersionDialog(),
     );
   }
 

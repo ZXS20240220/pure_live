@@ -1,23 +1,17 @@
+import 'package:flutter/services.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/base/base_controller.dart';
 import 'package:pure_live/common/global/platform_utils.dart';
 
-class BasePageView<C extends BasePageScrollAndStateBone<T>, T> extends StatelessWidget {
+class BasePageView<C extends BasePageScrollAndStateBone<T>, T> extends StatefulWidget {
   final C controller;
   final Widget Function(BuildContext context, List<T> list, ScrollController scrollController)
   contentBuilder;
   final bool enableRefresh;
   final bool enableLoadMore;
 
-  /// Lets a nested tab page own the mobile refresh indicator directly.
-  ///
-  /// A refresh wrapper outside a horizontal [PageView] does not reliably
-  /// receive overscroll notifications from its active vertical child.
   final bool wrapMobileRefresh;
 
-  /// Keeps [contentBuilder] mounted after an empty snapshot has been
-  /// published. Tabbed pages use this so landing on one empty tab does not
-  /// dispose the surrounding TabBarView and strand the horizontal gesture.
   final bool preserveContentWhenEmpty;
   final bool? showScrollToTopBtn;
   final bool showPageSizeSelector;
@@ -28,6 +22,8 @@ class BasePageView<C extends BasePageScrollAndStateBone<T>, T> extends Stateless
   final Widget Function(BuildContext context)? notLoginBuilder;
   final Widget Function(BuildContext context, String errorMsg)? errorBuilder;
   final Widget Function(BuildContext context)? emptyBuilder;
+
+  final bool keyboardPagingEnabled;
 
   const BasePageView({
     super.key,
@@ -45,24 +41,69 @@ class BasePageView<C extends BasePageScrollAndStateBone<T>, T> extends Stateless
     this.notLoginBuilder,
     this.errorBuilder,
     this.emptyBuilder,
+    this.keyboardPagingEnabled = true,
   });
 
   @override
+  State<BasePageView<C, T>> createState() => _BasePageViewState<C, T>();
+}
+
+class _BasePageViewState<C extends BasePageScrollAndStateBone<T>, T>
+    extends State<BasePageView<C, T>> {
+  bool _isDesktop = false;
+
+  KeyEventResult _onContentKeyEvent(FocusNode node, KeyEvent event) {
+    if (!widget.keyboardPagingEnabled) return KeyEventResult.ignored;
+    if (!_isDesktop) return KeyEventResult.ignored;
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    if (isEditingFocused()) return KeyEventResult.ignored;
+
+    final controller = widget.controller;
+
+    switch (event.logicalKey) {
+      case LogicalKeyboardKey.arrowLeft:
+        if (controller.currentPage > 1 && !controller.loadding.value) {
+          controller.goToPage(controller.currentPage - 1);
+        }
+        return KeyEventResult.handled;
+
+      case LogicalKeyboardKey.arrowRight:
+        if (controller.canLoadMore.value && !controller.loadding.value && widget.enableLoadMore) {
+          controller.goToPage(controller.currentPage + 1);
+        }
+        return KeyEventResult.handled;
+    }
+
+    return KeyEventResult.ignored;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final bool showBtn = showScrollToTopBtn ?? true;
+    final bool showBtn = widget.showScrollToTopBtn ?? true;
     final double currentWidth = context.width;
     final bool isDesktop = currentWidth > 680 && !PlatformUtils.isMobile;
+    _isDesktop = isDesktop;
 
     double bottomPadding = isDesktop
-        ? (customDesktopBottomPadding ?? 70)
-        : (customMobileBottomPadding ?? 20);
+        ? (widget.customDesktopBottomPadding ?? 70)
+        : (widget.customMobileBottomPadding ?? 20);
 
     return Stack(
       children: [
         Column(
           children: [
             Obx(() {
-              if (controller.showCellularBanner.value && controller.list.isNotEmpty) {
+              if (widget.controller.showCellularBanner.value && widget.controller.list.isNotEmpty) {
                 return Container(
                   margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                   decoration: BoxDecoration(
@@ -112,7 +153,7 @@ class BasePageView<C extends BasePageScrollAndStateBone<T>, T> extends Stateless
                             ),
                             onPressed: () {
                               BaseController.neverShowCellularBanner = true;
-                              controller.showCellularBanner.value = false;
+                              widget.controller.showCellularBanner.value = false;
                             },
                             child: Text(
                               i18n('never_show'),
@@ -134,12 +175,12 @@ class BasePageView<C extends BasePageScrollAndStateBone<T>, T> extends Stateless
             Expanded(
               child: LayoutBuilder(
                 builder: (context, constraint) {
-                  controller.checkAndNotifyLayoutChange(isDesktop);
+                  widget.controller.checkAndNotifyLayoutChange(isDesktop);
                   return Obx(() {
-                    if (controller.list.isEmpty) {
-                      if (controller.notLogin.value) {
-                        final view = notLoginBuilder != null
-                            ? notLoginBuilder!(context)
+                    if (widget.controller.list.isEmpty) {
+                      if (widget.controller.notLogin.value) {
+                        final view = widget.notLoginBuilder != null
+                            ? widget.notLoginBuilder!(context)
                             : AppStatusView(
                                 type: AppStatusType.error,
                                 icon: Icons.account_circle_outlined,
@@ -148,32 +189,48 @@ class BasePageView<C extends BasePageScrollAndStateBone<T>, T> extends Stateless
                                 buttonText: i18n('go_to_login'),
                                 onButtonPressed: () => Get.toNamed(RoutePath.kSettingsAccount),
                               );
-                        return _buildScrollableStatus(isDesktop, constraint, controller, view);
+                        return _buildScrollableStatus(
+                          isDesktop,
+                          constraint,
+                          widget.controller,
+                          view,
+                        );
                       }
-                      if (controller.pageError.value) {
-                        final view = errorBuilder != null
-                            ? errorBuilder!(context, controller.errorMsg.value)
+                      if (widget.controller.pageError.value) {
+                        final view = widget.errorBuilder != null
+                            ? widget.errorBuilder!(context, widget.controller.errorMsg.value)
                             : AppStatusView(
                                 type: AppStatusType.error,
                                 icon: Icons.wifi_off_rounded,
                                 title: i18n('network_error_title'),
-                                subtitle: controller.errorMsg.value,
+                                subtitle: widget.controller.errorMsg.value,
                                 buttonText: i18n('retry'),
-                                onButtonPressed: controller.refreshData,
+                                onButtonPressed: widget.controller.refreshData,
                               );
-                        return _buildScrollableStatus(isDesktop, constraint, controller, view);
+                        return _buildScrollableStatus(
+                          isDesktop,
+                          constraint,
+                          widget.controller,
+                          view,
+                        );
                       }
-                      if (controller.pageEmpty.value && !preserveContentWhenEmpty) {
-                        final view = emptyBuilder != null
-                            ? emptyBuilder!(context)
+                      if (widget.controller.pageEmpty.value && !widget.preserveContentWhenEmpty) {
+                        final view = widget.emptyBuilder != null
+                            ? widget.emptyBuilder!(context)
                             : AppStatusView(
                                 type: AppStatusType.empty,
                                 title: i18n('no_data'),
                                 subtitle: '',
                               );
-                        return _buildScrollableStatus(isDesktop, constraint, controller, view);
+                        return _buildScrollableStatus(
+                          isDesktop,
+                          constraint,
+                          widget.controller,
+                          view,
+                        );
                       }
-                      if (preserveContentWhenEmpty && controller.totalCount.value != null) {
+                      if (widget.preserveContentWhenEmpty &&
+                          widget.controller.totalCount.value != null) {
                         return buildActualContent(context, isDesktop);
                       }
                       return AppStatusView(
@@ -196,7 +253,7 @@ class BasePageView<C extends BasePageScrollAndStateBone<T>, T> extends Stateless
           left: 0,
           right: 0,
           child: Obx(() {
-            if (controller.list.isNotEmpty && controller.loadding.value) {
+            if (widget.controller.list.isNotEmpty && widget.controller.loadding.value) {
               return SizedBox(
                 height: 2.5,
                 child: LinearProgressIndicator(
@@ -218,7 +275,7 @@ class BasePageView<C extends BasePageScrollAndStateBone<T>, T> extends Stateless
     C controller,
     Widget statusView,
   ) {
-    if (isDesktop || !enableRefresh) {
+    if (isDesktop || !widget.enableRefresh) {
       return Center(child: statusView);
     }
     return EasyRefresh(
@@ -229,5 +286,88 @@ class BasePageView<C extends BasePageScrollAndStateBone<T>, T> extends Stateless
         children: [SizedBox(height: constraint.maxHeight * 0.8, child: statusView)],
       ),
     );
+  }
+
+  Widget buildActualContent(BuildContext context, bool isDesktop) {
+    if (isDesktop) {
+      return Focus(
+        autofocus: true,
+        onKeyEvent: _onContentKeyEvent,
+        child: Column(
+          children: [
+            Expanded(
+              child: widget.contentBuilder(
+                context,
+                widget.controller.list,
+                widget.controller.scrollController,
+              ),
+            ),
+            if (widget.enableLoadMore)
+              DesktopPaginationBar(
+                controller: widget.controller,
+                showSelector: widget.showPageSizeSelector,
+                options: widget.pageSizeOptions,
+              ),
+          ],
+        ),
+      );
+    } else if (widget.wrapMobileRefresh) {
+      return EasyRefresh(
+        controller: widget.controller.easyRefreshController,
+        onRefresh: widget.enableRefresh ? widget.controller.refreshData : null,
+        onLoad: (widget.enableLoadMore && widget.controller.canLoadMore.value)
+            ? () async {
+                await widget.controller.loadMoreData();
+              }
+            : null,
+        child: widget.contentBuilder(
+          context,
+          widget.controller.list,
+          widget.controller.scrollController,
+        ),
+      );
+    }
+    return widget.contentBuilder(
+      context,
+      widget.controller.list,
+      widget.controller.scrollController,
+    );
+  }
+
+  Widget buildFloatingButtons(BuildContext context) {
+    return Obx(() {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedScale(
+            scale: widget.controller.showBackToTop.value ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 200),
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: FloatingActionButton(
+                heroTag: 'base_page_view_to_top_${widget.controller.hashCode}',
+                mini: true,
+                elevation: 3,
+                backgroundColor: Theme.of(context).cardColor,
+                onPressed: widget.controller.scrollToTopOrRefresh,
+                child: const Icon(Icons.arrow_upward_rounded),
+              ),
+            ),
+          ),
+          AnimatedScale(
+            scale: widget.controller.showBackToBottom.value ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 200),
+            child: FloatingActionButton(
+              heroTag: 'base_page_view_to_bottom_${widget.controller.hashCode}',
+              mini: true,
+              elevation: 3,
+              backgroundColor: Theme.of(context).cardColor,
+              onPressed: widget.controller.scrollToBottom,
+              child: const Icon(Icons.arrow_downward_rounded),
+            ),
+          ),
+        ],
+      );
+    });
   }
 }

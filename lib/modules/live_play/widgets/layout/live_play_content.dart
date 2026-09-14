@@ -7,6 +7,7 @@ import 'package:pure_live/modules/live_play/widgets/danmaku/danmaku_tab.dart';
 import 'package:pure_live/modules/live_play/widgets/layout/live_play_shell.dart';
 import 'package:pure_live/modules/live_play/widgets/layout/live_play_video.dart';
 import 'package:pure_live/modules/live_play/widgets/layout/live_play_header.dart';
+import 'package:pure_live/modules/live_play/widgets/layout/panel_resize_divider.dart';
 import 'package:pure_live/modules/live_play/controllers/live_play_controller.dart';
 import 'package:pure_live/modules/live_play/widgets/resolution_selector/resolutions_row.dart';
 
@@ -16,7 +17,7 @@ LivePlayLayoutType resolveLivePlayLayoutType(double width) {
   return width <= 680 ? LivePlayLayoutType.portrait : LivePlayLayoutType.desktop;
 }
 
-class LivePlayLayout extends StatelessWidget {
+class LivePlayLayout extends StatefulWidget {
   const LivePlayLayout({
     super.key,
     required this.video,
@@ -33,10 +34,32 @@ class LivePlayLayout extends StatelessWidget {
   final bool showPanel;
 
   @override
+  State<LivePlayLayout> createState() => _LivePlayLayoutState();
+}
+
+class _LivePlayLayoutState extends State<LivePlayLayout> {
+  late final ValueNotifier<double> _panelWidthNotifier;
+
+  @override
+  void initState() {
+    super.initState();
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    _panelWidthNotifier = ValueNotifier<double>(
+      SettingsService.to.panel.clampWidth(SettingsService.to.panel.panelWidth, screenWidth),
+    );
+  }
+
+  @override
+  void dispose() {
+    _panelWidthNotifier.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (!showPanel) {
+    if (!widget.showPanel) {
       return SizedBox.expand(
-        child: ColoredBox(color: Colors.black, child: video),
+        child: ColoredBox(color: Colors.black, child: widget.video),
       );
     }
 
@@ -64,9 +87,9 @@ class LivePlayLayout extends StatelessWidget {
             color: panelColor,
             child: Column(
               children: [
-                resolution,
+                widget.resolution,
                 const Divider(height: 1),
-                Expanded(child: danmaku),
+                Expanded(child: widget.danmaku),
               ],
             ),
           ),
@@ -76,40 +99,56 @@ class LivePlayLayout extends StatelessWidget {
   }
 
   Widget _buildDesktopLayout(BuildContext context) {
-    const panelWidth = 340.0;
     final panelColor = Theme.of(context).colorScheme.surface;
+    final screenWidth = MediaQuery.sizeOf(context).width;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Expanded(
-          child: Container(color: Colors.black, child: video),
-        ),
-        SizedBox(
-          width: panelWidth,
-          child: ColoredBox(
-            color: panelColor,
-            child: Column(
-              children: [
-                resolution,
-                const Divider(height: 1),
-                Expanded(child: danmaku),
-              ],
+    return ValueListenableBuilder<double>(
+      valueListenable: _panelWidthNotifier,
+      builder: (context, panelWidth, _) {
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: Container(color: Colors.black, child: widget.video),
             ),
-          ),
-        ),
-      ],
+            PanelResizeDivider(
+              currentWidth: panelWidth,
+              clampWidth: (width, screenWidth) =>
+                  SettingsService.to.panel.clampWidth(width, screenWidth),
+              onResize: (newWidth) {
+                _panelWidthNotifier.value = newWidth;
+              },
+              onDragEnd: (finalWidth) {
+                SettingsService.to.panel.setPanelWidth(finalWidth, screenWidth);
+              },
+            ),
+            SizedBox(
+              width: panelWidth,
+              child: ColoredBox(
+                color: panelColor,
+                child: Column(
+                  children: [
+                    widget.resolution,
+                    const Divider(height: 1),
+                    Expanded(child: widget.danmaku),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
   Widget _buildVideo(BuildContext context, BoxConstraints constraints) {
-    switch (layoutMode) {
+    switch (widget.layoutMode) {
       case PortraitLayoutMode.balanced:
         return SizedBox(
           width: constraints.maxWidth,
           child: AspectRatio(
             aspectRatio: 16 / 9,
-            child: ColoredBox(color: Colors.black, child: video),
+            child: ColoredBox(color: Colors.black, child: widget.video),
           ),
         );
 
@@ -117,7 +156,7 @@ class LivePlayLayout extends StatelessWidget {
         return SizedBox(
           width: constraints.maxWidth,
           height: constraints.maxHeight,
-          child: ColoredBox(color: Colors.black, child: video),
+          child: ColoredBox(color: Colors.black, child: widget.video),
         );
 
       case PortraitLayoutMode.compatibility:
@@ -144,7 +183,7 @@ class LivePlayLayout extends StatelessWidget {
             width: width,
             child: AspectRatio(
               aspectRatio: aspectRatio,
-              child: ColoredBox(color: Colors.black, child: video),
+              child: ColoredBox(color: Colors.black, child: widget.video),
             ),
           );
         }
@@ -156,7 +195,7 @@ class LivePlayLayout extends StatelessWidget {
         return SizedBox(
           width: width,
           height: height,
-          child: ColoredBox(color: Colors.black, child: video),
+          child: ColoredBox(color: Colors.black, child: widget.video),
         );
       },
     );

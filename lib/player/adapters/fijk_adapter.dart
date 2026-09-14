@@ -262,6 +262,27 @@ class FijkAdapter implements UnifiedPlayer, FijkPlayerAccessor {
     await _player.setVolume(volume);
   }
 
+  @override
+  Future<void> seekTo(Duration position) async {}
+
+  @override
+  Future<void> seekRelative(Duration offset) async {}
+
+  @override
+  Future<void> seekToLiveEdge() async {}
+
+  @override
+  Stream<Duration> get positionStream => const Stream.empty();
+
+  @override
+  Duration get currentPosition => Duration.zero;
+
+  @override
+  Duration get liveEdgePosition => Duration.zero;
+
+  @override
+  bool get canSeek => false;
+
   // =========================
   // GETTER
   // =========================

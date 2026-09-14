@@ -14,6 +14,7 @@ import 'package:pure_live/common/services/settings/bilibili_account_service.dart
 import 'package:pure_live/common/services/settings/favorite_room_controller.dart';
 import 'package:pure_live/common/services/settings/exit_settings_controller.dart';
 import 'package:pure_live/common/services/settings/font_settings_controller.dart';
+import 'package:pure_live/common/services/settings/panel_size_controller.dart';
 import 'package:pure_live/common/services/settings/iptv_settings_controller.dart';
 import 'package:pure_live/common/services/settings/refresh_config_controller.dart';
 import 'package:pure_live/common/services/settings/proxy_settings_controller.dart';
@@ -35,6 +36,7 @@ class SettingsService extends GetxService {
   PlayerSettingsController get player => Get.find<PlayerSettingsController>();
   DanmakuSettingsController get danmaku => Get.find<DanmakuSettingsController>();
   FontSettingsController get font => Get.find<FontSettingsController>();
+  PanelSizeController get panel => Get.find<PanelSizeController>();
   WindowSizeController get window => Get.find<WindowSizeController>();
   FavoriteRoomController get fav => Get.find<FavoriteRoomController>();
   HistoryController get history => Get.find<HistoryController>();
@@ -91,6 +93,7 @@ class SettingsService extends GetxService {
     Get.lazyPut(() => lockInject(TagManagementController.new), fenix: true);
     Get.lazyPut(() => lockInject(BiliBiliAccountService.new), fenix: true);
     Get.lazyPut(() => lockInject(FontSettingsController.new), fenix: true);
+    Get.lazyPut(() => lockInject(PanelSizeController.new), fenix: true);
     Get.lazyPut(() => lockInject(LogController.new), fenix: true);
 
     Get.put(ExitSettingsController(), permanent: true);

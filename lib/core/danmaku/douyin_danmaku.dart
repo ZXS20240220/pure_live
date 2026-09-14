@@ -192,10 +192,11 @@ class DouyinDanmaku implements LiveDanmaku {
       return;
     }
     final commonMessageId = chatMessage.hasCommon() ? chatMessage.common.msgId.toString() : '';
+    final rawCreateTime = chatMessage.hasCommon() ? chatMessage.common.createTime.toInt() : 0;
+
     final resolvedMessageId = commonMessageId.isNotEmpty && commonMessageId != '0'
         ? commonMessageId
         : (envelopeMessageId == '0' ? '' : envelopeMessageId);
-    final rawCreateTime = chatMessage.hasCommon() ? chatMessage.common.createTime.toInt() : 0;
     final sentAt = rawCreateTime <= 0
         ? null
         : DateTime.fromMillisecondsSinceEpoch(

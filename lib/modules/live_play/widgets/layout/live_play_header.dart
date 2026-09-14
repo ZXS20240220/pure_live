@@ -142,7 +142,12 @@ class LivePlayHeader extends StatelessWidget implements PreferredSizeWidget {
               final detail = controller.state.value.room.detail;
               if (detail == null) return const SizedBox.shrink();
               if (!detail.isLiveNow) return const SizedBox.shrink();
-              final startTime = detail.startTime;
+              var startTime = detail.startTime;
+              if (startTime == null || startTime <= 0) {
+                if (Get.isRegistered<FavoriteController>()) {
+                  startTime = Get.find<FavoriteController>().getFakeStartTime(detail.identityKey);
+                }
+              }
               if (startTime == null || startTime <= 0) return const SizedBox.shrink();
               return _LiveDurationIndicator(startTime: startTime);
             }),
@@ -211,7 +216,7 @@ class LivePlayHeader extends StatelessWidget implements PreferredSizeWidget {
           Tooltip(
             message: i18n('open_live_room'),
             child: IconButton(
-              icon: const Icon(Icons.open_in_new_rounded),
+              icon: const Icon(Icons.open_in_browser_rounded),
               onPressed: () => controller.openNaviteAPP(),
             ),
           ),
@@ -292,7 +297,7 @@ class _LiveDurationIndicator extends StatelessWidget {
           }
           final text = _formatDuration(durationSeconds);
           return Tooltip(
-            message: '已播时间',
+            message: '已播时长',
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [

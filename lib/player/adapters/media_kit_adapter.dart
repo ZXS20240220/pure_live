@@ -64,6 +64,34 @@ class MediaKitAdapter implements UnifiedPlayer, MediaKitPlayerAccessor {
   StreamSubscription? _completeSub;
   StreamSubscription? _errorSub;
   StreamSubscription? _videoParamsSub;
+  StreamSubscription? _positionSub;
+  StreamSubscription? _durationSub;
+
+  Duration _lastPosition = Duration.zero;
+  Duration _lastDuration = Duration.zero;
+
+  /// Target of the most recent interactive seek, used as the arithmetic base
+  /// for repeated arrow-key seeks while `time-pos` has not caught up yet.
+  /// mpv's native relative seeks accumulate against its internal playback
+  /// time; with absolute seeks we emulate that so quick repeated presses move
+  /// by N*step instead of re-seeking the same spot.
+  Duration? _pendingSeekTarget;
+  DateTime? _pendingSeekAt;
+
+  /// Seekable ranges reported by mpv's `demuxer-cache-state`.
+  ///
+  /// Each entry is `(start, end)` in the same time base as `time-pos`
+  /// (mpv adds `ts_offset` when serialising them). These ranges are the
+  /// *only* positions a seek may target without making mpv drop the cache
+  /// and reconnect the live stream (see `switch_to_fresh_cache_range` in
+  /// mpv's demux.c).
+  List<({Duration start, Duration end})> _seekableRanges = const [];
+
+  /// Polls `demuxer-cache-state` because mpv does not push property-change
+  /// events for this structured property. The `duration` property is polled
+  /// as well so the live timeline length (which keeps growing for live
+  /// streams) stays in sync even if the duration stream event is delayed.
+  Timer? _cacheStateTimer;
 
   static Future<void> applyNativeLiveProperties(NativePlayer native) async {
     await native.setProperty('force-seekable', 'yes');
@@ -484,6 +512,12 @@ class MediaKitAdapter implements UnifiedPlayer, MediaKitPlayerAccessor {
 
     _currentUrl = url;
 
+    _lastPosition = Duration.zero;
+    _lastDuration = Duration.zero;
+    _seekableRanges = const [];
+    _pendingSeekTarget = null;
+    _pendingSeekAt = null;
+
     try {
       _loadingSubject.add(true);
 
@@ -651,13 +685,38 @@ class MediaKitAdapter implements UnifiedPlayer, MediaKitPlayerAccessor {
       },
     );
 
+    _positionSub = _player.stream.position.listen((pos) {
+      if (_disposed) return;
+      _lastPosition = pos;
+      final pending = _pendingSeekTarget;
+      if (pending != null && (pos - pending).inMilliseconds.abs() < 1500) {
+        _pendingSeekTarget = null;
+        _pendingSeekAt = null;
+      }
+    });
+
+    _durationSub = _player.stream.duration.listen((dur) {
+      if (_disposed) return;
+      // Ignore spurious zero/regressing events during live playback
+      // (media_kit re-seeds the subject on source switches; live `duration`
+      // is monotonically growing). A genuine reset goes through
+      // setDataSource/softStop which clear `_lastDuration` first.
+      if (dur > Duration.zero && dur >= _lastDuration) {
+        _lastDuration = dur;
+      }
+    });
+
     _subscriptions.addAll([
       _playingSub!,
       _bufferingSub!,
       _completeSub!,
       _errorSub!,
       _videoParamsSub!,
+      _positionSub!,
+      _durationSub!,
     ]);
+
+    _startCacheStatePolling();
   }
 
   Future<void> _cancelAllSubscriptions() async {
@@ -672,6 +731,71 @@ class MediaKitAdapter implements UnifiedPlayer, MediaKitPlayerAccessor {
     _completeSub = null;
     _errorSub = null;
     _videoParamsSub = null;
+    _positionSub = null;
+    _durationSub = null;
+  }
+
+  /// Parses the string form of mpv's `demuxer-cache-state` property.
+  ///
+  /// mpv serialises `MPV_FORMAT_NODE_ARRAY` / `MPV_FORMAT_NODE_MAP` values
+  /// with the `{key=value,...}` / `[...]` syntax produced by
+  /// `mpv_get_property_string`. We only need the `start`/`end` pairs of the
+  /// `seekable-ranges` list, so a small regex is sufficient and robust
+  /// against surrounding fields that may change between mpv versions.
+  static List<({Duration start, Duration end})> parseSeekableRanges(String raw) {
+    if (raw.isEmpty) return const [];
+    final ranges = <({Duration start, Duration end})>[];
+    // mpv serialises each seekable range as a `{...}` map. Parse each block
+    // independently so field ordering and whitespace do not matter.
+    final blockRegExp = RegExp(r'\{([^{}]*)\}');
+    // Tolerate optional whitespace around `=` and scientific notation.
+    final startRegExp = RegExp(r'start\s*=\s*([-+]?[\d.eE+-]+)');
+    final endRegExp = RegExp(r'end\s*=\s*([-+]?[\d.eE+-]+)');
+    for (final block in blockRegExp.allMatches(raw)) {
+      final content = block.group(1)!;
+      final startMatch = startRegExp.firstMatch(content);
+      final endMatch = endRegExp.firstMatch(content);
+      if (startMatch == null || endMatch == null) continue;
+      final start = double.tryParse(startMatch.group(1)!);
+      final end = double.tryParse(endMatch.group(1)!);
+      if (start == null || end == null || end <= start) continue;
+      ranges.add((
+        start: Duration(microseconds: (start * 1e6).round()),
+        end: Duration(microseconds: (end * 1e6).round()),
+      ));
+    }
+    return ranges;
+  }
+
+  void _startCacheStatePolling() {
+    _cacheStateTimer?.cancel();
+    _cacheStateTimer = Timer.periodic(const Duration(milliseconds: 500), (_) async {
+      if (_disposed || _player.platform is! NativePlayer) return;
+      try {
+        final native = _player.platform as NativePlayer;
+        final raw = await native.getProperty('demuxer-cache-state');
+        if (_disposed) return;
+        _seekableRanges = parseSeekableRanges(raw);
+        // For live streams mpv's `duration` keeps growing (highest buffered
+        // PTS minus stream start). Poll it as a backstop for the duration
+        // stream subscription, which can lag property updates slightly.
+        final durationRaw = await native.getProperty('duration');
+        if (_disposed) return;
+        final seconds = double.tryParse(durationRaw);
+        if (seconds != null && seconds.isFinite && seconds >= 0) {
+          final d = Duration(microseconds: (seconds * 1e6).round());
+          if (d > _lastDuration) _lastDuration = d;
+        }
+      } catch (_) {
+        // Property lookup can fail while the player is switching sources;
+        // the next tick will retry.
+      }
+    });
+  }
+
+  void _stopCacheStatePolling() {
+    _cacheStateTimer?.cancel();
+    _cacheStateTimer = null;
   }
 
   void _emitError(Object error, StackTrace stackTrace, PlayerErrorType type) {
@@ -769,6 +893,12 @@ class MediaKitAdapter implements UnifiedPlayer, MediaKitPlayerAccessor {
 
     _currentUrl = null;
     _isAudioOnly = false;
+
+    _lastPosition = Duration.zero;
+    _lastDuration = Duration.zero;
+    _seekableRanges = const [];
+    _pendingSeekTarget = null;
+    _pendingSeekAt = null;
 
     _playingSubject.add(false);
     _loadingSubject.add(false);
@@ -881,6 +1011,289 @@ class MediaKitAdapter implements UnifiedPlayer, MediaKitPlayerAccessor {
     await native.setProperty(property, value);
   }
 
+  @override
+  Duration get currentPosition => _lastPosition;
+
+  /// Full timeline length reported by mpv (`duration`). For live streams
+  /// this keeps growing from stream start (highest buffered PTS - start),
+  /// exactly the scale mpv's own seekbar maps `percent-pos` onto.
+  Duration get streamDuration => _lastDuration;
+
+  /// Playhead position as a 0.0–1.0 fraction of the full timeline. This is
+  /// mathematically identical to mpv's `percent-pos / 100`
+  /// (`get_current_pos_ratio` in playloop.c is `time-pos / duration`), but
+  /// derived from the high-frequency position stream so the handle moves
+  /// smoothly without waiting for property polls.
+  double? get positionFraction {
+    final total = _lastDuration.inMicroseconds;
+    if (total <= 0) return null;
+    return (_lastPosition.inMicroseconds / total).clamp(0.0, 1.0);
+  }
+
+  /// Seekable cached ranges projected onto the 0.0–1.0 timeline fraction,
+  /// in the same coordinate space as [positionFraction]. mpv's OSC computes
+  /// the identical mapping (`range / duration`) to draw its cache overlay.
+  List<({double start, double end})> get seekableFractions {
+    final total = _lastDuration.inMicroseconds;
+    if (total <= 0 || _seekableRanges.isEmpty) return const [];
+    return _seekableRanges
+        .map(
+          (r) => (
+            start: (r.start.inMicroseconds / total).clamp(0.0, 1.0),
+            end: (r.end.inMicroseconds / total).clamp(0.0, 1.0),
+          ),
+        )
+        .toList();
+  }
+
+  /// Snaps an absolute target position into the cached seekable ranges.
+  ///
+  /// mpv can seek *inside* a seekable range without touching the network
+  /// (`execute_cache_seek`); a target outside any range makes it call
+  /// `switch_to_fresh_cache_range` + a low-level stream seek, which for a
+  /// live FLV/TS/HLS URL reconnects at the live edge with PTS restarted at
+  /// 0 — the seekbar then visually jumps back to the far left. We therefore
+  /// never issue an out-of-range seek: targets in a dead zone snap to the
+  /// nearest range boundary. Returns `null` when no range is known yet.
+  Duration? _clampToSeekable(Duration target) {
+    if (_seekableRanges.isEmpty) return null;
+    final t = target.inMicroseconds;
+    int? nearest;
+    var nearestDistance = -1;
+    for (final r in _seekableRanges) {
+      final rs = r.start.inMicroseconds;
+      final re = r.end.inMicroseconds;
+      if (t >= rs && t <= re) return target;
+      final boundary = (t < rs ? rs : re);
+      final distance = (boundary - t).abs();
+      if (nearestDistance < 0 || distance < nearestDistance) {
+        nearestDistance = distance;
+        nearest = boundary;
+      }
+    }
+    return nearest == null ? null : Duration(microseconds: nearest);
+  }
+
+  bool _isInAnySeekableRange(Duration pos) {
+    if (_seekableRanges.isEmpty) return false;
+    final t = pos.inMicroseconds;
+    for (final r in _seekableRanges) {
+      if (t >= r.start.inMicroseconds && t <= r.end.inMicroseconds) return true;
+    }
+    return false;
+  }
+
+  Duration? _clampToSeekableWithDirection(Duration target, Duration offset) {
+    if (_seekableRanges.isEmpty) return null;
+    final t = target.inMicroseconds;
+
+    for (final r in _seekableRanges) {
+      final rs = r.start.inMicroseconds;
+      final re = r.end.inMicroseconds;
+      if (t >= rs && t <= re) return target;
+    }
+
+    if (offset < Duration.zero) {
+      int? nearestLeftEnd;
+      var nearestLeftDist = -1;
+      for (final r in _seekableRanges) {
+        final re = r.end.inMicroseconds;
+        if (re <= t) {
+          final dist = t - re;
+          if (nearestLeftDist < 0 || dist < nearestLeftDist) {
+            nearestLeftDist = dist;
+            nearestLeftEnd = re;
+          }
+        }
+      }
+      if (nearestLeftEnd != null) {
+        return Duration(microseconds: nearestLeftEnd);
+      }
+      return streamStartPosition;
+    } else if (offset > Duration.zero) {
+      int? nearestRightStart;
+      var nearestRightDist = -1;
+      for (final r in _seekableRanges) {
+        final rs = r.start.inMicroseconds;
+        if (rs >= t) {
+          final dist = rs - t;
+          if (nearestRightDist < 0 || dist < nearestRightDist) {
+            nearestRightDist = dist;
+            nearestRightStart = rs;
+          }
+        }
+      }
+      if (nearestRightStart != null) {
+        return Duration(microseconds: nearestRightStart);
+      }
+      return liveEdgePosition;
+    }
+
+    return target;
+  }
+
+  Future<void> _seekAbsolute(Duration position, {required bool exact}) async {
+    if (_disposed || _player.platform is! NativePlayer) return;
+    final safePos = position < Duration.zero
+        ? Duration.zero
+        : (_lastDuration > Duration.zero && position > _lastDuration ? _lastDuration : position);
+    final seconds = safePos.inMicroseconds / 1e6;
+    if (seconds.isNegative || seconds.isNaN || seconds.isInfinite) return;
+    try {
+      final native = _player.platform as NativePlayer;
+      // CRITICAL: always use an absolute-time seek on live streams, never
+      // `absolute-percent`. mpv keeps SEEK_FACTOR set for percent seeks when
+      // the demuxer reports ts_resets_possible (FLV/TS/HLS all do), and the
+      // demuxer then bypasses its cache entirely, performing a low-level
+      // reconnect seek. Absolute seconds land in find_cache_seek_range() and
+      // are served from the local back-buffer. `exact` mirrors the OSC click
+      // behaviour; keyframes are used while dragging for responsiveness.
+      final mode = exact ? 'absolute+exact' : 'absolute+keyframes';
+      await native.command(['seek', seconds.toStringAsFixed(3), mode]);
+    } catch (e) {
+      Log.w('seekAbsolute failed: $e');
+    }
+  }
+
+  /// Seek to a 0.0–1.0 fraction of the full timeline. The fraction is
+  /// converted to an absolute time and snapped into the cached seekable
+  /// ranges before being sent to mpv — see [_clampToSeekable]. When no
+  /// cached ranges are known yet (VOD or a just-started live stream) the
+  /// target is forwarded as-is so seeking still works.
+  Future<void> seekToFraction(double fraction, {bool exact = false}) async {
+    if (!canSeek) return;
+    final total = _lastDuration.inMicroseconds;
+    if (total <= 0) return;
+    _pendingSeekTarget = null;
+    _pendingSeekAt = null;
+    final f = fraction.clamp(0.0, 1.0);
+    final target = Duration(microseconds: (f * total).round());
+    final snapped = _seekableRanges.isNotEmpty ? (_clampToSeekable(target) ?? target) : target;
+    await _seekAbsolute(snapped, exact: exact);
+  }
+
+  @override
+  Duration get liveEdgePosition {
+    if (_seekableRanges.isNotEmpty) {
+      return _seekableRanges.map((r) => r.end).reduce((a, b) => a > b ? a : b);
+    }
+    // No range data: assume the playhead currently sits at the edge.
+    return _lastPosition;
+  }
+
+  Duration get streamStartPosition {
+    if (_seekableRanges.isNotEmpty) {
+      return _seekableRanges.map((r) => r.start).reduce((a, b) => a < b ? a : b);
+    }
+    // No range data: report a zero-width window at the playhead rather than
+    // deriving a bogus start from `position - duration`.
+    return _lastPosition;
+  }
+
+  bool get isUserSeekedBack {
+    if (_seekableRanges.isEmpty) return false;
+    return liveEdgePosition - _lastPosition > const Duration(seconds: 2);
+  }
+
+  @override
+  bool get canSeek {
+    if (!_initialized || _disposed || _player.platform is! NativePlayer) {
+      return false;
+    }
+    // Live streams: safe in-cache seek requires cached seekable ranges.
+    // VOD / file streams are seekable by nature and report a finite
+    // duration without necessarily exposing cache ranges. Use duration as a
+    // fallback so the progress bar appears and seeks work immediately, even
+    // before the first demuxer-cache-state poll returns ranges for a live
+    // stream.
+    return _seekableRanges.isNotEmpty || _lastDuration > Duration.zero;
+  }
+
+  @override
+  Stream<Duration> get positionStream => _player.stream.position;
+
+  @override
+  Future<void> seekTo(Duration position) async {
+    if (!canSeek) return;
+    _pendingSeekTarget = null;
+    _pendingSeekAt = null;
+    final Duration clamped;
+    if (_seekableRanges.isNotEmpty) {
+      clamped = _clampToSeekable(position) ?? position;
+    } else {
+      final upper = _lastDuration > Duration.zero ? _lastDuration : position;
+      clamped = position < Duration.zero ? Duration.zero : (position > upper ? upper : position);
+    }
+    await _seekAbsolute(clamped, exact: true);
+  }
+
+  @override
+  Future<void> seekRelative(Duration offset) async {
+    if (!canSeek) return;
+    final now = DateTime.now();
+    final pending = _pendingSeekTarget;
+    final pendingAt = _pendingSeekAt;
+    final usePending =
+        pending != null &&
+        pendingAt != null &&
+        now.difference(pendingAt) < const Duration(seconds: 2);
+    Duration base = _lastPosition;
+    if (usePending) {
+      base = pending;
+    }
+    if (!_isInAnySeekableRange(base) && _seekableRanges.isNotEmpty) {
+      final baseSnapped = _clampToSeekable(base);
+      if (baseSnapped != null) {
+        base = baseSnapped;
+      }
+    }
+    final target = base + offset;
+    Duration snapped;
+    if (_seekableRanges.isNotEmpty) {
+      snapped = _clampToSeekableWithDirection(target, offset) ?? target;
+    } else {
+      snapped = target;
+    }
+    final upperBound = _lastDuration > Duration.zero
+        ? _lastDuration
+        : (liveEdgePosition > Duration.zero ? liveEdgePosition : const Duration(seconds: 60));
+    if (snapped < Duration.zero) snapped = Duration.zero;
+    if (snapped > upperBound) snapped = upperBound;
+    _pendingSeekTarget = snapped;
+    _pendingSeekAt = now;
+    await _seekAbsolute(snapped, exact: false);
+  }
+
+  @override
+  Future<void> seekToLiveEdge() async {
+    if (!canSeek) return;
+    final Duration target;
+    if (_seekableRanges.isNotEmpty) {
+      // Seek just inside the newest cached range instead of issuing a
+      // `seek 100 absolute-percent` (which reconnects live streams). The
+      // Back off from the live edge by a couple of seconds. Landing too close
+      // to seek_end leaves almost no forward buffer, which makes the h264
+      // decoder fail with "reference picture missing" / "mmco: unref short
+      // failure" because B-frames near the edge need future frames that have
+      // not been downloaded yet. Seeking a few seconds back gives the decoder
+      // enough buffered lookahead; playback then catches up to the live edge
+      // smoothly.
+      const backOff = Duration(seconds: 2);
+      final edge = liveEdgePosition;
+      final desired = edge > backOff ? edge - backOff : edge;
+      target = _clampToSeekable(desired) ?? desired;
+    } else {
+      // No cached ranges (VOD or early live): `duration` points at the
+      // buffered end, which is the live edge for live streams.
+      final dur = _lastDuration;
+      const backOff = Duration(seconds: 2);
+      target = dur > backOff ? dur - backOff : (dur > Duration.zero ? dur : _lastPosition);
+    }
+    _pendingSeekTarget = null;
+    _pendingSeekAt = null;
+    await _seekAbsolute(target, exact: true);
+  }
+
   Future<void> setPrefetchSuspended(bool suspended) async {
     if (_disposed) {
       return;
@@ -899,6 +1312,8 @@ class MediaKitAdapter implements UnifiedPlayer, MediaKitPlayerAccessor {
 
     _initialized = false;
     _listenerBound = false;
+
+    _stopCacheStatePolling();
 
     await _cancelAllSubscriptions();
 

@@ -574,7 +574,7 @@ class HuyaSite
           platform: platform,
           link: 'https://www.huya.com/$roomId',
           danmakuData: HuyaDanmakuArgs(ayyuid: uid, topSid: topSid, subSid: subSid),
-          startTime: null,
+          startTime: startTime != null && startTime > 0 ? startTime : null,
         );
       }
 
@@ -754,6 +754,8 @@ class HuyaSite
 
     final live = state == 'ON' || state == 'REPLAY';
 
+    final startTime = int.tryParse(liveData['startTime']?.toString() ?? '');
+
     return LiveRoom(
       cover: liveData['screenshot']?.toString() ?? '',
       watching: audience.popularity,
@@ -772,6 +774,7 @@ class HuyaSite
       liveStatus: live ? LiveStatus.live : LiveStatus.offline,
       platform: Sites.huyaSite,
       link: 'https://www.huya.com/$roomId',
+      startTime: startTime != null && startTime > 0 ? startTime : null,
     );
   }
 

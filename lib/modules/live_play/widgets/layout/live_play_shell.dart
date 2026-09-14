@@ -4,6 +4,7 @@ import 'package:pure_live/common/index.dart';
 import 'package:pure_live/modules/live_play/widgets/danmaku/danmaku_tab.dart';
 import 'package:pure_live/modules/live_play/widgets/layout/live_play_video.dart';
 import 'package:pure_live/modules/live_play/controllers/live_play_controller.dart';
+import 'package:pure_live/modules/live_play/widgets/layout/panel_resize_divider.dart';
 import 'package:pure_live/modules/live_play/widgets/resolution_selector/resolutions_row.dart';
 
 class LivePlayShell extends StatefulWidget {
@@ -17,8 +18,7 @@ class LivePlayShell extends StatefulWidget {
 }
 
 class _LivePlayShellState extends State<LivePlayShell> with SingleTickerProviderStateMixin {
-  static const double _desktopPanelWidth = 380.0;
-
+  late final ValueNotifier<double> _panelWidthNotifier;
   late final AnimationController _drawerController;
 
   LivePlayController get controller => widget.controller;
@@ -30,6 +30,10 @@ class _LivePlayShellState extends State<LivePlayShell> with SingleTickerProvider
   @override
   void initState() {
     super.initState();
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    _panelWidthNotifier = ValueNotifier<double>(
+      SettingsService.to.panel.clampWidth(SettingsService.to.panel.panelWidth, screenWidth),
+    );
     _drawerController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 280),
@@ -39,6 +43,7 @@ class _LivePlayShellState extends State<LivePlayShell> with SingleTickerProvider
 
   @override
   void dispose() {
+    _panelWidthNotifier.dispose();
     _drawerController.dispose();
     super.dispose();
   }
@@ -52,49 +57,75 @@ class _LivePlayShellState extends State<LivePlayShell> with SingleTickerProvider
     final size = MediaQuery.sizeOf(context);
     final isSmallScreen = size.shortestSide < 600;
 
-    return ClipRect(
-      child: AnimatedBuilder(
-        animation: _drawerController,
-        builder: (context, child) {
-          final progress = Curves.easeInOutCubic.transform(_drawerController.value);
+    return ValueListenableBuilder<double>(
+      valueListenable: _panelWidthNotifier,
+      builder: (context, panelWidth, _) {
+        return ClipRect(
+          child: AnimatedBuilder(
+            animation: _drawerController,
+            builder: (context, child) {
+              final progress = Curves.easeInOutCubic.transform(_drawerController.value);
 
-          if (isSmallScreen) {
-            return _buildMobileLayout(progress);
-          }
+              if (isSmallScreen) {
+                return _buildMobileLayout(progress);
+              }
 
-          return _buildDesktopLayout(progress);
-        },
-      ),
+              return _buildDesktopLayout(progress, panelWidth);
+            },
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildDesktopLayout(double progress) {
+  Widget _buildDesktopLayout(double progress, double panelWidth) {
     return Stack(
       fit: StackFit.expand,
       children: [
-        _buildDesktopVideo(progress),
-        _buildDesktopPanel(progress),
-        _buildToggleButton(progress),
+        _buildDesktopVideo(progress, panelWidth),
+        _buildDesktopPanel(progress, panelWidth),
+        if (progress > 0.3)
+          Positioned(
+            right: panelWidth,
+            top: 0,
+            bottom: 0,
+            child: Opacity(
+              opacity: progress,
+              child: PanelResizeDivider(
+                currentWidth: panelWidth,
+                clampWidth: (width, screenWidth) =>
+                    SettingsService.to.panel.clampWidth(width, screenWidth),
+                onResize: (newWidth) {
+                  _panelWidthNotifier.value = newWidth;
+                },
+                onDragEnd: (finalWidth) {
+                  final screenWidth = MediaQuery.sizeOf(context).width;
+                  SettingsService.to.panel.setPanelWidth(finalWidth, screenWidth);
+                },
+              ),
+            ),
+          ),
+        _buildToggleButton(progress, panelWidth),
       ],
     );
   }
 
-  Widget _buildDesktopVideo(double progress) {
+  Widget _buildDesktopVideo(double progress, double panelWidth) {
     return Positioned(
       left: 0,
       top: 0,
       bottom: 0,
-      right: _desktopPanelWidth * progress,
+      right: panelWidth * progress,
       child: const _VideoHost(),
     );
   }
 
-  Widget _buildDesktopPanel(double progress) {
+  Widget _buildDesktopPanel(double progress, double panelWidth) {
     return Positioned(
       top: 0,
       right: 0,
       bottom: 0,
-      width: _desktopPanelWidth,
+      width: panelWidth,
       child: IgnorePointer(
         ignoring: progress < 0.01,
         child: Opacity(opacity: progress, child: _buildPanelContent()),
@@ -105,7 +136,7 @@ class _LivePlayShellState extends State<LivePlayShell> with SingleTickerProvider
   Widget _buildMobileLayout(double progress) {
     return Stack(
       fit: StackFit.expand,
-      children: [_buildMobileFlip(progress), _buildToggleButton(progress)],
+      children: [_buildMobileFlip(progress), _buildToggleButton(progress, 0)],
     );
   }
 
@@ -156,9 +187,9 @@ class _LivePlayShellState extends State<LivePlayShell> with SingleTickerProvider
     );
   }
 
-  Widget _buildToggleButton(double progress) {
+  Widget _buildToggleButton(double progress, double panelWidth) {
     final isDesktop = MediaQuery.sizeOf(context).shortestSide >= 600;
-    final rightOffset = isDesktop ? _desktopPanelWidth * progress : 0;
+    final rightOffset = isDesktop ? panelWidth * progress : 0;
 
     return Positioned(
       top: 0,
