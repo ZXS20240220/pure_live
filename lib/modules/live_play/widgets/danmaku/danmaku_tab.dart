@@ -5,6 +5,7 @@ import 'package:pure_live/modules/live_play/pages/danmaku_settings_page.dart';
 import 'package:pure_live/modules/live_play/controllers/live_play_controller.dart';
 import 'package:pure_live/modules/live_play/widgets/danmaku/danmaku_list_view.dart';
 import 'package:pure_live/modules/live_play/dialogs/play_other.dart';
+import 'package:pure_live/modules/multiview/danmaku/multiview_danmaku_settings_binding.dart';
 
 class DanmakuTabView extends GetView<LivePlayController> {
   const DanmakuTabView({super.key});
@@ -13,9 +14,12 @@ class DanmakuTabView extends GetView<LivePlayController> {
   Widget build(BuildContext context) {
     return Obx(() {
       final state = controller.state.value;
-      if (state.room.detail == null || state.player.videoController == null) {
+      if (state.room.detail == null) {
         return const AppStatusView(type: AppStatusType.loading, title: '', subtitle: '');
       }
+
+      final settingsBinding = state.player.videoController ?? MultiviewDanmakuSettingsBinding();
+
       return ColoredBox(
         color: Theme.of(context).colorScheme.surface,
         child: Column(
@@ -37,16 +41,14 @@ class DanmakuTabView extends GetView<LivePlayController> {
                             ),
                           ),
                         ),
-                  // RxList mutations do not invalidate this outer Obx unless
-                  // its value is read while building. Snapshot it here so new
-                  // SC entries appear immediately without switching tabs.
                   const SuperChatPage(),
-                  DanmakuSettingsPage(controller: state.player.videoController!),
+                  DanmakuSettingsPage(controller: settingsBinding),
                   const KeywordBlockPage(),
                   PlayOtherPanel(
                     controller: controller,
                     showHeader: true,
                     showCloseButton: false,
+                    isPersistent: true,
                     onSelectRoom: (room) => controller.switchRoom(room),
                   ),
                 ],

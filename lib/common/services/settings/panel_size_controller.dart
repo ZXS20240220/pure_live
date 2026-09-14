@@ -5,7 +5,7 @@ class PanelSizeController extends GetxController {
   static PanelSizeController get to => Get.find<PanelSizeController>();
 
   static const double kDefaultPanelWidth = 380.0;
-  static const double kMinPanelWidth = 300.0;
+  static const double kMinPanelWidth = 335.0;
   static const double kMaxPanelRatio = 0.5;
 
   final RxDouble storedPanelWidth = hiveDouble('live_panel_width', kDefaultPanelWidth);
@@ -23,5 +23,13 @@ class PanelSizeController extends GetxController {
 
   void reset(double screenWidth) {
     storedPanelWidth.v = clampWidth(kDefaultPanelWidth, screenWidth);
+  }
+
+  Map<String, dynamic> toJson() {
+    return {'panelWidth': storedPanelWidth.v};
+  }
+
+  void fromJson(Map<String, dynamic> json) {
+    storedPanelWidth.v = (json['panelWidth'] ?? kDefaultPanelWidth).toDouble();
   }
 }

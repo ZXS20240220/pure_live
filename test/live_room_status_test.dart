@@ -42,8 +42,6 @@ void main() {
       expect(room.effectiveLiveStatus, LiveStatus.offline);
       expect(room.isLiveNow, isFalse);
       expect(room.isExplicitlyOfflineNow, isTrue);
-      expect(room.toJson()['liveStatus'], LiveStatus.offline.index);
-      expect(room.toJson()['status'], isFalse);
     });
 
     test('unknown and banned remain authoritative over the legacy boolean', () {

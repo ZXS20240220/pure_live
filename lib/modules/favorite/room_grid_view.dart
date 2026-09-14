@@ -9,10 +9,7 @@ bool shouldWrapFavoritePullToRefresh({
   required double viewportWidth,
   required bool isMobilePlatform,
 }) {
-  // A wide Android/iOS tablet still uses the touch-first home shell and must
-  // keep pull-to-refresh. Width alone only selects the responsive grid; it is
-  // not a reliable desktop-platform signal.
-  return isMobilePlatform || viewportWidth <= 680;
+  return true;
 }
 
 class RoomGridView extends GetView<FavoriteController> {
@@ -68,7 +65,7 @@ class RoomGridView extends GetView<FavoriteController> {
 
             final itemWidth = (width - 24 - spacing * (crossAxisCount - 1)) / crossAxisCount;
             return GridView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               controller: scrollController,
               physics: physics,
               scrollCacheExtent: ScrollCacheExtent.pixels(width > 680 ? 480 : 320),

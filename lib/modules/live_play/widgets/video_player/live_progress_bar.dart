@@ -37,6 +37,7 @@ class _LiveProgressBarState extends State<LiveProgressBar> {
 
   Timer? _tickTimer;
   Object? _boundPlayerId;
+  final GlobalKey<_ProgressBarAreaState> _barAreaKey = GlobalKey();
 
   /// Playhead fraction on the full timeline (0.0–1.0), equivalent to
   /// mpv's `percent-pos / 100`.
@@ -44,6 +45,12 @@ class _LiveProgressBarState extends State<LiveProgressBar> {
 
   /// Cached seekable window on the same 0.0–1.0 scale.
   List<({double start, double end})> _ranges = const [];
+
+  /// Label value shown left of the bar (e.g. "5:00"). When seekable ranges
+  /// are known this is `liveEdgePosition - streamStartPosition` (the actual
+  /// cached window). Falls back to `liveEdgePosition` itself (elapsed time
+  /// since stream start) when no range data is available yet.
+  Duration _windowLabel = Duration.zero;
 
   bool _userSeeked = false;
 
@@ -73,14 +80,19 @@ class _LiveProgressBarState extends State<LiveProgressBar> {
       _boundPlayerId = playerId;
       _currentFrac = 0.0;
       _ranges = const [];
+      _windowLabel = Duration.zero;
       _userSeeked = false;
     }
 
     if (!player.canSeek) {
-      if (_currentFrac != 0.0 || _ranges.isNotEmpty || _userSeeked) {
+      if (_currentFrac != 0.0 ||
+          _ranges.isNotEmpty ||
+          _windowLabel != Duration.zero ||
+          _userSeeked) {
         setState(() {
           _currentFrac = 0.0;
           _ranges = const [];
+          _windowLabel = Duration.zero;
           _userSeeked = false;
         });
       }
@@ -90,11 +102,37 @@ class _LiveProgressBarState extends State<LiveProgressBar> {
     final frac = player.positionFraction ?? 0.0;
     final ranges = player.seekableFractions;
     final seeked = player.isUserSeekedBack;
-    if (frac != _currentFrac || seeked != _userSeeked || !_rangesEqual(ranges, _ranges)) {
+
+    // --- TIME LABEL CALCULATION ---
+    // The user-facing label is the negative of "how far back can I seek",
+    // which equals the cached window duration. Two sources of truth:
+    //
+    //   1. seekable ranges are known → use liveEdgePosition - streamStartPosition
+    //      (this automatically shrinks when the cache window slides forward
+    //       and old content gets evicted — exactly what the user wants).
+    //
+    //   2. no ranges yet (just entered the room) → fall back to
+    //      liveEdgePosition itself, which is the PTS of the latest buffered
+    //      frame and grows steadily from 0 while the stream plays.
+    Duration label;
+    final edge = player.liveEdgePosition;
+    final start = player.streamStartPosition;
+    if (ranges.isNotEmpty) {
+      label = edge - start;
+    } else {
+      label = edge;
+    }
+    if (label.isNegative) label = Duration.zero;
+
+    if (frac != _currentFrac ||
+        seeked != _userSeeked ||
+        !_rangesEqual(ranges, _ranges) ||
+        label.inMicroseconds != _windowLabel.inMicroseconds) {
       setState(() {
         _currentFrac = frac;
         _ranges = ranges;
         _userSeeked = seeked;
+        _windowLabel = label;
       });
     }
   }
@@ -136,7 +174,9 @@ class _LiveProgressBarState extends State<LiveProgressBar> {
   }
 
   double _fracFromGlobalPosition(Offset globalPosition) {
-    final renderBox = context.findRenderObject() as RenderBox?;
+    final barContext = _barAreaKey.currentContext;
+    if (barContext == null) return 0.0;
+    final renderBox = barContext.findRenderObject() as RenderBox?;
     if (renderBox == null || renderBox.size.width <= 0) return 0.0;
     final local = renderBox.globalToLocal(globalPosition);
     return (local.dx / renderBox.size.width).clamp(0.0, 1.0);
@@ -191,6 +231,17 @@ class _LiveProgressBarState extends State<LiveProgressBar> {
     widget.controller.releaseController();
   }
 
+  static String _formatWindowLabel(Duration d) {
+    final total = d.inSeconds.clamp(0, 0x7FFFFFFFFFFFFF);
+    final h = total ~/ 3600;
+    final m = (total % 3600) ~/ 60;
+    final s = total % 60;
+    final mm = m.toString().padLeft(2, '0');
+    final ss = s.toString().padLeft(2, '0');
+    if (h > 0) return '$h:$mm:$ss';
+    return '$m:$ss';
+  }
+
   @override
   Widget build(BuildContext context) {
     final player = GlobalPlayerService.instance.player;
@@ -201,32 +252,102 @@ class _LiveProgressBarState extends State<LiveProgressBar> {
     final rawFrac = _isDragging && _dragFrac != null ? _dragFrac! : _currentFrac;
     final effectiveFrac = _isDragging ? _snapFraction(rawFrac) : rawFrac;
 
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: Padding(
-        padding: const EdgeInsets.only(left: 16, right: 16, bottom: 2),
-        child: SizedBox(
-          height: _hitAreaHeight,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTapDown: _onTapDown,
-            onHorizontalDragStart: _onDragStart,
-            onHorizontalDragUpdate: _onDragUpdate,
-            onHorizontalDragEnd: _onDragEnd,
-            child: Center(
-              child: SizedBox(
-                height: _barHeight,
-                child: CustomPaint(
-                  painter: _LiveProgressPainter(
-                    ranges: _ranges,
-                    currentFrac: effectiveFrac,
-                    isUserSeeked: _userSeeked,
-                    isDragging: _isDragging,
-                  ),
-                  size: Size.infinite,
+    final label = _formatWindowLabel(_windowLabel);
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 10, right: 16, bottom: 2),
+      child: SizedBox(
+        height: _hitAreaHeight,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: Color(0xFFF4F4F4),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                  decoration: TextDecoration.none,
+                  height: 1.0,
                 ),
               ),
             ),
+            Expanded(
+              child: _ProgressBarArea(
+                key: _barAreaKey,
+                height: _barHeight,
+                ranges: _ranges,
+                currentFrac: effectiveFrac,
+                isUserSeeked: _userSeeked,
+                isDragging: _isDragging,
+                onTapDown: _onTapDown,
+                onHorizontalDragStart: _onDragStart,
+                onHorizontalDragUpdate: _onDragUpdate,
+                onHorizontalDragEnd: _onDragEnd,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Just the tap/drag hit area + CustomPaint, so [LiveProgressBar._fracFromGlobalPosition]
+/// can compute fractions against the *actual bar width* via its GlobalKey
+/// ([LiveProgressBar._barAreaKey]) instead of the outer widget's width (which
+/// includes the left-side time label now).
+class _ProgressBarArea extends StatefulWidget {
+  const _ProgressBarArea({
+    required super.key,
+    required this.height,
+    required this.ranges,
+    required this.currentFrac,
+    required this.isUserSeeked,
+    required this.isDragging,
+    required this.onTapDown,
+    required this.onHorizontalDragStart,
+    required this.onHorizontalDragUpdate,
+    required this.onHorizontalDragEnd,
+  });
+
+  final double height;
+  final List<({double start, double end})> ranges;
+  final double currentFrac;
+  final bool isUserSeeked;
+  final bool isDragging;
+  final GestureTapDownCallback onTapDown;
+  final GestureDragStartCallback onHorizontalDragStart;
+  final GestureDragUpdateCallback onHorizontalDragUpdate;
+  final GestureDragEndCallback onHorizontalDragEnd;
+
+  @override
+  State<_ProgressBarArea> createState() => _ProgressBarAreaState();
+}
+
+class _ProgressBarAreaState extends State<_ProgressBarArea> {
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: widget.onTapDown,
+      onHorizontalDragStart: widget.onHorizontalDragStart,
+      onHorizontalDragUpdate: widget.onHorizontalDragUpdate,
+      onHorizontalDragEnd: widget.onHorizontalDragEnd,
+      child: Center(
+        child: SizedBox(
+          height: widget.height,
+          child: CustomPaint(
+            painter: _LiveProgressPainter(
+              ranges: widget.ranges,
+              currentFrac: widget.currentFrac,
+              isUserSeeked: widget.isUserSeeked,
+              isDragging: widget.isDragging,
+            ),
+            size: Size.infinite,
           ),
         ),
       ),

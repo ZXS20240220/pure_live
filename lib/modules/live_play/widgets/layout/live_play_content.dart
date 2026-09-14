@@ -292,7 +292,7 @@ class LivePlayContent extends StatelessWidget {
     return Obx(() {
       final state = controller.state.value;
 
-      if (!state.room.success) {
+      if (state.room.detail == null) {
         return const SizedBox.shrink();
       }
 

@@ -29,6 +29,7 @@ import 'package:pure_live/modules/live_play/widgets/video_player/video_controlle
 import 'package:pure_live/modules/live_play/controllers/danmaku_presentation_recovery.dart';
 import 'package:pure_live/modules/live_play/widgets/local_interaction/local_interaction_controller.dart';
 import 'package:pure_live/modules/live_play/widgets/local_interaction/local_message_delivery_queue.dart';
+import 'package:pure_live/modules/tags/tag_management_controller.dart';
 
 // live_play_controller.dart
 
@@ -64,6 +65,10 @@ class LivePlayController extends GetxController
     i18n('block_list'),
     i18n('switch_live_room'),
   ];
+
+  int sidePanelTabIndex = 0;
+  String sidePanelPlatformFilter = TagManagementController.allTagKey;
+  String sidePanelTagFilter = TagManagementController.allTagKey;
 
   bool _floatingResourcesReleased = false;
   bool _ownerClosed = false;
@@ -750,7 +755,7 @@ class LivePlayController extends GetxController
       _handleCurrentLineAndQuality(reloadDataType, line, isReCalculate);
 
       if (liveRoom.isLiveStatusPending) {
-        _handleUnknownStatus();
+        _handleUnknownStatus(liveRoom);
         return liveRoom;
       }
 
@@ -816,7 +821,7 @@ class LivePlayController extends GetxController
   }
 
   void _handleNotLiveRoom(LiveRoom liveRoom) {
-    unawaited(danmakuController.stopDanmaku());
+    unawaited(_syncDanmakuConnection(liveRoom));
     updateRoom(success: false, isLiving: false);
     setNormalScreen();
     GlobalPlayerState.to.isFullscreen.value = false;
@@ -833,8 +838,8 @@ class LivePlayController extends GetxController
     _restoreQualityAndLines();
   }
 
-  void _handleUnknownStatus() {
-    unawaited(danmakuController.stopDanmaku());
+  void _handleUnknownStatus(LiveRoom liveRoom) {
+    unawaited(_syncDanmakuConnection(liveRoom));
     if (Get.currentRoute == '/live_play') {
       ToastUtil.show(i18n('get_room_info_failed_retry'));
       setNormalScreen();

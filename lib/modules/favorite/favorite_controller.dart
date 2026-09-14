@@ -4,6 +4,7 @@ import 'dart:developer' as developer;
 import 'package:pure_live/common/index.dart';
 import 'package:synchronized/synchronized.dart';
 import 'package:pure_live/plugins/event_bus.dart';
+import 'package:pure_live/common/utils/hive_pref_util.dart';
 import 'package:pure_live/modules/tags/live_tag.dart';
 import 'package:pure_live/core/interface/live_site.dart';
 import 'package:pure_live/modules/tags/tag_management_controller.dart';
@@ -42,10 +43,17 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
   Future<void>? _startupRefresh;
   FavoriteVerificationPreview? _verificationPreview;
   final Map<String, DateTime> _refreshFailureCooldown = {};
-  final Map<String, int> _fakeStartTime = {};
-  int? getFakeStartTime(String identityKey) => _fakeStartTime[identityKey];
-  final Set<String> _lastOnlineKeys = {};
-  bool _onlineBaselineCaptured = false;
+  // === Pseudo live duration (disabled) ===
+  // 用途：当平台接口不返回真实开播时间（如抖音）时，用"在线状态变化 + 当前时间"
+  //       近似估算一个伪开播时间，供直播时长排序和 Header 显示使用。
+  // 原因：无法可靠区分"真实的 offline→online"和"API 抖动/网络闪断造成的假状态切换"。
+  //       后者会把伪时间写成接口恢复的时刻，误差可能差好几个小时；
+  //       而 App 重启后持续在线的房间又永远拿不到伪时长（基线已包含它，不会被标记为 newlyOnline）。
+  //       所以这套方案精度不可控，暂时整体停用。日后需要时取消下面的注释即可重新启用。
+  // final Map<String, int> _fakeStartTime = {};
+  // int? getFakeStartTime(String identityKey) => _fakeStartTime[identityKey];
+  // final Set<String> _lastOnlineKeys = {};
+  // bool _onlineBaselineCaptured = false;
   static const Duration _refreshFailureRetryAfter = Duration(minutes: 5);
   // Treat returning to the app as a fresh launch after a short debounce.  A
   // two-minute window left just-ended rooms visibly "live" when users reopened
@@ -65,6 +73,9 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
   final enablePinned = true.obs;
   final onlineSortMode = OnlineSortMode.audience.obs;
 
+  static const String _pinnedPrefKey = 'fav_enable_pinned';
+  static const String _sortModePrefKey = 'fav_online_sort_mode';
+
   final showRefreshShield = false.obs;
   final cancelRequested = false.obs;
 
@@ -73,6 +84,17 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
   @override
   void onInit() {
     super.onInit();
+
+    final pinnedFromDisk = HivePrefUtil.getBool(_pinnedPrefKey);
+    if (pinnedFromDisk != null) enablePinned.value = pinnedFromDisk;
+
+    final sortFromDisk = HivePrefUtil.getString(_sortModePrefKey);
+    if (sortFromDisk != null) {
+      onlineSortMode.value = OnlineSortMode.values.firstWhere(
+        (e) => e.name == sortFromDisk,
+        orElse: () => OnlineSortMode.audience,
+      );
+    }
 
     tabController = TabController(
       length: 3,
@@ -116,8 +138,18 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     _workers.add(ever(tagController.roomTagsMap, (_) => applyLocalFilter()));
     _workers.add(ever(SettingsService.to.app.preferRealOnlineCounts, (_) => applyLocalFilter()));
     _workers.add(ever(SettingsService.to.app.realOnlinePlatforms, (_) => applyLocalFilter()));
-    _workers.add(ever(enablePinned, (_) => applyLocalFilter()));
-    _workers.add(ever(onlineSortMode, (_) => applyLocalFilter()));
+    _workers.add(
+      ever(enablePinned, (value) {
+        HivePrefUtil.setBool(_pinnedPrefKey, value);
+        applyLocalFilter();
+      }),
+    );
+    _workers.add(
+      ever(onlineSortMode, (value) {
+        HivePrefUtil.setString(_sortModePrefKey, value.name);
+        applyLocalFilter();
+      }),
+    );
     _workers.add(
       debounce(searchKeyword, (_) {
         if (!_selectionTransaction) applyLocalFilter(resyncSource: false);
@@ -545,27 +577,28 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
         ..sort((a, b) => a.order.compareTo(b.order));
     }
 
-    final currentOnlineKeys = nextOnline.map((r) => r.identityKey).toSet();
-    if (_onlineBaselineCaptured) {
-      final newlyOnline = currentOnlineKeys.difference(_lastOnlineKeys);
-      final endedOnline = _lastOnlineKeys.difference(currentOnlineKeys);
-      if (newlyOnline.isNotEmpty) {
-        final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-        for (final room in nextOnline) {
-          if (newlyOnline.contains(room.identityKey) && room.startTime == null) {
-            _fakeStartTime[room.identityKey] = now;
-          }
-        }
-      }
-      if (endedOnline.isNotEmpty) {
-        _fakeStartTime.removeWhere((key, _) => endedOnline.contains(key));
-      }
-    } else {
-      _onlineBaselineCaptured = true;
-    }
-    _lastOnlineKeys
-      ..clear()
-      ..addAll(currentOnlineKeys);
+    // --- Pseudo live duration (disabled, see field declarations above) ---
+    // final currentOnlineKeys = nextOnline.map((r) => r.identityKey).toSet();
+    // if (_onlineBaselineCaptured) {
+    //   final newlyOnline = currentOnlineKeys.difference(_lastOnlineKeys);
+    //   final endedOnline = _lastOnlineKeys.difference(currentOnlineKeys);
+    //   if (newlyOnline.isNotEmpty) {
+    //     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    //     for (final room in nextOnline) {
+    //       if (newlyOnline.contains(room.identityKey) && room.startTime == null) {
+    //         _fakeStartTime[room.identityKey] = now;
+    //       }
+    //     }
+    //   }
+    //   if (endedOnline.isNotEmpty) {
+    //     _fakeStartTime.removeWhere((key, _) => endedOnline.contains(key));
+    //   }
+    // } else {
+    //   _onlineBaselineCaptured = true;
+    // }
+    // _lastOnlineKeys
+    //   ..clear()
+    //   ..addAll(currentOnlineKeys);
 
     nextOnline.sort(_compareOnlineRooms);
     nextReplay.sort(_compareAudience);
@@ -671,8 +704,9 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
   }
 
   int _compareStartTime(LiveRoom a, LiveRoom b) {
-    final aTime = a.startTime ?? _fakeStartTime[a.identityKey];
-    final bTime = b.startTime ?? _fakeStartTime[b.identityKey];
+    // Pseudo fallback disabled — use real startTime only (see field declarations above)
+    final aTime = a.startTime; // ?? _fakeStartTime[a.identityKey]
+    final bTime = b.startTime; // ?? _fakeStartTime[b.identityKey]
     if (aTime != null && bTime != null) return bTime.compareTo(aTime);
     if (aTime != null) return -1;
     if (bTime != null) return 1;

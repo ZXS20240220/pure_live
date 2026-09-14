@@ -2,8 +2,33 @@ import 'package:pure_live/common/index.dart';
 import 'package:pure_live/modules/live_play/widgets/layout/super_chat_card.dart';
 import 'package:pure_live/modules/live_play/controllers/live_play_controller.dart';
 
-class SuperChatPage extends StatelessWidget {
+class SuperChatPage extends StatefulWidget {
   const SuperChatPage({super.key});
+
+  @override
+  State<SuperChatPage> createState() => _SuperChatPageState();
+}
+
+class _SuperChatPageState extends State<SuperChatPage> {
+  final _refreshController = EasyRefreshController(
+    controlFinishRefresh: true,
+    controlFinishLoad: true,
+  );
+
+  Future<void> _onRefresh() async {
+    final controller = Get.find<LivePlayController>();
+    await controller.refreshSuperChatAndHighlights();
+    if (mounted) {
+      _refreshController.finishRefresh(IndicatorResult.success);
+      _refreshController.resetFooter();
+    }
+  }
+
+  @override
+  void dispose() {
+    _refreshController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,66 +52,50 @@ class SuperChatPage extends StatelessWidget {
 
       final list = uniqueMessages.values.toList();
 
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '醒目留言 | 高能弹幕 | AI看点',
-                    style: Theme.of(context).textTheme.titleSmall
-                        ?.copyWith(fontWeight: FontWeight.w700),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.autorenew, size: 18),
-                  tooltip: i18n('refresh'),
-                  visualDensity: VisualDensity.compact,
-                  constraints: const BoxConstraints(),
-                  padding: EdgeInsets.zero,
-                  onPressed: () {
-                    controller.refreshSuperChatAndHighlights();
-                  },
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          if (!hasContent)
-            const Expanded(
-              child: Center(child: Text('暂无内容', style: TextStyle(fontSize: 12))),
-            )
-          else
-            Expanded(
-              child: _AiHighlightOverlay(
-                aiHighlights: aiHighlights,
-                noticeText: notice,
-                child: ListView.builder(
-                  primary: false,
-                  physics: const PureLiveScrollPhysics(),
-                  padding: const EdgeInsets.all(8),
-                  itemCount: (hasHighlight ? 1 : 0) + list.length,
-                  itemBuilder: (context, index) {
-                    if (hasHighlight && index == 0) {
+      return SizedBox.expand(
+        child: EasyRefresh(
+          controller: _refreshController,
+          onRefresh: _onRefresh,
+          onLoad: () async => _refreshController.finishLoad(IndicatorResult.noMore),
+          child: hasContent
+              ? _AiHighlightOverlay(
+                  aiHighlights: aiHighlights,
+                  noticeText: notice,
+                  child: ListView.builder(
+                    primary: false,
+                    padding: const EdgeInsets.all(8),
+                    itemCount: (hasHighlight ? 1 : 0) + list.length,
+                    itemBuilder: (context, index) {
+                      if (hasHighlight && index == 0) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: _AiHighlightCompact(
+                            aiHighlights: aiHighlights,
+                            noticeText: notice,
+                          ),
+                        );
+                      }
+                      final messageIndex = hasHighlight ? index - 1 : index;
+                      final message = list[messageIndex];
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 8),
-                        child: _AiHighlightCompact(aiHighlights: aiHighlights, noticeText: notice),
+                        child: SuperChatCard(message),
                       );
-                    }
-                    final messageIndex = hasHighlight ? index - 1 : index;
-                    final message = list[messageIndex];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: SuperChatCard(message),
+                    },
+                  ),
+                )
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                        child: const Center(child: Text('暂无内容', style: TextStyle(fontSize: 12))),
+                      ),
                     );
                   },
                 ),
-              ),
-            ),
-        ],
+        ),
       );
     });
   }
@@ -122,7 +131,7 @@ class _AiHighlightOverlayState extends State<_AiHighlightOverlay> {
 
     return Stack(
       children: [
-        widget.child,
+        Positioned.fill(child: widget.child),
         if (_expanded && hasData)
           Positioned.fill(
             child: _AiHighlightExpanded(

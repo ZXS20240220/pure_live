@@ -21,6 +21,9 @@ import 'package:pure_live/common/services/settings/player_settings_controller.da
 import 'package:pure_live/common/services/settings/volume_settings_controller.dart';
 import 'package:pure_live/common/services/settings/cookie_settings_controller.dart';
 import 'package:pure_live/common/services/settings/danmaku_settings_controller.dart';
+import 'package:pure_live/common/services/settings/panel_size_controller.dart';
+import 'package:pure_live/modules/favorite/favorite_controller.dart';
+import 'package:pure_live/modules/settings/pages/room_card_settings/room_card_config_controller.dart';
 
 class BackupController extends GetxController {
   static BackupController get to => Get.find();
@@ -53,7 +56,18 @@ class BackupController extends GetxController {
       'tags': Get.find<TagManagementController>().exportToJson(),
       'refresh': Get.find<RefreshConfigController>().toJson(),
       'page': Get.find<PageSettingsController>().toJson(),
+      'panelSize': Get.find<PanelSizeController>().toJson(),
+      'roomCard': Get.find<RoomCardConfigController>().toJson(),
+      'backupDirectory': backupDirectory.v,
     };
+
+    if (Get.isRegistered<FavoriteController>()) {
+      final favCtrl = Get.find<FavoriteController>();
+      data['favoriteCtrl'] = {
+        'enablePinned': favCtrl.enablePinned.v,
+        'onlineSortMode': favCtrl.onlineSortMode.v.name,
+      };
+    }
 
     if (includeSensitiveData) {
       data['webdav'] = Get.find<WebDavController>().toJson();
@@ -139,6 +153,34 @@ class BackupController extends GetxController {
     Get.find<RefreshConfigController>().fromJson(Map<String, dynamic>.from(data['refresh'] ?? {}));
 
     Get.find<PageSettingsController>().fromJson(Map<String, dynamic>.from(data['page'] ?? {}));
+
+    if (data['panelSize'] is Map) {
+      Get.find<PanelSizeController>().fromJson(Map<String, dynamic>.from(data['panelSize']));
+    }
+
+    if (data['roomCard'] is Map) {
+      Get.find<RoomCardConfigController>().fromJson(Map<String, dynamic>.from(data['roomCard']));
+    }
+
+    if (data['backupDirectory'] is String) {
+      backupDirectory.v = (data['backupDirectory'] as String);
+    }
+
+    if (data['favoriteCtrl'] is Map) {
+      final favCtrl = Get.find<FavoriteController>();
+      final favData = Map<String, dynamic>.from(data['favoriteCtrl'] as Map);
+      if (favData['enablePinned'] is bool) {
+        favCtrl.enablePinned.value = favData['enablePinned'] as bool;
+      }
+      if (favData['onlineSortMode'] is String) {
+        try {
+          favCtrl.onlineSortMode.value = OnlineSortMode.values.firstWhere(
+            (e) => e.name == favData['onlineSortMode'],
+            orElse: () => OnlineSortMode.audience,
+          );
+        } catch (_) {}
+      }
+    }
 
     if (!Get.isRegistered<TagManagementController>()) {
       Get.put(TagManagementController());

@@ -143,11 +143,12 @@ class LivePlayHeader extends StatelessWidget implements PreferredSizeWidget {
               if (detail == null) return const SizedBox.shrink();
               if (!detail.isLiveNow) return const SizedBox.shrink();
               var startTime = detail.startTime;
-              if (startTime == null || startTime <= 0) {
-                if (Get.isRegistered<FavoriteController>()) {
-                  startTime = Get.find<FavoriteController>().getFakeStartTime(detail.identityKey);
-                }
-              }
+              // Pseudo fallback disabled — see FavoriteController's _fakeStartTime field
+              // if (startTime == null || startTime <= 0) {
+              //   if (Get.isRegistered<FavoriteController>()) {
+              //     startTime = Get.find<FavoriteController>().getFakeStartTime(detail.identityKey);
+              //   }
+              // }
               if (startTime == null || startTime <= 0) return const SizedBox.shrink();
               return _LiveDurationIndicator(startTime: startTime);
             }),
