@@ -266,3 +266,15 @@ abstract interface class LiveSiteRoomRefresher {
 abstract interface class LiveSiteRecordRoomResolver {
   Future<LiveRoom> getRoomDetailForRecording({required String roomId, required String platform});
 }
+
+/// Optional directory-page notice key for sites that surface a banner or
+/// maintenance message on their live directory page.
+abstract interface class LiveDirectoryNotice {
+  String get directoryNoticeKey;
+}
+
+/// Optional search variant that accepts a Dio CancelToken so callers can
+/// abort an in-flight search without tearing down the whole [LiveSite].
+abstract interface class LiveCancellableSearch {
+  Future<List<LiveRoom>> searchRoomsCancellable(String keyword, {int page = 1, int pageSize = 30, CancelToken? cancel});
+}
