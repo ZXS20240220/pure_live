@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:pure_live/model/live_category.dart';
 import 'package:pure_live/model/live_anchor_item.dart';
 import 'package:pure_live/common/models/live_area.dart';
@@ -276,5 +277,10 @@ abstract interface class LiveDirectoryNotice {
 /// Optional search variant that accepts a Dio CancelToken so callers can
 /// abort an in-flight search without tearing down the whole [LiveSite].
 abstract interface class LiveCancellableSearch {
-  Future<List<LiveRoom>> searchRoomsCancellable(String keyword, {int page = 1, int pageSize = 30, CancelToken? cancel});
+  Future<List<LiveRoom>> searchRoomsCancellable(
+    String keyword, {
+    int page = 1,
+    int pageSize = 30,
+    CancelToken? cancel,
+  });
 }
