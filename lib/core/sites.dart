@@ -14,7 +14,6 @@ import 'site/picarto/picarto_site.dart';
 import 'site/kilakila/kilakila_site.dart';
 import 'site/missevan/missevan_site.dart';
 
-// import 'site/niconico/niconico_site.dart'; // TODO: depends on recorder module
 import 'package:pure_live/common/index.dart';
 
 import 'site/twitcasting/twitcasting_site.dart';
@@ -28,7 +27,6 @@ import 'package:pure_live/core/site/bilibili/bilibili_site.dart';
 
 class Sites {
   static const String weiboSite = 'weibo';
-  // static const String niconicoSite = 'niconico'; // TODO: depends on recorder
   static const String allSite = 'all';
   static const String bilibiliSite = 'bilibili';
   static const String douyuSite = 'douyu';
@@ -53,7 +51,6 @@ class Sites {
 
   static const Set<String> supportedSiteIds = {
     weiboSite,
-    // niconicoSite, // TODO: depends on recorder
     bilibiliSite,
     douyuSite,
     huyaSite,
@@ -103,7 +100,6 @@ class Sites {
     openrecSite: '$_assetRoot/openrec.png',
     ttingSite: '$_assetRoot/ttinglive.gif',
     xiaohongshuSite: '$_assetRoot/xiaohongshu.png',
-    // niconicoSite: '$_assetRoot/niconico.png', // TODO: depends on recorder
     weiboSite: '$_assetRoot/weibo.png',
   };
 
@@ -152,12 +148,6 @@ class Sites {
         logo: logoOf(weiboSite),
         liveSite: WeiboSite(),
       ),
-      // niconicoSite => Site( // TODO: depends on recorder
-      //   id: niconicoSite,
-      //   name: 'niconico',
-      //   logo: logoOf(niconicoSite),
-      //   liveSite: NiconicoSite(),
-      // ),
       bilibiliSite => Site(
         id: bilibiliSite,
         name: i18n('site_bilibili'),
@@ -298,7 +288,6 @@ class Sites {
       openrecSite,
       ttingSite,
       xiaohongshuSite,
-      // niconicoSite, // TODO: depends on recorder
       weiboSite,
       iptvSite,
     ])

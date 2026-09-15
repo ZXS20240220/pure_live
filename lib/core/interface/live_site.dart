@@ -192,8 +192,8 @@ abstract interface class LivePlayLeaseMetadata {
 }
 
 class LiveSite {
-  String id = "";
-  String name = "";
+  String id = '';
+  String name = '';
 
   LiveDanmaku getDanmaku() {
     throw UnimplementedError();

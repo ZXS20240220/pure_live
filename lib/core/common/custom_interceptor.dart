@@ -5,7 +5,7 @@ class CustomLogInterceptor extends Interceptor {
   CustomLogInterceptor({void Function(String, StackTrace)? errorLogger}) : _errorLogger = errorLogger ?? Log.e;
 
   final void Function(String, StackTrace) _errorLogger;
-  static const String _keyTimestamp = "ts";
+  static const String _keyTimestamp = 'ts';
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {

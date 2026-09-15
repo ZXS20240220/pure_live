@@ -130,6 +130,7 @@ class MultiviewDanmakuSession {
     _engine = null;
     if (engine == null) return;
     engine.onMessage = null;
+    engine.onReconnect = null;
     engine.onClose = null;
     engine.onReady = null;
     await _stopEngineQuietly(engine);
@@ -154,6 +155,16 @@ class MultiviewDanmakuSession {
           stackTrace: stackTrace,
         );
       }
+    };
+
+    engine.onReconnect = (msg) {
+      // 瞬态重连：adapter 传入"正在尝试重连"文案，会话所有权保留。
+      // 仍像其它回调一样按 token 校验，避免迟到回调污染新会话。
+      if (token != _epoch || !identical(_engine, engine)) return;
+      developer.log(
+        'MultiviewDanmakuSession: transport reconnecting for $key: $msg',
+        name: 'MultiviewDanmakuSession',
+      );
     };
 
     engine.onClose = (reason) {

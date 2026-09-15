@@ -20,7 +20,7 @@ class HuyaDanmakuArgs {
   HuyaDanmakuArgs({required this.uid, required this.topSid, required this.subSid});
   @override
   String toString() {
-    return json.encode({"uid": uid, "topSid": topSid, "subSid": subSid});
+    return json.encode({'uid': uid, 'topSid': topSid, 'subSid': subSid});
   }
 }
 
@@ -70,7 +70,7 @@ class HuyaDanmaku implements LiveDanmaku {
   Function(String msg)? onClose;
   @override
   Function()? onReady;
-  String serverUrl = "wss://wsapi.huya.com";
+  String serverUrl = 'wss://wsapi.huya.com';
 
   WebScoketUtils? webScoketUtils;
 
@@ -116,12 +116,12 @@ class HuyaDanmaku implements LiveDanmaku {
       onReconnect: () {
         if (generation != _generation) return;
         markDisconnected();
-        onReconnect?.call("与服务器断开连接，正在尝试重连");
+        onReconnect?.call('与服务器断开连接，正在尝试重连');
       },
       onClose: (e) {
         if (generation != _generation) return;
         markDisconnected();
-        onClose?.call("服务器连接失败$e");
+        onClose?.call('服务器连接失败$e');
       },
     );
     await webScoketUtils?.connect();
@@ -389,7 +389,7 @@ class HYMessageItem extends TarsStruct {
 class HYSender extends TarsStruct {
   int uid = 0;
   int lMid = 0;
-  String nickName = "";
+  String nickName = '';
   int gender = 0;
 
   @override
@@ -418,7 +418,7 @@ class HYSender extends TarsStruct {
 
 class HYMessage extends TarsStruct {
   HYSender userInfo = HYSender();
-  String content = "";
+  String content = '';
   HYBulletFormat bulletFormat = HYBulletFormat();
 
   @override

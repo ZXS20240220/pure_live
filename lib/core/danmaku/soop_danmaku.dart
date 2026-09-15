@@ -51,17 +51,17 @@ class SoopDanmaku implements LiveDanmaku {
   @override
   Function()? onReady;
 
-  final String f = "\x0c";
-  final String esc = "\x1b\x09";
+  final String f = '\x0c';
+  final String esc = '\x1b\x09';
 
   WebScoketUtils? webScoketUtils;
   late SoopDanmakuArgs danmakuArgs;
 
   @override
   Future<void> start(dynamic args) async {
-    CoreLog.d("SoopDanmaku start");
+    CoreLog.d('SoopDanmaku start');
     if (args == null) {
-      onClose?.call("服务器连接失败");
+      onClose?.call('服务器连接失败');
       return;
     }
     danmakuArgs = args as SoopDanmakuArgs;
@@ -69,11 +69,11 @@ class SoopDanmaku implements LiveDanmaku {
     final liveSite = site.liveSite as SoopSite;
     final mHeaders = liveSite.getHeaders();
     mHeaders.addAll({
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
-      "Origin": "https://play.sooplive.co.kr",
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+      'Origin': 'https://play.sooplive.co.kr',
     });
 
-    CoreLog.d("SoopDanmaku args: ${json.encode(danmakuArgs.toJson())}");
+    CoreLog.d('SoopDanmaku args: ${json.encode(danmakuArgs.toJson())}');
     webScoketUtils = WebScoketUtils(
       url: danmakuArgs.url,
       heartBeatTime: heartbeatTime,
@@ -88,7 +88,7 @@ class SoopDanmaku implements LiveDanmaku {
             decodeMessage(List<int>.from(e));
           }
         } catch (err) {
-          CoreLog.w("SoopDanmaku decode error raw: $e");
+          CoreLog.w('SoopDanmaku decode error raw: $e');
           CoreLog.error(err);
         }
       },
@@ -102,11 +102,11 @@ class SoopDanmaku implements LiveDanmaku {
       },
       onReconnect: () {
         markDisconnected();
-        onReconnect?.call("与服务器断开连接，正在尝试重连");
+        onReconnect?.call('与服务器断开连接，正在尝试重连');
       },
       onClose: (e) {
         markDisconnected();
-        onClose?.call("服务器连接失败 $e");
+        onClose?.call('服务器连接失败 $e');
       },
     );
     webScoketUtils?.connect();
@@ -145,7 +145,7 @@ class SoopDanmaku implements LiveDanmaku {
   }
 
   void decodeMessageStr(String data) {
-    CoreLog.w("SoopDanmaku decodeMessageStr: $data");
+    CoreLog.w('SoopDanmaku decodeMessageStr: $data');
   }
 
   void decodeMessage(List<int> data) {
@@ -181,7 +181,7 @@ class SoopDanmaku implements LiveDanmaku {
     const separatorByte = 0x0c;
     final parts = ListUtil.splitList(body, separatorByte);
     final fields = parts.map((part) => utf8.decode(part, allowMalformed: true)).toList(growable: false);
-    CoreLog.d("SOOP chat fields: $fields");
+    CoreLog.d('SOOP chat fields: $fields');
 
     if (fields.length <= 6) return;
     final comment = fields[1].trim();

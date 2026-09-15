@@ -22,7 +22,6 @@ enum MultiviewLayout {
   ///
   /// 渲染分辨率复用 quad 的 2x2 均分数学：大格上采样、小格下采样的
   /// 画质取舍已接受。
-  // TODO: 晋升大画面时重设该格渲染分辨率（VideoController.setSize），
   // 大格按整屏均分、小格按剩余区域均分，消除上采样模糊。
   focus;
 

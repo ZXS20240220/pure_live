@@ -422,13 +422,13 @@ class Log {
 
   static void writeLog(Object content, [Level level = Level.info]) {
     if (!_localLoggingEnabled || _logFileWriter == null) return;
-    _logFileWriter?.write("[${level.name.toUpperCase()}] $_currentTime：$content");
+    _logFileWriter?.write('[${level.name.toUpperCase()}] $_currentTime：$content');
   }
 
   static void addDebugLog(String content, [Color? color]) {
     String processedContent = content;
-    if (content.contains("请求响应")) {
-      processedContent = content.split("\n").join('\n💡 ');
+    if (content.contains('请求响应')) {
+      processedContent = content.split('\n').join('\n💡 ');
     }
 
     _allLogs.add(DebugLogModel(DateTime.now(), processedContent, color: color));
@@ -481,7 +481,7 @@ class Log {
     if (!kReleaseMode) {
       logger.e(message, stackTrace: stackTrace);
     }
-    if (localLoggingEnabled) writeLog("$message\n$stackTrace", Level.error);
+    if (localLoggingEnabled) writeLog('$message\n$stackTrace', Level.error);
   }
 
   static void w(String message) {
@@ -523,8 +523,8 @@ class LogFileWriter {
   bool _isInitialized = false;
 
   LogFileWriter() {
-    var dt = DateFormat("yyyy-MM-dd_HH-mm-ss").format(DateTime.now());
-    _fileName = "$dt.log";
+    var dt = DateFormat('yyyy-MM-dd_HH-mm-ss').format(DateTime.now());
+    _fileName = '$dt.log';
   }
 
   Future<bool> init() async {
@@ -536,7 +536,7 @@ class LogFileWriter {
         await logDir.create(recursive: true);
       }
 
-      var logFile = File("${logDir.path}/$_fileName");
+      var logFile = File('${logDir.path}/$_fileName');
       _fileWriter = logFile.openWrite(mode: FileMode.append);
       _isInitialized = true;
 
@@ -561,7 +561,7 @@ class LogFileWriter {
 
   void write(String content) {
     if (!_isInitialized) return;
-    _fileWriter?.write("$content\r\n");
+    _fileWriter?.write('$content\r\n');
   }
 
   Future<void> close() async {
@@ -575,42 +575,42 @@ class LogFileWriter {
       final packageInfo = await PackageInfo.fromPlatform();
       final deviceInfo = DeviceInfoPlugin();
 
-      _fileWriter?.write("=========================================================\r\n");
-      _fileWriter?.write("  ____  _   _ ____  _____   _     _____     _______ \r\n");
-      _fileWriter?.write(" |  _ \\| | | |  _ \\| ____| | |   |_ _\\ \\   / / ____|\r\n");
-      _fileWriter?.write(" | |_) | | | | |_) |  _|   | |    | | \\ \\ / /|  _|  \r\n");
-      _fileWriter?.write(" |  __/| |_| |  _ <| |___  | |___ | |  \\ V / | |___ \r\n");
-      _fileWriter?.write(" |_|    \\___/|_| \\_\\_____| |_____|___|  \\_/  |_____|\r\n");
-      _fileWriter?.write("=========================================================\r\n");
-      _fileWriter?.write(" 🕒 Current Time : ${DateTime.now()}\r\n");
-      _fileWriter?.write(" 📱 Platform     : ${Platform.operatingSystem}\r\n");
-      _fileWriter?.write(" ⚙️ OS Version   : ${Platform.operatingSystemVersion}\r\n");
-      _fileWriter?.write(" 🌐 Locale       : ${Platform.localeName}\r\n");
-      _fileWriter?.write(" 📦 App Version  : v${packageInfo.version} (${packageInfo.buildNumber})\r\n");
+      _fileWriter?.write('=========================================================\r\n');
+      _fileWriter?.write('  ____  _   _ ____  _____   _     _____     _______ \r\n');
+      _fileWriter?.write(' |  _ \\| | | |  _ \\| ____| | |   |_ _\\ \\   / / ____|\r\n');
+      _fileWriter?.write(' | |_) | | | | |_) |  _|   | |    | | \\ \\ / /|  _|  \r\n');
+      _fileWriter?.write(' |  __/| |_| |  _ <| |___  | |___ | |  \\ V / | |___ \r\n');
+      _fileWriter?.write(' |_|    \\___/|_| \\_\\_____| |_____|___|  \\_/  |_____|\r\n');
+      _fileWriter?.write('=========================================================\r\n');
+      _fileWriter?.write(' 🕒 Current Time : ${DateTime.now()}\r\n');
+      _fileWriter?.write(' 📱 Platform     : ${Platform.operatingSystem}\r\n');
+      _fileWriter?.write(' ⚙️ OS Version   : ${Platform.operatingSystemVersion}\r\n');
+      _fileWriter?.write(' 🌐 Locale       : ${Platform.localeName}\r\n');
+      _fileWriter?.write(' 📦 App Version  : v${packageInfo.version} (${packageInfo.buildNumber})\r\n');
 
-      String model = "Unknown";
+      String model = 'Unknown';
       if (Platform.isAndroid) {
         final info = await deviceInfo.androidInfo;
-        model = "${info.brand} ${info.model} (API ${info.version.sdkInt})";
+        model = '${info.brand} ${info.model} (API ${info.version.sdkInt})';
       } else if (Platform.isIOS) {
         final info = await deviceInfo.iosInfo;
-        model = "${info.name} ${info.systemVersion}";
+        model = '${info.name} ${info.systemVersion}';
       } else if (Platform.isLinux) {
         final info = await deviceInfo.linuxInfo;
-        model = "${info.name} (${info.versionId})";
+        model = '${info.name} (${info.versionId})';
       } else if (Platform.isMacOS) {
         final info = await deviceInfo.macOsInfo;
-        model = "${info.computerName} (macOS ${info.osRelease})";
+        model = '${info.computerName} (macOS ${info.osRelease})';
       } else if (Platform.isWindows) {
         final info = await deviceInfo.windowsInfo;
-        model = "${info.computerName} (Build ${info.buildNumber})";
+        model = '${info.computerName} (Build ${info.buildNumber})';
       }
 
-      _fileWriter?.write(" 💻 Device Model : $model\r\n");
-      _fileWriter?.write("=========================================================\r\n\r\n");
+      _fileWriter?.write(' 💻 Device Model : $model\r\n');
+      _fileWriter?.write('=========================================================\r\n\r\n');
       await _fileWriter?.flush();
     } catch (e, stackTrace) {
-      Log.e("Init log file failed: $e", stackTrace);
+      Log.e('Init log file failed: $e', stackTrace);
     }
   }
 }

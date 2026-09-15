@@ -205,67 +205,69 @@ class _SearchOptions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Material(
-      color: theme.colorScheme.surfaceContainerLow,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 9),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              physics: const PureLiveBoundedScrollPhysics(),
-              clipBehavior: Clip.hardEdge,
-              child: Row(
-                children: [
-                  FilterChip(
-                    avatar: const Icon(Icons.offline_bolt_rounded, size: 17),
-                    label: Text(i18n('search_include_offline')),
-                    selected: controller.includeOffline.v,
-                    onSelected: controller.setIncludeOffline,
-                  ),
-                  const SizedBox(width: 8),
-                  PopupMenuButton<LiveSearchSortMode>(
-                    initialValue: controller.sortMode.v,
-                    onSelected: controller.setSortMode,
-                    itemBuilder: (context) => [
-                      for (final mode in LiveSearchSortMode.values)
-                        PopupMenuItem(value: mode, child: Text(_sortLabel(mode))),
-                    ],
-                    child: Chip(
-                      avatar: const Icon(Icons.sort_rounded, size: 17),
-                      label: Text(_sortLabel(controller.sortMode.v)),
+    return Obx(
+      () => Material(
+        color: theme.colorScheme.surfaceContainerLow,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 9),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const PureLiveBoundedScrollPhysics(),
+                clipBehavior: Clip.hardEdge,
+                child: Row(
+                  children: [
+                    FilterChip(
+                      avatar: const Icon(Icons.offline_bolt_rounded, size: 17),
+                      label: Text(i18n('search_include_offline')),
+                      selected: controller.includeOffline.v,
+                      onSelected: controller.setIncludeOffline,
                     ),
-                  ),
-                  if (controller.canOpenWebSearch) ...[
                     const SizedBox(width: 8),
-                    ActionChip(
-                      avatar: const Icon(Icons.open_in_browser_rounded, size: 17),
-                      label: Text(i18n('continue_web_search')),
-                      onPressed: controller.openWebSearch,
+                    PopupMenuButton<LiveSearchSortMode>(
+                      initialValue: controller.sortMode.v,
+                      onSelected: controller.setSortMode,
+                      itemBuilder: (context) => [
+                        for (final mode in LiveSearchSortMode.values)
+                          PopupMenuItem(value: mode, child: Text(_sortLabel(mode))),
+                      ],
+                      child: Chip(
+                        avatar: const Icon(Icons.sort_rounded, size: 17),
+                        label: Text(_sortLabel(controller.sortMode.v)),
+                      ),
                     ),
+                    if (controller.canOpenWebSearch) ...[
+                      const SizedBox(width: 8),
+                      ActionChip(
+                        avatar: const Icon(Icons.open_in_browser_rounded, size: 17),
+                        label: Text(i18n('continue_web_search')),
+                        onPressed: controller.openWebSearch,
+                      ),
+                    ],
                   ],
+                ),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.info_outline_rounded, size: 16, color: theme.colorScheme.primary),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      controller.capabilityText,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
                 ],
               ),
-            ),
-            const SizedBox(height: 6),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.info_outline_rounded, size: 16, color: theme.colorScheme.primary),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    controller.capabilityText,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      height: 1.3,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

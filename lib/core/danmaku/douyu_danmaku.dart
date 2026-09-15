@@ -42,7 +42,7 @@ class DouyuDanmaku implements LiveDanmaku {
   Function(String msg)? onClose;
   @override
   Function()? onReady;
-  String serverUrl = "wss://danmuproxy.douyu.com:8506";
+  String serverUrl = 'wss://danmuproxy.douyu.com:8506';
 
   WebScoketUtils? webScoketUtils;
   // ignore: unused_field
@@ -78,25 +78,25 @@ class DouyuDanmaku implements LiveDanmaku {
       onReconnect: () {
         if (generation != _generation) return;
         markDisconnected();
-        onReconnect?.call("与服务器断开连接，正在尝试重连");
+        onReconnect?.call('与服务器断开连接，正在尝试重连');
       },
       onClose: (e) {
         if (generation != _generation) return;
         markDisconnected();
-        onClose?.call("服务器连接失败$e");
+        onClose?.call('服务器连接失败$e');
       },
     );
     await webScoketUtils?.connect();
   }
 
   void joinRoom(dynamic roomId) {
-    webScoketUtils?.sendMessage(serializeDouyu("type@=loginreq/roomid@=$roomId/"));
-    webScoketUtils?.sendMessage(serializeDouyu("type@=joingroup/rid@=$roomId/gid@=-9999/"));
+    webScoketUtils?.sendMessage(serializeDouyu('type@=loginreq/roomid@=$roomId/'));
+    webScoketUtils?.sendMessage(serializeDouyu('type@=joingroup/rid@=$roomId/gid@=-9999/'));
   }
 
   @override
   void heartbeat() {
-    var data = serializeDouyu("type@=mrkl/");
+    var data = serializeDouyu('type@=mrkl/');
     webScoketUtils?.sendMessage(data);
   }
 
@@ -118,16 +118,16 @@ class DouyuDanmaku implements LiveDanmaku {
         final jsonData = sttToJObject(result);
         if (jsonData is! Map) continue;
 
-        final type = jsonData["type"]?.toString();
+        final type = jsonData['type']?.toString();
         LiveMessage? liveMsg;
-        if (type == "chatmsg") {
+        if (type == 'chatmsg') {
           final packetRoomId = jsonData['rid']?.toString() ?? '';
           if (packetRoomId.isNotEmpty && _roomId.isNotEmpty && packetRoomId != _roomId) continue;
-          final text = jsonData["txt"]?.toString() ?? '';
+          final text = jsonData['txt']?.toString() ?? '';
           if (text.isEmpty) continue;
           final isSuspectedAutomated = jsonData['dms'] == null && jsonData['if']?.toString() != '1';
           if (isSuspectedAutomated && _filterSuspectedAutomatedMessages()) continue;
-          final col = int.tryParse(jsonData["col"]?.toString() ?? '') ?? 0;
+          final col = int.tryParse(jsonData['col']?.toString() ?? '') ?? 0;
           final rawTimestamp = int.tryParse(jsonData['cst']?.toString() ?? '');
           final sentAt = rawTimestamp == null
               ? null
@@ -135,67 +135,67 @@ class DouyuDanmaku implements LiveDanmaku {
           final messageId = jsonData['cid']?.toString() ?? '';
           liveMsg = LiveMessage(
             type: LiveMessageType.chat,
-            userName: jsonData["nn"]?.toString() ?? '',
+            userName: jsonData['nn']?.toString() ?? '',
             userId: jsonData['uid']?.toString() ?? '',
             message: text,
             color: getColor(col),
             messageId: messageId.isEmpty ? '' : 'douyu:$messageId',
             sentAt: sentAt,
           );
-        } else if (type == "comm_chatmsg") {
+        } else if (type == 'comm_chatmsg') {
           liveMsg = _parseCommonSuperChat(jsonData);
-        } else if (type == "voice_trlt") {
+        } else if (type == 'voice_trlt') {
           liveMsg = _parseVoiceSuperChat(jsonData);
         }
         if (liveMsg != null) onMessage?.call(liveMsg);
       } catch (e) {
         // One malformed packet must not discard the valid packets coalesced
         // after it in the same WebSocket frame.
-        CoreLog.error("Douyu packet parse failed: $e");
+        CoreLog.error('Douyu packet parse failed: $e');
       }
     }
   }
 
   LiveMessage? _parseCommonSuperChat(Map jsonData) {
-    final chat = jsonData["chatmsg"];
-    final now = int.tryParse(jsonData["now"]?.toString() ?? '');
-    final duration = int.tryParse(jsonData["cet"]?.toString() ?? '');
-    final rawPrice = int.tryParse(jsonData["cprice"]?.toString() ?? '');
+    final chat = jsonData['chatmsg'];
+    final now = int.tryParse(jsonData['now']?.toString() ?? '');
+    final duration = int.tryParse(jsonData['cet']?.toString() ?? '');
+    final rawPrice = int.tryParse(jsonData['cprice']?.toString() ?? '');
     if (chat is! Map || now == null || duration == null || rawPrice == null) return null;
-    final face = chat["ic"]?.toString() ?? '';
+    final face = chat['ic']?.toString() ?? '';
     final startTime = DateTime.fromMillisecondsSinceEpoch(now);
     final superChat = LiveSuperChatMessage(
-      backgroundBottomColor: "#292a60",
-      backgroundColor: "#c1c1ff",
+      backgroundBottomColor: '#292a60',
+      backgroundColor: '#c1c1ff',
       endTime: startTime.add(Duration(seconds: duration)),
-      face: face.isEmpty ? '' : "https://apic.douyucdn.cn/upload/${face}_small.jpg",
-      message: chat["txt"]?.toString() ?? '',
+      face: face.isEmpty ? '' : 'https://apic.douyucdn.cn/upload/${face}_small.jpg',
+      message: chat['txt']?.toString() ?? '',
       price: rawPrice ~/ 100,
       startTime: startTime,
-      userName: chat["nn"]?.toString() ?? '',
+      userName: chat['nn']?.toString() ?? '',
     );
     return _superChatMessage(superChat);
   }
 
   LiveMessage? _parseVoiceSuperChat(Map jsonData) {
-    final list = jsonData["list"];
+    final list = jsonData['list'];
     if (list is! List || list.isEmpty || list.first is! Map) return null;
     final scData = list.first as Map;
-    final endSeconds = int.tryParse(scData["etime"]?.toString() ?? '');
-    final startSeconds = int.tryParse(scData["acptime"]?.toString() ?? '');
-    final rawPrice = int.tryParse(scData["realPrice"]?.toString() ?? '');
+    final endSeconds = int.tryParse(scData['etime']?.toString() ?? '');
+    final startSeconds = int.tryParse(scData['acptime']?.toString() ?? '');
+    final rawPrice = int.tryParse(scData['realPrice']?.toString() ?? '');
     if (endSeconds == null || startSeconds == null || rawPrice == null) return null;
-    final avatars = scData["uat"];
+    final avatars = scData['uat'];
     final avatar = avatars is List && avatars.length > 1 ? avatars[1].toString() : '';
     final superChat = LiveSuperChatMessage(
-      backgroundBottomColor: "#246488",
-      backgroundColor: "#ffffff",
+      backgroundBottomColor: '#246488',
+      backgroundColor: '#ffffff',
       endTime: DateTime.fromMillisecondsSinceEpoch(endSeconds * 1000),
-      face: avatar.isEmpty ? '' : "https://$avatar",
-      message: scData["content"]?.toString() ?? '',
+      face: avatar.isEmpty ? '' : 'https://$avatar',
+      message: scData['content']?.toString() ?? '',
       price: rawPrice ~/ 100,
       startTime: DateTime.fromMillisecondsSinceEpoch(startSeconds * 1000),
-      userName: scData["un"]?.toString() ?? '',
+      userName: scData['un']?.toString() ?? '',
     );
     return _superChatMessage(superChat);
   }
@@ -203,8 +203,8 @@ class DouyuDanmaku implements LiveDanmaku {
   LiveMessage _superChatMessage(LiveSuperChatMessage data) {
     return LiveMessage(
       type: LiveMessageType.superChat,
-      userName: "SUPER_CHAT_MESSAGE",
-      message: "SUPER_CHAT_MESSAGE",
+      userName: 'SUPER_CHAT_MESSAGE',
+      message: 'SUPER_CHAT_MESSAGE',
       color: LiveMessageColor.white,
       data: data,
     );
@@ -265,9 +265,9 @@ class DouyuDanmaku implements LiveDanmaku {
 
   //辣鸡STT
   dynamic sttToJObject(String str) {
-    if (str.contains("//")) {
+    if (str.contains('//')) {
       var result = [];
-      for (var field in str.split("//")) {
+      for (var field in str.split('//')) {
         if (field.isEmpty) {
           continue;
         }
@@ -275,20 +275,20 @@ class DouyuDanmaku implements LiveDanmaku {
       }
       return result;
     }
-    if (str.contains("@=")) {
+    if (str.contains('@=')) {
       var result = {};
       for (var field in str.split('/')) {
         if (field.isEmpty) {
           continue;
         }
-        final separator = field.indexOf("@=");
+        final separator = field.indexOf('@=');
         if (separator <= 0) continue;
         var k = field.substring(0, separator);
         var v = unscapeSlashAt(field.substring(separator + 2));
         result[k] = sttToJObject(v);
       }
       return result;
-    } else if (str.contains("@A=")) {
+    } else if (str.contains('@A=')) {
       return sttToJObject(unscapeSlashAt(str));
     } else {
       return unscapeSlashAt(str);
@@ -296,23 +296,23 @@ class DouyuDanmaku implements LiveDanmaku {
   }
 
   String unscapeSlashAt(String str) {
-    return str.replaceAll("@S", "/").replaceAll("@A", "@");
+    return str.replaceAll('@S', '/').replaceAll('@A', '@');
   }
 
   LiveMessageColor getColor(int type) {
     switch (type) {
       case 1:
-        return LiveMessageColor(255, 0, 0);
+        return const LiveMessageColor(255, 0, 0);
       case 2:
-        return LiveMessageColor(30, 135, 240);
+        return const LiveMessageColor(30, 135, 240);
       case 3:
-        return LiveMessageColor(122, 200, 75);
+        return const LiveMessageColor(122, 200, 75);
       case 4:
-        return LiveMessageColor(255, 127, 0);
+        return const LiveMessageColor(255, 127, 0);
       case 5:
-        return LiveMessageColor(155, 57, 244);
+        return const LiveMessageColor(155, 57, 244);
       case 6:
-        return LiveMessageColor(255, 105, 180);
+        return const LiveMessageColor(255, 105, 180);
       default:
         return LiveMessageColor.white;
     }
