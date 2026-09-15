@@ -21,22 +21,17 @@ class DouyinDanmakuArgs {
   final String userId;
   final String cookie;
 
-  DouyinDanmakuArgs({
-    required this.webRid,
-    required this.roomId,
-    required this.userId,
-    required this.cookie,
-  });
+  DouyinDanmakuArgs({required this.webRid, required this.roomId, required this.userId, required this.cookie});
 
   @override
   String toString() {
     return json.encode({
-      'webRid': webRid,
-      'roomId': roomId,
-      'userId': userId,
+      "webRid": webRid,
+      "roomId": roomId,
+      "userId": userId,
       // This object is included in lifecycle diagnostics. Never put an
       // authenticated session into logs or exception text.
-      'cookie': cookie.isEmpty ? '' : '<redacted>',
+      "cookie": cookie.isEmpty ? "" : "<redacted>",
     });
   }
 }
@@ -62,19 +57,20 @@ class DouyinDanmaku implements LiveDanmaku {
   @override
   Function(LiveMessage msg)? onMessage;
   @override
+  Function(String msg)? onReconnect;
+  @override
   Function(String msg)? onClose;
   @override
   Function()? onReady;
-
-  static const String _webSocketPath = '/webcast/im/push/v2/';
+  static const String _webSocketPath = "/webcast/im/push/v2/";
   static const List<String> _webSocketHosts = <String>[
     // Current web rooms are distributed between the low- and high-latency
     // webcast100 pools. A single hard-coded pool made otherwise healthy rooms
     // appear to have no danmaku whenever that edge rejected the handshake.
-    'webcast100-ws-web-lq.douyin.com',
-    'webcast100-ws-web-hl.douyin.com',
+    "webcast100-ws-web-lq.douyin.com",
+    "webcast100-ws-web-hl.douyin.com",
   ];
-  String serverUrl = 'wss://${_webSocketHosts.first}$_webSocketPath';
+  String serverUrl = "wss://${_webSocketHosts.first}$_webSocketPath";
   late DouyinDanmakuArgs danmakuArgs;
   WebScoketUtils? webScoketUtils;
   int _generation = 0;
@@ -89,38 +85,41 @@ class DouyinDanmaku implements LiveDanmaku {
     markDisconnected();
     var ts = DateTime.now().millisecondsSinceEpoch;
     var uri = Uri.parse(serverUrl).replace(
-      scheme: 'wss',
+      scheme: "wss",
       queryParameters: {
-        'app_name': 'douyin_web',
-        'version_code': DouyinRequestParams.versionCodeValue,
-        'webcast_sdk_version': DouyinRequestParams.sdkVersion,
-        'update_version_code': DouyinRequestParams.sdkVersion,
-        'compress': 'gzip',
-        'cursor': 'h-1_t-${ts}_r-1_d-1_u-1',
-        'host': 'https://live.douyin.com',
-        'aid': '6383',
-        'live_id': '1',
-        'did_rule': '3',
-        'debug': 'false',
-        'maxCacheMessageNumber': '20',
-        'endpoint': 'live_pc',
-        'support_wrds': '1',
-        'im_path': '/webcast/im/fetch/',
-        'user_unique_id': danmakuArgs.userId,
-        'device_platform': 'web',
-        'cookie_enabled': 'true',
-        'screen_width': '1920',
-        'screen_height': '1080',
-        'browser_language': 'zh-CN',
-        'browser_platform': 'Win32',
-        'browser_name': 'Mozilla',
-        'browser_version': DouyinRequestParams.browserVersion,
-        'browser_online': 'true',
-        'tz_name': 'Asia/Shanghai',
-        'identity': 'audience',
-        'room_id': danmakuArgs.roomId,
-        'need_persist_msg_count': '15',
-        'heartbeatDuration': '0',
+        "app_name": "douyin_web",
+        "version_code": DouyinRequestParams.versionCodeValue,
+        "webcast_sdk_version": DouyinRequestParams.sdkVersion,
+        "update_version_code": DouyinRequestParams.sdkVersion,
+        "compress": "gzip",
+        // "internal_ext":
+        //     "internal_src:dim|wss_push_room_id:${danmakuArgs.roomId}|wss_push_did:${danmakuArgs.userId}|dim_log_id:20230626152702E8F63662383A350588E1|fetch_time:1687764422114|seq:1|wss_info:0-1687764422114-0-0|wrds_kvs:WebcastRoomRankMessage-1687764036509597990_InputPanelComponentSyncData-1687736682345173033_WebcastRoomStatsMessage-1687764414427812578",
+        "cursor": "h-1_t-${ts}_r-1_d-1_u-1",
+        "host": "https://live.douyin.com",
+        "aid": "6383",
+        "live_id": "1",
+        "did_rule": "3",
+        "debug": "false",
+        "maxCacheMessageNumber": "20",
+        "endpoint": "live_pc",
+        "support_wrds": "1",
+        "im_path": "/webcast/im/fetch/",
+        "user_unique_id": danmakuArgs.userId,
+        "device_platform": "web",
+        "cookie_enabled": "true",
+        "screen_width": "1920",
+        "screen_height": "1080",
+        "browser_language": "zh-CN",
+        "browser_platform": "Win32",
+        "browser_name": "Mozilla",
+        "browser_version": DouyinRequestParams.browserVersion,
+        "browser_online": "true",
+        "tz_name": "Asia/Shanghai",
+        "identity": "audience",
+        "room_id": danmakuArgs.roomId,
+        "need_persist_msg_count": "15",
+        "heartbeatDuration": "0",
+        //"signature": "00000000"
       },
     );
 
@@ -140,7 +139,7 @@ class DouyinDanmaku implements LiveDanmaku {
         try {
           decodeMessage(e);
         } catch (e) {
-          CoreLog.error('douyin_danmaku_error$e');
+          CoreLog.error("douyin_danmaku_error$e");
         }
       },
       onReady: () {
@@ -155,12 +154,12 @@ class DouyinDanmaku implements LiveDanmaku {
       onReconnect: () {
         if (generation != _generation) return;
         markDisconnected();
-        onClose?.call('与服务器断开连接，正在尝试重连');
+        onReconnect?.call("与服务器断开连接，正在尝试重连");
       },
       onClose: (e) {
         if (generation != _generation) return;
         markDisconnected();
-        onClose?.call('服务器连接失败$e');
+        onClose?.call("服务器连接失败$e");
       },
     );
     await webScoketUtils?.connect();
@@ -175,20 +174,20 @@ class DouyinDanmaku implements LiveDanmaku {
   static List<String> buildServerUrls(Uri baseUri, {required String signature}) {
     final signed = baseUri.replace(
       path: _webSocketPath,
-      queryParameters: <String, String>{...baseUri.queryParameters, 'signature': signature},
+      queryParameters: <String, String>{...baseUri.queryParameters, "signature": signature},
     );
     return List<String>.unmodifiable(
-      _webSocketHosts.map((host) => signed.replace(scheme: 'wss', host: host).toString()),
+      _webSocketHosts.map((host) => signed.replace(scheme: "wss", host: host).toString()),
     );
   }
 
   @visibleForTesting
   static Map<String, dynamic> buildHandshakeHeaders(DouyinDanmakuArgs args) {
     return <String, dynamic>{
-      'User-Agent': DouyinRequestParams.kDefaultUserAgent,
-      if (args.cookie.trim().isNotEmpty) 'Cookie': args.cookie,
-      'Origin': 'https://live.douyin.com',
-      'Referer': 'https://live.douyin.com/${args.webRid}',
+      "User-Agent": DouyinRequestParams.kDefaultUserAgent,
+      if (args.cookie.trim().isNotEmpty) "Cookie": args.cookie,
+      "Origin": "https://live.douyin.com",
+      "Referer": "https://live.douyin.com/${args.webRid}",
     };
   }
 
@@ -200,6 +199,8 @@ class DouyinDanmaku implements LiveDanmaku {
   }
 
   void decodeMessage(List<int> args) {
+    // CoreLog.i(args.toString());
+
     var wssPackage = PushFrame.fromBuffer(args);
 
     var logId = wssPackage.logId;
@@ -211,6 +212,7 @@ class DouyinDanmaku implements LiveDanmaku {
     var payloadPackage = Response.fromBuffer(decompressed);
     if (payloadPackage.needAck) {
       sendAck(logId, payloadPackage.internalExt);
+      //return;
     }
     for (var msg in payloadPackage.messagesList) {
       if (msg.method == 'WebcastChatMessage') {
@@ -224,24 +226,23 @@ class DouyinDanmaku implements LiveDanmaku {
   void unPackWebcastChatMessage(List<int> payload, {String envelopeMessageId = ''}) {
     var chatMessage = ChatMessage.fromBuffer(payload);
     final commonRoomId = chatMessage.hasCommon() ? chatMessage.common.roomId.toString() : '';
-    if (commonRoomId.isNotEmpty && commonRoomId != '0' && commonRoomId != danmakuArgs.roomId) {
-      return;
-    }
+    if (commonRoomId.isNotEmpty && commonRoomId != '0' && commonRoomId != danmakuArgs.roomId) return;
     final commonMessageId = chatMessage.hasCommon() ? chatMessage.common.msgId.toString() : '';
-    final rawCreateTime = chatMessage.hasCommon() ? chatMessage.common.createTime.toInt() : 0;
-
     final resolvedMessageId = commonMessageId.isNotEmpty && commonMessageId != '0'
         ? commonMessageId
         : (envelopeMessageId == '0' ? '' : envelopeMessageId);
+    final rawCreateTime = chatMessage.hasCommon() ? chatMessage.common.createTime.toInt() : 0;
     final sentAt = rawCreateTime <= 0
         ? null
-        : DateTime.fromMillisecondsSinceEpoch(
-            rawCreateTime > 100000000000 ? rawCreateTime : rawCreateTime * 1000,
-          );
+        : DateTime.fromMillisecondsSinceEpoch(rawCreateTime > 100000000000 ? rawCreateTime : rawCreateTime * 1000);
     onMessage?.call(
       LiveMessage(
         type: LiveMessageType.chat,
         color: LiveMessageColor.white,
+        //暂不知道具体怎么转换颜色
+        // color: chatMessage.common.fullScreenTextColor.
+        //     ? LiveMessageColor.white
+        //     : LiveMessageColor.numberToColor(color),
         message: chatMessage.content,
         userName: chatMessage.user.nickName,
         userId: chatMessage.user.id.toString(),
@@ -260,10 +261,12 @@ class DouyinDanmaku implements LiveDanmaku {
     onMessage?.call(
       LiveMessage(
         type: LiveMessageType.online,
+        // totalUser is cumulative. onlineUserForAnchor is the concurrent
+        // audience field shown to the anchor and must be kept separate.
         data: LiveAudienceUpdate(kind: LiveAudienceMetricKind.onlineViewers, value: online),
         color: LiveMessageColor.white,
-        message: '',
-        userName: '',
+        message: "",
+        userName: "",
       ),
     );
   }
@@ -287,39 +290,46 @@ class DouyinDanmaku implements LiveDanmaku {
     _generation++;
     markDisconnected();
     onMessage = null;
+    onReconnect = null;
     onClose = null;
     onReady = null;
     await webScoketUtils?.close();
     webScoketUtils = null;
   }
 
+  /// 获取Websocket签名
+  /// - [roomId] 房间ID, 例如：7382735338101328680
+  /// - [uniqueId] 用户唯一ID, 例如：7273033021933946427
+  /// 参考代码 hua/stream-rec
+  /// 服务端代码：https://github.com/lovelyyoshino/douyin_python，请自行部署后使用
+  /// 自部署 https://github.com/SlotSun/simple_live_api
   Future<String> getSignature(String roomId, String uniqueId) async {
     try {
       Map<String, dynamic> params = {
-        'live_id': '1',
-        'aid': '6383',
-        'version_code': DouyinRequestParams.versionCodeValue,
-        'webcast_sdk_version': DouyinRequestParams.sdkVersion,
-        'room_id': roomId,
-        'sub_room_id': '',
-        'sub_channel_id': '',
-        'did_rule': '3',
-        'user_unique_id': uniqueId,
-        'device_platform': 'web',
-        'device_type': '',
-        'ac': '',
-        'identity': 'audience',
+        "live_id": "1",
+        "aid": "6383",
+        "version_code": DouyinRequestParams.versionCodeValue,
+        "webcast_sdk_version": DouyinRequestParams.sdkVersion,
+        "room_id": roomId,
+        "sub_room_id": "",
+        "sub_channel_id": "",
+        "did_rule": "3",
+        "user_unique_id": uniqueId,
+        "device_platform": "web",
+        "device_type": "",
+        "ac": "",
+        "identity": "audience",
       };
       String sigParam = params.entries.map((entry) => '${entry.key}=${entry.value}').join(',');
       var md5SigParam = md5.convert(utf8.encode(sigParam)).toString();
       var signature = generateXBogus(
         md5SigParam,
-        1,
+        1, // counter
       );
       return signature;
     } catch (e) {
       CoreLog.error(e);
-      return '';
+      return "";
     } finally {}
   }
 }

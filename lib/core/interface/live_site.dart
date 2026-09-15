@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:pure_live/model/live_category.dart';
 import 'package:pure_live/model/live_anchor_item.dart';
 import 'package:pure_live/common/models/live_area.dart';
@@ -6,6 +5,9 @@ import 'package:pure_live/common/models/live_room.dart';
 import 'package:pure_live/model/live_play_quality.dart';
 import 'package:pure_live/common/models/live_message.dart';
 import 'package:pure_live/core/interface/live_danmaku.dart';
+import 'package:pure_live/core/common/hls_source_query_policy.dart';
+
+import 'live_input_recipe.dart';
 
 /// The stream URLs returned for one requested quality together with the
 /// quality that the platform actually applied.
@@ -21,10 +23,93 @@ import 'package:pure_live/core/interface/live_danmaku.dart';
 /// [LivePlayQuality.selectionId] for platforms whose URL response has no
 /// separate acknowledgement.
 class LivePlayUrlResolution {
-  const LivePlayUrlResolution({required this.urls, this.appliedQualityData});
+  const LivePlayUrlResolution({required this.urls, this.appliedQualityData, this.qualityUnconfirmed = false})
+    : sourceQueryPolicies = const {},
+      inputRecipe = null;
+
+  /// An owned input is a real source but has no exportable media URL.
+  const LivePlayUrlResolution.owned({
+    required LiveInputRecipe input,
+    this.appliedQualityData,
+    this.qualityUnconfirmed = false,
+  }) : inputRecipe = input,
+       urls = const [],
+       sourceQueryPolicies = const {};
+
+  LivePlayUrlResolution._({
+    required this.urls,
+    required this.sourceQueryPolicies,
+    this.appliedQualityData,
+    this.qualityUnconfirmed = false,
+  }) : inputRecipe = null;
+
+  /// Policy-bearing sources are copied and validated together. Keys identify
+  /// exact signed URLs, never only CDN positions or quality labels.
+  factory LivePlayUrlResolution.withSourcePolicies({
+    required List<String> urls,
+    required Map<String, HlsSourceQueryPolicy> sourceQueryPolicies,
+    Object? appliedQualityData,
+    bool qualityUnconfirmed = false,
+  }) {
+    final normalized = normalizeResolvedPlayUrls(urls);
+    final policies = <String, HlsSourceQueryPolicy>{};
+    for (final entry in sourceQueryPolicies.entries) {
+      final uri = Uri.tryParse(entry.key);
+      if (!normalized.contains(entry.key) || uri == null || !entry.value.matchesSource(uri)) {
+        throw const FormatException('Source query policy does not match resolved URLs');
+      }
+      policies[entry.key] = entry.value;
+    }
+    return LivePlayUrlResolution._(
+      urls: normalized,
+      sourceQueryPolicies: Map.unmodifiable(policies),
+      appliedQualityData: appliedQualityData,
+      qualityUnconfirmed: qualityUnconfirmed,
+    );
+  }
+
+  LivePlayUrlResolution normalized() => inputRecipe != null
+      ? this
+      : LivePlayUrlResolution.withSourcePolicies(
+          urls: urls,
+          sourceQueryPolicies: sourceQueryPolicies,
+          appliedQualityData: appliedQualityData,
+          qualityUnconfirmed: qualityUnconfirmed,
+        );
 
   final List<String> urls;
+  final LiveInputRecipe? inputRecipe;
+  int get lineCount => inputRecipe == null ? urls.length : 1;
+  bool get hasSources => lineCount > 0;
   final Object? appliedQualityData;
+  final Map<String, HlsSourceQueryPolicy> sourceQueryPolicies;
+
+  /// An adapter expected an acknowledgement but the response did not contain a
+  /// usable one. False preserves the legacy contract for platforms with no ack.
+  final bool qualityUnconfirmed;
+}
+
+/// Keeps request identity and display evidence separate for both playback and
+/// recording. A server identifier outside a stale menu is also unconfirmed;
+/// choosing the requested option as a cursor does not confirm its visible name.
+LivePlayQuality resolveAppliedPlayQuality({
+  required List<LivePlayQuality> qualities,
+  required LivePlayQuality requested,
+  required LivePlayUrlResolution resolution,
+}) {
+  final appliedId = resolution.appliedQualityData?.toString();
+  LivePlayQuality? matched;
+  if (appliedId != null) {
+    for (final quality in qualities) {
+      if (quality.selectionId.toString() == appliedId) {
+        matched = quality;
+        break;
+      }
+    }
+  }
+  return (matched ?? requested).withPlaybackUnconfirmed(
+    resolution.qualityUnconfirmed || (appliedId != null && matched == null),
+  );
 }
 
 /// Removes blank and duplicate lines while preserving platform priority.
@@ -56,10 +141,7 @@ List<String> normalizeResolvedPlayUrls(Iterable<String> urls) {
 /// Bilibili can implement this contract because guest requests may be
 /// downgraded even when a higher `qn` was requested.
 abstract interface class LivePlayUrlResolver {
-  Future<LivePlayUrlResolution> resolvePlayUrlsRaw({
-    required LiveRoom detail,
-    required LivePlayQuality quality,
-  });
+  Future<LivePlayUrlResolution> resolvePlayUrlsRaw({required LiveRoom detail, required LivePlayQuality quality});
 }
 
 /// Optional cursor contract for adapters that must make a separate network
@@ -110,8 +192,8 @@ abstract interface class LivePlayLeaseMetadata {
 }
 
 class LiveSite {
-  String id = '';
-  String name = '';
+  String id = "";
+  String name = "";
 
   LiveDanmaku getDanmaku() {
     throw UnimplementedError();
@@ -125,19 +207,11 @@ class LiveSite {
     return Future.value(<LiveRoom>[]);
   }
 
-  Future<List<LiveAnchorItem>> searchAnchors(
-    String keyword, {
-    int page = 1,
-    int pageSize = 30,
-  }) async {
+  Future<List<LiveAnchorItem>> searchAnchors(String keyword, {int page = 1, int pageSize = 30}) async {
     return Future.value(<LiveAnchorItem>[]);
   }
 
-  Future<List<LiveRoom>> getCategoryRooms(
-    LiveArea category, {
-    int page = 1,
-    int pageSize = 30,
-  }) async {
+  Future<List<LiveRoom>> getCategoryRooms(LiveArea category, {int page = 1, int pageSize = 30}) async {
     return Future.value(<LiveRoom>[]);
   }
 
@@ -170,10 +244,7 @@ class LiveSite {
     return Future.value(<LivePlayQuality>[]);
   }
 
-  Future<List<String>> getPlayUrls({
-    required LiveRoom detail,
-    required LivePlayQuality quality,
-  }) async {
+  Future<List<String>> getPlayUrls({required LiveRoom detail, required LivePlayQuality quality}) async {
     return Future.value(<String>[]);
   }
 
@@ -194,10 +265,7 @@ class LiveSite {
 /// Other adapters continue using [LiveSite.getPlayUrls] and assume that
 /// the requested quality was applied.
 extension LiveSitePlayUrlResolution on LiveSite {
-  Future<LivePlayUrlResolution> resolvePlayUrls({
-    required LiveRoom detail,
-    required LivePlayQuality quality,
-  }) async {
+  Future<LivePlayUrlResolution> resolvePlayUrls({required LiveRoom detail, required LivePlayQuality quality}) async {
     final site = this;
 
     if (site is LivePlayUrlResolver) {
@@ -205,10 +273,7 @@ extension LiveSitePlayUrlResolution on LiveSite {
 
       final resolution = await resolver.resolvePlayUrlsRaw(detail: detail, quality: quality);
 
-      return LivePlayUrlResolution(
-        urls: normalizeResolvedPlayUrls(resolution.urls),
-        appliedQualityData: resolution.appliedQualityData,
-      );
+      return resolution.normalized();
     }
 
     return LivePlayUrlResolution(
@@ -227,10 +292,7 @@ extension LiveSitePlayUrlResolution on LiveSite {
         detail: detail,
         quality: quality,
       );
-      return LivePlayUrlResolution(
-        urls: normalizeResolvedPlayUrls(resolution.urls),
-        appliedQualityData: resolution.appliedQualityData,
-      );
+      return resolution.normalized();
     }
     return resolvePlayUrls(detail: detail, quality: quality);
   }
@@ -266,21 +328,4 @@ abstract interface class LiveSiteRoomRefresher {
 /// * retain every field required by [LiveSite.getPlayQualites].
 abstract interface class LiveSiteRecordRoomResolver {
   Future<LiveRoom> getRoomDetailForRecording({required String roomId, required String platform});
-}
-
-/// Optional directory-page notice key for sites that surface a banner or
-/// maintenance message on their live directory page.
-abstract interface class LiveDirectoryNotice {
-  String get directoryNoticeKey;
-}
-
-/// Optional search variant that accepts a Dio CancelToken so callers can
-/// abort an in-flight search without tearing down the whole [LiveSite].
-abstract interface class LiveCancellableSearch {
-  Future<List<LiveRoom>> searchRoomsCancellable(
-    String keyword, {
-    int page = 1,
-    int pageSize = 30,
-    CancelToken? cancel,
-  });
 }

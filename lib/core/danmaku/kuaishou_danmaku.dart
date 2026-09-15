@@ -43,10 +43,8 @@ class KuaishouFeedBatch {
 /// Polls are one-shot and scheduled only after the previous request finishes,
 /// preventing overlapping timers, duplicate cursors and background CPU growth.
 class KuaishouDanmaku implements LiveDanmaku {
-  KuaishouDanmaku({
-    KuaishouFeedFetcher? fetcher,
-    this.minimumPollDelay = const Duration(seconds: 1),
-  }) : _fetcher = fetcher ?? _fetchFeed;
+  KuaishouDanmaku({KuaishouFeedFetcher? fetcher, this.minimumPollDelay = const Duration(seconds: 1)})
+    : _fetcher = fetcher ?? _fetchFeed;
 
   static const List<String> _feedUrls = <String>[
     'https://livev.m.chenzhongtech.com/wap/live/feed',
@@ -62,6 +60,8 @@ class KuaishouDanmaku implements LiveDanmaku {
 
   @override
   Function(LiveMessage msg)? onMessage;
+  @override
+  Function(String msg)? onReconnect;
   @override
   Function(String msg)? onClose;
   @override
@@ -91,9 +91,7 @@ class KuaishouDanmaku implements LiveDanmaku {
 
   @override
   Future<void> start(dynamic args) async {
-    final typedArgs = args is KuaishouDanmakuArgs
-        ? args
-        : KuaishouDanmakuArgs(liveStreamId: args?.toString() ?? '');
+    final typedArgs = args is KuaishouDanmakuArgs ? args : KuaishouDanmakuArgs(liveStreamId: args?.toString() ?? '');
     if (typedArgs.liveStreamId.trim().isEmpty) {
       throw const FormatException('Kuaishou live stream id is missing');
     }
@@ -127,11 +125,7 @@ class KuaishouDanmaku implements LiveDanmaku {
     Error.throwWithStackTrace(lastError!, lastStackTrace!);
   }
 
-  Future<void> _pollOnce(
-    int generation, {
-    bool scheduleNext = true,
-    bool propagateFailure = false,
-  }) async {
+  Future<void> _pollOnce(int generation, {bool scheduleNext = true, bool propagateFailure = false}) async {
     final args = _args;
     if (args == null || generation != _generation) return;
     final cancelToken = CancelToken();
@@ -187,7 +181,7 @@ class KuaishouDanmaku implements LiveDanmaku {
       return;
     }
     if (_reconnectAttempts == 1) {
-      onClose?.call('与服务器断开连接，正在尝试重连');
+      onReconnect?.call('与服务器断开连接，正在尝试重连');
     }
     final seconds = 1 << (_reconnectAttempts - 1).clamp(0, 3);
     _schedulePoll(generation, Duration(seconds: seconds));
@@ -215,15 +209,12 @@ class KuaishouDanmaku implements LiveDanmaku {
     _reconnectAttempts = 0;
     markDisconnected();
     onMessage = null;
+    onReconnect = null;
     onClose = null;
     onReady = null;
   }
 
-  static Future<dynamic> _fetchFeed(
-    KuaishouDanmakuArgs args,
-    String cursor,
-    CancelToken cancelToken,
-  ) async {
+  static Future<dynamic> _fetchFeed(KuaishouDanmakuArgs args, String cursor, CancelToken cancelToken) async {
     final headers = <String, dynamic>{
       'User-Agent':
           'Mozilla/5.0 (Linux; Android 16; Mobile) AppleWebKit/537.36 '
@@ -283,9 +274,7 @@ class KuaishouDanmaku implements LiveDanmaku {
         final userId = author['userId']?.toString() ?? '';
         final timestamp = _asInt(feed['time']);
         final rawId = feed['id']?.toString().trim() ?? '';
-        final digest = sha1
-            .convert(utf8.encode('$timestamp\u0000$userId\u0000$content'))
-            .toString();
+        final digest = sha1.convert(utf8.encode('$timestamp\u0000$userId\u0000$content')).toString();
         messages.add(
           LiveMessage(
             type: LiveMessageType.chat,
