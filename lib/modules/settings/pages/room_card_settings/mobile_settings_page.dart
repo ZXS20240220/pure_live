@@ -207,7 +207,7 @@ class MobileSettingsPage extends GetView<RoomCardConfigController> {
         min: 0,
         max: 40,
         displayValue: '${controller.mobileCardRadius.round()} px',
-        onChanged: (v) => controller.updateMobile((m) => m.copyWith(cardBorderRadius: v)),
+        onChanged: (v) => controller.updateMobile((m) => m.copyWith(cornerRadius: v)),
       ),
       _sliderTile(
         context,
@@ -480,8 +480,8 @@ class MobileSettingsPage extends GetView<RoomCardConfigController> {
         icon: Remix.text,
         title: i18n('show_subtitle'),
         subtitle: i18n('show_subtitle_subtitle'),
-        value: controller.mobileShowSubtitle,
-        onChanged: (v) => controller.updateMobile((m) => m.copyWith(showSubtitle: v)),
+        value: controller.mobileshowAnchorName,
+        onChanged: (v) => controller.updateMobile((m) => m.copyWith(showAnchorName: v)),
       ),
     ]);
   }
@@ -622,8 +622,8 @@ class MobileSettingsPage extends GetView<RoomCardConfigController> {
         icon: Remix.global_line,
         title: i18n('show_platform'),
         subtitle: i18n('show_platform_subtitle'),
-        value: controller.mobileShowPlatform,
-        onChanged: (v) => controller.updateMobile((m) => m.copyWith(showPlatform: v)),
+        value: controller.mobileShowPlatformBadge,
+        onChanged: (v) => controller.updateMobile((m) => m.copyWith(showPlatformBadge: v)),
       ),
       _sliderTile(
         context,
@@ -733,8 +733,8 @@ class MobileSettingsPage extends GetView<RoomCardConfigController> {
         icon: Remix.record_circle_line,
         title: i18n('show_record_badge'),
         subtitle: i18n('show_record_badge_subtitle'),
-        value: controller.mobileShowRecordBadge,
-        onChanged: (v) => controller.updateMobile((m) => m.copyWith(showRecordBadge: v)),
+        value: controller.mobileshowReplayBadge,
+        onChanged: (v) => controller.updateMobile((m) => m.copyWith(showReplayBadge: v)),
       ),
       _switchTile(
         context,

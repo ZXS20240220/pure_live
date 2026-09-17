@@ -44,15 +44,15 @@ class RoomCardRenderer {
 
   bool get showAvatar => debug ? config.showAvatar : true;
 
-  bool get showSubtitle => debug ? config.showSubtitle : true;
+  bool get showAnchorName => debug ? config.showAnchorName : true;
 
-  bool get showPlatform => config.showPlatform;
+  bool get showPlatformBadge => config.effectiveShowPlatformBadge;
 
   bool get showAudience => config.showAudience;
 
   bool get showLiveBadge => config.showLiveBadge;
 
-  bool get showRecordBadge => config.showRecordBadge;
+  bool get showReplayBadge => config.showReplayBadge;
 
   bool get _shouldShowLastLiveTime {
     if (room.isLiveNow) return false;
@@ -83,19 +83,19 @@ class RoomCardRenderer {
     return room.isLiveNow && config.showLiveBadge && config.showAudience && !statusPending;
   }
 
-  bool get showRecordBadgeOnCover {
+  bool get showReplayBadgeOnCover {
     if (debug) {
-      return config.showRecordBadge;
+      return config.showReplayBadge;
     }
-    return room.isRecord == true && config.showRecordBadge;
+    return room.isRecord == true && config.showReplayBadge;
   }
 
   bool get showDebugFlash => debug;
 
   bool get showInfoSection =>
-      debug || config.showAvatar || config.showSubtitle || config.showPlatform;
+      debug || config.showAvatar || config.showAnchorName || config.effectiveShowPlatformBadge;
 
-  bool get showPlatformTag => showPlatform;
+  bool get showPlatformTag => showPlatformBadge;
 
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -109,10 +109,10 @@ class RoomCardRenderer {
     return Card(
       margin: config.cardMargin,
       elevation: config.enableShadow ? config.cardElevation : 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(config.cardBorderRadius)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(config.cornerRadius)),
       color: config.cardBackground ?? (isDark ? Colors.grey[900] : Colors.white),
       child: InkResponse(
-        borderRadius: BorderRadius.circular(config.cardBorderRadius),
+        borderRadius: BorderRadius.circular(config.cornerRadius),
         onTap: onTap,
         onLongPress: onLongPress,
         onSecondaryTap: onLongPress,
@@ -186,7 +186,7 @@ class RoomCardRenderer {
       style: titleStyle,
     );
 
-    final Widget? subtitle = showSubtitle
+    final Widget? subtitle = showAnchorName
         ? Text(
             room.nick?.trim().isNotEmpty == true ? room.nick! : i18n('unknown'),
             maxLines: 1,
@@ -230,7 +230,7 @@ class RoomCardRenderer {
       shadowColor: Colors.black.withValues(alpha: isDark ? 0.18 : 0.08),
       color: config.cardBackground ?? colorScheme.surface,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(config.cardBorderRadius.clamp(10.0, 24.0).toDouble()),
+        borderRadius: BorderRadius.circular(config.cornerRadius.clamp(10.0, 24.0).toDouble()),
         side: BorderSide(
           color: colorScheme.outline.withValues(alpha: isDark ? 0.08 : 0.06),
           width: 0.6,
@@ -394,7 +394,7 @@ class RoomCardRenderer {
   }
 
   Widget _buildCover(BuildContext context, bool isDark, bool effectiveDense) {
-    final showRecordBadge = showRecordBadgeOnCover;
+    final showReplayBadge = showReplayBadgeOnCover;
     final showDeleteButton = this.showDeleteButton;
     final showAudienceBadge = this.showAudienceBadge;
     final showPlatformTag = this.showPlatformTag;
@@ -452,7 +452,7 @@ class RoomCardRenderer {
                 child: _buildPlatformTag(context),
               ),
 
-            if (showRecordBadge)
+            if (showReplayBadge)
               Positioned(
                 right:
                     rightPadding +
@@ -928,7 +928,7 @@ class RoomCardRenderer {
                   overflow: TextOverflow.ellipsis,
                   style: titleStyle,
                 ),
-                if (showSubtitle) ...[
+                if (showAnchorName) ...[
                   SizedBox(height: effectiveDense ? 2 : 3),
                   Text(
                     room.nick ?? '',

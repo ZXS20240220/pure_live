@@ -44,7 +44,7 @@ class RoomCardModel {
   const RoomCardModel({
     this.preset = RoomCardPreset.normal,
     this.cardBackground,
-    this.cardBorderRadius = 20,
+    this.cornerRadius = 20,
     this.cardElevation = 2,
     this.enableShadow = true,
     this.cardMargin = const EdgeInsets.all(0),
@@ -77,7 +77,7 @@ class RoomCardModel {
     this.subtitleLineHeight = 1.2,
     this.titleColor,
     this.subtitleColor,
-    this.showSubtitle = true,
+    this.showAnchorName = true,
     this.platformFontSize = 11,
     this.densePlatformFontSize = 10,
     this.platformFontWeight = FontWeight.w600,
@@ -86,7 +86,8 @@ class RoomCardModel {
     this.platformBorderRadius = 8,
     this.platformHorizontalPadding = 8,
     this.platformVerticalPadding = 4,
-    this.showPlatform = false,
+    this.showPlatformBadge = false,
+    this.automaticPlatformBadge = true,
     this.showAudience = true,
     this.chipFontSize = 13,
     this.denseChipFontSize = 12,
@@ -98,7 +99,7 @@ class RoomCardModel {
     this.chipBorderRadius = 20,
     this.chipBackgroundColor,
     this.chipTextColor = Colors.white,
-    this.showRecordBadge = true,
+    this.showReplayBadge = true,
     this.showLiveBadge = true,
     this.metricFontSize = 12,
     this.denseMetricFontSize = 11,
@@ -127,7 +128,7 @@ class RoomCardModel {
 
   final RoomCardPreset preset;
   final Color? cardBackground;
-  final double cardBorderRadius;
+  final double cornerRadius;
   final double cardElevation;
   final bool enableShadow;
   final EdgeInsetsGeometry cardMargin;
@@ -160,7 +161,7 @@ class RoomCardModel {
   final double subtitleLineHeight;
   final Color? titleColor;
   final Color? subtitleColor;
-  final bool showSubtitle;
+  final bool showAnchorName;
   final double platformFontSize;
   final double densePlatformFontSize;
   final FontWeight platformFontWeight;
@@ -169,7 +170,8 @@ class RoomCardModel {
   final double platformBorderRadius;
   final double platformHorizontalPadding;
   final double platformVerticalPadding;
-  final bool showPlatform;
+  final bool showPlatformBadge;
+  final bool automaticPlatformBadge;
   final bool showAudience;
   final double chipFontSize;
   final double denseChipFontSize;
@@ -181,7 +183,7 @@ class RoomCardModel {
   final double chipBorderRadius;
   final Color? chipBackgroundColor;
   final Color chipTextColor;
-  final bool showRecordBadge;
+  final bool showReplayBadge;
   final bool showLiveBadge;
   final double metricFontSize;
   final double denseMetricFontSize;
@@ -207,6 +209,8 @@ class RoomCardModel {
   final bool denseMode;
   final bool showAsListTile;
 
+  bool get effectiveShowPlatformBadge => automaticPlatformBadge || showPlatformBadge;
+
   double calculateCardHeight(
     double itemWidth, {
     bool denseOverride = false,
@@ -229,9 +233,9 @@ class RoomCardModel {
 
       final titleHeight = titleFs * titleLineHeight;
 
-      final subtitleHeight = showSubtitle ? subtitleFs * subtitleLineHeight : 0;
+      final subtitleHeight = showAnchorName ? subtitleFs * subtitleLineHeight : 0;
 
-      final subtitleGap = showSubtitle ? (actualDense ? 2.0 : 3.0) : 0;
+      final subtitleGap = showAnchorName ? (actualDense ? 2.0 : 3.0) : 0;
 
       final textHeight = titleHeight + subtitleGap + subtitleHeight;
 
@@ -240,7 +244,7 @@ class RoomCardModel {
       return vp * 2 + rowHeight;
     }
 
-    final showInfo = showAvatar || showSubtitle || showPlatform;
+    final showInfo = showAvatar || showAnchorName || effectiveShowPlatformBadge;
 
     if (!showInfo) {
       return coverHeight;
@@ -256,9 +260,9 @@ class RoomCardModel {
 
     final titleHeight = titleFs * titleLineHeight;
 
-    final subtitleHeight = showSubtitle ? subtitleFs * subtitleLineHeight : 0;
+    final subtitleHeight = showAnchorName ? subtitleFs * subtitleLineHeight : 0;
 
-    final subtitleGap = showSubtitle ? (actualDense ? 2.0 : 3.0) : 0;
+    final subtitleGap = showAnchorName ? (actualDense ? 2.0 : 3.0) : 0;
 
     final textHeight = titleHeight + subtitleGap + subtitleHeight;
 
@@ -276,7 +280,7 @@ class RoomCardModel {
     return const RoomCardModel(
       preset: RoomCardPreset.compact,
       cardBackground: Color(0xfff7f7f8),
-      cardBorderRadius: 12,
+      cornerRadius: 12,
       cardElevation: 2,
       enableShadow: true,
       cardMargin: EdgeInsets.zero,
@@ -307,7 +311,7 @@ class RoomCardModel {
       subtitleLineHeight: 1.15,
       titleColor: Color(0xff1f1f22),
       subtitleColor: Color(0xff77777d),
-      showSubtitle: true,
+      showAnchorName: true,
       platformFontSize: 10,
       densePlatformFontSize: 9,
       platformFontWeight: FontWeight.w600,
@@ -316,7 +320,8 @@ class RoomCardModel {
       platformBorderRadius: 6,
       platformHorizontalPadding: 6,
       platformVerticalPadding: 3,
-      showPlatform: false,
+      showPlatformBadge: false,
+      automaticPlatformBadge: true,
       showAudience: true,
       chipFontSize: 11,
       denseChipFontSize: 10,
@@ -328,7 +333,7 @@ class RoomCardModel {
       chipBorderRadius: 8,
       chipBackgroundColor: Color(0xffef4444),
       chipTextColor: Colors.white,
-      showRecordBadge: true,
+      showReplayBadge: true,
       showLiveBadge: true,
       metricFontSize: 10,
       denseMetricFontSize: 9,
@@ -360,7 +365,7 @@ class RoomCardModel {
     return const RoomCardModel(
       preset: RoomCardPreset.normal,
       cardBackground: Colors.white,
-      cardBorderRadius: 18,
+      cornerRadius: 18,
       cardElevation: 1,
       enableShadow: true,
       cardMargin: EdgeInsets.zero,
@@ -391,7 +396,7 @@ class RoomCardModel {
       subtitleLineHeight: 1.2,
       titleColor: Color(0xff1d1d1f),
       subtitleColor: Color(0xff747479),
-      showSubtitle: true,
+      showAnchorName: true,
       platformFontSize: 11,
       densePlatformFontSize: 10,
       platformFontWeight: FontWeight.w600,
@@ -400,7 +405,8 @@ class RoomCardModel {
       platformBorderRadius: 7,
       platformHorizontalPadding: 7,
       platformVerticalPadding: 3,
-      showPlatform: false,
+      showPlatformBadge: false,
+      automaticPlatformBadge: true,
       showAudience: true,
       chipFontSize: 12,
       denseChipFontSize: 11,
@@ -412,7 +418,7 @@ class RoomCardModel {
       chipBorderRadius: 10,
       chipBackgroundColor: Color(0xfff03e3e),
       chipTextColor: Colors.white,
-      showRecordBadge: true,
+      showReplayBadge: true,
       showLiveBadge: true,
       metricFontSize: 11,
       denseMetricFontSize: 10,
@@ -444,7 +450,7 @@ class RoomCardModel {
     return const RoomCardModel(
       preset: RoomCardPreset.rich,
       cardBackground: Colors.white,
-      cardBorderRadius: 22,
+      cornerRadius: 22,
       cardElevation: 2,
       enableShadow: true,
       cardMargin: EdgeInsets.zero,
@@ -475,7 +481,7 @@ class RoomCardModel {
       subtitleLineHeight: 1.2,
       titleColor: Color(0xff111113),
       subtitleColor: Color(0xff7d7d82),
-      showSubtitle: true,
+      showAnchorName: true,
       platformFontSize: 12,
       densePlatformFontSize: 11,
       platformFontWeight: FontWeight.w600,
@@ -484,7 +490,8 @@ class RoomCardModel {
       platformBorderRadius: 8,
       platformHorizontalPadding: 8,
       platformVerticalPadding: 4,
-      showPlatform: true,
+      showPlatformBadge: true,
+      automaticPlatformBadge: false,
       showAudience: true,
       chipFontSize: 13,
       denseChipFontSize: 12,
@@ -496,7 +503,7 @@ class RoomCardModel {
       chipBorderRadius: 12,
       chipBackgroundColor: Color(0xffe03131),
       chipTextColor: Colors.white,
-      showRecordBadge: true,
+      showReplayBadge: true,
       showLiveBadge: true,
       metricFontSize: 12,
       denseMetricFontSize: 11,
@@ -544,7 +551,7 @@ class RoomCardModel {
   RoomCardModel copyWith({
     RoomCardPreset? preset,
     Color? cardBackground,
-    double? cardBorderRadius,
+    double? cornerRadius,
     double? cardElevation,
     bool? enableShadow,
     EdgeInsetsGeometry? cardMargin,
@@ -577,7 +584,7 @@ class RoomCardModel {
     double? subtitleLineHeight,
     Color? titleColor,
     Color? subtitleColor,
-    bool? showSubtitle,
+    bool? showAnchorName,
     double? platformFontSize,
     double? densePlatformFontSize,
     FontWeight? platformFontWeight,
@@ -586,7 +593,8 @@ class RoomCardModel {
     double? platformBorderRadius,
     double? platformHorizontalPadding,
     double? platformVerticalPadding,
-    bool? showPlatform,
+    bool? showPlatformBadge,
+    bool? automaticPlatformBadge,
     bool? showAudience,
     double? chipFontSize,
     double? denseChipFontSize,
@@ -598,7 +606,7 @@ class RoomCardModel {
     double? chipBorderRadius,
     Color? chipBackgroundColor,
     Color? chipTextColor,
-    bool? showRecordBadge,
+    bool? showReplayBadge,
     bool? showLiveBadge,
     double? metricFontSize,
     double? denseMetricFontSize,
@@ -627,7 +635,7 @@ class RoomCardModel {
     return RoomCardModel(
       preset: preset ?? this.preset,
       cardBackground: cardBackground ?? this.cardBackground,
-      cardBorderRadius: cardBorderRadius ?? this.cardBorderRadius,
+      cornerRadius: cornerRadius ?? this.cornerRadius,
       cardElevation: cardElevation ?? this.cardElevation,
       enableShadow: enableShadow ?? this.enableShadow,
       cardMargin: cardMargin ?? this.cardMargin,
@@ -661,7 +669,7 @@ class RoomCardModel {
       subtitleLineHeight: subtitleLineHeight ?? this.subtitleLineHeight,
       titleColor: titleColor ?? this.titleColor,
       subtitleColor: subtitleColor ?? this.subtitleColor,
-      showSubtitle: showSubtitle ?? this.showSubtitle,
+      showAnchorName: showAnchorName ?? this.showAnchorName,
       platformFontSize: platformFontSize ?? this.platformFontSize,
       densePlatformFontSize: densePlatformFontSize ?? this.densePlatformFontSize,
       platformFontWeight: platformFontWeight ?? this.platformFontWeight,
@@ -670,7 +678,8 @@ class RoomCardModel {
       platformBorderRadius: platformBorderRadius ?? this.platformBorderRadius,
       platformHorizontalPadding: platformHorizontalPadding ?? this.platformHorizontalPadding,
       platformVerticalPadding: platformVerticalPadding ?? this.platformVerticalPadding,
-      showPlatform: showPlatform ?? this.showPlatform,
+      showPlatformBadge: showPlatformBadge ?? this.showPlatformBadge,
+      automaticPlatformBadge: automaticPlatformBadge ?? this.automaticPlatformBadge,
       showAudience: showAudience ?? this.showAudience,
       chipFontSize: chipFontSize ?? this.chipFontSize,
       denseChipFontSize: denseChipFontSize ?? this.denseChipFontSize,
@@ -682,7 +691,7 @@ class RoomCardModel {
       chipBorderRadius: chipBorderRadius ?? this.chipBorderRadius,
       chipBackgroundColor: chipBackgroundColor ?? this.chipBackgroundColor,
       chipTextColor: chipTextColor ?? this.chipTextColor,
-      showRecordBadge: showRecordBadge ?? this.showRecordBadge,
+      showReplayBadge: showReplayBadge ?? this.showReplayBadge,
       showLiveBadge: showLiveBadge ?? this.showLiveBadge,
       metricFontSize: metricFontSize ?? this.metricFontSize,
       denseMetricFontSize: denseMetricFontSize ?? this.denseMetricFontSize,
@@ -722,7 +731,7 @@ class RoomCardModel {
       cardBackground: isDark
           ? config.cardBackground ?? Colors.grey.shade900
           : config.cardBackground ?? Colors.white,
-      cardBorderRadius: config.cardBorderRadius,
+      cornerRadius: config.cornerRadius,
       cardElevation: config.cardElevation,
       enableShadow: config.enableShadow,
       cardMargin: config.cardMargin,
@@ -749,7 +758,7 @@ class RoomCardModel {
       denseContentVerticalPadding: config.denseContentVerticalPadding,
       horizontalTitleGap: config.horizontalTitleGap,
       denseHorizontalTitleGap: config.denseHorizontalTitleGap,
-      showSubtitle: config.showSubtitle,
+      showAnchorName: config.showAnchorName,
       denseMode: config.denseMode || dense,
 
       // ===== Typography =====
@@ -765,7 +774,8 @@ class RoomCardModel {
       subtitleColor: config.subtitleColor,
 
       // ===== Platform Tag =====
-      showPlatform: config.showPlatform,
+      showPlatformBadge: config.showPlatformBadge,
+      automaticPlatformBadge: config.automaticPlatformBadge,
       platformFontSize: config.platformFontSize,
       densePlatformFontSize: config.densePlatformFontSize,
       platformFontWeight: config.platformFontWeight,
@@ -777,7 +787,7 @@ class RoomCardModel {
 
       // ===== Badge Settings =====
       showLiveBadge: config.showLiveBadge,
-      showRecordBadge: config.showRecordBadge,
+      showReplayBadge: config.showReplayBadge,
       showAudience: config.showAudience,
       chipFontSize: config.chipFontSize,
       denseChipFontSize: config.denseChipFontSize,
@@ -823,7 +833,7 @@ class RoomCardModel {
     return {
       'preset': preset.key,
       'cardBackground': cardBackground?.hex,
-      'cardBorderRadius': cardBorderRadius,
+      'cornerRadius': cornerRadius,
       'cardElevation': cardElevation,
       'enableShadow': enableShadow,
       'cardMarginHorizontal': cardMargin.horizontal,
@@ -856,7 +866,7 @@ class RoomCardModel {
       'subtitleLineHeight': subtitleLineHeight,
       'titleColor': titleColor?.hex,
       'subtitleColor': subtitleColor?.hex,
-      'showSubtitle': showSubtitle,
+      'showAnchorName': showAnchorName,
       'platformFontSize': platformFontSize,
       'densePlatformFontSize': densePlatformFontSize,
       'platformFontWeight': platformFontWeight.value,
@@ -865,7 +875,8 @@ class RoomCardModel {
       'platformBorderRadius': platformBorderRadius,
       'platformHorizontalPadding': platformHorizontalPadding,
       'platformVerticalPadding': platformVerticalPadding,
-      'showPlatform': showPlatform,
+      'showPlatformBadge': showPlatformBadge,
+      'automaticPlatformBadge': automaticPlatformBadge,
       'showAudience': showAudience,
       'chipFontSize': chipFontSize,
       'denseChipFontSize': denseChipFontSize,
@@ -877,7 +888,7 @@ class RoomCardModel {
       'chipBorderRadius': chipBorderRadius,
       'chipBackgroundColor': chipBackgroundColor?.hex,
       'chipTextColor': chipTextColor.hex,
-      'showRecordBadge': showRecordBadge,
+      'showReplayBadge': showReplayBadge,
       'showLiveBadge': showLiveBadge,
       'metricFontSize': metricFontSize,
       'denseMetricFontSize': denseMetricFontSize,
@@ -906,10 +917,16 @@ class RoomCardModel {
   }
 
   static RoomCardModel fromJson(Map<String, dynamic> json) {
+    bool readBool(String currentKey, String legacyKey, bool defaultValue) {
+      final value = json.containsKey(currentKey) ? json[currentKey] : json[legacyKey];
+      if (value == null) return defaultValue;
+      return value is bool ? value : defaultValue;
+    }
+
     return RoomCardModel(
       preset: RoomCardPreset.fromKey(json['preset'] as String? ?? RoomCardPreset.normal.key),
       cardBackground: _colorFromJson(json['cardBackground']),
-      cardBorderRadius: (json['cardBorderRadius'] as num? ?? 20).toDouble(),
+      cornerRadius: (json['cornerRadius'] ?? json['cardBorderRadius'] as num? ?? 20).toDouble(),
       cardElevation: (json['cardElevation'] as num? ?? 2).toDouble(),
       enableShadow: json['enableShadow'] as bool? ?? true,
       cardMargin: EdgeInsets.all((json['cardMarginHorizontal'] as num? ?? 0).toDouble()),
@@ -943,7 +960,7 @@ class RoomCardModel {
       subtitleLineHeight: (json['subtitleLineHeight'] as num? ?? 1.2).toDouble(),
       titleColor: _colorFromJson(json['titleColor']),
       subtitleColor: _colorFromJson(json['subtitleColor']),
-      showSubtitle: json['showSubtitle'] as bool? ?? true,
+      showAnchorName: readBool('showAnchorName', 'showSubtitle', true),
       platformFontSize: (json['platformFontSize'] as num? ?? 11).toDouble(),
       densePlatformFontSize: (json['densePlatformFontSize'] as num? ?? 10).toDouble(),
       platformFontWeight: _fontWeightFromJson(json['platformFontWeight']),
@@ -952,7 +969,10 @@ class RoomCardModel {
       platformBorderRadius: (json['platformBorderRadius'] as num? ?? 8).toDouble(),
       platformHorizontalPadding: (json['platformHorizontalPadding'] as num? ?? 8).toDouble(),
       platformVerticalPadding: (json['platformVerticalPadding'] as num? ?? 4).toDouble(),
-      showPlatform: json['showPlatform'] as bool? ?? false,
+      showPlatformBadge: readBool('showPlatformBadge', 'showPlatform', false),
+      automaticPlatformBadge: json.containsKey('automaticPlatformBadge')
+          ? json['automaticPlatformBadge'] as bool? ?? true
+          : true,
       showAudience: json['showAudience'] as bool? ?? true,
       chipFontSize: (json['chipFontSize'] as num? ?? 13).toDouble(),
       denseChipFontSize: (json['denseChipFontSize'] as num? ?? 12).toDouble(),
@@ -964,7 +984,7 @@ class RoomCardModel {
       chipBorderRadius: (json['chipBorderRadius'] as num? ?? 20).toDouble(),
       chipBackgroundColor: _colorFromJson(json['chipBackgroundColor']),
       chipTextColor: _colorFromJson(json['chipTextColor']) ?? Colors.white,
-      showRecordBadge: json['showRecordBadge'] as bool? ?? true,
+      showReplayBadge: readBool('showReplayBadge', 'showRecordBadge', true),
       showLiveBadge: json['showLiveBadge'] as bool? ?? true,
       metricFontSize: (json['metricFontSize'] as num? ?? 12).toDouble(),
       denseMetricFontSize: (json['denseMetricFontSize'] as num? ?? 11).toDouble(),

@@ -18,6 +18,7 @@ import 'package:pure_live/plugins/share_command_handler.dart';
 import 'package:pure_live/routes/route_observer_controller.dart';
 import 'package:pure_live/common/utils/share_command_handler.dart';
 import 'package:pure_live/modules/live_play/controllers/player_state.dart';
+import 'package:screen_retriever/screen_retriever.dart';
 
 class DesktopManager {
   static State? _currentState;
@@ -53,6 +54,8 @@ class DesktopManager {
         await windowManager.show();
         await windowManager.focus();
 
+        await _restoreWindowPosition();
+
         if (Platform.isWindows) {
           await Window.setEffect(
             effect: WindowEffect.mica,
@@ -73,6 +76,36 @@ class DesktopManager {
       await _initTray();
     } catch (e) {
       debugPrint('桌面端初始化失败: $e');
+    }
+  }
+
+  static Future<void> _restoreWindowPosition() async {
+    final ctrl = SettingsService.to.window;
+    if (!ctrl.rememberWindowPosition.value) return;
+
+    final x = ctrl.storedX.v;
+    final y = ctrl.storedY.v;
+    if (x < 0 || y < 0) return;
+
+    final displays = await screenRetriever.getAllDisplays();
+
+    bool displayExists = false;
+    for (final display in displays) {
+      if (display.id == ctrl.storedDisplayId.v) {
+        displayExists = true;
+        break;
+      }
+    }
+
+    if (!displayExists && ctrl.storedDisplayId.v.isNotEmpty) {
+      debugPrint('记忆的显示器 "${ctrl.storedDisplayId.v}" 不存在，跳过位置恢复');
+      return;
+    }
+
+    try {
+      await windowManager.setPosition(Offset(x, y));
+    } catch (e) {
+      debugPrint('恢复窗口位置失败: $e');
     }
   }
 
@@ -788,6 +821,26 @@ mixin DesktopWindowMixin<T extends StatefulWidget> on State<T>
       return;
     }
     windowManager.getSize().then(_sizeController.updateSize);
+    windowManager.getPosition().then((position) async {
+      _sizeController.updatePosition(position);
+      if (_sizeController.rememberWindowPosition.value && position.isFinite) {
+        final displays = await screenRetriever.getAllDisplays();
+        Display? target;
+        for (final d in displays) {
+          final offset = d.visiblePosition ?? Offset.zero;
+          final size = d.visibleSize ?? d.size;
+          if (position.dx >= offset.dx &&
+              position.dx < offset.dx + size.width &&
+              position.dy >= offset.dy &&
+              position.dy < offset.dy + size.height) {
+            target = d;
+            break;
+          }
+        }
+        target ??= await screenRetriever.getPrimaryDisplay();
+        _sizeController.saveWindowPosition(position, target.id);
+      }
+    });
   }
 
   void _scheduleWindowSizeUpdate() {

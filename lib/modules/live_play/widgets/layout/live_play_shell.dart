@@ -453,7 +453,9 @@ class _LivePlayShellState extends State<LivePlayShell> with SingleTickerProvider
     return Obx(() {
       final state = controller.state.value;
 
-      if (!state.room.success || controller.site == Sites.iptvSite) {
+      // 与普通布局 (_buildDanmakuContent) 对齐：连接失败/未开播时
+      // 房间信息已拉取成功（detail 非空），侧栏仍正常显示，不整体空掉。
+      if (state.room.detail == null || controller.site == Sites.iptvSite) {
         return const SizedBox.shrink();
       }
 

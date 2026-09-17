@@ -206,7 +206,7 @@ class DesktopSettingsPage extends GetView<RoomCardConfigController> {
         min: 0,
         max: 40,
         displayValue: '${controller.desktopCardRadius.round()} px',
-        onChanged: (v) => controller.updateDesktop((m) => m.copyWith(cardBorderRadius: v)),
+        onChanged: (v) => controller.updateDesktop((m) => m.copyWith(cornerRadius: v)),
       ),
       _sliderTile(
         context,
@@ -482,8 +482,8 @@ class DesktopSettingsPage extends GetView<RoomCardConfigController> {
         icon: Remix.text,
         title: i18n('show_subtitle'),
         subtitle: i18n('show_subtitle_subtitle'),
-        value: controller.desktopShowSubtitle,
-        onChanged: (v) => controller.updateDesktop((m) => m.copyWith(showSubtitle: v)),
+        value: controller.desktopshowAnchorName,
+        onChanged: (v) => controller.updateDesktop((m) => m.copyWith(showAnchorName: v)),
       ),
     ]);
   }
@@ -625,8 +625,8 @@ class DesktopSettingsPage extends GetView<RoomCardConfigController> {
         icon: Remix.global_line,
         title: i18n('show_platform'),
         subtitle: i18n('show_platform_subtitle'),
-        value: controller.desktopShowPlatform,
-        onChanged: (v) => controller.updateDesktop((m) => m.copyWith(showPlatform: v)),
+        value: controller.desktopShowPlatformBadge,
+        onChanged: (v) => controller.updateDesktop((m) => m.copyWith(showPlatformBadge: v)),
       ),
       _sliderTile(
         context,
@@ -736,8 +736,8 @@ class DesktopSettingsPage extends GetView<RoomCardConfigController> {
         icon: Remix.record_circle_line,
         title: i18n('show_record_badge'),
         subtitle: i18n('show_record_badge_subtitle'),
-        value: controller.desktopShowRecordBadge,
-        onChanged: (v) => controller.updateDesktop((m) => m.copyWith(showRecordBadge: v)),
+        value: controller.desktopshowReplayBadge,
+        onChanged: (v) => controller.updateDesktop((m) => m.copyWith(showReplayBadge: v)),
       ),
       _switchTile(
         context,

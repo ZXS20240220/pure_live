@@ -128,11 +128,17 @@ class WindowSizeController extends GetxController {
   final RxDouble storedWidth = hiveDouble('window_width', 1280.0);
   final RxDouble storedHeight = hiveDouble('window_height', 720.0);
 
+  final RxDouble storedX = hiveDouble('window_x', -1.0);
+  final RxDouble storedY = hiveDouble('window_y', -1.0);
+  final RxString storedDisplayId = hiveString('window_display_id', '');
+  final RxBool rememberWindowPosition = hiveBool('rememberWindowPosition', false);
+
   final RxBool rememberPipPosition = hiveBool('rememberPipPosition', true);
 
   final WindowPipGeometry windowsPip = WindowPipGeometry();
 
   final windowSize = const Size(1280, 720).obs;
+  final windowPosition = const Offset(-1, -1).obs;
   final isTracking = false.obs;
   final List<Worker> _workers = [];
 
@@ -141,11 +147,21 @@ class WindowSizeController extends GetxController {
     super.onInit();
 
     windowSize.value = Size(storedWidth.v, storedHeight.v);
+    windowPosition.value = Offset(storedX.v, storedY.v);
 
     _workers.add(
       debounce(windowSize, (Size size) {
         storedWidth.v = size.width;
         storedHeight.v = size.height;
+      }, time: const Duration(milliseconds: 500)),
+    );
+
+    _workers.add(
+      debounce(windowPosition, (Offset pos) {
+        if (rememberWindowPosition.value && pos.dx >= 0 && pos.dy >= 0) {
+          storedX.v = pos.dx;
+          storedY.v = pos.dy;
+        }
       }, time: const Duration(milliseconds: 500)),
     );
 
@@ -170,6 +186,18 @@ class WindowSizeController extends GetxController {
     windowSize.value = size;
   }
 
+  void updatePosition(Offset position) {
+    windowPosition.value = position;
+  }
+
+  void saveWindowPosition(Offset position, String displayId) {
+    if (!rememberWindowPosition.value) return;
+    if (!position.isFinite) return;
+    storedX.v = position.dx;
+    storedY.v = position.dy;
+    storedDisplayId.v = displayId;
+  }
+
   void clearWindowsPipGeometry() {
     windowsPip.clearAll();
   }
@@ -182,6 +210,10 @@ class WindowSizeController extends GetxController {
     return {
       'storedWidth': storedWidth.v,
       'storedHeight': storedHeight.v,
+      'rememberWindowPosition': rememberWindowPosition.v,
+      'storedX': storedX.v,
+      'storedY': storedY.v,
+      'storedDisplayId': storedDisplayId.v,
       'rememberPipPosition': rememberPipPosition.v,
       'windowsPip': windowsPip.toJson(),
     };
@@ -192,11 +224,17 @@ class WindowSizeController extends GetxController {
 
     storedHeight.v = (json['storedHeight'] as num?)?.toDouble() ?? 720.0;
 
+    rememberWindowPosition.v = json['rememberWindowPosition'] ?? false;
+    storedX.v = (json['storedX'] as num?)?.toDouble() ?? -1.0;
+    storedY.v = (json['storedY'] as num?)?.toDouble() ?? -1.0;
+    storedDisplayId.v = json['storedDisplayId'] ?? '';
+
     rememberPipPosition.v = json['rememberPipPosition'] ?? true;
 
     windowsPip.fromJson(_extractPipGeometry(json));
 
     windowSize.value = Size(storedWidth.v, storedHeight.v);
+    windowPosition.value = Offset(storedX.v, storedY.v);
   }
 
   static Map<String, dynamic> extractConfig(Map<String, dynamic>? rootConfig) {
@@ -209,6 +247,10 @@ class WindowSizeController extends GetxController {
     return {
       'storedWidth': (windowSize['storedWidth'] ?? 1280.0).toDouble(),
       'storedHeight': (windowSize['storedHeight'] ?? 720.0).toDouble(),
+      'rememberWindowPosition': windowSize['rememberWindowPosition'] ?? false,
+      'storedX': (windowSize['storedX'] ?? -1.0).toDouble(),
+      'storedY': (windowSize['storedY'] ?? -1.0).toDouble(),
+      'storedDisplayId': windowSize['storedDisplayId'] ?? '',
       'rememberPipPosition':
           windowSize['rememberPipPosition'] ?? player['rememberPipPosition'] ?? true,
       'windowsPip': pip,

@@ -136,6 +136,21 @@ class GeneralSettingsPage extends GetView<SettingsService> {
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () => _showWindowSizeDialog(context),
               ),
+              Obx(() {
+                final ctrl = SettingsService.to.window;
+                final hasPos = ctrl.storedX.v >= 0 && ctrl.storedY.v >= 0;
+                final subtitle = ctrl.rememberWindowPosition.v
+                    ? (hasPos
+                          ? '${ctrl.storedX.v.toInt()}, ${ctrl.storedY.v.toInt()}'
+                          : i18n('window_position_unknown'))
+                    : i18n('remember_window_position_subtitle');
+                return context.buildSwitchTile(
+                  title: i18n('remember_window_position'),
+                  subtitle: subtitle,
+                  value: ctrl.rememberWindowPosition,
+                  icon: Icons.window_rounded,
+                );
+              }),
               context.buildSwitchTile(
                 title: i18n('no_exit_confirm'),
                 subtitle: '',
@@ -246,6 +261,7 @@ class GeneralSettingsPage extends GetView<SettingsService> {
       {'name': '1600 × 900', 'w': 1600.0, 'h': 900.0},
       {'name': '1920 × 1080 (1080P)', 'w': 1920.0, 'h': 1080.0},
       {'name': '2560 × 1440 (2K)', 'w': 2560.0, 'h': 1440.0},
+      {'name': '1306 × 765 (wide)', 'w': 1306.0, 'h': 765.0},
     ];
 
     showDialog(

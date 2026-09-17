@@ -106,6 +106,234 @@ class BackupController extends GetxController {
     }
   }
 
+  void importPartialSettings(Map<String, dynamic> data, Set<String> allowedKeys) {
+    final version = data['backupVersion'];
+
+    if (version == null) {
+      // legacy 扁平格式：只能按选中的模块逐个调用对应控制器，
+      // 绝不能回退到 importAllSettings（那会覆盖用户未选中的数据）。
+      _importLegacyPartial(data, allowedKeys);
+      return;
+    }
+
+    switch (version) {
+      case 2:
+      case 3:
+        _importV2Partial(data, allowedKeys);
+        break;
+
+      default:
+        _importV2Partial(data, allowedKeys);
+        break;
+    }
+  }
+
+  void _importV2Partial(Map<String, dynamic> data, Set<String> allowedKeys) {
+    if (allowedKeys.contains('app')) {
+      Get.find<AppSettingsController>().fromJson(Map<String, dynamic>.from(data['app'] ?? {}));
+    }
+
+    if (allowedKeys.contains('theme')) {
+      Get.find<ThemeSettingsController>().fromJson(Map<String, dynamic>.from(data['theme'] ?? {}));
+    }
+
+    if (allowedKeys.contains('font')) {
+      Get.find<FontSettingsController>().fromJson(Map<String, dynamic>.from(data['font'] ?? {}));
+    }
+
+    if (allowedKeys.contains('player')) {
+      Get.find<PlayerSettingsController>().fromJson(
+        Map<String, dynamic>.from(data['player'] ?? {}),
+      );
+    }
+
+    if (allowedKeys.contains('danmaku')) {
+      Get.find<DanmakuSettingsController>().fromJson(
+        Map<String, dynamic>.from(data['danmaku'] ?? {}),
+      );
+    }
+
+    if (allowedKeys.contains('volume')) {
+      Get.find<VolumeSettingsController>().fromJson(
+        Map<String, dynamic>.from(data['volume'] ?? {}),
+      );
+    }
+
+    if (allowedKeys.contains('favorite')) {
+      Get.find<FavoriteRoomController>().fromJson(
+        Map<String, dynamic>.from(data['favorite'] ?? {}),
+      );
+    }
+
+    if (allowedKeys.contains('history')) {
+      Get.find<HistoryController>().fromJson(Map<String, dynamic>.from(data['history'] ?? {}));
+    }
+
+    if (allowedKeys.contains('webdav') && data.containsKey('webdav')) {
+      Get.find<WebDavController>().fromJson(Map<String, dynamic>.from(data['webdav'] ?? {}));
+    }
+
+    if (allowedKeys.contains('iptv')) {
+      Get.find<IptvSettingsController>().fromJson(Map<String, dynamic>.from(data['iptv'] ?? {}));
+    }
+
+    if (allowedKeys.contains('cookie') && data.containsKey('cookie')) {
+      Get.find<CookieSettingsController>().fromJson(
+        Map<String, dynamic>.from(data['cookie'] ?? {}),
+      );
+    }
+
+    if (allowedKeys.contains('proxy')) {
+      Get.find<ProxySettingsController>().fromJson(Map<String, dynamic>.from(data['proxy'] ?? {}));
+    }
+
+    if (allowedKeys.contains('windowSize')) {
+      Get.find<WindowSizeController>().fromJson(WindowSizeController.extractConfig(data));
+    }
+
+    if (allowedKeys.contains('exit')) {
+      Get.find<ExitSettingsController>().fromJson(Map<String, dynamic>.from(data['exit'] ?? {}));
+    }
+
+    if (allowedKeys.contains('startup')) {
+      Get.find<StartupController>().fromJson(Map<String, dynamic>.from(data['startup'] ?? {}));
+    }
+
+    if (allowedKeys.contains('refresh')) {
+      Get.find<RefreshConfigController>().fromJson(
+        Map<String, dynamic>.from(data['refresh'] ?? {}),
+      );
+    }
+
+    if (allowedKeys.contains('page')) {
+      Get.find<PageSettingsController>().fromJson(Map<String, dynamic>.from(data['page'] ?? {}));
+    }
+
+    if (allowedKeys.contains('panelSize') && data['panelSize'] is Map) {
+      Get.find<PanelSizeController>().fromJson(Map<String, dynamic>.from(data['panelSize']));
+    }
+
+    if (allowedKeys.contains('roomCard') && data['roomCard'] is Map) {
+      Get.find<RoomCardConfigController>().fromJson(Map<String, dynamic>.from(data['roomCard']));
+    }
+
+    if (allowedKeys.contains('backupDirectory') && data['backupDirectory'] is String) {
+      backupDirectory.v = (data['backupDirectory'] as String);
+    }
+
+    if (allowedKeys.contains('favoriteCtrl') && data['favoriteCtrl'] is Map) {
+      final favCtrl = Get.find<FavoriteController>();
+      final favData = Map<String, dynamic>.from(data['favoriteCtrl'] as Map);
+      if (favData['enablePinned'] is bool) {
+        favCtrl.enablePinned.value = favData['enablePinned'] as bool;
+      }
+      if (favData['onlineSortMode'] is String) {
+        try {
+          favCtrl.onlineSortMode.value = OnlineSortMode.values.firstWhere(
+            (e) => e.name == favData['onlineSortMode'],
+            orElse: () => OnlineSortMode.audience,
+          );
+        } catch (_) {}
+      }
+      if (favData['onlineSortOrder'] is String) {
+        favCtrl.onlineSortAscending.value = favData['onlineSortOrder'] == 'asc';
+      }
+    }
+
+    if (allowedKeys.contains('tags')) {
+      if (!Get.isRegistered<TagManagementController>()) {
+        Get.put(TagManagementController());
+      }
+
+      final tagsData = data['tags'];
+      if (tagsData is Map) {
+        Get.find<TagManagementController>().importFromJson(Map<String, dynamic>.from(tagsData));
+      }
+    }
+  }
+
+  /// legacy 扁平格式的部分导入：与 [_importLegacy] 相同的控制器映射，
+  /// 但只应用 allowedKeys 中选中的模块，未选中模块保持当前值不变。
+  void _importLegacyPartial(Map<String, dynamic> data, Set<String> allowedKeys) {
+    if (allowedKeys.contains('app')) {
+      Get.find<AppSettingsController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('theme')) {
+      Get.find<ThemeSettingsController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('font')) {
+      Get.find<FontSettingsController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('player')) {
+      Get.find<PlayerSettingsController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('danmaku')) {
+      Get.find<DanmakuSettingsController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('volume')) {
+      Get.find<VolumeSettingsController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('favorite')) {
+      Get.find<FavoriteRoomController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('history')) {
+      Get.find<HistoryController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('webdav') && data.containsKey('webdav')) {
+      Get.find<WebDavController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('iptv')) {
+      Get.find<IptvSettingsController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('cookie') && data.containsKey('cookie')) {
+      Get.find<CookieSettingsController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('proxy')) {
+      Get.find<ProxySettingsController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('windowSize')) {
+      Get.find<WindowSizeController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('exit')) {
+      Get.find<ExitSettingsController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('startup')) {
+      Get.find<StartupController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('refresh')) {
+      Get.find<RefreshConfigController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('page')) {
+      Get.find<PageSettingsController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('tags') && data['custom_tags_data'] is Map) {
+      if (!Get.isRegistered<TagManagementController>()) {
+        Get.put(TagManagementController());
+      }
+
+      Get.find<TagManagementController>().importFromJson(
+        Map<String, dynamic>.from(data['custom_tags_data'] as Map),
+      );
+    }
+  }
+
   void _importLatestCompatible(Map<String, dynamic> data) {
     _importV2(data);
   }

@@ -129,7 +129,7 @@ class RoomCardConfigController extends GetxController {
     );
     updateMobile(
       (m) => m.copyWith(
-        cardBorderRadius: 20,
+        cornerRadius: 20,
         cardElevation: 2,
         enableShadow: true,
         cardMargin: EdgeInsets.zero,
@@ -158,14 +158,14 @@ class RoomCardConfigController extends GetxController {
         subtitleFontWeight: FontWeight.w500,
         titleLineHeight: 1.2,
         subtitleLineHeight: 1.2,
-        showSubtitle: true,
+        showAnchorName: true,
         platformFontSize: 11,
         densePlatformFontSize: 10,
         platformFontWeight: FontWeight.w600,
         platformBorderRadius: 8,
         platformHorizontalPadding: 8,
         platformVerticalPadding: 4,
-        showPlatform: false,
+        showPlatformBadge: false,
         showAudience: true,
         chipFontSize: 13,
         denseChipFontSize: 12,
@@ -176,7 +176,7 @@ class RoomCardConfigController extends GetxController {
         denseChipVerticalPadding: 4,
         chipBorderRadius: 20,
         chipTextColor: Colors.white,
-        showRecordBadge: true,
+        showReplayBadge: true,
         showLiveBadge: true,
         metricFontSize: 12,
         denseMetricFontSize: 11,
@@ -206,7 +206,7 @@ class RoomCardConfigController extends GetxController {
   // ===== Mobile Getters =====
   RoomCardModel get _mobile => getMobileConfig();
 
-  double get mobileCardRadius => _mobile.cardBorderRadius;
+  double get mobileCardRadius => _mobile.cornerRadius;
   double get mobileCardElevation => _mobile.cardElevation;
   bool get mobileEnableShadow => _mobile.enableShadow;
   double get mobileCardMargin => _mobile.cardMargin.horizontal;
@@ -225,7 +225,7 @@ class RoomCardConfigController extends GetxController {
   double get mobileHorizontalTitleGap => _mobile.horizontalTitleGap;
   double get mobileAvatarSize => _mobile.avatarSize;
   bool get mobileShowAvatar => _mobile.showAvatar;
-  bool get mobileShowSubtitle => _mobile.showSubtitle;
+  bool get mobileshowAnchorName => _mobile.showAnchorName;
   bool get mobileDenseMode => _mobile.denseMode;
   double get mobileDenseAvatarSize => _mobile.denseAvatarSize;
   double get mobileDenseContentHorizontalPadding => _mobile.denseContentHorizontalPadding;
@@ -248,14 +248,14 @@ class RoomCardConfigController extends GetxController {
   double get mobileSubtitleFontSize => _mobile.subtitleFontSize;
   FontWeight get mobileSubtitleFontWeight => _mobile.subtitleFontWeight;
   double get mobileSubtitleLineHeight => _mobile.subtitleLineHeight;
-  bool get mobileShowPlatform => _mobile.showPlatform;
+  bool get mobileShowPlatformBadge => _mobile.showPlatformBadge;
   double get mobilePlatformFontSize => _mobile.platformFontSize;
   FontWeight get mobilePlatformFontWeight => _mobile.platformFontWeight;
   double get mobilePlatformBorderRadius => _mobile.platformBorderRadius;
   double get mobilePlatformHorizontalPadding => _mobile.platformHorizontalPadding;
   double get mobilePlatformVerticalPadding => _mobile.platformVerticalPadding;
   bool get mobileShowAudience => _mobile.showAudience;
-  bool get mobileShowRecordBadge => _mobile.showRecordBadge;
+  bool get mobileshowReplayBadge => _mobile.showReplayBadge;
   bool get mobileShowLiveBadge => _mobile.showLiveBadge;
   double get mobileChipFontSize => _mobile.chipFontSize;
   FontWeight get mobileChipFontWeight => _mobile.chipFontWeight;
@@ -355,7 +355,7 @@ class RoomCardConfigController extends GetxController {
     );
     updateDesktop(
       (m) => m.copyWith(
-        cardBorderRadius: 20,
+        cornerRadius: 20,
         cardElevation: 2,
         enableShadow: true,
         cardMargin: EdgeInsets.zero,
@@ -384,14 +384,14 @@ class RoomCardConfigController extends GetxController {
         subtitleFontWeight: FontWeight.w500,
         titleLineHeight: 1.2,
         subtitleLineHeight: 1.2,
-        showSubtitle: true,
+        showAnchorName: true,
         platformFontSize: 11,
         densePlatformFontSize: 10,
         platformFontWeight: FontWeight.w600,
         platformBorderRadius: 8,
         platformHorizontalPadding: 8,
         platformVerticalPadding: 4,
-        showPlatform: false,
+        showPlatformBadge: false,
         showAudience: true,
         chipFontSize: 13,
         denseChipFontSize: 12,
@@ -402,7 +402,7 @@ class RoomCardConfigController extends GetxController {
         denseChipVerticalPadding: 4,
         chipBorderRadius: 20,
         chipTextColor: Colors.white,
-        showRecordBadge: true,
+        showReplayBadge: true,
         showLiveBadge: true,
         metricFontSize: 12,
         denseMetricFontSize: 11,
@@ -432,7 +432,7 @@ class RoomCardConfigController extends GetxController {
   // ===== Desktop Getters =====
   RoomCardModel get _desktop => getDesktopConfig();
 
-  double get desktopCardRadius => _desktop.cardBorderRadius;
+  double get desktopCardRadius => _desktop.cornerRadius;
   double get desktopCardElevation => _desktop.cardElevation;
   bool get desktopEnableShadow => _desktop.enableShadow;
   double get desktopCardMargin => _desktop.cardMargin.horizontal;
@@ -451,7 +451,7 @@ class RoomCardConfigController extends GetxController {
   double get desktopHorizontalTitleGap => _desktop.horizontalTitleGap;
   double get desktopAvatarSize => _desktop.avatarSize;
   bool get desktopShowAvatar => _desktop.showAvatar;
-  bool get desktopShowSubtitle => _desktop.showSubtitle;
+  bool get desktopshowAnchorName => _desktop.showAnchorName;
   bool get desktopDenseMode => _desktop.denseMode;
   double get desktopDenseAvatarSize => _desktop.denseAvatarSize;
   double get desktopDenseContentHorizontalPadding => _desktop.denseContentHorizontalPadding;
@@ -474,14 +474,14 @@ class RoomCardConfigController extends GetxController {
   double get desktopSubtitleFontSize => _desktop.subtitleFontSize;
   FontWeight get desktopSubtitleFontWeight => _desktop.subtitleFontWeight;
   double get desktopSubtitleLineHeight => _desktop.subtitleLineHeight;
-  bool get desktopShowPlatform => _desktop.showPlatform;
+  bool get desktopShowPlatformBadge => _desktop.showPlatformBadge;
   double get desktopPlatformFontSize => _desktop.platformFontSize;
   FontWeight get desktopPlatformFontWeight => _desktop.platformFontWeight;
   double get desktopPlatformBorderRadius => _desktop.platformBorderRadius;
   double get desktopPlatformHorizontalPadding => _desktop.platformHorizontalPadding;
   double get desktopPlatformVerticalPadding => _desktop.platformVerticalPadding;
   bool get desktopShowAudience => _desktop.showAudience;
-  bool get desktopShowRecordBadge => _desktop.showRecordBadge;
+  bool get desktopshowReplayBadge => _desktop.showReplayBadge;
   bool get desktopShowLiveBadge => _desktop.showLiveBadge;
   double get desktopChipFontSize => _desktop.chipFontSize;
   FontWeight get desktopChipFontWeight => _desktop.chipFontWeight;
