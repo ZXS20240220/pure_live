@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/services/settings/history_controller.dart';
-import 'package:pure_live/common/services/settings/refresh_config_controller.dart';
 import 'package:pure_live/common/services/settings/watch_time_service.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/plugins/event_bus.dart';
@@ -300,39 +299,13 @@ class _PlayOtherPanelState extends State<PlayOtherPanel> with SingleTickerProvid
   }
 
   Future<void> _refreshHistory() async {
-    bool result = true;
-    final list = List<LiveRoom>.from(SettingsService.to.history.historyRooms.v);
-    final concurrency = RefreshConfigController.normalizeMaxConcurrentRefresh(
-      SettingsService.to.refreshConfig.maxConcurrentRefresh.v,
-    );
-    final refreshed = await boundedAsyncMap<LiveRoom, LiveRoom>(
-      list,
-      maxConcurrent: concurrency,
-      task: (room) async {
-        final platform = room.platform;
-        final roomId = room.roomId;
-        if (platform == null || platform.isEmpty || roomId == null || roomId.isEmpty) {
-          result = false;
-          return room;
-        }
-        try {
-          final newRoom = await Sites.of(platform).liveSite
-              .getRoomDetail(roomId: roomId, platform: platform)
-              .timeout(const Duration(seconds: 12));
-          return preserveHistoryMetadata(newRoom, room);
-        } catch (_) {
-          result = false;
-          return room;
-        }
-      },
-      shouldCancel: () => !mounted,
-    );
-    if (!mounted) return;
-    SettingsService.to.history.historyRooms.v = refreshed.whereType<LiveRoom>().toList(
-      growable: true,
-    );
+    final history = SettingsService.to.history;
+    final list = applyHistoryLimit(history.historyRooms.v, history.historyLimit.v);
+    final result = await history.refreshRoomDetails(list, shouldCancel: () => !mounted);
+    if (!mounted || result == null) return;
+    history.historyRooms.v = result.rooms;
     _updateRooms();
-    if (result) {
+    if (result.allSuccess) {
       _historyRefreshController.finishRefresh(IndicatorResult.success);
       _historyRefreshController.resetFooter();
     } else {
@@ -526,59 +499,65 @@ class _PlayOtherPanelState extends State<PlayOtherPanel> with SingleTickerProvid
   }
 
   Widget _buildRoomGrid(List<LiveRoom> rooms, {required bool history}) {
-    if (rooms.isEmpty) {
-      return const AppStatusView(type: AppStatusType.empty);
-    }
-    final controller = history ? _historyRefreshController : _onlineRefreshController;
+    final refreshController = history ? _historyRefreshController : _onlineRefreshController;
     final onRefresh = history ? _refreshHistory : _refreshOnline;
     return EasyRefresh(
-      controller: controller,
+      controller: refreshController,
       onRefresh: onRefresh,
-      onLoad: () => controller.finishLoad(IndicatorResult.noMore),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          const padding = 10.0;
-          const spacing = 8.0;
-          final availableWidth = constraints.maxWidth - padding * 2;
-          final isLargeScreen = availableWidth >= 320;
-          final columns = isLargeScreen ? 2 : 1;
-          late final double cardHeight;
-          if (isLargeScreen) {
-            final cardWidth = (availableWidth - spacing * (columns - 1)) / columns;
-            final coverHeight = cardWidth * 7 / 16;
-            const infoHeight = 48.0;
-            cardHeight = coverHeight + infoHeight;
-          } else {
-            cardHeight = 72;
-          }
-          return GridView.builder(
-            key: ValueKey(history ? 'watch-history-grid' : 'live-room-grid'),
-            padding: const EdgeInsets.all(padding),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: columns,
-              mainAxisExtent: cardHeight,
-              mainAxisSpacing: spacing,
-              crossAxisSpacing: spacing,
+      onLoad: () => refreshController.finishLoad(IndicatorResult.noMore),
+      child: rooms.isEmpty
+          ? const CustomScrollView(
+              slivers: [
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: AppStatusView(type: AppStatusType.empty),
+                ),
+              ],
+            )
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                const padding = 10.0;
+                const spacing = 8.0;
+                final availableWidth = constraints.maxWidth - padding * 2;
+                final isLargeScreen = availableWidth >= 320;
+                final columns = isLargeScreen ? 2 : 1;
+                late final double cardHeight;
+                if (isLargeScreen) {
+                  final cardWidth = (availableWidth - spacing * (columns - 1)) / columns;
+                  final coverHeight = cardWidth * 7 / 16;
+                  const infoHeight = 48.0;
+                  cardHeight = coverHeight + infoHeight;
+                } else {
+                  cardHeight = 72;
+                }
+                return GridView.builder(
+                  key: ValueKey(history ? 'watch-history-grid' : 'live-room-grid'),
+                  padding: const EdgeInsets.all(padding),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: columns,
+                    mainAxisExtent: cardHeight,
+                    mainAxisSpacing: spacing,
+                    crossAxisSpacing: spacing,
+                  ),
+                  itemCount: rooms.length,
+                  itemBuilder: (context, index) {
+                    final room = rooms[index];
+                    return _RoomSwitchCard(
+                      room: room,
+                      history: history,
+                      largeScreen: isLargeScreen,
+                      onTap: () => widget.onSelectRoom(room),
+                      onRemoveFromHistory: history
+                          ? () {
+                              SettingsService.to.history.removeRoomFromHistory(room);
+                              _updateRooms();
+                            }
+                          : null,
+                    );
+                  },
+                );
+              },
             ),
-            itemCount: rooms.length,
-            itemBuilder: (context, index) {
-              final room = rooms[index];
-              return _RoomSwitchCard(
-                room: room,
-                history: history,
-                largeScreen: isLargeScreen,
-                onTap: () => widget.onSelectRoom(room),
-                onRemoveFromHistory: history
-                    ? () {
-                        SettingsService.to.history.removeRoomFromHistory(room);
-                        _updateRooms();
-                      }
-                    : null,
-              );
-            },
-          );
-        },
-      ),
     );
   }
 }

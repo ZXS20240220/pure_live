@@ -296,7 +296,12 @@ class _HomePageState extends State<HomePage>
                                   const CircularProgressIndicator(),
                                   const SizedBox(height: 16),
                                   Text(
-                                    i18n('favorite_refreshing_all'),
+                                    favoriteController.isVerifyingFavorites.value
+                                        ? i18n('favorite_refreshing_startup')
+                                        : favoriteController.refreshShieldScope.value ==
+                                              FavoriteRefreshScope.all
+                                        ? i18n('favorite_refreshing_all')
+                                        : i18n('favorite_refreshing_filtered'),
                                     textAlign: TextAlign.center,
                                     style: Theme.of(context).textTheme.bodyMedium,
                                   ),

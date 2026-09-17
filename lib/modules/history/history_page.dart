@@ -1,6 +1,5 @@
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/services/settings/history_controller.dart';
-import 'package:pure_live/common/services/settings/refresh_config_controller.dart';
 import 'package:waterfall_flow/waterfall_flow.dart';
 
 class HistoryPage extends StatefulWidget {
@@ -22,38 +21,12 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Future<void> onRefresh() async {
-    bool result = true;
-    final list = List<LiveRoom>.from(SettingsService.to.history.historyRooms.v);
-    final concurrency = RefreshConfigController.normalizeMaxConcurrentRefresh(
-      SettingsService.to.refreshConfig.maxConcurrentRefresh.v,
-    );
-    final refreshed = await boundedAsyncMap<LiveRoom, LiveRoom>(
-      list,
-      maxConcurrent: concurrency,
-      task: (room) async {
-        final platform = room.platform;
-        final roomId = room.roomId;
-        if (platform == null || platform.isEmpty || roomId == null || roomId.isEmpty) {
-          result = false;
-          return room;
-        }
-        try {
-          final newRoom = await Sites.of(platform).liveSite
-              .getRoomDetail(roomId: roomId, platform: platform)
-              .timeout(const Duration(seconds: 12));
-          return preserveHistoryMetadata(newRoom, room);
-        } catch (_) {
-          result = false;
-          return room;
-        }
-      },
-      shouldCancel: () => !mounted,
-    );
-    if (!mounted) return;
-    SettingsService.to.history.historyRooms.v = refreshed.whereType<LiveRoom>().toList(
-      growable: true,
-    );
-    if (result) {
+    final history = SettingsService.to.history;
+    final list = applyHistoryLimit(history.historyRooms.v, history.historyLimit.v);
+    final result = await history.refreshRoomDetails(list, shouldCancel: () => !mounted);
+    if (!mounted || result == null) return;
+    history.historyRooms.v = result.rooms;
+    if (result.allSuccess) {
       refreshController.finishRefresh(IndicatorResult.success);
       refreshController.resetFooter();
     } else {

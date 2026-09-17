@@ -367,24 +367,27 @@ class DanmakuListViewState extends State<DanmakuListView> {
                               onScrollNotification(notification);
                               return false;
                             },
-                            child: ListView.builder(
-                              key: const ValueKey('danmaku-message-list'),
-                              addAutomaticKeepAlives: false,
-                              addRepaintBoundaries: false,
-                              controller: _scrollController,
-                              reverse: true,
-                              dragStartBehavior: DragStartBehavior.down,
-                              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                              physics: const PureLiveScrollPhysics(
-                                parent: AlwaysScrollableScrollPhysics(),
+                            child: ScrollConfiguration(
+                              behavior: const _DanmakuListScrollBehavior(),
+                              child: ListView.builder(
+                                key: const ValueKey('danmaku-message-list'),
+                                addAutomaticKeepAlives: false,
+                                addRepaintBoundaries: false,
+                                controller: _scrollController,
+                                reverse: true,
+                                dragStartBehavior: DragStartBehavior.down,
+                                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                                physics: const PureLiveScrollPhysics(
+                                  parent: AlwaysScrollableScrollPhysics(),
+                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                                scrollCacheExtent: const ScrollCacheExtent.pixels(360),
+                                itemCount: _visibleMessages.length,
+                                itemBuilder: (_, index) {
+                                  final msg = _visibleMessages[_visibleMessages.length - 1 - index];
+                                  return _itemFor(msg);
+                                },
                               ),
-                              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-                              scrollCacheExtent: const ScrollCacheExtent.pixels(360),
-                              itemCount: _visibleMessages.length,
-                              itemBuilder: (_, index) {
-                                final msg = _visibleMessages[_visibleMessages.length - 1 - index];
-                                return _itemFor(msg);
-                              },
                             ),
                           ),
                         ),
@@ -502,6 +505,20 @@ class DanmakuListViewState extends State<DanmakuListView> {
       },
     );
   }
+}
+
+class _DanmakuListScrollBehavior extends MaterialScrollBehavior {
+  const _DanmakuListScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => const {
+    PointerDeviceKind.touch,
+    PointerDeviceKind.stylus,
+    PointerDeviceKind.invertedStylus,
+    PointerDeviceKind.trackpad,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.unknown,
+  };
 }
 
 class DanmakuItem extends StatelessWidget {

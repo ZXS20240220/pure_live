@@ -10,11 +10,15 @@ import 'package:pure_live/core/interface/live_site.dart';
 import 'package:pure_live/modules/tags/tag_management_controller.dart';
 import 'package:pure_live/modules/favorite/favorite_startup_policy.dart';
 import 'package:pure_live/common/services/settings/refresh_config_controller.dart';
+import 'package:pure_live/common/services/settings/history_controller.dart';
 import 'package:pure_live/common/services/settings/watch_time_service.dart';
 import 'package:pure_live/routes/route_observer_controller.dart';
 import 'package:pure_live/common/consts/app_consts.dart';
 
 enum OnlineSortMode { audience, startTime, watchTime }
+
+/// 刷新遮罩展示的范围语义：全量（所有关注）或按当前筛选（平台/标签/搜索）。
+enum FavoriteRefreshScope { all, filtered }
 
 class FavoriteController extends LocalReactivePageController<LiveRoom>
     with GetTickerProviderStateMixin, WidgetsBindingObserver {
@@ -87,6 +91,9 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
 
   final showRefreshShield = false.obs;
   final cancelRequested = false.obs;
+
+  /// 当前遮罩对应的刷新范围，用于遮罩文案区分"全部关注"与"按当前筛选"。
+  final refreshShieldScope = FavoriteRefreshScope.all.obs;
 
   FavoriteController() : super();
 
@@ -470,10 +477,18 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
       return siteFiltered.where(_matchesSearchKeyword).toList();
     }
 
+    // 与 filteredSyncedRoomsForSite 的标签语义保持一致：
+    // "未分组"是虚拟标签（getTagsForRoom 永远不会返回该 key），
+    // 需要按"房间没有任何标签"判断，否则选中未分组时刷新范围为空集。
+    final hasUntagged = selectedTagIds.contains(TagManagementController.untaggedTagKey);
+    final realTagIds = selectedTagIds.where((id) => id != TagManagementController.untaggedTagKey);
+
     return siteFiltered
         .where((room) {
           final List<String> ids = tagController.getTagsForRoom(room);
-          return selectedTagIds.every((requiredTag) => ids.contains(requiredTag));
+          if (hasUntagged && ids.isNotEmpty) return false;
+          if (hasUntagged && realTagIds.isEmpty) return true;
+          return realTagIds.every((requiredTag) => ids.contains(requiredTag));
         })
         .where(_matchesSearchKeyword)
         .toList();
@@ -880,6 +895,18 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     required bool showLoading,
     bool bypassFailureCooldown = false,
   }) async {
+    // 全部平台 + 全部标签 + 无搜索 = 筛选是 no-op，刷新范围就是全部收藏，
+    // 遮罩语义保持"全部"而不是误导性的"当前筛选"。
+    final sites = Sites().availableSites(containsAll: true);
+    final isUnfiltered =
+        tabSiteIndex.value >= 0 &&
+        tabSiteIndex.value < sites.length &&
+        sites[tabSiteIndex.value].id == Sites.allSite &&
+        selectedTagIds.contains(TagManagementController.allTagKey) &&
+        searchKeyword.value.trim().isEmpty;
+    refreshShieldScope.value = isUnfiltered
+        ? FavoriteRefreshScope.all
+        : FavoriteRefreshScope.filtered;
     final roomsToRefresh = getFilteredRoomsIgnoringLiveStatus();
     await _runRoomRefresh(
       roomsToRefresh,
@@ -905,6 +932,7 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     }
     final roomsToRefresh = getAllRooms();
     cancelRequested.value = false;
+    refreshShieldScope.value = FavoriteRefreshScope.all;
     showRefreshShield.value = _isUserOnFavoritePage();
     await _runRoomRefresh(
       roomsToRefresh,
@@ -933,6 +961,7 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     _verificationPreview = buildFavoriteVerificationPreview(persisted);
     isVerifyingFavorites.value = true;
     cancelRequested.value = false;
+    refreshShieldScope.value = FavoriteRefreshScope.all;
     showRefreshShield.value = true;
     if (persisted.isNotEmpty) {
       // Keep cached metadata and bucket positions, but publish every status as
@@ -952,12 +981,80 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
         invalidateUnverified: true,
         bypassFailureCooldown: true,
       );
+      // 启动校验延伸到历史记录：复用收藏校验结果，未覆盖的房间增量轻量刷新。
+      await _refreshHistoryAfterStartupVerification();
     } finally {
       _verificationPreview = null;
       isVerifyingFavorites.value = false;
       // Also restores a useful offline/unknown view if a controller-level
       // exception interrupted the refresh before its normal final publish.
       applyLocalFilter();
+    }
+  }
+
+  /// 启动校验的历史记录部分（受历史最大保留数量限制）。
+  ///
+  /// 身份与收藏一致的房间直接复用收藏校验结果（不重复发请求）；
+  /// 其余房间（不在收藏中，或收藏校验失败标为 unknown）走历史轻量刷新，
+  /// 失败保留旧数据。写回前重读当前历史列表，刷新期间新增/删除的条目不受影响。
+  Future<void> _refreshHistoryAfterStartupVerification() async {
+    try {
+      final history = SettingsService.to.history;
+      final limited = applyHistoryLimit(history.historyRooms.v, history.historyLimit.v);
+      if (limited.isEmpty) return;
+
+      final refreshEpoch = _refreshEpoch;
+      final favMap = <String, LiveRoom>{
+        for (final room in SettingsService.to.fav.favoriteRooms.v) room.identityKey: room,
+      };
+      final settled = List<LiveRoom>.from(limited);
+      final pending = <LiveRoom>[];
+      for (var index = 0; index < limited.length; index++) {
+        final room = limited[index];
+        final fav = favMap[room.identityKey];
+        // 只复用收藏校验成功的数据；unknown 表示该房间请求失败，不能作为数据源。
+        if (fav != null && fav.effectiveLiveStatus != LiveStatus.unknown) {
+          settled[index] = preserveHistoryMetadata(fav, room);
+        } else {
+          pending.add(room);
+        }
+      }
+
+      if (pending.isNotEmpty) {
+        final result = await history.refreshRoomDetails(
+          pending,
+          shouldCancel: () => isClosed || refreshEpoch != _refreshEpoch,
+        );
+        if (result == null) return;
+        final refreshedByIdentity = <String, LiveRoom>{
+          for (final room in result.rooms) room.identityKey: room,
+        };
+        for (var index = 0; index < settled.length; index++) {
+          final refreshed = refreshedByIdentity[settled[index].identityKey];
+          if (refreshed != null) settled[index] = refreshed;
+        }
+      }
+
+      final byIdentity = <String, LiveRoom>{for (final room in settled) room.identityKey: room};
+      final current = history.historyRooms.v;
+      final next = [
+        for (final room in current)
+          byIdentity.containsKey(room.identityKey)
+              ? preserveHistoryMetadata(byIdentity[room.identityKey]!, room)
+              : room,
+      ];
+      var changed = current.length != next.length;
+      if (!changed) {
+        for (var index = 0; index < next.length; index++) {
+          if (!identical(current[index], next[index])) {
+            changed = true;
+            break;
+          }
+        }
+      }
+      if (changed) history.historyRooms.v = next;
+    } catch (_) {
+      // 历史校验是非关键路径，任何异常都不影响启动流程。
     }
   }
 
