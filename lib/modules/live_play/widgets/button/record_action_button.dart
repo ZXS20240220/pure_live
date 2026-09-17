@@ -60,7 +60,7 @@ class RecordActionButton extends StatelessWidget {
         message: label,
         child: SizedBox(
           width: compactHeader ? 40 : null,
-          height: 38,
+          height: 30,
           child: FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: backgroundColor,

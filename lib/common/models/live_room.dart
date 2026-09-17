@@ -171,10 +171,19 @@ class LiveRoom {
   int? lastWatchedAt;
 
   /// Epoch-second timestamp when the current live session started.
-  /// Populated by douyu (show_time), huya (TT_ROOM_DATA.startTime),
-  /// and bilibili (room_info.live_start_time). Null for platforms that
-  /// do not expose the field and for offline/replay rooms.
+  /// Populated by douyin (reflow start_time), douyu (show_time),
+  /// huya (TT_ROOM_DATA.startTime / liveData.startTime), and bilibili
+  /// (room_info.live_start_time). Douyin and huya keep returning the last
+  /// session's start time for offline rooms, which feeds the "上次直播"
+  /// card display; bilibili zeroes the field when offline. Null for
+  /// platforms that do not expose the field.
   int? startTime;
+
+  /// Anchor location when the platform exposes one. Only douyin fills
+  /// this today (reflow `owner.location_city`); every other platform
+  /// API measured keeps the field absent or permanently empty, so it
+  /// stays '' there and the UI hides it.
+  String? location = '';
 
   // 添加未命名的默认构造函数
   LiveRoom({
@@ -212,6 +221,7 @@ class LiveRoom {
     this.catchUpEnd,
     this.lastWatchedAt,
     this.startTime,
+    this.location = '',
     List<String>? tagIds,
   }) : liveStatus = liveStatus ?? _legacyStatusToLiveStatus(status: status, isRecord: isRecord),
        tagIds = tagIds ?? [];
@@ -252,7 +262,8 @@ class LiveRoom {
       catchUpStart = json['catchUpStart'],
       catchUpEnd = json['catchUpEnd'],
       lastWatchedAt = json['lastWatchedAt'] is num ? (json['lastWatchedAt'] as num).toInt() : null,
-      startTime = json['startTime'] is num ? (json['startTime'] as num).toInt() : null {
+      startTime = json['startTime'] is num ? (json['startTime'] as num).toInt() : null,
+      location = json['location']?.toString() ?? '' {
     // Earlier builds stored Huya's userCount/URI 8006 popularity in the
     // concurrent-viewer field. Current captures confirm both are popularity.
     if (normalizedPlatformId == 'huya' && _hasExplicitAudienceValue(onlineViewers)) {
@@ -301,6 +312,7 @@ class LiveRoom {
     int? catchUpEnd,
     int? lastWatchedAt,
     int? startTime,
+    String? location,
     List<String>? tagIds,
   }) {
     return LiveRoom(
@@ -338,6 +350,7 @@ class LiveRoom {
       catchUpEnd: catchUpEnd ?? this.catchUpEnd,
       lastWatchedAt: lastWatchedAt ?? this.lastWatchedAt,
       startTime: startTime ?? this.startTime,
+      location: location ?? this.location,
       tagIds: tagIds ?? this.tagIds,
     );
   }
@@ -716,6 +729,7 @@ extension LiveRoomExtension on LiveRoom {
 
       lastWatchedAt: incoming.lastWatchedAt ?? lastWatchedAt,
       startTime: incoming.startTime ?? startTime,
+      location: _preferValue(incoming.location, location),
     );
   }
 

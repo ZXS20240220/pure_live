@@ -109,4 +109,52 @@ void main() {
       );
     });
   });
+
+  group('Douyin last-session start time and anchor location', () {
+    test('parses reflow start_time and normalizes absent values to null', () {
+      expect(DouyinSite.parseDouyinStartTime(1758012345), 1758012345);
+      expect(DouyinSite.parseDouyinStartTime('1758012345'), 1758012345);
+      expect(DouyinSite.parseDouyinStartTime(0), isNull);
+      expect(DouyinSite.parseDouyinStartTime(''), isNull);
+      expect(DouyinSite.parseDouyinStartTime('not-a-number'), isNull);
+      expect(DouyinSite.parseDouyinStartTime(null), isNull);
+    });
+
+    test('prefers owner.location_city and falls back to the legacy city twin', () {
+      expect(
+        DouyinSite.parseDouyinAnchorLocation({
+          'location_city': '上海',
+          'city': '上海',
+        }),
+        '上海',
+      );
+      expect(
+        DouyinSite.parseDouyinAnchorLocation({'city': '广州'}),
+        '广州',
+      );
+    });
+
+    test('treats hidden or malformed anchor locations as empty', () {
+      expect(DouyinSite.parseDouyinAnchorLocation({'location_city': ''}), isEmpty);
+      expect(DouyinSite.parseDouyinAnchorLocation({'location_city': 'null'}), isEmpty);
+      expect(DouyinSite.parseDouyinAnchorLocation(const {}), isEmpty);
+      expect(DouyinSite.parseDouyinAnchorLocation(null), isEmpty);
+      expect(DouyinSite.parseDouyinAnchorLocation('上海'), isEmpty);
+    });
+
+    test('extracts both fields from the reflow extras payload shape', () {
+      // Shape returned by webcast/room/reflow/info under data.room, consumed
+      // by the favourite refresh path for offline web-rid rooms.
+      final extrasRoom = {
+        'start_time': 1647575906,
+        'owner': {'location_city': '凉山', 'nickname': '主播'},
+      };
+
+      expect(DouyinSite.parseDouyinStartTime(extrasRoom['start_time']), 1647575906);
+      expect(
+        DouyinSite.parseDouyinAnchorLocation(extrasRoom['owner']),
+        '凉山',
+      );
+    });
+  });
 }

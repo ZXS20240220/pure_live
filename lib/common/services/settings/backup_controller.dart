@@ -66,6 +66,7 @@ class BackupController extends GetxController {
       data['favoriteCtrl'] = {
         'enablePinned': favCtrl.enablePinned.v,
         'onlineSortMode': favCtrl.onlineSortMode.v.name,
+        'onlineSortOrder': favCtrl.onlineSortAscending.v ? 'asc' : 'desc',
       };
     }
 
@@ -179,6 +180,10 @@ class BackupController extends GetxController {
             orElse: () => OnlineSortMode.audience,
           );
         } catch (_) {}
+      }
+      if (favData['onlineSortOrder'] is String) {
+        // 旧备份没有该字段时保持当前方向不变。
+        favCtrl.onlineSortAscending.value = favData['onlineSortOrder'] == 'asc';
       }
     }
 

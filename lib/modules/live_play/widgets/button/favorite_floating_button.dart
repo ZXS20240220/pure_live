@@ -81,8 +81,29 @@ class FavoriteFloatingButton extends StatelessWidget {
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
         onPressed: () => _toggleFavorite(isFavorite),
-        child: Text(label),
+        // Fans count sits inside the button, to the left of the follow label,
+        // mirroring the platform web pages' hover cards.
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_fansText.isNotEmpty) ...[
+              Tooltip(message: '订阅数:${room.followers?.trim() ?? ''}', child: Text(_fansText)),
+              const SizedBox(width: 8),
+              Container(width: 1, height: 12, color: Colors.white.withValues(alpha: 0.35)),
+              const SizedBox(width: 8),
+            ],
+            Text(label),
+          ],
+        ),
       );
     });
+  }
+
+  /// Formatted fans count ('' when the platform leaves it empty). Numbers
+  /// above 10k collapse to the 'x.x万' form used across the app.
+  String get _fansText {
+    final raw = room.followers?.trim() ?? '';
+    if (raw.isEmpty || raw == '0' || raw == 'null') return '';
+    return readableCount(raw);
   }
 }

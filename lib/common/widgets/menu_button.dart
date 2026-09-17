@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
+import 'package:pure_live/common/services/settings/watch_time_service.dart';
 import 'package:pure_live/common/utils/windows_multi_instance_launcher.dart';
 
 class MenuButton extends StatelessWidget {
@@ -193,6 +194,55 @@ class MenuButton extends StatelessWidget {
               ToastUtil.show(i18n('open_new_window_failed'));
             }
             break;
+          case 6:
+            final rootContext = Navigator.of(context, rootNavigator: true).context;
+            showDialog(
+              context: rootContext,
+              builder: (ctx) {
+                final theme = Theme.of(ctx);
+                return AlertDialog(
+                  backgroundColor: theme.colorScheme.surface,
+                  surfaceTintColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  title: Text(
+                    i18n('watch_time_clear_confirm_title'),
+                    style: AppTextStyles.t16.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                  content: Text(
+                    i18n('watch_time_clear_confirm_content'),
+                    style: AppTextStyles.t14.copyWith(height: 1.55),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      child: Text(
+                        i18n('cancel'),
+                        style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        elevation: 0,
+                        backgroundColor: theme.colorScheme.primary,
+                        foregroundColor: theme.colorScheme.onPrimary,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
+                      ),
+                      onPressed: () {
+                        Navigator.of(ctx).pop();
+                        WatchTimeService.clearAllRecords();
+                        ToastUtil.show(i18n('watch_time_cleared'));
+                      },
+                      child: Text(
+                        i18n('confirm'),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            );
+            break;
         }
       },
       itemBuilder: (context) => [
@@ -236,6 +286,14 @@ class MenuButton extends StatelessWidget {
               text: i18n('open_new_window'),
             ),
           ),
+        PopupMenuItem(
+          value: 6,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: MenuListTile(
+            leading: const Icon(Remix.delete_bin_line),
+            text: i18n('watch_time_clear_all'),
+          ),
+        ),
       ],
     );
   }

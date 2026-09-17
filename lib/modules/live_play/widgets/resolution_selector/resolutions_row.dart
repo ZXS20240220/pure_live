@@ -16,12 +16,12 @@ class ResolutionsRow extends StatelessWidget {
       final state = controller.state.value;
 
       if (!state.room.success) {
-        return Container(height: 55);
+        return Container(height: 40);
       }
 
       return Container(
-        height: 55,
-        padding: const EdgeInsets.all(4.0),
+        height: 40,
+        padding: const EdgeInsets.all(2.0),
         child: const Row(
           children: [
             Padding(padding: EdgeInsets.all(8), child: AudienceInfo()),

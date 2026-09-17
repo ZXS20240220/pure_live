@@ -17,7 +17,7 @@ import 'package:pure_live/core/utils/douyin/douyin_utils.dart';
 import 'package:pure_live/core/utils/douyin/douyin_request_params.dart';
 import 'package:pure_live/core/utils/live_quality_label.dart';
 
-class DouyinSite implements LiveSite, LiveSiteRecordRoomResolver {
+class DouyinSite implements LiveSite, LiveSiteRecordRoomResolver, LiveSiteRoomRefresher {
   @override
   String id = Sites.douyinSite;
 
@@ -407,6 +407,42 @@ class DouyinSite implements LiveSite, LiveSiteRecordRoomResolver {
     return '热门推荐';
   }
 
+  /// Douyin encodes the live session start as an epoch-second number in the
+  /// reflow payload. Zero/absent values (feed previews, pruned rooms) are
+  /// normalized to null so callers keep the "unknown" semantics.
+  @visibleForTesting
+  static int? parseDouyinStartTime(dynamic raw) {
+    final ts = int.tryParse(raw?.toString() ?? '');
+    return ts != null && ts > 0 ? ts : null;
+  }
+
+  /// The anchor location (IP属地) lives on the reflow owner object as
+  /// `location_city`, with `city` as its legacy twin. Anchors that hide the
+  /// location leave both empty. Room-level `location`/`auth_city` are
+  /// unrelated and measured permanently empty for ordinary rooms.
+  @visibleForTesting
+  static String parseDouyinAnchorLocation(dynamic owner) {
+    if (owner is! Map) return '';
+    for (final key in const ['location_city', 'city']) {
+      final value = owner[key]?.toString().trim() ?? '';
+      if (value.isNotEmpty && value != 'null') return value;
+    }
+    return '';
+  }
+
+  /// The anchor's total follower count lives on the reflow owner object as
+  /// `follow_info.follower_count`. The enter-API owner lacks the field, so
+  /// webRid-path callers enrich from the reflow payload instead. Zero keeps
+  /// the "unknown" semantics so the UI hides it.
+  @visibleForTesting
+  static String parseDouyinFollowers(dynamic owner) {
+    if (owner is! Map) return '';
+    final info = owner['follow_info'];
+    if (info is! Map) return '';
+    final count = int.tryParse(info['follower_count']?.toString() ?? '');
+    return count != null && count > 0 ? count.toString() : '';
+  }
+
   @override
   Future<LiveRoom> getRoomDetail({required String platform, required String roomId}) async {
     if (roomId.length <= 16) {
@@ -420,6 +456,126 @@ class DouyinSite implements LiveSite, LiveSiteRecordRoomResolver {
     // Both the API and HTML paths propagate their final error and retain the
     // stream_url envelope required to resolve every advertised sdk_key.
     return getRoomDetail(platform: platform, roomId: roomId);
+  }
+
+  @override
+  Future<LiveRoom> getRoomDetailForRefresh({
+    required String platform,
+    required String roomId,
+  }) async {
+    // Favourite-card refresh needs only status/title/cover/anchor/audience
+    // and keeps the happy path to a single request. The reflow payload
+    // (19-digit room ids) carries start_time/followers/location along for
+    // free; the enter API (web rids) cannot provide them, so offline web-rid
+    // rooms pay one extra reflow request for the last session's start time —
+    // the only case where a favourite card shows it. No HTML fallback: a
+    // failed refresh reports unknown, it never costs a page download.
+    if (roomId.length <= 16) {
+      final data = await _getRoomDataByApi(roomId);
+      final roomList = data['data'];
+      final room = roomList is List && roomList.isNotEmpty ? roomList.first : null;
+      final userData = data['user'] is Map ? data['user'] as Map : const <dynamic, dynamic>{};
+      final owner = room is Map ? room['owner'] : null;
+      final roomStatus = int.tryParse(room?['status']?.toString() ?? '') == 2;
+      final totalViewers = roomStatus ? douyinTotalViewers(room) : '';
+      final onlineViewers = roomStatus ? douyinOnlineViewers(room) : '';
+      final nativeAudience = totalViewers.isNotEmpty ? totalViewers : onlineViewers;
+      final coverUrls = room?['cover']?['url_list'];
+      final ownerAvatarUrls = owner?['avatar_thumb']?['url_list'];
+      final userAvatarUrls = userData['avatar_thumb']?['url_list'];
+
+      // The enter payload never carries start_time, but for an offline room
+      // it still exposes the last session's room id, and the reflow API keeps
+      // that session's start time indefinitely. A failure here only leaves
+      // the optional fields empty, like platforms that never expose them.
+      int? roomStartTime;
+      var anchorLocation = '';
+      var anchorFollowers = '';
+      if (!roomStatus) {
+        try {
+          final lastSessionRoomId = room?['id_str']?.toString() ?? '';
+          if (lastSessionRoomId.isNotEmpty) {
+            final extras = await _getRoomDataByRoomId(lastSessionRoomId);
+            final extrasData = extras['data'] is Map
+                ? extras['data'] as Map
+                : const <dynamic, dynamic>{};
+            final extrasRoom = extrasData['room'] is Map
+                ? extrasData['room'] as Map
+                : const <dynamic, dynamic>{};
+            final extrasOwner = extrasRoom['owner'];
+            roomStartTime = parseDouyinStartTime(extrasRoom['start_time']);
+            anchorLocation = parseDouyinAnchorLocation(extrasOwner);
+            anchorFollowers = parseDouyinFollowers(extrasOwner);
+          }
+        } catch (e) {
+          CoreLog.error(e);
+        }
+      }
+
+      return LiveRoom(
+        roomId: roomId,
+        title: room?['title']?.toString() ?? '',
+        cover: roomStatus && coverUrls is List && coverUrls.isNotEmpty
+            ? coverUrls.first.toString()
+            : '',
+        nick: owner?['nickname']?.toString() ?? userData['nickname']?.toString() ?? '',
+        avatar: ownerAvatarUrls is List && ownerAvatarUrls.isNotEmpty
+            ? ownerAvatarUrls.first.toString()
+            : userAvatarUrls is List && userAvatarUrls.isNotEmpty
+            ? userAvatarUrls.first.toString()
+            : '',
+        watching: nativeAudience,
+        totalViewers: totalViewers,
+        onlineViewers: onlineViewers,
+        audienceMetricType: totalViewers.isNotEmpty
+            ? AudienceMetricType.totalViewers
+            : AudienceMetricType.onlineViewers,
+        status: roomStatus,
+        liveStatus: roomStatus ? LiveStatus.live : LiveStatus.offline,
+        link: 'https://live.douyin.com/$roomId',
+        platform: Sites.douyinSite,
+        introduction: owner?['signature']?.toString() ?? '',
+        notice: '',
+        startTime: roomStartTime,
+        location: anchorLocation,
+        followers: anchorFollowers.isNotEmpty ? anchorFollowers : null,
+      );
+    }
+
+    final result = await _getRoomDataByRoomId(roomId);
+    final data = result['data'] is Map ? result['data'] as Map : const <dynamic, dynamic>{};
+    final room = data['room'] is Map ? data['room'] as Map : const <dynamic, dynamic>{};
+    final owner = room['owner'];
+    final roomStatus = int.tryParse(room['status']?.toString() ?? '') == 2;
+    final totalViewers = roomStatus ? douyinTotalViewers(room) : '';
+    final onlineViewers = roomStatus ? douyinOnlineViewers(room) : '';
+    final nativeAudience = totalViewers.isNotEmpty ? totalViewers : onlineViewers;
+    final coverUrls = room['cover']?['url_list'];
+    final avatarUrls = owner?['avatar_thumb']?['url_list'];
+    return LiveRoom(
+      roomId: roomId,
+      title: room['title']?.toString() ?? '',
+      cover: roomStatus && coverUrls is List && coverUrls.isNotEmpty
+          ? coverUrls.first.toString()
+          : '',
+      nick: owner?['nickname']?.toString() ?? '',
+      avatar: avatarUrls is List && avatarUrls.isNotEmpty ? avatarUrls.first.toString() : '',
+      watching: nativeAudience,
+      totalViewers: totalViewers,
+      onlineViewers: onlineViewers,
+      audienceMetricType: totalViewers.isNotEmpty
+          ? AudienceMetricType.totalViewers
+          : AudienceMetricType.onlineViewers,
+      status: roomStatus,
+      liveStatus: roomStatus ? LiveStatus.live : LiveStatus.offline,
+      link: 'https://live.douyin.com/$roomId',
+      platform: Sites.douyinSite,
+      introduction: owner?['signature']?.toString() ?? '',
+      notice: '',
+      startTime: parseDouyinStartTime(room['start_time']),
+      location: parseDouyinAnchorLocation(owner),
+      followers: parseDouyinFollowers(owner),
+    );
   }
 
   Future<LiveRoom> getRoomDetailByRoomId(String roomId) async {
@@ -442,6 +598,21 @@ class DouyinSite implements LiveSite, LiveSiteRecordRoomResolver {
     // 所以如果roomId对应的直播间状态不是直播中，就通过webRid获取直播间信息
     if (status == 4) {
       var result = await getRoomDetailByWebRid(webRid);
+      // The reflow payload already carries the last session's start time,
+      // the anchor location and the follower count; the webRid path (enter
+      // API) cannot provide any of them, so attach them from the data in hand.
+      final lastStart = parseDouyinStartTime(room['start_time']);
+      if (lastStart != null) {
+        result.startTime = lastStart;
+      }
+      final anchorLocation = parseDouyinAnchorLocation(owner);
+      if (anchorLocation.isNotEmpty) {
+        result.location = anchorLocation;
+      }
+      final anchorFollowers = parseDouyinFollowers(owner);
+      if (anchorFollowers.isNotEmpty) {
+        result.followers = anchorFollowers;
+      }
       return result;
     }
 
@@ -477,6 +648,9 @@ class DouyinSite implements LiveSite, LiveSiteRecordRoomResolver {
         userId: userUniqueId,
         cookie: headers['cookie']?.toString() ?? '',
       ),
+      startTime: parseDouyinStartTime(room['start_time']),
+      location: parseDouyinAnchorLocation(owner),
+      followers: parseDouyinFollowers(owner),
       data: room['stream_url'],
     );
   }
@@ -504,6 +678,27 @@ class DouyinSite implements LiveSite, LiveSiteRecordRoomResolver {
     var roomData = data['data'][0];
     var userData = data['user'];
     var roomId = roomData['id_str'].toString();
+
+    // The enter API returns a reduced room object: no start_time and no
+    // anchor location. The reflow API keeps both — start_time is the current
+    // session start for online rooms and the last session's start (上次直播)
+    // for offline ones. Enrich by the room id resolved above; a failure here
+    // only leaves the two optional fields empty, like platforms that never
+    // expose them.
+    int? roomStartTime;
+    var anchorLocation = '';
+    var anchorFollowers = '';
+    try {
+      final extras = await _getRoomDataByRoomId(roomId);
+      final extrasRoom = extras['data'] is Map ? (extras['data'] as Map)['room'] : null;
+      if (extrasRoom is Map) {
+        roomStartTime = parseDouyinStartTime(extrasRoom['start_time']);
+        anchorLocation = parseDouyinAnchorLocation(extrasRoom['owner']);
+        anchorFollowers = parseDouyinFollowers(extrasRoom['owner']);
+      }
+    } catch (e) {
+      CoreLog.error(e);
+    }
 
     var userUniqueId = _anonymousUserUniqueId;
 
@@ -543,6 +738,9 @@ class DouyinSite implements LiveSite, LiveSiteRecordRoomResolver {
         userId: userUniqueId,
         cookie: headers['cookie']?.toString() ?? '',
       ),
+      startTime: roomStartTime,
+      location: anchorLocation,
+      followers: anchorFollowers,
       data: roomStatus ? roomData['stream_url'] : {},
     );
   }
@@ -589,7 +787,7 @@ class DouyinSite implements LiveSite, LiveSiteRecordRoomResolver {
       area: '',
       status: roomStatus,
       platform: Sites.douyinSite,
-      introduction: roomInfo['title'].toString(),
+      introduction: owner?['signature']?.toString() ?? '',
       notice: '',
       danmakuData: DouyinDanmakuArgs(
         webRid: webRid,
@@ -597,6 +795,9 @@ class DouyinSite implements LiveSite, LiveSiteRecordRoomResolver {
         userId: userUniqueId,
         cookie: headers['cookie']?.toString() ?? '',
       ),
+      startTime: parseDouyinStartTime(roomInfo['start_time']),
+      location: parseDouyinAnchorLocation(owner),
+      followers: parseDouyinFollowers(owner),
       data: roomStatus ? roomInfo['stream_url'] : {},
     );
   }

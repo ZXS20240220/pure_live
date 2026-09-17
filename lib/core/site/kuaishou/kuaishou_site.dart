@@ -312,7 +312,7 @@ class KuaishowSite implements LiveSite, LiveSiteRoomRefresher, LiveSiteRecordRoo
               introduction: author['description'] != null
                   ? author['description'].replaceAll('\n', ' ')
                   : '',
-              notice: '',
+              notice: author['description']?.toString() ?? '',
               status: true,
               liveStatus: LiveStatus.live,
               platform: Sites.kuaishouSite,
@@ -522,7 +522,7 @@ class KuaishowSite implements LiveSite, LiveSiteRoomRefresher, LiveSiteRecordRoo
       nick: author['name']?.toString() ?? '',
       avatar: author['avatar']?.toString() ?? '',
       introduction: description,
-      notice: '',
+      notice: description,
       status: live,
       liveStatus: live ? LiveStatus.live : LiveStatus.offline,
       platform: Sites.kuaishouSite,

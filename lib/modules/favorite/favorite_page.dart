@@ -30,9 +30,13 @@ class FavoritePage extends GetView<FavoriteController> {
                 tabAlignment: TabAlignment.center,
                 physics: const PureLiveBoundedScrollPhysics(),
                 tabs: [
-                  Tab(text: i18n('online_room_title')),
-                  Tab(text: i18n('recording_room_title')),
-                  Tab(text: i18n('offline_room_title')),
+                  Tab(
+                    text:
+                        '${i18n('recorder_tab_all')} (${controller.onlineRooms.length + controller.replayRooms.length + controller.offlineRooms.length})',
+                  ),
+                  Tab(text: '${i18n('online_room_title')} (${controller.onlineRooms.length})'),
+                  Tab(text: '${i18n('recording_room_title')} (${controller.replayRooms.length})'),
+                  Tab(text: '${i18n('offline_room_title')} (${controller.offlineRooms.length})'),
                 ],
               ),
             ),
@@ -279,13 +283,19 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
       onKeyEvent: _onKeyEvent,
       child: Column(
         children: [
-          TabBar(
-            key: const ValueKey('favorite-platform-tabs'),
-            controller: _tabController,
-            isScrollable: true,
-            physics: const PureLiveBoundedScrollPhysics(),
-            tabs: availableSitesList.map((e) => Tab(text: e.name)).toList(),
-          ),
+          Obx(() {
+            final statusIndex = controller.tabOnlineIndex.value;
+            return TabBar(
+              key: const ValueKey('favorite-platform-tabs'),
+              controller: _tabController,
+              isScrollable: true,
+              physics: const PureLiveBoundedScrollPhysics(),
+              tabs: availableSitesList.map((e) {
+                final count = controller.favoriteCountForSite(e.id, statusIndex: statusIndex);
+                return Tab(text: '${e.name} ($count)');
+              }).toList(),
+            );
+          }),
           FavoriteTagStrip(
             tags: controller.visibleTags,
             selectedTagIds: controller.selectedTagIds,
@@ -300,8 +310,7 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
             child: Row(
               children: [
                 Obx(() {
-                  final isOnlineTab = controller.tabOnlineIndex.value == 0;
-                  if (!isOnlineTab) return const SizedBox.shrink();
+                  // 观看时长排序对所有状态生效，排序按钮在所有页签下都可用。
                   return Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -328,10 +337,11 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
                         tooltip: i18n('favorite_sort_menu'),
                         icon: Obx(() {
                           final mode = controller.onlineSortMode.value;
-                          return Icon(
-                            mode == OnlineSortMode.startTime ? Remix.time_line : Remix.fire_line,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          );
+                          return Icon(switch (mode) {
+                            OnlineSortMode.startTime => Remix.time_line,
+                            OnlineSortMode.watchTime => Remix.timer_2_line,
+                            _ => Remix.fire_line,
+                          }, color: Theme.of(context).colorScheme.onSurfaceVariant);
                         }),
                         itemBuilder: (_) => [
                           PopupMenuItem(
@@ -342,8 +352,30 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
                             value: OnlineSortMode.startTime,
                             child: Text(i18n('favorite_sort_start_time')),
                           ),
+                          PopupMenuItem(
+                            value: OnlineSortMode.watchTime,
+                            child: Text(i18n('favorite_sort_watch_time')),
+                          ),
                         ],
                       ),
+                      // 升序/降序切换：对热度/开播时间/观看时长三种模式统一生效。
+                      Obx(() {
+                        final ascending = controller.onlineSortAscending.value;
+                        return IconButton(
+                          iconSize: 20,
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                          onPressed: () => controller.onlineSortAscending.value = !ascending,
+                          tooltip: i18n(ascending ? 'favorite_sort_asc' : 'favorite_sort_desc'),
+                          icon: Icon(
+                            ascending ? Remix.sort_asc : Remix.sort_desc,
+                            color: ascending
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                        );
+                      }),
                     ],
                   );
                 }),
@@ -636,7 +668,7 @@ class _FavoriteEmptyState extends StatelessWidget {
       final statusIndex = controller.tabOnlineIndex.value;
       final totalForSite = controller.favoriteCountForSite(siteId);
       final globalTotal = SettingsService.to.fav.favoriteRooms.v.length;
-      final offlineForSite = controller.favoriteCountForSite(siteId, statusIndex: 2);
+      final offlineForSite = controller.favoriteCountForSite(siteId, statusIndex: 3);
 
       if (globalTotal == 0) {
         return AppStatusView(
@@ -650,15 +682,16 @@ class _FavoriteEmptyState extends StatelessWidget {
       }
 
       final title = switch (statusIndex) {
-        1 => i18n('favorite_empty_recording_title'),
-        2 => i18n('favorite_empty_offline_title'),
+        1 => i18n('favorite_empty_online_title'),
+        2 => i18n('favorite_empty_recording_title'),
+        3 => i18n('favorite_empty_offline_title'),
         _ => i18n('favorite_empty_online_title'),
       };
       final subtitleKey = totalForSite == 0
           ? 'favorite_empty_platform_subtitle'
           : 'favorite_empty_filter_subtitle';
       final subtitle = i18n(subtitleKey).replaceAll('{count}', totalForSite.toString());
-      final canShowOffline = statusIndex != 2 && offlineForSite > 0;
+      final canShowOffline = statusIndex != 3 && offlineForSite > 0;
 
       return AppStatusView(
         type: AppStatusType.empty,
@@ -667,7 +700,7 @@ class _FavoriteEmptyState extends StatelessWidget {
         subtitle: subtitle,
         buttonText: canShowOffline ? i18n('favorite_show_offline') : i18n('retry'),
         onButtonPressed: canShowOffline
-            ? () => controller.animateToStatusIndex(2)
+            ? () => controller.animateToStatusIndex(3)
             : controller.refreshData,
       );
     });

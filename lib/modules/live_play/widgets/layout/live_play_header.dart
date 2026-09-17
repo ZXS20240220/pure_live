@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
+import 'package:pure_live/common/services/settings/watch_time_service.dart';
 import 'package:pure_live/common/utils/live_url_tool.dart';
 import 'package:pure_live/common/utils/windows_multi_instance_launcher.dart';
 import 'package:pure_live/modules/live_play/controllers/live_play_controller.dart';
@@ -19,10 +20,11 @@ class LivePlayHeader extends StatelessWidget implements PreferredSizeWidget {
   final LivePlayController controller;
   final bool compactHeader;
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize => const Size.fromHeight(48);
   @override
   Widget build(BuildContext context) {
     return AppBar(
+      toolbarHeight: 50,
       titleSpacing: 0,
       title: _buildTitle(context),
       actions: [
@@ -68,15 +70,41 @@ class LivePlayHeader extends StatelessWidget implements PreferredSizeWidget {
                 final introduction = detail.introduction?.trim() ?? '';
                 final hasIntroduction = introduction.isNotEmpty;
 
+                // IP属地 — only douyin fills LiveRoom.location today.
+                final anchorLocation = detail.location?.trim() ?? '';
+
                 final textColumn = Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      detail.nick ?? '',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelSmall,
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            detail.nick ?? '',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.labelSmall,
+                          ),
+                        ),
+                        if (anchorLocation.isNotEmpty) ...[
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Tooltip(
+                              message: 'IP属地',
+                              verticalOffset: 8,
+                              child: Text(
+                                anchorLocation,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.labelSmall
+                                    ?.copyWith(color: Theme.of(context).colorScheme.outline),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                     Text(
                       area == null || area.isEmpty
@@ -149,8 +177,16 @@ class LivePlayHeader extends StatelessWidget implements PreferredSizeWidget {
               //     startTime = Get.find<FavoriteController>().getFakeStartTime(detail.identityKey);
               //   }
               // }
-              if (startTime == null || startTime <= 0) return const SizedBox.shrink();
-              return _LiveDurationIndicator(startTime: startTime);
+              // 观看时长在已播时长上方堆叠；各自内部控制可见性。
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  _WatchTimeIndicator(identityKey: detail.identityKey),
+                  if (startTime != null && startTime > 0)
+                    _LiveDurationIndicator(startTime: startTime),
+                ],
+              );
             }),
           ],
         ),
@@ -264,10 +300,61 @@ class LivePlayHeader extends StatelessWidget implements PreferredSizeWidget {
   }
 }
 
+/// Shows the accumulated watch time badge for a followed room.
+///
+/// Displayed above [_LiveDurationIndicator] with the same layout, in a gray
+/// tone to distinguish from the red live-duration badge. Hidden entirely when
+/// the room has no recorded watch time yet (unfollowed rooms never do).
+class _WatchTimeIndicator extends StatelessWidget {
+  const _WatchTimeIndicator({required this.identityKey});
+
+  final String identityKey;
+
+  @override
+  Widget build(BuildContext context) {
+    const tick = Duration(seconds: 1);
+    final tickStream = Stream<int>.periodic(tick, (count) => count);
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 6, right: 4),
+      child: StreamBuilder<int>(
+        stream: tickStream,
+        builder: (context, snapshot) {
+          final seconds = WatchTimeService.secondsFor(identityKey);
+          if (seconds <= 0) return const SizedBox.shrink();
+          final gray = Theme.of(context).colorScheme.onSurfaceVariant;
+          return Tooltip(
+            message: i18n('watch_time_total'),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: gray.withValues(alpha: 0.6),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  WatchTimeService.formatFull(seconds),
+                  style: Theme.of(context).textTheme.labelSmall
+                      ?.copyWith(color: gray, fontFeatures: const [FontFeature.tabularFigures()]),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 /// Shows a live duration badge that updates every second.
 ///
 /// Displayed only for platforms that expose a live start timestamp
-/// (douyu, huya, bilibili). Other platforms naturally fall through
+/// (douyin, douyu, huya, bilibili). Other platforms naturally fall through
 /// because their [LiveRoom.startTime] stays null.
 class _LiveDurationIndicator extends StatelessWidget {
   const _LiveDurationIndicator({required this.startTime});

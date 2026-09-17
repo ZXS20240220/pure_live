@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/services/settings/history_controller.dart';
 import 'package:pure_live/common/services/settings/refresh_config_controller.dart';
+import 'package:pure_live/common/services/settings/watch_time_service.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/plugins/event_bus.dart';
 import 'package:pure_live/plugins/cache_manager.dart';
@@ -10,6 +11,7 @@ import 'package:pure_live/common/widgets/common_avatar.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:pure_live/modules/live_play/controllers/live_play_controller.dart';
 import 'package:pure_live/modules/live_play/widgets/content_first_panel_layout.dart';
+import 'package:pure_live/modules/live_play/widgets/layout/panel_popup_scope.dart';
 import 'package:pure_live/modules/tags/tag_management_controller.dart';
 
 /// A reusable panel widget that shows online/recording/history rooms.
@@ -233,6 +235,14 @@ class _PlayOtherPanelState extends State<PlayOtherPanel> with SingleTickerProvid
     }
   }
 
+  bool _ascendingEnabled() {
+    try {
+      return Get.find<FavoriteController>().onlineSortAscending.value;
+    } catch (_) {
+      return false;
+    }
+  }
+
   bool _pinnedEnabled() {
     try {
       return Get.find<FavoriteController>().enablePinned.value;
@@ -250,6 +260,13 @@ class _PlayOtherPanelState extends State<PlayOtherPanel> with SingleTickerProvid
     return _compareAudience(a, b);
   }
 
+  int _compareWatchTime(LiveRoom a, LiveRoom b) {
+    final aSeconds = WatchTimeService.secondsFor(a.identityKey);
+    final bSeconds = WatchTimeService.secondsFor(b.identityKey);
+    if (aSeconds != bSeconds) return bSeconds.compareTo(aSeconds);
+    return _compareAudience(a, b);
+  }
+
   int _compareOnlineRooms(LiveRoom a, LiveRoom b) {
     final tagController = Get.find<TagManagementController>();
     if (_pinnedEnabled()) {
@@ -257,10 +274,12 @@ class _PlayOtherPanelState extends State<PlayOtherPanel> with SingleTickerProvid
       final bPinned = tagController.isPinRoom(b);
       if (aPinned != bPinned) return aPinned ? -1 : 1;
     }
-    return switch (_sortMode()) {
+    final primary = switch (_sortMode()) {
       OnlineSortMode.startTime => _compareStartTime(a, b),
+      OnlineSortMode.watchTime => _compareWatchTime(a, b),
       _ => _compareAudience(a, b),
     };
+    return _ascendingEnabled() ? -primary : primary;
   }
 
   String _resolveFilterLabel(String selectedId, List<({String id, String label})> options) {
@@ -625,6 +644,7 @@ class _FilterDropdownState extends State<_FilterDropdown> {
 
   bool _open = false;
   OverlayEntry? _entry;
+  PanelPopupScopeState? _popupScope;
 
   void _toggle() {
     if (_open) {
@@ -638,11 +658,16 @@ class _FilterDropdownState extends State<_FilterDropdown> {
     if (_entry != null) {
       _entry!.remove();
       _entry = null;
+      // Report only on the balanced close so the panel auto-hide gate stays
+      // in sync with the popup lifetime.
+      _popupScope?.notifyPopupClosed();
+      _popupScope = null;
     }
     if (mounted) setState(() => _open = false);
   }
 
   void _openMenu() {
+    if (_entry != null) return;
     final overlay = Overlay.of(context);
     final overlayBox = overlay.context.findRenderObject() as RenderBox;
     final renderBox = context.findRenderObject() as RenderBox;
@@ -735,6 +760,12 @@ class _FilterDropdownState extends State<_FilterDropdown> {
         );
       },
     );
+
+    // Suspend the floating panel auto-hide while the menu holds the pointer.
+    // The scope is captured eagerly so dispose-time close does not need an
+    // inherited lookup.
+    _popupScope = PanelPopupScope.maybeOf(context);
+    _popupScope?.notifyPopupOpened();
 
     overlay.insert(_entry!);
     setState(() => _open = true);

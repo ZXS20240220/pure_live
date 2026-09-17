@@ -21,7 +21,12 @@ class DouyinDanmakuArgs {
   final String userId;
   final String cookie;
 
-  DouyinDanmakuArgs({required this.webRid, required this.roomId, required this.userId, required this.cookie});
+  DouyinDanmakuArgs({
+    required this.webRid,
+    required this.roomId,
+    required this.userId,
+    required this.cookie,
+  });
 
   @override
   String toString() {
@@ -34,6 +39,51 @@ class DouyinDanmakuArgs {
       'cookie': cookie.isEmpty ? '' : '<redacted>',
     });
   }
+}
+
+/// Resolves the presentation badges carried by `user.badgeImageList`.
+///
+/// Verified against captured `WebcastChatMessage` payloads:
+/// - `imageType == 1`: honor grade badge, `content.level` is the user level
+///   (alternativeText like "荣誉等级23级勋章").
+/// - `imageType == 7`: fan club badge, `content.level` is the fan club level
+///   and `content.name` the club name when the server sends it
+///   (alternativeText like "粉丝团等级12级勋章").
+_DouyinBadgeInfo _extractDouyinBadgeInfo(ChatMessage chatMessage) {
+  var userLevel = '';
+  var fansLevel = '';
+  var fansName = '';
+  final badges = <Map<String, dynamic>>[];
+  if (!chatMessage.hasUser()) return _DouyinBadgeInfo('', '', '', badges);
+  for (final badge in chatMessage.user.badgeImageList) {
+    if (!badge.hasContent()) continue;
+    final level = badge.content.level.toString();
+    final name = badge.content.name;
+    if (level.isNotEmpty && level != '0') {
+      if (badge.imageType == 1 && userLevel.isEmpty) userLevel = level;
+      if (badge.imageType == 7) {
+        if (fansLevel.isEmpty) fansLevel = level;
+        if (fansName.isEmpty) fansName = name;
+      }
+    }
+    badges.add({
+      'imageType': badge.imageType,
+      'level': level,
+      'name': name,
+      'alternativeText': badge.content.alternativeText,
+      'uri': badge.uri,
+    });
+  }
+  return _DouyinBadgeInfo(userLevel, fansLevel, fansName, badges);
+}
+
+class _DouyinBadgeInfo {
+  final String userLevel;
+  final String fansLevel;
+  final String fansName;
+  final List<Map<String, dynamic>> badges;
+
+  const _DouyinBadgeInfo(this.userLevel, this.fansLevel, this.fansName, this.badges);
 }
 
 class DouyinDanmaku implements LiveDanmaku {
@@ -226,7 +276,9 @@ class DouyinDanmaku implements LiveDanmaku {
   void unPackWebcastChatMessage(List<int> payload, {String envelopeMessageId = ''}) {
     var chatMessage = ChatMessage.fromBuffer(payload);
     final commonRoomId = chatMessage.hasCommon() ? chatMessage.common.roomId.toString() : '';
-    if (commonRoomId.isNotEmpty && commonRoomId != '0' && commonRoomId != danmakuArgs.roomId) return;
+    if (commonRoomId.isNotEmpty && commonRoomId != '0' && commonRoomId != danmakuArgs.roomId) {
+      return;
+    }
     final commonMessageId = chatMessage.hasCommon() ? chatMessage.common.msgId.toString() : '';
     final resolvedMessageId = commonMessageId.isNotEmpty && commonMessageId != '0'
         ? commonMessageId
@@ -234,7 +286,10 @@ class DouyinDanmaku implements LiveDanmaku {
     final rawCreateTime = chatMessage.hasCommon() ? chatMessage.common.createTime.toInt() : 0;
     final sentAt = rawCreateTime <= 0
         ? null
-        : DateTime.fromMillisecondsSinceEpoch(rawCreateTime > 100000000000 ? rawCreateTime : rawCreateTime * 1000);
+        : DateTime.fromMillisecondsSinceEpoch(
+            rawCreateTime > 100000000000 ? rawCreateTime : rawCreateTime * 1000,
+          );
+    final badgeInfo = _extractDouyinBadgeInfo(chatMessage);
     onMessage?.call(
       LiveMessage(
         type: LiveMessageType.chat,
@@ -248,6 +303,9 @@ class DouyinDanmaku implements LiveDanmaku {
         userId: chatMessage.user.id.toString(),
         messageId: resolvedMessageId.isEmpty ? '' : 'douyin:$resolvedMessageId',
         sentAt: sentAt,
+        userLevel: badgeInfo.userLevel,
+        fansName: badgeInfo.fansName,
+        fansLevel: badgeInfo.fansLevel,
       ),
     );
   }

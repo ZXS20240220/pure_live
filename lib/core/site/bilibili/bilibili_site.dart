@@ -764,6 +764,11 @@ class BiliBiliSite
       popularity: roomInfo['room_info']['online'].toString(),
       audienceMetricType: AudienceMetricType.popularity,
       area: roomInfo['room_info']?['area_name'] ?? '',
+      // Anchor level and total followers ride along in the same getInfoByRoom
+      // payload (anchor_info.live_info.level / anchor_info.relation_info
+      // .attention) — no extra request.
+      anchorLevel: roomInfo['anchor_info']?['live_info']?['level']?.toString() ?? '',
+      followers: roomInfo['anchor_info']?['relation_info']?['attention']?.toString() ?? '',
       status: live,
       liveStatus: live ? LiveStatus.live : LiveStatus.offline,
       link: 'https://live.bilibili.com/$roomId',

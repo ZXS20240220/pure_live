@@ -390,11 +390,21 @@ class DouyuSite
   @override
   Future<LiveRoom> getRoomDetail({required String platform, required String roomId}) async {
     try {
-      final results = await Future.wait([_fetchRoomInfo(roomId), _fetchAiHighlight(roomId)]);
+      final results = await Future.wait([
+        _fetchRoomInfo(roomId),
+        _fetchAiHighlight(roomId),
+        _fetchAnchorCard(roomId),
+      ]);
       final roomInfo = results[0] as Map<dynamic, dynamic>;
       final aiHighlights = results[1] as List<Map<String, dynamic>>?;
+      final anchorCard = results[2] as Map<dynamic, dynamic>?;
 
-      return _buildRoom(roomInfo, roomId: roomId, aiHighlights: aiHighlights);
+      return _buildRoom(
+        roomInfo,
+        roomId: roomId,
+        aiHighlights: aiHighlights,
+        anchorCard: anchorCard,
+      );
     } catch (e) {
       if (Get.isRegistered<PlayerController>()) {
         final PlayerController playerController = Get.find<PlayerController>();
@@ -414,11 +424,13 @@ class DouyuSite
     required String platform,
     required String roomId,
   }) async {
-    final results = await Future.wait([_fetchRoomInfo(roomId), _fetchAiHighlight(roomId)]);
-    final roomInfo = results[0] as Map<dynamic, dynamic>;
-    final aiHighlights = results[1] as List<Map<String, dynamic>>?;
-
-    return _buildRoom(roomInfo, roomId: roomId, aiHighlights: aiHighlights);
+    // Card refresh needs only the base room payload: status, title, anchor,
+    // audience, category, level, union and last-show time all ride along in
+    // it. The anchor card (fans count) and AI highlights stay room-entry
+    // extras; the favourite merge keeps the stored values when the refresh
+    // response omits them.
+    final roomInfo = await _fetchRoomInfo(roomId);
+    return _buildRoom(roomInfo, roomId: roomId);
   }
 
   @override
@@ -479,10 +491,34 @@ class DouyuSite
     }
   }
 
+  /// Anchor hover-card data (fans count) served by the room page's lazy panel.
+  /// Best-effort: a failure leaves [LiveRoom.followers] empty and the UI hides
+  /// it, so playback is never blocked by this request.
+  Future<Map<dynamic, dynamic>?> _fetchAnchorCard(String roomId) async {
+    try {
+      final result = await HttpClient.instance.getJson(
+        'https://www.douyu.com/wgapi/livenc/liveweb/getAnchorNewCard',
+        queryParameters: {'rid': roomId, 'client_sys': 'web'},
+        header: {
+          'referer': 'https://www.douyu.com/$roomId',
+          'user-agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+              'AppleWebKit/537.36 (KHTML, like Gecko) '
+              'Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.43',
+        },
+      );
+      if (result is Map && result['data'] is Map) {
+        return result['data'] as Map<dynamic, dynamic>;
+      }
+    } catch (_) {}
+    return null;
+  }
+
   LiveRoom _buildRoom(
     Map<dynamic, dynamic> payload, {
     required String roomId,
     List<Map<String, dynamic>>? aiHighlights,
+    Map<dynamic, dynamic>? anchorCard,
   }) {
     final roomInfo = payload['room'] ?? const <dynamic, dynamic>{};
     final childCate = payload['child_cate'];
@@ -493,14 +529,13 @@ class DouyuSite
     final levelInfo = roomInfo['levelInfo'];
     final roomBizAll = roomInfo['room_biz_all'];
 
-    final notice = () {
-      if (aiHighlights == null || aiHighlights.isEmpty) return '';
-      final first = aiHighlights.first;
-      final title = (first['summary'] ?? first['title'] ?? '').toString().trim();
-      final body = (first['describe'] ?? '').toString().trim();
-      if (title.isNotEmpty && body.isNotEmpty) return '$title\n\n$body';
-      return body.isNotEmpty ? body : title;
-    }();
+    // The anchor signature doubles as the notice text (super-chat page shows
+    // it as the room notice); AI highlights keep flowing through their own
+    // aiHighlights channel instead of the notice slot.
+    final signature = stripHtmlAndUnescape(roomInfo['show_details'].toString());
+
+    final anchorCardRoom = anchorCard?['roomInfo'];
+    final followers = anchorCardRoom is Map ? anchorCardRoom['fansNum']?.toString() ?? '' : '';
 
     return LiveRoom(
       cover: roomInfo['room_pic'].toString(),
@@ -511,16 +546,19 @@ class DouyuSite
       title: stripHtmlAndUnescape(roomInfo['room_name'].toString()),
       nick: roomInfo['owner_name'].toString(),
       avatar: roomInfo['owner_avatar'].toString(),
-      introduction: stripHtmlAndUnescape(roomInfo['show_details'].toString()),
+      introduction: signature,
+      followers: followers,
       area: () {
         final first = roomInfo['first_lvl_name']?.toString().trim() ?? '';
         final second = roomInfo['second_lvl_name']?.toString().trim() ?? '';
-        if (second.isNotEmpty) return second;
-        if (first.isNotEmpty) return first;
         final child = childCate is Map ? childCate['name']?.toString().trim() ?? '' : '';
-        return child;
+        if (child.isNotEmpty && second.isNotEmpty) return '$second / $child';
+        if (second.isNotEmpty) return second;
+        if (child.isNotEmpty) return child;
+        if (first.isNotEmpty) return first;
+        return '';
       }(),
-      notice: notice,
+      notice: '',
       aiHighlights: aiHighlights,
       anchorLevel: levelInfo is Map ? levelInfo['level']?.toString() ?? '' : '',
       unionName: roomBizAll is Map ? roomBizAll['clubOrgName']?.toString() ?? '' : '',

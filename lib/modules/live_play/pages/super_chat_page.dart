@@ -42,15 +42,7 @@ class _SuperChatPageState extends State<SuperChatPage> {
       final hasHighlight = (aiHighlights != null && aiHighlights.isNotEmpty) || notice.isNotEmpty;
       final hasContent = messages.isNotEmpty || hasHighlight;
 
-      final uniqueMessages = <String, LiveSuperChatMessage>{};
-      for (final message in messages) {
-        final key = message.messageId.isNotEmpty
-            ? message.messageId
-            : '${message.userName}|${message.message}|${message.price}|${message.startTime.microsecondsSinceEpoch}';
-        uniqueMessages.putIfAbsent(key, () => message);
-      }
-
-      final list = uniqueMessages.values.toList();
+      final list = messages.toList();
 
       return SizedBox.expand(
         child: EasyRefresh(
@@ -157,6 +149,46 @@ class _AiHighlightCompact extends StatelessWidget {
     final first = aiHighlights?.first;
     final title = _extractTitle(first, noticeText);
     final body = _extractBody(first, noticeText);
+
+    // Non-douyu platforms have no AI highlights: the shared slot only carries
+    // the room introduction. Render it as a static, always-expanded card.
+    if (aiHighlights == null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: colorScheme.primaryContainer.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: colorScheme.primary.withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.info_outline, size: 15, color: colorScheme.onPrimaryContainer),
+                const SizedBox(width: 5),
+                Text(
+                  '公告',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: colorScheme.onPrimaryContainer,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            if (noticeText.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                noticeText,
+                style: Theme.of(context).textTheme.bodySmall
+                    ?.copyWith(color: colorScheme.onPrimaryContainer, height: 1.5),
+              ),
+            ],
+          ],
+        ),
+      );
+    }
 
     return Builder(
       builder: (context) {

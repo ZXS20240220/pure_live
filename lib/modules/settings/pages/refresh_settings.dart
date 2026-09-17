@@ -48,6 +48,25 @@ class RefreshSettingsPage extends GetView<RefreshConfigController> {
                 onTap: () => showMaxConcurrentDialog(context),
               ),
             ),
+            // Per-platform burst ceilings: rate limits are enforced per host,
+            // so each enabled platform gets its own bounded refresh pool.
+            Obx(() {
+              final sites = Sites().availableSites();
+              if (sites.isEmpty) return const SizedBox.shrink();
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final site in sites)
+                    context.buildTile(
+                      icon: Remix.server_line,
+                      title: site.name,
+                      subtitle:
+                          '${controller.platformConcurrencyOf(site.id)} ${i18n('concurrent_tasks')} · ${controller.hasPlatformConcurrencyOverride(site.id) ? i18n('platform_concurrency_custom') : i18n('platform_concurrency_follow_default')}',
+                      onTap: () => showPlatformMaxConcurrentDialog(context, site),
+                    ),
+                ],
+              );
+            }),
             context.buildSwitchTile(
               icon: Remix.image_2_line,
               title: i18n('auto_refresh_thumbnails'),
@@ -141,6 +160,32 @@ class RefreshSettingsPage extends GetView<RefreshConfigController> {
 
     if (value != null && value != controller.maxConcurrentRefresh.value) {
       controller.maxConcurrentRefresh.value = value;
+    }
+  }
+
+  Future<void> showPlatformMaxConcurrentDialog(BuildContext context, Site site) async {
+    final Map<int, String> values = {
+      for (int i = 1; i <= RefreshConfigController.maxAllowedConcurrentRefresh; i++)
+        i: i == RefreshConfigController.recommendedPlatformMaxConcurrentRefresh
+            ? '$i · ${i18n('recommended')}'
+            : i.toString(),
+    };
+
+    final int? value = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) {
+        return _RefreshRadioDialog(
+          title: '${site.name} · ${i18n('max_concurrent_refresh')}',
+          hint: i18n('platform_max_concurrent_hint'),
+          maxHeightFactor: 0.5,
+          value: controller.platformConcurrencyOf(site.id),
+          items: values,
+        );
+      },
+    );
+
+    if (value != null && value != controller.platformConcurrencyOf(site.id)) {
+      controller.setPlatformConcurrency(site.id, value);
     }
   }
 

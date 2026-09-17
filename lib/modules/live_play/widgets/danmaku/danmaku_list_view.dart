@@ -18,17 +18,24 @@ import 'package:pure_live/modules/live_play/widgets/local_interaction/local_danm
 bool isDanmakuUserScrollStart(
   ScrollNotification notification, {
   bool acceptDirectionOnlyUserScroll = false,
-  bool hasActivePointer = true,
 }) {
-  return (hasActivePointer &&
-          notification is ScrollStartNotification &&
-          notification.dragDetails != null) ||
-      (hasActivePointer &&
-          notification is ScrollUpdateNotification &&
-          notification.dragDetails != null) ||
-      (acceptDirectionOnlyUserScroll &&
-          notification is UserScrollNotification &&
-          notification.direction != ScrollDirection.idle);
+  if (notification is ScrollStartNotification && notification.dragDetails != null) {
+    return true;
+  }
+  if (notification is ScrollUpdateNotification && notification.dragDetails != null) {
+    return true;
+  }
+  if (acceptDirectionOnlyUserScroll) {
+    if (notification is UserScrollNotification && notification.direction != ScrollDirection.idle) {
+      return true;
+    }
+    if (notification is ScrollUpdateNotification &&
+        notification.scrollDelta != null &&
+        notification.scrollDelta != 0) {
+      return true;
+    }
+  }
+  return false;
 }
 
 @visibleForTesting
@@ -68,6 +75,7 @@ class DanmakuListViewState extends State<DanmakuListView> {
 
   bool userScrolling = false;
   bool _autoScrollEnabled = true;
+  bool _mouseInside = false;
   final ValueNotifier<int> _pendingMessageCount = ValueNotifier<int>(0);
   int _lastControllerLength = 0;
   LiveMessage? _lastControllerTail;
@@ -229,32 +237,48 @@ class DanmakuListViewState extends State<DanmakuListView> {
     await forceScrollToBottom();
   }
 
+  Future<void> _clearMessages() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        content: Text(i18n('danmaku_clear_confirm')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(i18n('cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(i18n('confirm'))),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    controller.clearDanmakuMessages();
+    _itemCache.clear();
+    _pendingMessageCount.value = 0;
+    setState(() {
+      _visibleMessages = const [];
+      _autoScrollEnabled = true;
+      userScrolling = false;
+    });
+  }
+
   void onScrollNotification(ScrollNotification notification) {
     if (!_scrollController.hasClients) return;
 
-    // A UserScrollNotification is emitted before the first drag has produced a
-    // useful pixel distance. Waiting for a 24 px offset let the 80 ms live
-    // update jump the list back to the bottom, so Android users had to swipe
-    // repeatedly. Claim a real drag (or mouse wheel) immediately.
-    // On Android the viewport detach/attach performed by system PiP emits a
-    // direction-only UserScrollNotification even when there was no finger
-    // gesture. Treating it as a drag immediately paused live-follow again,
-    // after the presentation restore above had already resumed it. Desktop mouse-wheel
-    // input has no DragDetails, so it deliberately keeps the direction-only
-    // path.
-    if (isDanmakuUserScrollStart(
-      notification,
-      acceptDirectionOnlyUserScroll: PlatformUtils.isDesktop,
-      hasActivePointer: _activeScrollPointers > 0,
-    )) {
-      _pauseAutoScroll();
+    if (!_autoScrollEnabled && _isAtLiveEdge()) {
+      _resumeAutoScroll();
+      return;
     }
 
-    // Keep the snapshot stable after every deliberate drag, including a drag
-    // that begins at the live edge and cannot move away from minScrollExtent.
-    // Auto-resuming on ScrollEnd made that first swipe look ignored because
-    // the next message batch immediately replaced the rows. The explicit
-    // "return to live" button is the sole resume action.
+    final isDesktop = PlatformUtils.isDesktop;
+    if (isDanmakuUserScrollStart(notification, acceptDirectionOnlyUserScroll: isDesktop)) {
+      if (!isDesktop && _activeScrollPointers == 0) return;
+      _pauseAutoScroll();
+    }
+  }
+
+  bool _isAtLiveEdge() {
+    if (!_scrollController.hasClients) return false;
+    final position = _scrollController.position;
+    if (!position.hasContentDimensions) return false;
+    return (position.pixels - position.minScrollExtent).abs() < 1.5;
   }
 
   void _sendLocalMessage() {
@@ -322,77 +346,96 @@ class DanmakuListViewState extends State<DanmakuListView> {
             child: Column(
               children: [
                 Expanded(
-                  child: Stack(
-                    children: [
-                      Listener(
-                        onPointerDown: (_) {
-                          _activeScrollPointers++;
-                          // Cancel a queued live-tail jump at pointer-down, before
-                          // touch slop delays the first ScrollStartNotification.
-                          _tailFollowGuard.invalidate();
-                        },
-                        onPointerUp: (_) => _removeActiveScrollPointer(),
-                        onPointerCancel: (_) => _removeActiveScrollPointer(),
-                        child: NotificationListener<ScrollNotification>(
-                          onNotification: (notification) {
-                            onScrollNotification(notification);
-                            return false;
+                  child: MouseRegion(
+                    onEnter: (_) {
+                      if (!_mouseInside) setState(() => _mouseInside = true);
+                    },
+                    onExit: (_) {
+                      if (_mouseInside) setState(() => _mouseInside = false);
+                    },
+                    child: Stack(
+                      children: [
+                        Listener(
+                          onPointerDown: (_) {
+                            _activeScrollPointers++;
+                            _tailFollowGuard.invalidate();
                           },
-                          child: ListView.builder(
-                            key: const ValueKey('danmaku-message-list'),
-                            addAutomaticKeepAlives: false,
-                            // DanmakuItem already owns a boundary. Avoid nesting a
-                            // second automatic layer around every visible row.
-                            addRepaintBoundaries: false,
-                            controller: _scrollController,
-                            reverse: true,
-                            dragStartBehavior: DragStartBehavior.down,
-                            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                            physics: const PureLiveScrollPhysics(
-                              parent: AlwaysScrollableScrollPhysics(),
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-                            scrollCacheExtent: const ScrollCacheExtent.pixels(360),
-                            itemCount: _visibleMessages.length,
-                            itemBuilder: (_, index) {
-                              final msg = _visibleMessages[_visibleMessages.length - 1 - index];
-                              // Returning the identical widget instance lets
-                              // Element.updateChild skip rebuilding emoji spans,
-                              // HSL colors and decorations for every existing row
-                              // on each 80 ms live-tail update.
-                              return _itemFor(msg);
+                          onPointerUp: (_) => _removeActiveScrollPointer(),
+                          onPointerCancel: (_) => _removeActiveScrollPointer(),
+                          child: NotificationListener<ScrollNotification>(
+                            onNotification: (notification) {
+                              onScrollNotification(notification);
+                              return false;
                             },
+                            child: ListView.builder(
+                              key: const ValueKey('danmaku-message-list'),
+                              addAutomaticKeepAlives: false,
+                              addRepaintBoundaries: false,
+                              controller: _scrollController,
+                              reverse: true,
+                              dragStartBehavior: DragStartBehavior.down,
+                              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                              physics: const PureLiveScrollPhysics(
+                                parent: AlwaysScrollableScrollPhysics(),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                              scrollCacheExtent: const ScrollCacheExtent.pixels(360),
+                              itemCount: _visibleMessages.length,
+                              itemBuilder: (_, index) {
+                                final msg = _visibleMessages[_visibleMessages.length - 1 - index];
+                                return _itemFor(msg);
+                              },
+                            ),
                           ),
                         ),
-                      ),
-                      if (userScrolling)
-                        Positioned(
-                          right: 12,
-                          bottom: 12,
-                          child: FilledButton.icon(
-                            key: const ValueKey('danmaku-resume-live'),
-                            style: FilledButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                              backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.92),
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
+                        if (_mouseInside)
+                          Positioned(
+                            right: 10,
+                            top: 10,
+                            child: IconButton.filled(
+                              key: const ValueKey('danmaku-clear'),
+                              tooltip: i18n('danmaku_clear'),
+                              style: IconButton.styleFrom(
+                                backgroundColor: theme.colorScheme.surfaceContainerHighest
+                                    .withValues(alpha: 0.92),
+                                foregroundColor: theme.colorScheme.onSurface,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                               ),
+                              onPressed: _clearMessages,
+                              icon: const Icon(Icons.cleaning_services_rounded, size: 18),
                             ),
-                            icon: const Icon(Icons.arrow_downward_rounded, size: 18),
-                            label: ValueListenableBuilder<int>(
-                              valueListenable: _pendingMessageCount,
-                              builder: (context, count, _) => Text(
-                                count > 0
-                                    ? i18n('danmaku_new_messages', args: {'count': '$count'})
-                                    : i18n('scroll_to_bottom'),
-                                style: const TextStyle(fontWeight: FontWeight.w600),
-                              ),
-                            ),
-                            onPressed: _resumeAutoScroll,
                           ),
-                        ),
-                    ],
+                        if (userScrolling)
+                          Positioned(
+                            right: 12,
+                            bottom: 12,
+                            child: FilledButton.icon(
+                              key: const ValueKey('danmaku-resume-live'),
+                              style: FilledButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.92),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              icon: const Icon(Icons.arrow_downward_rounded, size: 18),
+                              label: ValueListenableBuilder<int>(
+                                valueListenable: _pendingMessageCount,
+                                builder: (context, count, _) => Text(
+                                  count > 0
+                                      ? i18n('danmaku_new_messages', args: {'count': '$count'})
+                                      : i18n('scroll_to_bottom'),
+                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                              onPressed: _resumeAutoScroll,
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
                 Obx(() {
@@ -496,7 +539,9 @@ class DanmakuItem extends StatelessWidget {
     final textColor = isDark ? Colors.white70 : Colors.black87;
 
     final showLevel = danmaku.userLevel.isNotEmpty && danmaku.userLevel != '0';
-    final showFans = danmaku.fansName.isNotEmpty;
+    // A fan level is meaningful on its own: wearing the badge name is a
+    // per-user choice, so the level alone must still render the badge.
+    final showFans = danmaku.fansLevel.isNotEmpty && danmaku.fansLevel != '0';
 
     return RepaintBoundary(
       child: Padding(

@@ -89,8 +89,11 @@ LiveRoom bindFavoriteRefreshResultToRequest(LiveRoom requested, LiveRoom refresh
         final updated = updates[favoriteRoomIdentity(previous)];
         if (updated == null) return previous;
         changed = true;
-        return updated
-            .copyWith(tagIds: List<String>.from(previous.tagIds))
+        // Fresh server values win, but fields the refresh path never fetched
+        // (fans count, union, AI highlights, start time, ...) fall back to the
+        // stored ones instead of being wiped by an empty response.
+        return previous
+            .mergeFrom(bindFavoriteRefreshResultToRequest(previous, updated))
             .withAudienceFallbackFrom(previous);
       })
       .toList(growable: false);
@@ -137,8 +140,10 @@ List<LiveRoom> buildVerifiedFavoriteSnapshot(
         changed = true;
         final updated = successfulUpdates[key];
         if (updated != null) {
-          return updated
-              .copyWith(tagIds: List<String>.from(previous.tagIds))
+          // Same policy as mergeFavoriteRoomUpdates: fresh values win, fields
+          // the refresh path never fetched keep their stored ones.
+          return previous
+              .mergeFrom(bindFavoriteRefreshResultToRequest(previous, updated))
               .withAudienceFallbackFrom(previous);
         }
         return previous.copyWith(status: false, liveStatus: LiveStatus.unknown);

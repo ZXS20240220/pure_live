@@ -197,6 +197,10 @@ class _VideoControllerPanelState extends State<VideoControllerPanel> {
                   child: BrightnessVolumnDargArea(controller: controller),
                 ),
                 Align(
+                  alignment: Alignment.centerLeft,
+                  child: RotateButton(controller: controller),
+                ),
+                Align(
                   alignment: Alignment.centerRight,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -206,7 +210,6 @@ class _VideoControllerPanelState extends State<VideoControllerPanel> {
                         LockButton(controller: controller, showLockButton: showLockButton),
                         const SizedBox(height: 12),
                       ],
-                      RotateButton(controller: controller),
                     ],
                   ),
                 ),
@@ -1051,7 +1054,7 @@ class RotateButton extends StatelessWidget {
         child: AbsorbPointer(
           absorbing: !controller.showController.value,
           child: Container(
-            margin: const EdgeInsets.only(right: 20.0),
+            margin: const EdgeInsets.only(left: 20.0),
             child: IconButton(
               onPressed: _rotate,
               icon: const Icon(Icons.rotate_right_outlined, size: 28),

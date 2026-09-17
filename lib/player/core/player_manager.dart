@@ -1746,6 +1746,13 @@ class PlayerManager {
     _pendingRoomReentry = null;
     _appFloatingSession = null;
     isInitialized.value = false;
+    // The stream-forwarding subscriptions were just cleared, so the destroyed
+    // native player can never report playing=false by itself. Reset the
+    // aggregated state here or observers of onPlaying/onLoading (e.g. watch
+    // time tracking) keep believing the session is still playing after the
+    // room has been closed.
+    _playingSubject.add(false);
+    _loadingSubject.add(false);
   }
 
   Future<void> retry() {

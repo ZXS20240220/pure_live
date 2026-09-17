@@ -1,6 +1,7 @@
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/consts/app_consts.dart';
 import 'package:pure_live/common/services/utils/backup_migration_util.dart';
+import 'package:pure_live/common/services/settings/watch_time_service.dart';
 
 class FavoriteRoomController extends GetxController {
   final RxList<String> shieldList = hiveStringList('shieldList', <String>[]);
@@ -220,9 +221,14 @@ class FavoriteRoomController extends GetxController {
 
     if (index < 0) return false;
 
+    final identityKey = favoriteRooms.v[index].identityKey;
+
     final updated = List<LiveRoom>.from(favoriteRooms.v);
     updated.removeAt(index);
     favoriteRooms.v = updated;
+
+    // 取消关注后清空该直播间的累计观看时长。
+    WatchTimeService.removeFor(identityKey);
 
     return true;
   }
@@ -334,6 +340,7 @@ class FavoriteRoomController extends GetxController {
       'preferPlatform': preferPlatform.v,
       'favoriteRooms': favoriteRooms.v.map((e) => e.toJson()).toList(),
       'favoriteAreas': favoriteAreas.v.map((e) => e.toJson()).toList(),
+      'watchDurations': WatchTimeService.exportDurations(),
     };
   }
 
@@ -360,6 +367,13 @@ class FavoriteRoomController extends GetxController {
 
     _normalizeSiteCatalogIds();
     _normalizeFavoriteRoomIdentities();
+
+    // 观看时长在关注列表归一化后整体替换（替换语义：以备份文件为准）。
+    // 旧版本备份没有该字段时不触碰现有数据，保证向后兼容。
+    final watchDurations = json['watchDurations'];
+    if (watchDurations != null) {
+      WatchTimeService.replaceDurations(watchDurations);
+    }
   }
 
   static Map<String, dynamic> extractConfig(Map<String, dynamic>? rootConfig) {
@@ -378,6 +392,7 @@ class FavoriteRoomController extends GetxController {
         favorite['favoriteAreas'],
         LiveArea.fromJson,
       ).map((e) => e.toJson()).toList(),
+      'watchDurations': favorite['watchDurations'] ?? const <String, dynamic>{},
     };
   }
 

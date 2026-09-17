@@ -131,8 +131,16 @@ class DouyuDanmaku implements LiveDanmaku {
           final rawTimestamp = int.tryParse(jsonData['cst']?.toString() ?? '');
           final sentAt = rawTimestamp == null
               ? null
-              : DateTime.fromMillisecondsSinceEpoch(rawTimestamp > 100000000000 ? rawTimestamp : rawTimestamp * 1000);
+              : DateTime.fromMillisecondsSinceEpoch(
+                  rawTimestamp > 100000000000 ? rawTimestamp : rawTimestamp * 1000,
+                );
           final messageId = jsonData['cid']?.toString() ?? '';
+          final rawFansName = jsonData['bnn']?.toString() ?? '';
+          final rawFansLevel = jsonData['bl']?.toString() ?? '';
+          // A fan level is meaningful on its own: the badge name (bnn) is
+          // optional because wearing the medal is a per-user choice.
+          final fansName = rawFansName;
+          final fansLevel = (rawFansLevel.isNotEmpty && rawFansLevel != '0') ? rawFansLevel : '';
           liveMsg = LiveMessage(
             type: LiveMessageType.chat,
             userName: jsonData['nn']?.toString() ?? '',
@@ -141,6 +149,9 @@ class DouyuDanmaku implements LiveDanmaku {
             color: getColor(col),
             messageId: messageId.isEmpty ? '' : 'douyu:$messageId',
             sentAt: sentAt,
+            userLevel: jsonData['level']?.toString() ?? '',
+            fansName: fansName,
+            fansLevel: fansLevel,
           );
         } else if (type == 'comm_chatmsg') {
           liveMsg = _parseCommonSuperChat(jsonData);
@@ -162,6 +173,11 @@ class DouyuDanmaku implements LiveDanmaku {
     final duration = int.tryParse(jsonData['cet']?.toString() ?? '');
     final rawPrice = int.tryParse(jsonData['cprice']?.toString() ?? '');
     if (chat is! Map || now == null || duration == null || rawPrice == null) return null;
+    // Douyu pushes a free preview (price=0) before the paid confirmation.
+    // Skip it so only the actual paid SC enters the list, otherwise the Set
+    // dedup fails because price differs between the two packets.
+    // UNDONE: Check if this is necessary.
+    // if (rawPrice == 0) return null;
     final face = chat['ic']?.toString() ?? '';
     final startTime = DateTime.fromMillisecondsSinceEpoch(now);
     final superChat = LiveSuperChatMessage(

@@ -44,7 +44,8 @@ class HuyaSite
   /// Huya's web player treats playback as a viewer session, not as an anchor-
   /// signed static URL. Keep one anonymous identity for this site instance and
   /// deduplicate only requests concurrently acquiring the same token.
-  final Map<String, Future<HuyaCdnTokenLease>> _inFlightTokenRequests = <String, Future<HuyaCdnTokenLease>>{};
+  final Map<String, Future<HuyaCdnTokenLease>> _inFlightTokenRequests =
+      <String, Future<HuyaCdnTokenLease>>{};
   final Map<String, Future<HuyaCdnTokenLease>> _nativeTokenRequests = {};
   int _lastSignatureMillis = 0;
   final Map<String, HuyaCdnTokenLease> _playbackTokenLeases = <String, HuyaCdnTokenLease>{};
@@ -66,12 +67,16 @@ class HuyaSite
         ? getSignedSequenceIssuedAt(url) ?? _getRememberedTransportIssuedAt(url)
         : null;
     final transportInvalidAt = transportIssuedAt?.add(_transportInvalidAge);
-    final invalidAt = _earlierDate(_earlierDate(signedInvalidAt, tokenLease?.invalidAt), transportInvalidAt);
+    final invalidAt = _earlierDate(
+      _earlierDate(signedInvalidAt, tokenLease?.invalidAt),
+      transportInvalidAt,
+    );
     if (invalidAt == null) return null;
     final signatureRefreshAt = signedInvalidAt?.subtract(const Duration(seconds: 30));
     final transportRefreshAt = transportIssuedAt?.add(_transportRefreshAge);
     final refreshAt =
-        _earlierDate(_earlierDate(signatureRefreshAt, tokenLease?.refreshAt), transportRefreshAt) ?? current;
+        _earlierDate(_earlierDate(signatureRefreshAt, tokenLease?.refreshAt), transportRefreshAt) ??
+        current;
     return refreshAt.isAfter(current) ? refreshAt : current;
   }
 
@@ -95,7 +100,10 @@ class HuyaSite
   static DateTime? _signedUrlInvalidAtFromQuery(Map<String, String> query) {
     final wsTime = int.tryParse(query['wsTime'] ?? '', radix: 16);
     if (wsTime == null) return null;
-    return DateTime.fromMillisecondsSinceEpoch(wsTime * 1000, isUtc: true).add(const Duration(minutes: 5));
+    return DateTime.fromMillisecondsSinceEpoch(
+      wsTime * 1000,
+      isUtc: true,
+    ).add(const Duration(minutes: 5));
   }
 
   static DateTime? _earlierDate(DateTime? first, DateTime? second) {
@@ -137,7 +145,11 @@ class HuyaSite
   static const int webPlaybackTokenLoopTime = 0;
   static const String nativePlayUserAgent = HuyaRequestParams.hysdkUa;
   static const String fallbackPlayUserAgent = HuyaRequestParams.kUserAgent;
-  static Map<String, String> requestHeaders = {'Origin': baseUrl, 'Referer': baseUrl, 'User-Agent': HYSDK_UA};
+  static Map<String, String> requestHeaders = {
+    'Origin': baseUrl,
+    'Referer': baseUrl,
+    'User-Agent': HYSDK_UA,
+  };
 
   /// Huya's public room detail currently returns `userCount` and
   /// `totalCount` as the same multi-million popularity value. Treating
@@ -145,7 +157,9 @@ class HuyaSite
   /// Current website captures show URI 8006 `iAttendeeCount` in the same
   /// multi-million range, so it is also kept as popularity rather than a
   /// concurrent-viewer head count.
-  static ({String popularity, String onlineViewers}) parseRoomAudience(Map<String, dynamic>? liveData) {
+  static ({String popularity, String onlineViewers}) parseRoomAudience(
+    Map<String, dynamic>? liveData,
+  ) {
     final totalCount = liveData?['totalCount']?.toString().trim() ?? '';
     final userCount = liveData?['userCount']?.toString().trim() ?? '';
     return (popularity: totalCount.isNotEmpty ? totalCount : userCount, onlineViewers: '');
@@ -194,7 +208,11 @@ class HuyaSite
   }
 
   @override
-  Future<List<LiveRoom>> getCategoryRooms(LiveArea category, {int page = 1, int pageSize = 30}) async {
+  Future<List<LiveRoom>> getCategoryRooms(
+    LiveArea category, {
+    int page = 1,
+    int pageSize = 30,
+  }) async {
     var resultText = await HttpClient.instance.getJson(
       'https://www.huya.com/cache.php',
       queryParameters: {
@@ -249,7 +267,9 @@ class HuyaSite
   @visibleForTesting
   static List<LivePlayQuality> parsePlayQualities(HuyaUrlDataModel data) {
     final playbackLines = List<HuyaLineModel>.unmodifiable(data.lines);
-    final rates = data.bitRates.isEmpty ? <HuyaBitRateModel>[HuyaBitRateModel(name: '原画', bitRate: 0)] : data.bitRates;
+    final rates = data.bitRates.isEmpty
+        ? <HuyaBitRateModel>[HuyaBitRateModel(name: '原画', bitRate: 0)]
+        : data.bitRates;
     final unique = <int, HuyaBitRateModel>{};
     for (final rate in rates) {
       if (rate.bitRate < 0 || rate.name.trim().isEmpty) continue;
@@ -275,7 +295,10 @@ class HuyaSite
   }
 
   @override
-  Future<List<String>> getPlayUrls({required LiveRoom detail, required LivePlayQuality quality}) async {
+  Future<List<String>> getPlayUrls({
+    required LiveRoom detail,
+    required LivePlayQuality quality,
+  }) async {
     final data = quality.data;
     if (data is! Map) return const <String>[];
     final bitRate = int.tryParse(data['bitRate']?.toString() ?? '');
@@ -293,7 +316,9 @@ class HuyaSite
         try {
           return await getPlayUrl(line, bitRate);
         } on Object catch (error) {
-          CoreLog.error('Huya ${line.cdnType} ${line.lineType.name} URL resolve failed: ${error.runtimeType}');
+          CoreLog.error(
+            'Huya ${line.cdnType} ${line.lineType.name} URL resolve failed: ${error.runtimeType}',
+          );
           return '';
         }
       }),
@@ -312,7 +337,9 @@ class HuyaSite
   }) async {
     final roomId = detail.roomId?.trim() ?? '';
     final platform = detail.platform?.trim().isNotEmpty == true ? detail.platform! : Sites.huyaSite;
-    if (roomId.isEmpty) return LivePlayUrlResolution(urls: const <String>[], appliedQualityData: quality.selectionId);
+    if (roomId.isEmpty) {
+      return LivePlayUrlResolution(urls: const <String>[], appliedQualityData: quality.selectionId);
+    }
 
     // Reacquire the room snapshot and build a fresh signature. HLS uses its
     // own AntiCode; FLV first obtains independent native WUP material.
@@ -378,7 +405,9 @@ class HuyaSite
     // line from HLS AntiCode made an FLV WUP failure accidentally reuse the HLS
     // token; both strings happen to match for many rooms, but Huya does not
     // promise that invariant.
-    var antiCode = line.lineType == HuyaLineType.flv ? line.flvAntiCode.trim() : line.hlsAntiCode.trim();
+    var antiCode = line.lineType == HuyaLineType.flv
+        ? line.flvAntiCode.trim()
+        : line.hlsAntiCode.trim();
     var signatureAlreadyBuilt = false;
     // A syntactically valid web template may still yield a ~120 second stream.
     // Prefer the native WUP contract proven by sustained, single-open probes.
@@ -391,7 +420,9 @@ class HuyaSite
       try {
         final nativeLease = await getNativeCdnTokenInfoEx(line);
         if (nativeLease.isExpired(DateTime.now().toUtc())) throw StateError('Native token expired');
-        final nativeUid = line.presenterUid > 0 ? line.presenterUid : (await resolveViewerIdentity()).uid;
+        final nativeUid = line.presenterUid > 0
+            ? line.presenterUid
+            : (await resolveViewerIdentity()).uid;
         antiCode = buildAntiCode(line.streamName, nativeUid, nativeLease.antiCode);
         tokenLease = nativeLease;
         signatureAlreadyBuilt = true;
@@ -509,7 +540,9 @@ class HuyaSite
 
   static String secureHuyaCdnBase(String base) {
     final uri = Uri.tryParse(base);
-    if (uri == null || uri.scheme != 'http' || !(uri.host == 'huya.com' || uri.host.endsWith('.huya.com'))) {
+    if (uri == null ||
+        uri.scheme != 'http' ||
+        !(uri.host == 'huya.com' || uri.host.endsWith('.huya.com'))) {
       return base;
     }
     return uri.replace(scheme: 'https').toString();
@@ -567,6 +600,64 @@ class HuyaSite
     return _loadRoomDetail(platform: platform, roomId: roomId, allowUiFallback: true);
   }
 
+  /// Union (公会) name via the same JSONP endpoint the web hover card uses.
+  /// Best-effort: a failure leaves the badge empty, like other optional
+  /// header fields.
+  Future<String> _fetchHuyaUnion(String uid) async {
+    try {
+      final text = await HttpClient.instance.getText(
+        'https://chgate.huya.com/proxy/index',
+        queryParameters: {'service': 'thrift_sign', 'iface': 'getSignChannelInfo', 'data': uid},
+        header: {'Referer': 'https://www.huya.com/', 'user-agent': kUserAgent},
+      );
+      // The proxy returns pure JSON (no JSONP wrapper) when no callback is
+      // supplied, e.g. {"code":200,"message":"...","data":null} or data:{...}.
+      final decoded = jsonDecode(text);
+      if (decoded is! Map) return '';
+      final data = decoded['data'];
+      if (data is! Map) return '';
+      return data['name']?.toString().trim() ?? '';
+    } catch (e) {
+      CoreLog.error(e);
+      return '';
+    }
+  }
+
+  /// Fans count is only embedded in the room page HTML (TT_PROFILE_INFO.fans);
+  /// profileRoom keeps no such field. ~15KB once per room entry, never issued
+  /// from refresh paths.
+  Future<String> _fetchHuyaFollowers(String roomId) async {
+    try {
+      final html = await HttpClient.instance.getText(
+        'https://www.huya.com/$roomId',
+        header: {'Referer': 'https://www.huya.com/', 'user-agent': kUserAgent},
+      );
+      final block = RegExp(r'TT_PROFILE_INFO\s*=\s*(\{[\s\S]*?\});').firstMatch(html)?.group(1);
+      if (block != null) {
+        final decoded = jsonDecode(block);
+        if (decoded is Map) {
+          final fans = decoded['fans']?.toString() ?? '';
+          if (fans.isNotEmpty && fans != 'null' && fans != '0') return fans;
+        }
+      }
+      return RegExp(r'"fans"\s*:\s*(\d+)').firstMatch(html)?.group(1) ?? '';
+    } catch (e) {
+      CoreLog.error(e);
+      return '';
+    }
+  }
+
+  /// Resolves the optional hover-card extras (union name + fans count). Both
+  /// are best-effort so the room detail itself never fails on them.
+  Future<(String, String)> _resolveHuyaExtras(dynamic profile, Future<String> fansFuture) async {
+    final uid = profile is Map ? profile['uid']?.toString() ?? '' : '';
+    final results = await Future.wait<String>([
+      uid.isEmpty ? Future<String>.value('') : _fetchHuyaUnion(uid),
+      fansFuture,
+    ]);
+    return (results[0], results[1]);
+  }
+
   @override
   Future<LiveRoom> getRoomDetailForRecording({required String platform, required String roomId}) {
     return _loadRoomDetail(platform: platform, roomId: roomId, allowUiFallback: false);
@@ -577,6 +668,9 @@ class HuyaSite
     required String roomId,
     required bool allowUiFallback,
   }) async {
+    // Fans live in the room page HTML and do not depend on profileRoom —
+    // start the request first so both fetches overlap.
+    final fansFuture = _fetchHuyaFollowers(roomId);
     var resultText = await HttpClient.instance.getText(
       'https://mp.huya.com/cache.php',
       queryParameters: <String, dynamic>{
@@ -606,8 +700,17 @@ class HuyaSite
     final statusCode = result is Map ? int.tryParse(result['status']?.toString() ?? '') : null;
     final responseData = result is Map && result['data'] is Map ? result['data'] as Map : null;
     final normalizedLiveState = responseData?['liveStatus']?.toString().trim().toUpperCase() ?? '';
-    if (statusCode == 200 && responseData != null && isExplicitOfflineState(responseData['liveStatus'])) {
-      return _buildInactiveRoom(responseData, platform: platform, roomId: roomId);
+    if (statusCode == 200 &&
+        responseData != null &&
+        isExplicitOfflineState(responseData['liveStatus'])) {
+      final extras = await _resolveHuyaExtras(responseData['profileInfo'], fansFuture);
+      return _buildInactiveRoom(
+        responseData,
+        platform: platform,
+        roomId: roomId,
+        unionName: extras.$1,
+        followers: extras.$2,
+      );
     }
     if (statusCode == 200 && responseData != null && responseData['stream'] != null) {
       dynamic data = responseData;
@@ -702,6 +805,8 @@ class HuyaSite
       huyaBiterates.addAll(parseBitRates(rawBitRates));
       bool isXingxiu = data['liveData']['gid'] == 1663;
       final audience = parseRoomAudience(Map<String, dynamic>.from(data['liveData'] as Map));
+      final roomStartTime = int.tryParse(data['liveData']?['startTime']?.toString() ?? '');
+      final extras = await _resolveHuyaExtras(data['profileInfo'], fansFuture);
       return LiveRoom(
         cover: data['liveData']?['screenshot'] ?? '',
         watching: audience.popularity,
@@ -713,19 +818,31 @@ class HuyaSite
         title: data['liveData']?['introduction'] ?? '',
         nick: data['profileInfo']?['nick'] ?? '',
         avatar: data['profileInfo']?['avatar180'] ?? '',
-        introduction: data['liveData']?['introduction'] ?? '',
-        notice: data['welcomeText'] ?? '',
+        // welcomeText is the room notice shown by the web hover card —
+        // display it as the hover introduction, not in the super-chat page.
+        introduction: data['welcomeText']?.toString() ?? '',
+        notice: '',
+        anchorLevel: data['liveData']?['level']?.toString() ?? '',
+        unionName: extras.$1,
+        followers: extras.$2,
         isRecord: normalizedLiveState == 'REPLAY',
         status: normalizedLiveState == 'ON',
         liveStatus: parseHuyaLiveStatus(normalizedLiveState),
         platform: Sites.huyaSite,
-        data: HuyaUrlDataModel(url: '', lines: huyaLines, bitRates: huyaBiterates, uid: '', isXingxiu: isXingxiu),
+        data: HuyaUrlDataModel(
+          url: '',
+          lines: huyaLines,
+          bitRates: huyaBiterates,
+          uid: '',
+          isXingxiu: isXingxiu,
+        ),
         danmakuData: HuyaDanmakuArgs(
           uid: int.tryParse(data['profileInfo']?['uid']?.toString() ?? '') ?? 0,
           topSid: topSid,
           subSid: subSid,
         ),
         link: 'https://www.huya.com/$roomId',
+        startTime: roomStartTime != null && roomStartTime > 0 ? roomStartTime : null,
       );
     } else {
       if (!allowUiFallback) {
@@ -758,12 +875,21 @@ class HuyaSite
     };
   }
 
-  LiveRoom _buildInactiveRoom(Map<dynamic, dynamic> data, {required String platform, required String roomId}) {
+  LiveRoom _buildInactiveRoom(
+    Map<dynamic, dynamic> data, {
+    required String platform,
+    required String roomId,
+    String unionName = '',
+    String followers = '',
+  }) {
     final liveData = data['liveData'] is Map
         ? Map<String, dynamic>.from(data['liveData'] as Map)
         : const <String, dynamic>{};
-    final profile = data['profileInfo'] is Map ? data['profileInfo'] as Map : const <dynamic, dynamic>{};
+    final profile = data['profileInfo'] is Map
+        ? data['profileInfo'] as Map
+        : const <dynamic, dynamic>{};
     final audience = parseRoomAudience(liveData);
+    final inactiveStartTime = int.tryParse(liveData['startTime']?.toString() ?? '');
     return LiveRoom(
       cover: liveData['screenshot']?.toString() ?? '',
       watching: audience.popularity,
@@ -775,13 +901,19 @@ class HuyaSite
       title: liveData['introduction']?.toString() ?? '',
       nick: profile['nick']?.toString() ?? '',
       avatar: profile['avatar180']?.toString() ?? '',
-      introduction: liveData['introduction']?.toString() ?? '',
-      notice: data['welcomeText']?.toString() ?? '',
+      // welcomeText is the room notice shown by the web hover card —
+      // display it as the hover introduction, not in the super-chat page.
+      introduction: data['welcomeText']?.toString() ?? '',
+      notice: '',
+      anchorLevel: liveData['level']?.toString() ?? '',
+      unionName: unionName,
+      followers: followers,
       isRecord: false,
       status: false,
       liveStatus: LiveStatus.offline,
       platform: platform,
       link: 'https://www.huya.com/$roomId',
+      startTime: inactiveStartTime != null && inactiveStartTime > 0 ? inactiveStartTime : null,
     );
   }
 
@@ -800,7 +932,10 @@ class HuyaSite
   }
 
   @override
-  Future<LiveRoom> getRoomDetailForRefresh({required String platform, required String roomId}) async {
+  Future<LiveRoom> getRoomDetailForRefresh({
+    required String platform,
+    required String roomId,
+  }) async {
     final resultText = await HttpClient.instance.getText(
       'https://mp.huya.com/cache.php',
       queryParameters: <String, dynamic>{
@@ -829,11 +964,16 @@ class HuyaSite
       throw const FormatException('Huya room metadata is unavailable');
     }
     final data = decoded['data'] as Map;
-    final liveData = data['liveData'] is Map ? Map<String, dynamic>.from(data['liveData'] as Map) : <String, dynamic>{};
-    final profile = data['profileInfo'] is Map ? data['profileInfo'] as Map : const <dynamic, dynamic>{};
+    final liveData = data['liveData'] is Map
+        ? Map<String, dynamic>.from(data['liveData'] as Map)
+        : <String, dynamic>{};
+    final profile = data['profileInfo'] is Map
+        ? data['profileInfo'] as Map
+        : const <dynamic, dynamic>{};
     final audience = parseRoomAudience(liveData);
     final state = data['liveStatus']?.toString().trim().toUpperCase() ?? '';
     final liveStatus = parseHuyaLiveStatus(state);
+    final refreshStartTime = int.tryParse(liveData['startTime']?.toString() ?? '');
     return LiveRoom(
       cover: liveData['screenshot']?.toString() ?? '',
       watching: audience.popularity,
@@ -845,13 +985,18 @@ class HuyaSite
       title: liveData['introduction']?.toString() ?? '',
       nick: profile['nick']?.toString() ?? '',
       avatar: profile['avatar180']?.toString() ?? '',
-      introduction: liveData['introduction']?.toString() ?? '',
-      notice: data['welcomeText']?.toString() ?? '',
+      // welcomeText is the room notice shown by the web hover card —
+      // display it as the hover introduction, not in the super-chat page.
+      // Union/fans extras stay refresh-exempt; mergeFrom preserves the
+      // values captured on room entry.
+      introduction: data['welcomeText']?.toString() ?? '',
+      notice: '',
       isRecord: state == 'REPLAY',
       status: liveStatus == LiveStatus.live,
       liveStatus: liveStatus,
       platform: Sites.huyaSite,
       link: 'https://www.huya.com/$roomId',
+      startTime: refreshStartTime != null && refreshStartTime > 0 ? refreshStartTime : null,
     );
   }
 
@@ -920,7 +1065,11 @@ class HuyaSite
   }
 
   @override
-  Future<List<LiveAnchorItem>> searchAnchors(String keyword, {int page = 1, int pageSize = 30}) async {
+  Future<List<LiveAnchorItem>> searchAnchors(
+    String keyword, {
+    int page = 1,
+    int pageSize = 30,
+  }) async {
     var resultText = await HttpClient.instance.getJson(
       'https://search.cdn.huya.com/',
       queryParameters: {
@@ -1069,7 +1218,9 @@ class HuyaSite
       return antiCode;
     }
 
-    final ctype = original['ctype']?.trim().isNotEmpty == true ? original['ctype']!.trim() : 'huya_webh5';
+    final ctype = original['ctype']?.trim().isNotEmpty == true
+        ? original['ctype']!.trim()
+        : 'huya_webh5';
     final platformId = original['t']?.trim().isNotEmpty == true ? original['t']!.trim() : '100';
     final isWap = platformId == '103';
     final timestamp = now ?? DateTime.now();
@@ -1175,7 +1326,11 @@ class HuyaSite
     });
     try {
       final response = await client
-          .tupRequest('getCdnTokenInfoEx', buildNativePlaybackTokenRequest(line), GetCdnTokenExResp())
+          .tupRequest(
+            'getCdnTokenInfoEx',
+            buildNativePlaybackTokenRequest(line),
+            GetCdnTokenExResp(),
+          )
           .timeout(const Duration(seconds: 8));
       return HuyaCdnTokenLease.fromResponse(response);
     } finally {
@@ -1199,7 +1354,10 @@ class HuyaSite
     }
   }
 
-  Future<HuyaCdnTokenLease> _fetchCdnTokenInfoEx(HuyaLineModel line, HuyaViewerIdentity viewer) async {
+  Future<HuyaCdnTokenLease> _fetchCdnTokenInfoEx(
+    HuyaLineModel line,
+    HuyaViewerIdentity viewer,
+  ) async {
     final cookie = SettingsService.to.cookieManager.huyaCookie.v.trim();
     final request = buildPlaybackTokenRequest(line, viewer, cookie: cookie);
     final tokenClient = createCdnTokenClient(<String, String>{
@@ -1268,8 +1426,10 @@ class HuyaSite
     return high | originalLow;
   }
 
-  Future<List<LiveSuperChatMessage>> getHuyaSuperChatMessageList({required int lPid, bool first = false}) =>
-      huya_utils.getHuyaSuperChatMessageList(lPid: lPid, first: first);
+  Future<List<LiveSuperChatMessage>> getHuyaSuperChatMessageList({
+    required int lPid,
+    bool first = false,
+  }) => huya_utils.getHuyaSuperChatMessageList(lPid: lPid, first: first);
 }
 
 @immutable
@@ -1299,7 +1459,10 @@ class HuyaCdnTokenLease {
 
     // This matches the current official player: wsTime receives a five-minute
     // validity allowance and the refresh is requested thirty seconds earlier.
-    var invalidAt = DateTime.fromMillisecondsSinceEpoch(wsTime * 1000, isUtc: true).add(const Duration(minutes: 5));
+    var invalidAt = DateTime.fromMillisecondsSinceEpoch(
+      wsTime * 1000,
+      isUtc: true,
+    ).add(const Duration(minutes: 5));
     final current = (now ?? DateTime.now()).toUtc();
     final serverExpiry = response.iExpireTime;
     if (serverExpiry > 0) {

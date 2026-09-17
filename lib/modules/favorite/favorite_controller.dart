@@ -10,10 +10,11 @@ import 'package:pure_live/core/interface/live_site.dart';
 import 'package:pure_live/modules/tags/tag_management_controller.dart';
 import 'package:pure_live/modules/favorite/favorite_startup_policy.dart';
 import 'package:pure_live/common/services/settings/refresh_config_controller.dart';
+import 'package:pure_live/common/services/settings/watch_time_service.dart';
 import 'package:pure_live/routes/route_observer_controller.dart';
 import 'package:pure_live/common/consts/app_consts.dart';
 
-enum OnlineSortMode { audience, startTime }
+enum OnlineSortMode { audience, startTime, watchTime }
 
 class FavoriteController extends LocalReactivePageController<LiveRoom>
     with GetTickerProviderStateMixin, WidgetsBindingObserver {
@@ -24,10 +25,11 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
 
   final tabBottomIndex = 0.obs;
   final tabSiteIndex = 0.obs;
-  final tabOnlineIndex = 0.obs;
+  final tabOnlineIndex = 1.obs;
   String selectedPlatformId = Sites.allSite;
   StreamSubscription<dynamic>? subscription;
   StreamSubscription<dynamic>? roomChangedSubscription;
+  StreamSubscription<dynamic>? _watchTimeSubscription;
 
   StreamSubscription<dynamic>? _configSubscription;
   Timer? _autoRefreshTimer;
@@ -43,6 +45,8 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
   Future<void>? _startupRefresh;
   FavoriteVerificationPreview? _verificationPreview;
   final Map<String, DateTime> _refreshFailureCooldown = {};
+  final Map<String, DateTime> _refreshSuccessCooldown = {};
+  // UNDONE: Maybe useful for future use.
   // === Pseudo live duration (disabled) ===
   // 用途：当平台接口不返回真实开播时间（如抖音）时，用"在线状态变化 + 当前时间"
   //       近似估算一个伪开播时间，供直播时长排序和 Header 显示使用。
@@ -55,6 +59,7 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
   // final Set<String> _lastOnlineKeys = {};
   // bool _onlineBaselineCaptured = false;
   static const Duration _refreshFailureRetryAfter = Duration(minutes: 5);
+  static const Duration _refreshSuccessInterval = Duration(seconds: 30);
   // Treat returning to the app as a fresh launch after a short debounce.  A
   // two-minute window left just-ended rooms visibly "live" when users reopened
   // the app from Recents; 15 seconds still suppresses duplicate lifecycle
@@ -73,8 +78,12 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
   final enablePinned = true.obs;
   final onlineSortMode = OnlineSortMode.audience.obs;
 
+  /// 排序方向：false = 降序（热度高/开播新/时长多在前），true = 升序。
+  final onlineSortAscending = false.obs;
+
   static const String _pinnedPrefKey = 'fav_enable_pinned';
   static const String _sortModePrefKey = 'fav_online_sort_mode';
+  static const String _sortAscendingPrefKey = 'fav_online_sort_ascending';
 
   final showRefreshShield = false.obs;
   final cancelRequested = false.obs;
@@ -96,8 +105,12 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
       );
     }
 
+    final ascendingFromDisk = HivePrefUtil.getBool(_sortAscendingPrefKey);
+    if (ascendingFromDisk != null) onlineSortAscending.value = ascendingFromDisk;
+
     tabController = TabController(
-      length: 3,
+      length: 4,
+      initialIndex: 1,
       vsync: this,
       animationDuration: pureLiveTabTransitionDuration,
     );
@@ -147,6 +160,12 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     _workers.add(
       ever(onlineSortMode, (value) {
         HivePrefUtil.setString(_sortModePrefKey, value.name);
+        applyLocalFilter();
+      }),
+    );
+    _workers.add(
+      ever(onlineSortAscending, (value) {
+        HivePrefUtil.setBool(_sortAscendingPrefKey, value);
         applyLocalFilter();
       }),
     );
@@ -231,6 +250,7 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     tabController.dispose();
     subscription?.cancel();
     roomChangedSubscription?.cancel();
+    _watchTimeSubscription?.cancel();
     _configSubscription?.cancel();
     _autoRefreshTimer?.cancel();
     _debounceTimer?.cancel();
@@ -249,6 +269,13 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
 
   void listenRoomChanged() {
     roomChangedSubscription = EventBus.instance.listen('refresh_room_changed', (data) {
+      applyLocalFilter();
+    });
+    // 按观看时长排序时，服务端防抖（3s）通知时长变化后重排列表。
+    // applyLocalFilter 内部有快照比对，顺序未变化时不会触发 UI 重建。
+    _watchTimeSubscription = EventBus.instance.listen(WatchTimeService.eventWatchTimeChanged, (
+      data,
+    ) {
       applyLocalFilter();
     });
   }
@@ -318,8 +345,9 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     selectedPlatformId = nextPlatformId;
     if (resetTag) {
       final bucket = switch (tabOnlineIndex.value) {
-        0 => onlineRooms,
-        1 => replayRooms,
+        0 => <LiveRoom>[...onlineRooms, ...replayRooms, ...offlineRooms],
+        1 => onlineRooms,
+        2 => replayRooms,
         _ => offlineRooms,
       };
       final List<LiveRoom> candidateRooms;
@@ -350,8 +378,9 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
           ? currentAvailableSites[tabSiteIndex.value].id
           : Sites.allSite;
       final bucket = switch (index) {
-        0 => onlineRooms,
-        1 => replayRooms,
+        0 => <LiveRoom>[...onlineRooms, ...replayRooms, ...offlineRooms],
+        1 => onlineRooms,
+        2 => replayRooms,
         _ => offlineRooms,
       };
       final List<LiveRoom> candidateRooms;
@@ -469,14 +498,23 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
 
     switch (tabOnlineIndex.value) {
       case 0:
-        source = onlineRooms;
+        final merged = <LiveRoom>[...onlineRooms, ...replayRooms, ...offlineRooms];
+        // 观看时长排序在"全部"页签跨状态统一排序，而不是按桶序拼接。
+        if (onlineSortMode.value == OnlineSortMode.watchTime) {
+          merged.sort(_compareOnlineRooms);
+        }
+        source = merged;
         break;
 
       case 1:
-        source = replayRooms;
+        source = onlineRooms;
         break;
 
       case 2:
+        source = replayRooms;
+        break;
+
+      case 3:
         source = offlineRooms;
         break;
 
@@ -515,9 +553,10 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     final Iterable<LiveRoom> source = statusIndex == null
         ? SettingsService.to.fav.favoriteRooms.v
         : switch (statusIndex) {
-            0 => onlineRooms,
-            1 => replayRooms,
-            2 => offlineRooms,
+            0 => <LiveRoom>[...onlineRooms, ...replayRooms, ...offlineRooms],
+            1 => onlineRooms,
+            2 => replayRooms,
+            3 => offlineRooms,
             _ => const <LiveRoom>[],
           };
     if (siteId == Sites.allSite) return source.length;
@@ -550,14 +589,18 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
 
       switch (tabOnlineIndex.value) {
         case 0:
-          target = nextOnline;
+          target = <LiveRoom>[...nextOnline, ...nextReplay, ...nextOffline];
           break;
 
         case 1:
-          target = nextReplay;
+          target = nextOnline;
           break;
 
         case 2:
+          target = nextReplay;
+          break;
+
+        case 3:
           target = nextOffline;
           break;
 
@@ -601,7 +644,13 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     //   ..addAll(currentOnlineKeys);
 
     nextOnline.sort(_compareOnlineRooms);
-    nextReplay.sort(_compareAudience);
+    if (onlineSortMode.value == OnlineSortMode.watchTime) {
+      // 观看时长排序对所有状态的直播间生效：三个桶按同一规则排序。
+      nextReplay.sort(_compareOnlineRooms);
+      nextOffline.sort(_compareOnlineRooms);
+    } else {
+      nextReplay.sort(_compareAudience);
+    }
 
     _assignIfSnapshotChanged(onlineRooms, nextOnline);
     _assignIfSnapshotChanged(offlineRooms, nextOffline);
@@ -644,9 +693,10 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
       return;
     }
     final source = switch (tabOnlineIndex.value) {
-      0 => onlineRooms,
-      1 => replayRooms,
-      2 => offlineRooms,
+      0 => <LiveRoom>[...onlineRooms, ...replayRooms, ...offlineRooms],
+      1 => onlineRooms,
+      2 => replayRooms,
+      3 => offlineRooms,
       _ => onlineRooms,
     };
     final siteId = sites[tabSiteIndex.value].id;
@@ -697,10 +747,20 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
       if (sa != sb) return sb.compareTo(sa);
     }
 
-    return switch (onlineSortMode.value) {
+    final primary = switch (onlineSortMode.value) {
       OnlineSortMode.startTime => _compareStartTime(a, b),
+      OnlineSortMode.watchTime => _compareWatchTime(a, b),
       _ => _compareAudience(a, b),
     };
+    // 置顶/标签分是优先级排序，不随方向翻转；仅模式比较结果受升降序控制。
+    return onlineSortAscending.value ? -primary : primary;
+  }
+
+  int _compareWatchTime(LiveRoom a, LiveRoom b) {
+    final aSeconds = WatchTimeService.secondsFor(a.identityKey);
+    final bSeconds = WatchTimeService.secondsFor(b.identityKey);
+    if (aSeconds != bSeconds) return bSeconds.compareTo(aSeconds);
+    return _compareAudience(a, b);
   }
 
   int _compareStartTime(LiveRoom a, LiveRoom b) {
@@ -776,9 +836,10 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
       return;
     }
     final source = switch (tabOnlineIndex.value) {
-      0 => onlineRooms,
-      1 => replayRooms,
-      2 => offlineRooms,
+      0 => <LiveRoom>[...onlineRooms, ...replayRooms, ...offlineRooms],
+      1 => onlineRooms,
+      2 => replayRooms,
+      3 => offlineRooms,
       _ => onlineRooms,
     };
     final siteId = sites[tabSiteIndex.value].id;
@@ -951,39 +1012,62 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     required int refreshEpoch,
     required bool bypassFailureCooldown,
   }) async {
+    // Platforms hidden in the display settings never enter the refresh flow:
+    // their cards are invisible, so refreshing them is pure traffic waste and
+    // only raises per-host rate-limit exposure.
+    final enabledPlatforms = Sites()
+        .availableSites()
+        .map((site) => site.id.trim().toLowerCase())
+        .toSet();
     final valid = rooms
-        .where((r) => (r.platform?.isNotEmpty ?? false) && (r.roomId?.isNotEmpty ?? false))
+        .where(
+          (r) =>
+              (r.platform?.isNotEmpty ?? false) &&
+              (r.roomId?.isNotEmpty ?? false) &&
+              enabledPlatforms.contains(r.normalizedPlatformId),
+        )
         .toList(growable: false);
     if (valid.isEmpty) return const <String, LiveRoom>{};
 
-    final concurrency = RefreshConfigController.normalizeMaxConcurrentRefresh(
-      refreshConfigController.maxConcurrentRefresh.value,
-    );
+    // Rate limits are enforced per host, so run one bounded pool per platform.
+    // A mixed list parallelises across hosts while each single platform stays
+    // within its own configured burst ceiling.
+    final groups = <String, List<LiveRoom>>{};
+    for (final room in valid) {
+      groups.putIfAbsent(room.normalizedPlatformId, () => []).add(room);
+    }
+
     // Reuse one adapter per platform inside a refresh pass. Besides reducing
     // allocation, this lets cookie/device/bootstrap requests use single-flight
     // state while the bounded I/O workers refresh several cards concurrently.
     final siteCache = <String, LiveSite>{};
-    final pendingUpdates = <String, LiveRoom>{};
-    final results = await boundedAsyncMap<LiveRoom, ({String key, LiveRoom room})>(
-      valid,
-      maxConcurrent: concurrency,
-      task: (room) async {
-        final updated = await _refreshOneRoom(
-          room,
-          siteCache,
-          bypassFailureCooldown: bypassFailureCooldown,
+    final groupResults = await Future.wait(
+      groups.entries.map((entry) {
+        return boundedAsyncMap<LiveRoom, ({String key, LiveRoom room})>(
+          entry.value,
+          maxConcurrent: refreshConfigController.platformConcurrencyOf(entry.key),
+          task: (room) async {
+            final updated = await _refreshOneRoom(
+              room,
+              siteCache,
+              bypassFailureCooldown: bypassFailureCooldown,
+            );
+            if (updated == null) return null;
+            // Match by the requested favourite identity, not a canonical id that a
+            // platform may return (Douyin room ids, for example, can change to the
+            // stable web rid). Keep the stored identity stable for tags and keys.
+            return (key: _roomKey(room), room: bindFavoriteRefreshResultToRequest(room, updated));
+          },
+          shouldCancel: () => refreshEpoch != _refreshEpoch || isClosed,
         );
-        if (updated == null) return null;
-        // Match by the requested favourite identity, not a canonical id that a
-        // platform may return (Douyin room ids, for example, can change to the
-        // stable web rid). Keep the stored identity stable for tags and keys.
-        return (key: _roomKey(room), room: bindFavoriteRefreshResultToRequest(room, updated));
-      },
-      shouldCancel: () => refreshEpoch != _refreshEpoch || isClosed,
+      }),
     );
     if (refreshEpoch != _refreshEpoch || isClosed) return const <String, LiveRoom>{};
-    for (final update in results.whereType<({String key, LiveRoom room})>()) {
-      pendingUpdates[update.key] = update.room;
+    final pendingUpdates = <String, LiveRoom>{};
+    for (final results in groupResults) {
+      for (final update in results.whereType<({String key, LiveRoom room})>()) {
+        pendingUpdates[update.key] = update.room;
+      }
     }
     return pendingUpdates;
   }
@@ -1002,6 +1086,11 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
       return null;
     }
 
+    final succeededAt = _refreshSuccessCooldown[key];
+    if (succeededAt != null && DateTime.now().difference(succeededAt) < _refreshSuccessInterval) {
+      return room;
+    }
+
     try {
       final platform = room.normalizedPlatformId;
       final roomId = room.normalizedRoomId;
@@ -1018,16 +1107,19 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
       final result = await operation.timeout(_roomRefreshTimeout);
 
       _refreshFailureCooldown.remove(key);
+      _refreshSuccessCooldown[key] = DateTime.now();
 
       return result;
     } on TimeoutException {
       _refreshFailureCooldown[key] = DateTime.now();
+      _refreshSuccessCooldown.remove(key);
 
       developer.log('Favorite room refresh timeout: $key', name: 'FavoriteController');
 
       return null;
     } catch (error) {
       _refreshFailureCooldown[key] = DateTime.now();
+      _refreshSuccessCooldown.remove(key);
 
       developer.log(
         'Favorite room refresh failed: $key (${error.runtimeType})',

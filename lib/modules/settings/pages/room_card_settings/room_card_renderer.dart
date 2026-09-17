@@ -1,5 +1,6 @@
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
+import 'package:pure_live/common/services/settings/watch_time_service.dart';
 import 'package:pure_live/plugins/cache_manager.dart';
 import 'package:pure_live/common/widgets/common_avatar.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -489,6 +490,13 @@ class RoomCardRenderer {
                 child: _buildPinBadge(context, effectiveDense),
               ),
 
+            // 观看时长徽标：封面左下角，仅有关看记录的房间显示。
+            Positioned(
+              left: config.coverPositionPadding,
+              bottom: config.coverPositionPadding,
+              child: _buildWatchTimeBadge(context, effectiveDense),
+            ),
+
             if (showDebugFlash)
               Positioned(
                 left: config.coverPositionPadding,
@@ -532,6 +540,34 @@ class RoomCardRenderer {
         ),
       ),
     );
+  }
+
+  /// 封面左下角的累计观看时长徽标（Obx 响应式，无记录时不占位）。
+  Widget _buildWatchTimeBadge(BuildContext context, bool effectiveDense) {
+    final identityKey = room.identityKey;
+    return Obx(() {
+      final seconds = WatchTimeService.secondsFor(identityKey);
+      if (seconds <= 0) return const SizedBox.shrink();
+      return CoverMetricBadge(
+        icon: Icons.schedule_rounded,
+        value: WatchTimeService.formatCompact(seconds),
+        semanticLabel: '${i18n('watch_time_total')} ${WatchTimeService.formatFull(seconds)}',
+        dense: effectiveDense,
+        backgroundColor: config.metricBackgroundColor,
+        borderColor: config.metricBorderColor,
+        borderWidth: config.metricBorderWidth,
+        textColor: config.metricTextColor,
+        fontSize: effectiveDense ? config.denseMetricFontSize : config.metricFontSize,
+        fontWeight: config.metricFontWeight,
+        borderRadius: effectiveDense ? config.denseMetricBorderRadius : config.metricBorderRadius,
+        horizontalPadding: effectiveDense
+            ? config.denseMetricHorizontalPadding
+            : config.metricHorizontalPadding,
+        verticalPadding: effectiveDense
+            ? config.denseMetricVerticalPadding
+            : config.metricVerticalPadding,
+      );
+    });
   }
 
   Widget _buildCoverImage(BuildContext context, bool isDark, bool effectiveDense) {

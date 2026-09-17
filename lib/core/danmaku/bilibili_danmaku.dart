@@ -118,11 +118,15 @@ class BiliBiliDanmaku implements LiveDanmaku {
 
   Future<void> _connect(BiliBiliDanmakuArgs args) async {
     if (_stopped) return;
-    final endpoints = args.serverUrls.isEmpty ? const ['wss://broadcastlv.chat.bilibili.com/sub'] : args.serverUrls;
+    final endpoints = args.serverUrls.isEmpty
+        ? const ['wss://broadcastlv.chat.bilibili.com/sub']
+        : args.serverUrls;
     webScoketUtils = WebScoketUtils(
       url: endpoints.first,
       serverUrls: endpoints,
-      headers: args.headers.isNotEmpty ? args.headers : (args.cookie.isEmpty ? null : {'cookie': args.cookie}),
+      headers: args.headers.isNotEmpty
+          ? args.headers
+          : (args.cookie.isEmpty ? null : {'cookie': args.cookie}),
       heartBeatTime: heartbeatTime,
       onMessage: (e) {
         decodeMessage(e);
@@ -282,7 +286,9 @@ class BiliBiliDanmaku implements LiveDanmaku {
     }
 
     if (offset != data.length) {
-      throw FormatException('Incomplete Bilibili danmaku frame: parsed=$offset, total=${data.length}');
+      throw FormatException(
+        'Incomplete Bilibili danmaku frame: parsed=$offset, total=${data.length}',
+      );
     }
   }
 
@@ -351,12 +357,50 @@ class BiliBiliDanmaku implements LiveDanmaku {
           var color = asT<int?>(obj['info'][0][3]) ?? 0;
           if (obj['info'][2] != null && obj['info'][2].length != 0) {
             final metadata = obj['info'][0] is List ? obj['info'][0] as List : const <dynamic>[];
-            final username = _preferredBilibiliUserName(obj, metadata, obj['info'][2][1]?.toString() ?? '');
-            final rawTimestamp = metadata.length > 4 ? int.tryParse(metadata[4]?.toString() ?? '') : null;
+            final username = _preferredBilibiliUserName(
+              obj,
+              metadata,
+              obj['info'][2][1]?.toString() ?? '',
+            );
+            final rawTimestamp = metadata.length > 4
+                ? int.tryParse(metadata[4]?.toString() ?? '')
+                : null;
             final rawNonce = metadata.length > 5 ? metadata[5]?.toString() ?? '' : '';
             final sentAt = rawTimestamp == null
                 ? null
-                : DateTime.fromMillisecondsSinceEpoch(rawTimestamp > 100000000000 ? rawTimestamp : rawTimestamp * 1000);
+                : DateTime.fromMillisecondsSinceEpoch(
+                    rawTimestamp > 100000000000 ? rawTimestamp : rawTimestamp * 1000,
+                  );
+            String userLevel = '';
+            String fansName = '';
+            String fansLevel = '';
+            final richer = metadata.length > 15 ? metadata[15] : null;
+            if (richer is Map && richer['user'] is Map) {
+              final u = richer['user'] as Map;
+              final wealth = u['wealth'];
+              if (wealth is Map) {
+                final lv = wealth['level']?.toString();
+                if (lv != null && lv.isNotEmpty && lv != '0') userLevel = lv;
+              }
+              final medal = u['medal'];
+              if (medal is Map) {
+                final mname = medal['name']?.toString() ?? '';
+                final mlv = medal['level']?.toString() ?? '';
+                // Fan level is meaningful on its own; the badge name is
+                // optional because wearing the medal is a per-user choice.
+                if (mname.isNotEmpty) fansName = mname;
+                if (mlv.isNotEmpty && mlv != '0') fansLevel = mlv;
+              }
+            }
+            if (fansName.isEmpty) {
+              final legacyMedal = obj['info'][3];
+              if (legacyMedal is List && legacyMedal.length >= 2) {
+                final mname = legacyMedal[1]?.toString() ?? '';
+                final mlv = legacyMedal[0]?.toString() ?? '';
+                if (mname.isNotEmpty) fansName = mname;
+                if (mlv.isNotEmpty && mlv != '0') fansLevel = mlv;
+              }
+            }
             var liveMsg = LiveMessage(
               type: LiveMessageType.chat,
               userName: username,
@@ -365,6 +409,9 @@ class BiliBiliDanmaku implements LiveDanmaku {
               color: color == 0 ? LiveMessageColor.white : LiveMessageColor.numberToColor(color),
               messageId: rawNonce.isEmpty ? '' : 'bilibili:$rawNonce',
               sentAt: sentAt,
+              userLevel: userLevel,
+              fansName: fansName,
+              fansLevel: fansLevel,
             );
             onMessage?.call(liveMsg);
           }

@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:pure_live/common/index.dart';
+import 'package:pure_live/player/core/portrait_stream_support.dart';
 import 'package:pure_live/plugins/utils.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -107,6 +108,9 @@ class DesktopManager {
     return Obx(() {
       final fullscreen = GlobalPlayerState.to.isFullscreen.value;
       final pipMode = GlobalPlayerState.to.isPipMode.value;
+      final isImmersiveLivePlay =
+          RouteObserverController.to.currentRoute.value == RoutePath.kLivePlay &&
+          SettingsService.to.player.portraitLayoutMode == PortraitLayoutMode.immersive;
 
       if (!PlatformUtils.isWindows) {
         return child ?? const SizedBox.shrink();
@@ -114,7 +118,7 @@ class DesktopManager {
 
       return Column(
         children: [
-          if (!fullscreen && !pipMode) const CustomTitleBar(),
+          if (!fullscreen && !pipMode && !isImmersiveLivePlay) const CustomTitleBar(),
           if (child != null) Expanded(child: child),
         ],
       );

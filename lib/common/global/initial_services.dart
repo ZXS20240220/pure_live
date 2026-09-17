@@ -14,6 +14,7 @@ import 'package:pure_live/recorder/pages/recorder/recorder_controller.dart';
 import 'package:pure_live/core/iptv/services/channel_detail_controller.dart';
 import 'package:pure_live/common/services/settings/metered_network_service.dart';
 import 'package:pure_live/common/services/settings/iptv_settings_controller.dart';
+import 'package:pure_live/common/services/settings/watch_time_service.dart';
 import 'package:pure_live/recorder/pages/record_settings/record_settings_controller.dart';
 import 'package:pure_live/modules/live_play/widgets/local_interaction/local_interaction_controller.dart';
 
@@ -30,6 +31,9 @@ class InitialServices {
     Get.put(LocalInteractionController(), permanent: true);
     Get.put(RouteObserverController(), permanent: true);
     Get.put<MeteredNetworkService>(MeteredNetworkService(), permanent: true);
+    // 观看时长服务：注册时机早于 BackupController 的备份恢复流程，
+    // 保证导入备份时 removeFor/replaceDurations 静态入口可用。
+    Get.put(WatchTimeService(), permanent: true);
   }
 
   static void initLazyControllers() {
