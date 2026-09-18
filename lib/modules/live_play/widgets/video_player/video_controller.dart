@@ -9,12 +9,10 @@ import 'iptv_programme_policy.dart';
 
 import 'package:flutter/scheduler.dart';
 import 'package:pure_live/common/index.dart';
-import 'package:battery_plus/battery_plus.dart';
 import 'package:flame_barrage/flame_barrage.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:pure_live/plugins/db_service.dart';
 import 'package:pure_live/player/utils/fullscreen.dart';
-import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
 import 'package:volume_controller/volume_controller.dart';
 import 'package:pure_live/player/core/player_manager.dart';
 import 'package:pure_live/player/core/portrait_stream_support.dart';
@@ -42,11 +40,7 @@ enum PlayerStatus { idle, loading, playing, error, disposed }
 
 // 平台工具类
 class PlatformHelper {
-  static bool get isMobile => Platform.isAndroid || Platform.isIOS;
-  static bool get isDesktop => Platform.isWindows || Platform.isLinux || Platform.isMacOS;
-  static bool get supportsBrightness => Platform.isAndroid || Platform.isIOS;
   static bool get supportsVolumeController => Platform.isAndroid || Platform.isIOS;
-  static bool get supportsBatteryMonitoring => Platform.isAndroid || Platform.isIOS;
 }
 
 // 弹幕管理器
@@ -341,7 +335,6 @@ class VideoController with ChangeNotifier implements DanmakuSettingsBinding {
   int _lastSourceCommitRevision = 0;
   bool _acceptSourceCommits = false;
 
-  final Battery _battery;
   final SettingsService _settingsService;
   final DbService _dbService;
   final PlayerManager _playerManager;
@@ -418,14 +411,7 @@ class VideoController with ChangeNotifier implements DanmakuSettingsBinding {
   final danmuKey = GlobalKey();
   GlobalKey playerKey = GlobalKey();
 
-  // 屏幕亮度
-  ScreenBrightnessPlatform? _brightnessController;
-  ScreenBrightnessPlatform? get brightnessController {
-    if (!PlatformHelper.supportsBrightness) return null;
-    _brightnessController ??= ScreenBrightnessPlatform.instance;
-    return _brightnessController;
-  }
-
+  // 屏幕亮度（移动端手势调节；桌面端不支持，方法保留为空实现）
   bool get supportWindowFull => Platform.isWindows || Platform.isLinux || Platform.isMacOS;
   late final Future<void> initialization;
 
@@ -452,7 +438,6 @@ class VideoController with ChangeNotifier implements DanmakuSettingsBinding {
     this.allowFullScreen = true,
     this.onAudioOnlyChanged,
     BoxFit fitMode = BoxFit.contain,
-    Battery? battery,
     VolumeController? systemVolumeController,
     PlayerManager? playerManager,
     SettingsService? settingsService,
@@ -460,7 +445,6 @@ class VideoController with ChangeNotifier implements DanmakuSettingsBinding {
     LivePlayController? livePlayController,
     EpgProgrammeLoader? epgProgrammeLoader,
   }) : audioOnlyState = isAudioOnly.obs,
-       _battery = battery ?? Battery(),
        _injectedVolumeController = systemVolumeController,
        _playerManager = playerManager ?? GlobalPlayerService.instance.player,
        _settingsService = settingsService ?? SettingsService.to,
@@ -493,7 +477,6 @@ class VideoController with ChangeNotifier implements DanmakuSettingsBinding {
 
     initialization = initVideoController();
     unawaited(initialization);
-    initBattery();
   }
 
   // 播放器初始化
@@ -749,21 +732,6 @@ class VideoController with ChangeNotifier implements DanmakuSettingsBinding {
     ToastUtil.show(errorMessage);
   }
 
-  // 电池管理
-  void initBattery() {
-    if (!PlatformHelper.supportsBatteryMonitoring) return;
-
-    _battery.batteryLevel.then((value) {
-      if (!_isDisposed) batteryLevel.value = value;
-    });
-
-    final batterySub = _battery.onBatteryStateChanged.listen((BatteryState state) async {
-      final value = await _battery.batteryLevel;
-      if (!_isDisposed) batteryLevel.value = value;
-    });
-    _addSubscription(batterySub);
-  }
-
   // 音量管理
   void registerVolumeListener() {
     if (!_ownsVolume) return;
@@ -835,19 +803,10 @@ class VideoController with ChangeNotifier implements DanmakuSettingsBinding {
     }
   }
 
-  // 亮度管理
-  Future<double> brightness() async {
-    if (PlatformHelper.supportsBrightness) {
-      return await brightnessController!.application;
-    }
-    throw Exception('Brightness not supported on this platform');
-  }
+  // 亮度管理（仅移动端手势使用；桌面端为空实现）
+  Future<double> brightness() async => 1.0;
 
-  void setBrightness(double value) async {
-    if (PlatformHelper.supportsBrightness) {
-      await brightnessController!.setApplicationScreenBrightness(value);
-    }
-  }
+  void setBrightness(double value) {}
 
   // 控制器显示管理
   void enableController() {

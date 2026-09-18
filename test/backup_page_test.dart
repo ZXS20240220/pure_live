@@ -13,7 +13,6 @@ import 'package:pure_live/common/services/settings/log_controller.dart';
 import 'package:pure_live/common/services/settings_service.dart';
 import 'package:pure_live/common/utils/hive_pref_util.dart';
 import 'package:pure_live/get/get.dart';
-import 'package:pure_live/modules/auth/auth_controller.dart';
 import 'package:pure_live/modules/backup/backup_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -42,7 +41,6 @@ void main() {
     backup = Get.put<BackupController>(_BackupController()) as _BackupController;
     Get.put<SettingsService>(_SettingsService());
     Get.put<LogController>(LogController());
-    Get.put<AuthController>(_AuthController());
   });
 
   tearDown(() {
@@ -189,13 +187,6 @@ class _SettingsService extends SettingsService {
 
   @override
   // The page only needs the explicitly registered backup/log settings.
-  // ignore: must_call_super
-  void onInit() {}
-}
-
-class _AuthController extends AuthController {
-  @override
-  // Do not connect to a user's Firebase account from a widget fixture.
   // ignore: must_call_super
   void onInit() {}
 }

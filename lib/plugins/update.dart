@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/widgets/download_apk_dialog.dart';
 import 'package:pure_live/plugins/file_utils.dart';
@@ -7,18 +5,6 @@ import 'package:pure_live/plugins/file_utils.dart';
 Uri? updateDownloadUri(String rawUrl) {
   final uri = FileUtils.parseHttpUrl(rawUrl);
   return uri == null || uri.userInfo.isNotEmpty ? null : uri;
-}
-
-bool requiresInstallPackagesPermission({required bool isAndroid, required String fileName}) {
-  return isAndroid && fileName.toLowerCase().endsWith('.apk');
-}
-
-Future<bool> requestStorageInstallPermission() async {
-  if (await Permission.requestInstallPackages.isDenied) {
-    final status = Permission.requestInstallPackages.request();
-    return status.isGranted;
-  }
-  return true;
 }
 
 final List<String> mirrors = [
@@ -51,18 +37,6 @@ Future<void> downloadAndInstallApk(String apkUrl, {String? fileName}) async {
     return;
   }
   final resolvedFileName = safeDownloadFileName(uri.toString(), suggestedName: fileName);
-  if (requiresInstallPackagesPermission(isAndroid: Platform.isAndroid, fileName: resolvedFileName)) {
-    try {
-      final hasInstallPermission = await requestStorageInstallPermission();
-      if (!hasInstallPermission) {
-        ToastUtil.show(i18n("grant_install_permission"));
-        openAppSettings();
-        return;
-      }
-    } catch (e) {
-      ToastUtil.show('${i18n("request_install_permission_failed")}${e.toString()}');
-    }
-  }
   ToastUtil.show(
     fileName == null
         ? i18n('downloading_apk', args: {'version': VersionUtil.latestVersion})

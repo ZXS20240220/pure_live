@@ -48,18 +48,6 @@ class RoutePath {
   /// 捐赠
   static const kDonate = "/donate";
 
-  /// 我的
-  static const kMine = "/mine";
-
-  /// 登陆
-  static const kSignIn = "/sign_in";
-
-  /// 登陆
-  static const kUserManage = "/user_manage";
-
-  /// 登陆
-  static const kUpdatePassword = "/update_password";
-
   /// 弹幕过滤
 
   static const kSettingsDanmuShield = "/shield";

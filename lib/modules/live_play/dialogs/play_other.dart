@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/plugins/event_bus.dart';
 import 'package:pure_live/plugins/cache_manager.dart';
@@ -6,7 +7,6 @@ import 'package:pure_live/common/widgets/common_avatar.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:pure_live/modules/live_play/controllers/live_play_controller.dart';
 import 'package:pure_live/modules/live_play/widgets/content_first_panel_layout.dart';
-
 
 class PlayOther extends StatefulWidget {
   const PlayOther({required this.controller, super.key});
@@ -29,11 +29,7 @@ class _PlayOtherState extends State<PlayOther> with SingleTickerProviderStateMix
   void initState() {
     super.initState();
 
-    tabController = TabController(
-      length: 3,
-      vsync: this,
-      animationDuration: pureLiveTabTransitionDuration,
-    );
+    tabController = TabController(length: 3, vsync: this, animationDuration: pureLiveTabTransitionDuration);
 
     _updateRooms();
     subscription = EventBus.instance.listen('refresh_favorite_finish', (_) => _updateRooms());
@@ -44,9 +40,8 @@ class _PlayOtherState extends State<PlayOther> with SingleTickerProviderStateMix
 
     final liveList = allRooms.where((room) => room.isLiveNow && room.isRecord == false).toList()
       ..sort(_compareAudience);
-    final recordList =
-        allRooms.where((room) => room.effectiveLiveStatus == LiveStatus.replay).toList()
-          ..sort(_compareAudience);
+    final recordList = allRooms.where((room) => room.effectiveLiveStatus == LiveStatus.replay).toList()
+      ..sort(_compareAudience);
     onlineRooms.assignAll(liveList);
     recordingRooms.assignAll(recordList);
     historyRooms.assignAll(SettingsService.to.history.historyRooms.v);
@@ -74,10 +69,7 @@ class _PlayOtherState extends State<PlayOther> with SingleTickerProviderStateMix
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final layout = resolveContentFirstPanelLayout(
-      MediaQuery.sizeOf(context),
-      ContentFirstPanelKind.roomHistory,
-    );
+    final layout = resolveContentFirstPanelLayout(MediaQuery.sizeOf(context), ContentFirstPanelKind.roomHistory);
     return Dialog(
       key: const ValueKey('fullscreen-room-history-dialog'),
       alignment: Alignment.centerRight,
@@ -146,10 +138,7 @@ class _PlayOtherState extends State<PlayOther> with SingleTickerProviderStateMix
                 labelPadding: const EdgeInsets.symmetric(horizontal: 10),
                 tabs: [
                   _CompactTab(icon: Icons.sensors_rounded, label: i18n('online_room_title')),
-                  _CompactTab(
-                    icon: Icons.fiber_smart_record_rounded,
-                    label: i18n('recording_room_title'),
-                  ),
+                  _CompactTab(icon: Icons.fiber_smart_record_rounded, label: i18n('recording_room_title')),
                   _CompactTab(icon: Icons.history_rounded, label: i18n('watch_history')),
                 ],
               ),
@@ -177,10 +166,7 @@ class _PlayOtherState extends State<PlayOther> with SingleTickerProviderStateMix
                             left: 0,
                             right: 0,
                             top: 0,
-                            child: LinearProgressIndicator(
-                              minHeight: 2,
-                              backgroundColor: Colors.transparent,
-                            ),
+                            child: LinearProgressIndicator(minHeight: 2, backgroundColor: Colors.transparent),
                           )
                         : const SizedBox.shrink(),
                   ),
@@ -258,12 +244,7 @@ class _CompactTab extends StatelessWidget {
           children: [
             Icon(icon, size: 15),
             const SizedBox(width: 4),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelMedium,
-            ),
+            Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.labelMedium),
           ],
         ),
       ),
@@ -272,12 +253,7 @@ class _CompactTab extends StatelessWidget {
 }
 
 class _RoomSwitchCard extends StatelessWidget {
-  const _RoomSwitchCard({
-    required this.room,
-    required this.history,
-    required this.largeScreen,
-    required this.onTap,
-  });
+  const _RoomSwitchCard({required this.room, required this.history, required this.largeScreen, required this.onTap});
   final LiveRoom room;
   final bool history;
   final bool largeScreen;
@@ -351,10 +327,7 @@ class _RoomSwitchCard extends StatelessWidget {
                   title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    height: 1.15,
-                  ),
+                  style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700, height: 1.15),
                 ),
                 const SizedBox(height: 3),
                 Row(
@@ -366,10 +339,7 @@ class _RoomSwitchCard extends StatelessWidget {
                         nick.isEmpty ? i18n('unknown') : nick,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: colors.onSurfaceVariant,
-                          height: 1.1,
-                        ),
+                        style: theme.textTheme.labelSmall?.copyWith(color: colors.onSurfaceVariant, height: 1.1),
                       ),
                     ),
                     const SizedBox(width: 2),
@@ -384,13 +354,7 @@ class _RoomSwitchCard extends StatelessWidget {
     );
   }
 
-  Widget _buildMobileLayout(
-    BuildContext context,
-    String title,
-    String nick,
-    String meta,
-    String audience,
-  ) {
+  Widget _buildMobileLayout(BuildContext context, String title, String nick, String meta, String audience) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     return Padding(
@@ -426,8 +390,7 @@ class _RoomSwitchCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               context.buildPlatformTag(room.platform!, mini: true),
-              if (!history)
-                Text(meta, style: TextStyle(fontSize: 12, color: Colors.orange.shade700)),
+              if (!history) Text(meta, style: TextStyle(fontSize: 12, color: Colors.orange.shade700)),
             ],
           ),
         ],
@@ -452,11 +415,7 @@ class _RoomSwitchCover extends StatelessWidget {
         if (url.isEmpty)
           ColoredBox(
             color: colors.surfaceContainerHighest,
-            child: Icon(
-              Icons.live_tv_rounded,
-              size: 34,
-              color: colors.onSurfaceVariant.withValues(alpha: .35),
-            ),
+            child: Icon(Icons.live_tv_rounded, size: 34, color: colors.onSurfaceVariant.withValues(alpha: .35)),
           )
         else
           LayoutBuilder(
@@ -478,19 +437,13 @@ class _RoomSwitchCover extends StatelessWidget {
                 placeholder: (_, _) {
                   return ColoredBox(
                     color: colors.surfaceContainerHighest,
-                    child: Icon(
-                      Icons.live_tv_rounded,
-                      color: colors.onSurfaceVariant.withValues(alpha: .25),
-                    ),
+                    child: Icon(Icons.live_tv_rounded, color: colors.onSurfaceVariant.withValues(alpha: .25)),
                   );
                 },
                 errorWidget: (_, _, _) {
                   return ColoredBox(
                     color: colors.surfaceContainerHighest,
-                    child: Icon(
-                      Icons.broken_image_outlined,
-                      color: colors.onSurfaceVariant.withValues(alpha: .35),
-                    ),
+                    child: Icon(Icons.broken_image_outlined, color: colors.onSurfaceVariant.withValues(alpha: .35)),
                   );
                 },
               );

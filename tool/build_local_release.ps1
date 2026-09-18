@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('AndroidArm64', 'WindowsX64')]
+    [ValidateSet('WindowsX64')]
     [string] $Target,
     [Parameter(Mandatory = $true)]
     [ValidateSet('Debug', 'Release')]
@@ -9,8 +9,6 @@ param(
     [switch] $FullRegression,
     [switch] $SkipQuality,
     [switch] $SkipInstaller,
-    [switch] $UseOfficialRepositories,
-    [switch] $RequireReleaseSigning,
     [switch] $DedicatedBuild
 )
 
@@ -22,11 +20,7 @@ $flutterw = Join-Path $PSScriptRoot 'flutterw.ps1'
 if ($FullRegression.IsPresent -eq $SkipQuality.IsPresent) {
     throw 'Choose exactly one quality mode: -FullRegression or -SkipQuality.'
 }
-if ($RequireReleaseSigning -and ($Target -ne 'AndroidArm64' -or $Configuration -ne 'Release')) {
-    throw '-RequireReleaseSigning applies only to AndroidArm64 Release.'
-}
 
-$gradleWorkers = if ($DedicatedBuild) { 20 } else { 16 }
 $configurationLower = $Configuration.ToLowerInvariant()
 $configurationDirectory = if ($Configuration -eq 'Release') { 'Release' } else { 'Debug' }
 $versionLine = Select-String -Path (Join-Path $repoRoot 'pubspec.yaml') -Pattern '^version:\s*(\S+)' | Select-Object -First 1
@@ -53,9 +47,6 @@ $output = Join-Path $repoRoot "local-artifacts\$artifactVersion"
 $recordDirectory = Join-Path $repoRoot 'local-artifacts\build-records'
 New-Item -ItemType Directory -Force -Path $output, $recordDirectory | Out-Null
 
-$temporaryGradleInit = $null
-$previousGradleOpts = [Environment]::GetEnvironmentVariable('GRADLE_OPTS', 'Process')
-$previousMirrorSetting = [Environment]::GetEnvironmentVariable('PURE_LIVE_USE_CN_MIRRORS', 'Process')
 $lease = $null
 $monitor = $null
 $resourceSummary = $null
@@ -68,12 +59,7 @@ $artifactPaths = @()
 $packageMetadata = $null
 $commandLog = Join-Path $recordDirectory "$([DateTime]::UtcNow.ToString('yyyyMMddTHHmmssfffZ'))-$($Target.ToLowerInvariant())-$configurationLower.log"
 Set-Content -LiteralPath $commandLog -Value '' -Encoding utf8
-$incrementalStateBefore = if ($Target -eq 'AndroidArm64') {
-    (Test-Path -LiteralPath (Join-Path $repoRoot 'build\app')) -or
-        (Test-Path -LiteralPath (Join-Path $repoRoot 'android\.gradle'))
-} else {
-    Test-Path -LiteralPath (Join-Path $repoRoot 'build\windows\x64')
-}
+$incrementalStateBefore = Test-Path -LiteralPath (Join-Path $repoRoot 'build\windows\x64')
 
 function Assert-PureLiveCommandSucceeded {
     param(
@@ -112,119 +98,22 @@ function Invoke-PureLiveLoggedFlutter {
     return $exitCode
 }
 
-function Test-AndroidReleaseSigning {
-    $propertiesPath = Join-Path $repoRoot 'android\key.properties'
-    if (-not (Test-Path -LiteralPath $propertiesPath)) { return $false }
-
-    $properties = @{}
-    foreach ($line in Get-Content -LiteralPath $propertiesPath) {
-        if ($line -match '^\s*([^#!][^=]*?)\s*=\s*(.*)\s*$') {
-            $properties[$Matches[1].Trim()] = $Matches[2].Trim()
-        }
-    }
-    foreach ($key in @('storeFile', 'storePassword', 'keyPassword', 'keyAlias')) {
-        if ([string]::IsNullOrWhiteSpace($properties[$key])) { return $false }
-    }
-
-    $storeFile = $properties['storeFile']
-    if (-not [IO.Path]::IsPathRooted($storeFile)) {
-        $storeFile = Join-Path (Join-Path $repoRoot 'android\app') $storeFile
-    }
-    return Test-Path -LiteralPath $storeFile -PathType Leaf
-}
-
-$hasReleaseSigning = Test-AndroidReleaseSigning
-if ($RequireReleaseSigning -and -not $hasReleaseSigning) {
-    throw 'Android release signing was required, but android/key.properties is missing or incomplete.'
-}
-
 Push-Location $repoRoot
 try {
     if ($FullRegression) {
         & (Join-Path $PSScriptRoot 'local_ci.ps1') -Scope Full -TestConcurrency 12
     }
 
-    if (-not $UseOfficialRepositories -and $Target -eq 'AndroidArm64') {
-        $env:PURE_LIVE_USE_CN_MIRRORS = '1'
-        $initScript = Join-Path $PSScriptRoot 'gradle-cn-mirrors.init.gradle'
-        $gradleInitDirectory = Join-Path $env:USERPROFILE '.gradle\init.d'
-        New-Item -ItemType Directory -Force -Path $gradleInitDirectory | Out-Null
-        # A stable init-script path lets Gradle reuse configuration-cache entries.
-        # The heavy-task mutex guarantees one local build owns it at a time.
-        $temporaryGradleInit = Join-Path $gradleInitDirectory 'pure-live-cn-mirrors.gradle'
-        Copy-Item -LiteralPath $initScript -Destination $temporaryGradleInit -Force
-    }
-
     $taskName = "build-$($Target.ToLowerInvariant())-$configurationLower"
     $lease = Enter-PureLiveHeavyTaskSlot -TaskName $taskName
     $monitor = Start-PureLiveResourceMonitor
 
-    if ($Target -eq 'AndroidArm64') {
-        & (Join-Path $PSScriptRoot 'normalize_flutter_generated_paths.ps1')
-        $packageConfig = Join-Path $repoRoot '.dart_tool\package_config.json'
-        if (-not (Test-Path -LiteralPath $packageConfig -PathType Leaf)) {
-            throw 'Android packaging requires the lock-resolved package config from the preceding quality/dependency stage.'
-        }
-        # Keep daemon, parallel execution, both Gradle caches and VFS watching.
-        # The default interactive profile leaves eight logical processors free;
-        # an explicitly dedicated build leaves four free.
-        $baseGradleOpts = @($previousGradleOpts -split '\s+') | Where-Object {
-            $_ -and $_ -notmatch '^-Dorg\.gradle\.(daemon|parallel|caching|configuration-cache|vfs\.watch|workers\.max)='
-        }
-        $resourceGradleOpts = @(
-            '-Dorg.gradle.daemon=true',
-            '-Dorg.gradle.parallel=true',
-            '-Dorg.gradle.caching=true',
-            '-Dorg.gradle.configuration-cache=true',
-            '-Dorg.gradle.vfs.watch=true',
-            "-Dorg.gradle.workers.max=$gradleWorkers"
-        )
-        $env:GRADLE_OPTS = (@($baseGradleOpts) + $resourceGradleOpts) -join ' '
-        if ($RequireReleaseSigning) {
-            $env:GRADLE_OPTS = "$env:GRADLE_OPTS -Dorg.gradle.project.pureLiveRequireReleaseSigning=true"
-        }
+    $pubGetExitCode = Invoke-PureLiveLoggedFlutter `
+        -Arguments @('pub', 'get', '--enforce-lockfile') `
+        -LogPath $commandLog
+    Assert-PureLiveCommandSucceeded 'Windows locked dependency resolution' -ExitCode $pubGetExitCode
 
-        & (Join-Path $PSScriptRoot 'prefetch_android_native.ps1')
-
-        $androidArgs = @(
-            'build', 'apk', "--$configurationLower", '--split-per-abi',
-            '--target-platform', 'android-arm64',
-            "--build-name=$displayVersion", "--build-number=$buildNumber",
-            '--no-pub',
-            '--dart-define=PURELIVE_BUILD_SOURCE=local'
-        )
-        $buildExitCode = Invoke-PureLiveLoggedFlutter -Arguments $androidArgs -LogPath $commandLog
-        Assert-PureLiveCommandSucceeded 'Android arm64 build' -ExitCode $buildExitCode
-
-        $apkSource = Join-Path $repoRoot "build\app\outputs\flutter-apk\app-arm64-v8a-$configurationLower.apk"
-        if (-not (Test-Path -LiteralPath $apkSource -PathType Leaf)) {
-            throw "Expected Android artifact was not produced: $apkSource"
-        }
-        $packageMetadata = & (Join-Path $PSScriptRoot 'verify_android_apk.ps1') `
-            -ApkPath $apkSource `
-            -ExpectedAbi 'arm64-v8a' `
-            -BuildMode $Configuration `
-            -ExpectedVersionName $displayVersion `
-            -ExpectedBaseVersionCode $buildNumber `
-            -ExpectedAbiVersionOffset 2000
-        $artifactName = if ($Configuration -eq 'Debug') {
-            "PureLive-$artifactVersion-android-arm64-v8a-debug.apk"
-        } elseif ($hasReleaseSigning) {
-            "PureLive-$artifactVersion-android-arm64-v8a-release.apk"
-        } else {
-            "PureLive-$artifactVersion-debug-signed-android-arm64-v8a-release.apk"
-        }
-        $artifactPath = Join-Path $output $artifactName
-        Copy-Item -LiteralPath $apkSource -Destination $artifactPath -Force
-        $artifactPaths += [IO.Path]::GetFullPath($artifactPath)
-    } else {
-        $pubGetExitCode = Invoke-PureLiveLoggedFlutter `
-            -Arguments @('pub', 'get', '--enforce-lockfile') `
-            -LogPath $commandLog
-        Assert-PureLiveCommandSucceeded 'Windows locked dependency resolution' -ExitCode $pubGetExitCode
-        & (Join-Path $PSScriptRoot 'prefetch_windows_native.ps1')
-
-        $windowsArgs = @(
+    $windowsArgs = @(
             'build', 'windows', "--$configurationLower",
             "--build-name=$displayVersion", "--build-number=$buildNumber",
             # The locked pub stage above has already generated the Windows
@@ -393,7 +282,6 @@ try {
                 Write-Warning 'Inno Setup 6 was not found; the portable ZIP was created.'
             }
         }
-    }
     $status = 'succeeded'
 } catch {
     $failureMessage = $_.Exception.Message
@@ -411,15 +299,9 @@ try {
 
     $logText = if (Test-Path -LiteralPath $commandLog) { Get-Content -LiteralPath $commandLog -Raw } else { '' }
     $cacheSummary = [ordered]@{
-        gradle_daemon = if ($Target -eq 'AndroidArm64') { 'enabled' } else { 'not-applicable' }
-        gradle_parallel = if ($Target -eq 'AndroidArm64') { 'enabled' } else { 'not-applicable' }
-        gradle_build_cache = if ($Target -eq 'AndroidArm64') { 'enabled' } else { 'not-applicable' }
-        configuration_cache = if ($Target -eq 'AndroidArm64') { 'enabled' } else { 'not-applicable' }
-        vfs_watch = if ($Target -eq 'AndroidArm64') { 'enabled' } else { 'not-applicable' }
         incremental_state_present_before = $incrementalStateBefore
         from_cache_observations = ([regex]::Matches($logText, '(?im)\bFROM-CACHE\b')).Count
         up_to_date_observations = ([regex]::Matches($logText, '(?im)\bUP-TO-DATE\b')).Count
-        configuration_cache_reused = [bool]($logText -match '(?im)configuration cache (entry )?reused|reusing configuration cache')
         command_log = [IO.Path]::GetFullPath($commandLog)
     }
     $sourceCommit = (git rev-parse HEAD).Trim()
@@ -436,7 +318,6 @@ try {
         failure = $failureMessage
         target = $Target
         configuration = $Configuration
-        gradle_workers = if ($Target -eq 'AndroidArm64') { $gradleWorkers } else { $null }
         quality = if ($FullRegression) { 'full-in-this-invocation' } else { 'external-focused-or-existing-evidence' }
         cache = $cacheSummary
         peak_resources = $resourceSummary
@@ -449,26 +330,17 @@ try {
 
     if ($status -eq 'succeeded') {
         $trackedDirty = [bool](git status --porcelain --untracked-files=no)
-        $androidSigning = if ($Target -ne 'AndroidArm64') {
-            'not-built'
-        } elseif ($Configuration -eq 'Debug' -or -not $hasReleaseSigning) {
-            'debug'
-        } else {
-            'release'
-        }
         $setupExecutable = Get-ChildItem $output -File -Filter '*windows-x64-setup.exe' | Select-Object -First 1
         $windowsPortable = Get-ChildItem $output -File -Filter '*windows-x64-*.zip' | Select-Object -First 1
-        $windowsSigning = if ($Target -ne 'WindowsX64') {
-            'not-built'
-        } elseif ($setupExecutable -and (Get-AuthenticodeSignature -LiteralPath $setupExecutable.FullName).Status -eq 'Valid') {
+        $windowsSigning = if ($setupExecutable -and (Get-AuthenticodeSignature -LiteralPath $setupExecutable.FullName).Status -eq 'Valid') {
             'authenticode'
         } elseif ($setupExecutable -or $windowsPortable) {
             'unsigned'
         } else {
             'not-built'
         }
-        $metadataName = if ($Target -eq 'WindowsX64') { 'WINDOWS_BUILD_METADATA.json' } else { 'BUILD_METADATA.json' }
-        $checksumName = if ($Target -eq 'WindowsX64') { 'WINDOWS_SHA256SUMS.txt' } else { 'SHA256SUMS.txt' }
+        $metadataName = 'WINDOWS_BUILD_METADATA.json'
+        $checksumName = 'WINDOWS_SHA256SUMS.txt'
         $metadataPath = Join-Path $output $metadataName
         [ordered]@{
             version = $fullVersion
@@ -478,10 +350,7 @@ try {
             tracked_files_dirty = $trackedDirty
             requested_target = $Target
             configuration = $Configuration
-            android_package = if ($Target -eq 'AndroidArm64') { 'com.mystyle.purelive' } else { $null }
-            android_signing = $androidSigning
             windows_signing = $windowsSigning
-            gradle_workers = if ($Target -eq 'AndroidArm64') { $gradleWorkers } else { $null }
             cache = $cacheSummary
             resource_record = [IO.Path]::GetFullPath($recordPath)
             build_source = 'local'
@@ -499,12 +368,5 @@ try {
     }
     Write-Host "Build record: $recordPath"
 
-    if ($temporaryGradleInit -and (Test-Path -LiteralPath $temporaryGradleInit)) {
-        Remove-Item -LiteralPath $temporaryGradleInit -Force
-    }
-    if ($null -eq $previousGradleOpts) { Remove-Item Env:GRADLE_OPTS -ErrorAction SilentlyContinue }
-    else { $env:GRADLE_OPTS = $previousGradleOpts }
-    if ($null -eq $previousMirrorSetting) { Remove-Item Env:PURE_LIVE_USE_CN_MIRRORS -ErrorAction SilentlyContinue }
-    else { $env:PURE_LIVE_USE_CN_MIRRORS = $previousMirrorSetting }
     Pop-Location
 }

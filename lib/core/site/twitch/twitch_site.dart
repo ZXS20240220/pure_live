@@ -5,7 +5,6 @@ import 'package:pure_live/common/index.dart';
 import 'package:pure_live/model/live_category.dart';
 import 'package:pure_live/core/common/core_log.dart';
 import 'package:pure_live/model/live_anchor_item.dart';
-import 'package:pure_live/core/common/android_native_http.dart';
 import 'package:pure_live/core/common/http_client.dart';
 import 'package:pure_live/model/live_play_quality.dart';
 import 'package:pure_live/core/interface/live_site.dart';
@@ -26,15 +25,12 @@ class TwitchSite implements LiveSite, LiveSiteRoomRefresher, LiveSiteRecordRoomR
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36";
   static const gplApiUrl = "https://gql.twitch.tv/gql";
 
-  static const integrityApiUrl = "https://gql.twitch.tv/integrity";
-
   static const baseUrl = "https://www.twitch.tv";
 
   Map<String, String> cursorMap = {};
   late final String _deviceId = generateDeviceId();
   String? _integrityToken;
   DateTime? _integrityExpiresAt;
-  Future<void>? _integrityRefresh;
   bool _bypassStoredSessionForIntegrity = false;
 
   Map<String, String> headers = {
@@ -120,24 +116,7 @@ class TwitchSite implements LiveSite, LiveSiteRoomRefresher, LiveSiteRecordRoomR
     }
 
     // Some Android proxy paths accept CONNECT and then reset dart:io's TLS
-    // socket. Retry the exact request through Android's platform TLS stack
-    // before involving Chromium/KPSDK. The native channel is host-allowlisted
-    // to gql.twitch.tv and is intentionally unavailable on other platforms.
-    if (AndroidNativeHttp.isSupported) {
-      try {
-        response = await _postAndroidSystemGql(liveGpl);
-        if (!hasIntegrityError(response)) return response;
-
-        _invalidateIntegrityToken();
-        await _ensureIntegrityToken();
-        response = await _postAndroidSystemGql(liveGpl);
-        if (!hasIntegrityError(response)) return response;
-      } catch (error, stackTrace) {
-        nativeError = error;
-        nativeStackTrace = stackTrace;
-        CoreLog.e('Twitch Android-system GraphQL transport failed: $error', stackTrace);
-      }
-    }
+    // socket. On desktop the retry path goes straight to Chromium/KPSDK.
 
     if (headers.containsKey('Cookie') || headers.containsKey('Authorization')) {
       // Preserve the saved account setting, but do not let a stale account
@@ -152,20 +131,6 @@ class TwitchSite implements LiveSite, LiveSiteRoomRefresher, LiveSiteRecordRoomR
       } catch (error, stackTrace) {
         nativeError = error;
         nativeStackTrace = stackTrace;
-      }
-      if (AndroidNativeHttp.isSupported) {
-        try {
-          response = await _postAndroidSystemGql(liveGpl);
-          if (!hasIntegrityError(response)) return response;
-
-          _invalidateIntegrityToken();
-          await _ensureIntegrityToken();
-          response = await _postAndroidSystemGql(liveGpl);
-          if (!hasIntegrityError(response)) return response;
-        } catch (error, stackTrace) {
-          nativeError = error;
-          nativeStackTrace = stackTrace;
-        }
       }
       CoreLog.w('Twitch stored session failed validation; public requests switched to an anonymous session');
     }
@@ -219,17 +184,6 @@ class TwitchSite implements LiveSite, LiveSiteRoomRefresher, LiveSiteRecordRoomR
     return HttpClient.instance.postJson(gplApiUrl, header: requestHeaders, data: liveGpl);
   }
 
-  Future<dynamic> _postAndroidSystemGql(String liveGpl) {
-    final proxy = SettingsService.to.proxy;
-    return AndroidNativeHttp.postTwitchJson(
-      url: gplApiUrl,
-      headers: _gqlRequestHeaders(),
-      body: liveGpl,
-      proxyHost: proxy.enableAppProxy.v ? proxy.appProxyHost.v : null,
-      proxyPort: proxy.enableAppProxy.v ? proxy.appProxyPort.v : null,
-    );
-  }
-
   Map<String, String> _gqlRequestHeaders() {
     final requestHeaders = Map<String, String>.from(headers);
     final token = _integrityToken;
@@ -237,67 +191,6 @@ class TwitchSite implements LiveSite, LiveSiteRoomRefresher, LiveSiteRecordRoomR
       requestHeaders['Client-Integrity'] = token;
     }
     return requestHeaders;
-  }
-
-  Future<void> _ensureIntegrityToken() async {
-    final token = _integrityToken;
-    final expiry = _integrityExpiresAt;
-    final now = DateTime.now();
-    if (token != null && token.isNotEmpty && expiry != null && expiry.isAfter(now.add(const Duration(minutes: 5)))) {
-      return;
-    }
-
-    final inFlight = _integrityRefresh;
-    if (inFlight != null) {
-      await inFlight;
-      return;
-    }
-
-    final refresh = _refreshIntegrityToken();
-    _integrityRefresh = refresh;
-    try {
-      await refresh;
-    } finally {
-      if (identical(_integrityRefresh, refresh)) {
-        _integrityRefresh = null;
-      }
-    }
-  }
-
-  Future<void> _refreshIntegrityToken() async {
-    if (TwitchWebIntegrityProvider.isSupported) {
-      final proxy = SettingsService.to.proxy;
-      try {
-        final browserToken = await TwitchWebIntegrityProvider.acquire(
-          clientId: headers['Client-ID']!,
-          deviceId: _deviceId,
-          userAgent: headers['User-Agent']!,
-          proxyHost: proxy.enableAppProxy.v ? proxy.appProxyHost.v : null,
-          proxyPort: proxy.enableAppProxy.v ? proxy.appProxyPort.v : null,
-        );
-        if (browserToken != null) {
-          _applyBrowserIntegrityToken(browserToken);
-          return;
-        }
-      } catch (error, stackTrace) {
-        CoreLog.e('Twitch Chromium integrity acquisition failed: $error', stackTrace);
-      }
-    }
-
-    final integrityHeaders = buildIntegrityHeaders(headers, _deviceId);
-    final response = await HttpClient.instance.postJson(integrityApiUrl, header: integrityHeaders);
-    final data = _stringMap(response);
-    final token = data?['token']?.toString().trim() ?? '';
-    final expiration = normalizeIntegrityExpirationMilliseconds(data?['expiration']);
-    if (token.isEmpty || expiration == null) {
-      throw StateError('Twitch integrity endpoint returned an incomplete token');
-    }
-    final expiresAt = DateTime.fromMillisecondsSinceEpoch(expiration);
-    if (!expiresAt.isAfter(DateTime.now())) {
-      throw StateError('Twitch integrity endpoint returned an expired token');
-    }
-    _integrityToken = token;
-    _integrityExpiresAt = expiresAt;
   }
 
   String? get _usableIntegrityToken {

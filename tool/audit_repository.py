@@ -95,10 +95,7 @@ def category(path: str) -> str:
         ("platform_interfaces", ("lib/core/",)),
         ("persisted_settings", ("lib/common/services/settings/",)),
         ("navigation", ("lib/routes/", "lib/get/")),
-        ("native_android", ("android/",)),
         ("native_windows", ("windows/",)),
-        ("native_apple", ("ios/", "macos/")),
-        ("native_linux", ("linux/",)),
         ("release_build", (".github/", "tool/",)),
         ("dependencies", ("pubspec.yaml", "pubspec.lock", "plugins/", "third_party/")),
         ("tests", ("test/",)),
@@ -254,12 +251,6 @@ def main() -> int:
                 "line": line_number(pubspec, match.start()),
                 "reference": reference,
             })
-
-    manifest_path = ROOT / "android/app/src/main/AndroidManifest.xml"
-    manifest = manifest_path.read_text(encoding="utf-8")
-    callback_values = re.findall(r'android:enableOnBackInvokedCallback="([^"]+)"', manifest)
-    if not callback_values or any(value != "true" for value in callback_values):
-        errors.append({"rule": "predictive_back_disabled", "path": relative(manifest_path)})
 
     back_scope = ROOT / "lib/modules/live_play/widgets/layout/live_play_back_scope.dart"
     live_page = ROOT / "lib/modules/live_play/pages/live_play_page.dart"

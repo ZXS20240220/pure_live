@@ -24,7 +24,7 @@ class RepositorySecretAuditTest(unittest.TestCase):
 
     def test_same_public_key_outside_the_exact_path_is_rejected(self):
         data = (ROOT / FIXTURE).read_bytes()
-        for path in ("android/key.pem", "test/fixtures/tls/other-key.pem", "test/another/key.pem"):
+        for path in ("test/fixtures/tls/other-key.pem", "test/another/key.pem"):
             with self.subTest(path=path):
                 errors, notes = self.scan(path, data)
                 self.assertEqual(errors[0]["rule"], "private_key")

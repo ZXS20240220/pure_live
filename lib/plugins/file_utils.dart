@@ -5,7 +5,6 @@ import 'package:path/path.dart' as p;
 import 'package:open_filex/open_filex.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:android_intent_plus/android_intent.dart';
 
 class FileUtils {
   static const String systemHotProviderId = "88888";
@@ -56,14 +55,8 @@ class FileUtils {
     return RegExp(r"^\d+$").hasMatch(value);
   }
 
-  /// 请求外部存储管理权限
+  /// 请求外部存储管理权限（仅移动端需要；桌面端直接放行）
   static Future<bool> requestStoragePermission() async {
-    if (Platform.isAndroid || Platform.isIOS) {
-      if (await Permission.manageExternalStorage.isDenied) {
-        final status = await Permission.manageExternalStorage.request();
-        return status.isGranted;
-      }
-    }
     return true;
   }
 
@@ -144,34 +137,17 @@ class FileUtils {
       } catch (_) {}
     }
 
-    if (Platform.isAndroid && isDir) {
-      try {
-        final String folderPath = trimmedPath.replaceFirst('/storage/emulated/0/', '');
-        final String docId = 'primary:${Uri.encodeComponent(folderPath)}';
-        final String contentUri = 'content://com.android.externalstorage.documents/document/$docId';
-        final AndroidIntent intent = AndroidIntent(
-          action: 'android.intent.action.VIEW',
-          data: contentUri,
-          type: 'vnd.android.document/directory',
-        );
-        await intent.launch();
-        return true;
-      } catch (_) {}
-    }
-
     try {
       final result = await OpenFilex.open(trimmedPath);
       return result.type == ResultType.done;
     } catch (_) {
-      if (!Platform.isAndroid) {
-        try {
-          final String cleanPath = trimmedPath.startsWith('file://') ? trimmedPath : 'file://$trimmedPath';
-          final Uri fileUri = Uri.parse(cleanPath);
-          if (await canLaunchUrl(fileUri)) {
-            return await launchUrl(fileUri);
-          }
-        } catch (_) {}
-      }
+      try {
+        final String cleanPath = trimmedPath.startsWith('file://') ? trimmedPath : 'file://$trimmedPath';
+        final Uri fileUri = Uri.parse(cleanPath);
+        if (await canLaunchUrl(fileUri)) {
+          return await launchUrl(fileUri);
+        }
+      } catch (_) {}
     }
 
     return false;

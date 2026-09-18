@@ -48,10 +48,6 @@ dependencies:
   connectivity_plus: ^7.3.1 # 网络连接状态监听
   webdav_client: ^1.2.2 # WebDAV文件存储客户端
 
-  firebase_core: ^4.10.0
-  firebase_auth: ^6.5.2
-  cloud_firestore: ^6.5.0
-
   win32_registry: ^3.0.3
   best_form_validator: ^1.4.0
   flutter_spinkit: ^5.2.2
@@ -119,17 +115,10 @@ dependencies:
       path: ./packages/screen_retriever
       ref: b246b3963738d6cc159c921764c194c73dbdf2ad
   win32: ^6.3.0 # Windows系统API
-  android_intent_plus: ^6.0.0
 
   # -------------------------- 设备/系统权限/硬件 --------------------------
-  # Brightness gestures are mobile-only. Depend on the mobile implementations
-  # directly so desktop builds never register a physical-monitor DDC/CI plugin.
-  screen_brightness_platform_interface: ^2.1.2
-  screen_brightness_android: ^2.1.6
-  screen_brightness_ios: ^2.1.4
   volume_controller: ^3.4.4 # 音量控制
   wakelock_plus: ^1.4.0 # 保持屏幕常亮
-  battery_plus: ^7.0.0 # 电池状态获取
   permission_handler: ^13.0.1 # 权限管理
   device_info_plus: ^13.1.0 # 设备信息
 
@@ -195,7 +184,6 @@ dependencies:
   flutter_floating: ^2.0.1 # 悬浮窗
   qr_flutter: ^4.1.0 # 二维码生成
   easy_localization: ^3.0.8 #多语言
-  app_links: ^7.2.1
   scroll_animator: 0.3.0
 
 # 依赖覆盖（强制指定版本）

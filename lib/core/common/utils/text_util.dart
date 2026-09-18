@@ -2,7 +2,7 @@ import 'package:pure_live/core/common/core_log.dart';
 
 String readableCount(String info) {
   info = info.trim();
-  if(info == "") {
+  if (info == "") {
     return "0";
   }
   try {
@@ -16,7 +16,6 @@ String readableCount(String info) {
   }
   return info;
 }
-
 
 /// 统计人数 字符串转 int
 int readableCountStrToNum(String? str) {

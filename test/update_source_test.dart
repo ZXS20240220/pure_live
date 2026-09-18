@@ -42,10 +42,4 @@ void main() {
     }
     expect(getMirrorUrls('release.apk'), isEmpty);
   });
-
-  test('Android install permission is requested only for APK files', () {
-    expect(requiresInstallPackagesPermission(isAndroid: true, fileName: 'PureLive.apk'), isTrue);
-    expect(requiresInstallPackagesPermission(isAndroid: true, fileName: 'PureLive.ZIP'), isFalse);
-    expect(requiresInstallPackagesPermission(isAndroid: false, fileName: 'PureLive.apk'), isFalse);
-  });
 }

@@ -2,16 +2,14 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Flutter Run MacOS (VMware Forced)",
+            "name": "pure_live (Windows)",
             "request": "launch",
             "type": "dart",
-            "toolArgs": [
-                "-v",
-            ],
+            "program": "lib/main.dart",
             "args": [
-                "--android-skip-build-dependency-validation"
+                "-d",
+                "windows"
             ]
-            // Set proxy variables in your local VS Code user settings when needed.
         }
     ]
 }

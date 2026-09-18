@@ -64,17 +64,6 @@ try {
 
     & (Join-Path $PSScriptRoot 'validate_build_policy.ps1')
     & (Join-Path $PSScriptRoot 'test_subst_path.ps1')
-    & (Join-Path $PSScriptRoot 'test_android_recording_platforms.ps1')
-    & (Join-Path $PSScriptRoot 'test_android_recording_guard.ps1')
-    & (Join-Path $PSScriptRoot 'test_android_proxy_session.ps1')
-    & (Join-Path $PSScriptRoot 'test_android_activity_state.ps1')
-    & (Join-Path $PSScriptRoot 'test_android_surfaceflinger_timestats.ps1')
-    & (Join-Path $PSScriptRoot 'test_android_process_resource_metrics.ps1')
-    & (Join-Path $PSScriptRoot 'test_android_room_tag_assignment_smoke.ps1')
-    & (Join-Path $PSScriptRoot 'test_android_share_intake_smoke.ps1')
-
-    python (Join-Path $PSScriptRoot 'validate_device_ui_map.py')
-    Assert-PureLiveCommandSucceeded 'Device UI map validation'
 
     if ($SkipPubGet) {
         $packageConfig = Join-Path $repoRoot '.dart_tool\package_config.json'
@@ -110,8 +99,9 @@ try {
     python (Join-Path $PSScriptRoot 'audit_repository.py') --output $repositoryAuditPath
     Assert-PureLiveCommandSucceeded 'Whole repository integrity audit'
 
-    # Native Assets hooks share the persistent verified Windows cache. Android
-    # media stays cold until an explicitly targeted Android build.
+    # Native Assets hooks share the persistent verified Windows cache. The
+    # -SkipAndroidMedia switch keeps this call Windows-only: it prepares the
+    # verified FFmpeg builders ZIP consumed by the Windows native-assets hook.
     & (Join-Path $PSScriptRoot 'prefetch_android_native.ps1') -SkipAndroidMedia
     Assert-PureLiveCommandSucceeded 'Native dependency prefetch'
 

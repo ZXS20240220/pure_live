@@ -1,10 +1,8 @@
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/modules/home/home_page.dart';
-import 'package:pure_live/modules/auth/mine_page.dart';
 import 'package:pure_live/modules/iptv/iptv_page.dart';
 import 'package:pure_live/modules/about/about_page.dart';
 import 'package:pure_live/modules/areas/areas_page.dart';
-import 'package:pure_live/modules/auth/sign_in_page.dart';
 import 'package:pure_live/modules/search/search_page.dart';
 import 'package:pure_live/modules/backup/backup_page.dart';
 import 'package:pure_live/modules/splash/splash_screen.dart';
@@ -15,7 +13,6 @@ import 'package:pure_live/modules/account/account_bing.dart';
 import 'package:pure_live/modules/account/account_page.dart';
 import 'package:pure_live/modules/popular/popular_page.dart';
 import 'package:pure_live/modules/history/history_page.dart';
-import 'package:pure_live/modules/auth/user_manage_page.dart';
 import 'package:pure_live/modules/about/version_history.dart';
 import 'package:pure_live/modules/search/search_binding.dart';
 import 'package:pure_live/modules/search/web_search_page.dart';
@@ -62,8 +59,6 @@ import 'package:pure_live/modules/backup/remote_receiver/remote_sync_binding.dar
 import 'package:pure_live/recorder/pages/record_settings/record_settings_page.dart';
 import 'package:pure_live/recorder/pages/record_settings/record_settings_binding.dart';
 
-// auth
-
 class AppPages {
   AppPages._();
 
@@ -73,9 +68,6 @@ class AppPages {
 
   static final routes = [
     GetPage(name: RoutePath.kInitial, page: HomePage.new, participatesInRootNavigator: true, preventDuplicates: true),
-    GetPage(name: RoutePath.kSignIn, page: _smoothPage(SignInPage.new)),
-    GetPage(name: RoutePath.kMine, page: _smoothPage(MinePage.new)),
-    GetPage(name: RoutePath.kUserManage, page: _smoothPage(UserManager.new)),
     GetPage(name: RoutePath.kFavorite, page: _smoothPage(FavoritePage.new)),
     GetPage(name: RoutePath.kPopular, page: _smoothPage(PopularPage.new)),
     GetPage(name: RoutePath.kAreas, page: _smoothPage(AreasPage.new)),
@@ -241,7 +233,7 @@ class AppPages {
       page: _smoothPage(() => const TagManagementPage()),
       bindings: [TagManagementBinding()],
     ),
-     GetPage(
+    GetPage(
       name: RoutePath.kRemoteSync,
       page: _smoothPage(() => const RemoteSyncPage()),
       bindings: [RemoteSyncBinding()],

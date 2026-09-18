@@ -8,7 +8,6 @@ import 'package:pure_live/core/iptv/local/database.dart';
 import 'package:pure_live/core/iptv/local/epg_channel_identity.dart';
 import 'package:pure_live/common/services/settings/iptv_settings_controller.dart';
 
-import 'package:battery_plus/battery_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pure_live/common/models/app_refresh_rate_mode.dart';
@@ -970,7 +969,6 @@ VideoController _controller({
     isAudioOnly: false,
     reuseCurrentSession: reuseCurrentSession,
     onSourceCommitted: onSourceCommitted,
-    battery: _FakeBattery(),
     systemVolumeController: systemVolumeController,
     playerManager: manager,
     settingsService: SettingsService.to,
@@ -1206,11 +1204,6 @@ class _TestVolumeSettings implements VolumeSettingsController {
   final globalVolumeMute = false.obs;
   @override
   Map<String, double> roomVolumes = <String, double>{};
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-class _FakeBattery implements Battery {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

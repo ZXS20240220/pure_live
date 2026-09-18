@@ -10,7 +10,13 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $trackedPowerShellFiles = @(& git -C $repoRoot ls-files -- '*.ps1')
 if ($LASTEXITCODE -ne 0) { throw 'Failed to enumerate tracked PowerShell files.' }
 foreach ($relativePath in $trackedPowerShellFiles) {
-    $bytes = [IO.File]::ReadAllBytes((Join-Path $repoRoot $relativePath))
+    $absolutePath = Join-Path $repoRoot $relativePath
+    if (-not (Test-Path -LiteralPath $absolutePath -PathType Leaf)) {
+        # Deleted in the worktree but still listed by the index; BOM rules no
+        # longer apply and the deletion is validated once it is staged.
+        continue
+    }
+    $bytes = [IO.File]::ReadAllBytes($absolutePath)
     $hasUtf8Bom = $bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF
     $hasNonAscii = $false
     foreach ($byte in $bytes) {
@@ -38,10 +44,7 @@ $requiredFiles = @(
     '.github\workflows\audit-upstream.yml',
     'tool\local_ci.ps1',
     'tool\build_local_release.ps1',
-    'tool\verify_android_apk.ps1',
-    'tool\publish_local_release.ps1',
-    'tool\prefetch_windows_native.ps1',
-    'android\gradle.properties'
+    'tool\publish_local_release.ps1'
 )
 foreach ($relativePath in $requiredFiles) {
     if (-not (Test-Path -LiteralPath (Join-Path $repoRoot $relativePath) -PathType Leaf)) {
@@ -130,7 +133,7 @@ $contributingText = Get-Content -LiteralPath (Join-Path $repoRoot 'CONTRIBUTING.
 $agentText = Get-Content -LiteralPath (Join-Path $repoRoot 'AGENTS.md') -Raw
 $upstreamAuditTemplate = Get-Content -LiteralPath (Join-Path $repoRoot 'docs\UPSTREAM_AUDIT_TEMPLATE.md') -Raw
 foreach ($entry in @(
-    [pscustomobject]@{ Name = 'README'; Text = $readmeText; Markers = @('maintenance-readme-markers', 'android-first', 'windows-maintained', 'upstream-feature-routing', 'bugfix-release-default', 'MAINTENANCE_POLICY.md', 'issues/new/choose') },
+    [pscustomobject]@{ Name = 'README'; Text = $readmeText; Markers = @('MAINTENANCE_POLICY.md', 'UPSTREAM_REVIEW_POLICY.md', 'issues/new/choose') },
     [pscustomobject]@{ Name = 'CONTRIBUTING'; Text = $contributingText; Markers = @('contribution-policy-markers', 'maintenance-bug-only', 'bug-triage', 'upstream-review', 'feature-routing', 'integration-conflict') },
     [pscustomobject]@{ Name = 'AGENTS'; Text = $agentText; Markers = @('Maintenance scope and triage', 'MAINTENANCE_POLICY.md', 'not-reproduced', 'bugfix-android-release-default') },
     [pscustomobject]@{ Name = 'upstream audit template'; Text = $upstreamAuditTemplate; Markers = @('file_review', 'semantic_change_ledger', 'issue_and_bug_mapping', 'fork_feature_impact', 'quality_assessment', 'disposition', 'conflict_resolution', 'regression_plan', 'verification_plan') }
@@ -146,11 +149,8 @@ $powerShellFiles = @(
     'tool\build_resource_guard.ps1',
     'tool\local_ci.ps1',
     'tool\build_local_release.ps1',
-    'tool\verify_android_apk.ps1',
     'tool\publish_local_release.ps1',
-    'tool\prefetch_windows_native.ps1',
     'tool\flutterw.ps1',
-    'tool\android_ui.ps1',
     'tool\review_upstream_update.ps1',
     'tool\validate_build_policy.ps1'
 )
@@ -169,90 +169,18 @@ foreach ($relativePath in $powerShellFiles) {
 }
 
 # ADB options such as `-p`, `-n` and `-f` overlap PowerShell common-parameter
-# abbreviations. Keep every wrapper invocation array-shaped so device evidence
-# capture cannot mask the original UI failure with a parameter-binding error.
-$androidUiPath = Join-Path $repoRoot 'tool\android_ui.ps1'
-$tokens = $null
-$parseErrors = $null
-$androidUiAst = [System.Management.Automation.Language.Parser]::ParseFile(
-    $androidUiPath,
-    [ref] $tokens,
-    [ref] $parseErrors
-)
-$adbCalls = @(
-    $androidUiAst.FindAll({
-        param($node)
-        $node -is [System.Management.Automation.Language.CommandAst] -and
-            $node.GetCommandName() -eq 'Invoke-Adb'
-    }, $true)
-)
-$positionalAdbCalls = @($adbCalls | Where-Object { $_.Extent.Text -notmatch '-AdbArguments' })
-if ($positionalAdbCalls.Count -gt 0) {
-    $lines = ($positionalAdbCalls | ForEach-Object { $_.Extent.StartLineNumber }) -join ', '
-    throw "android_ui.ps1 must pass ADB arguments through -AdbArguments arrays (lines: $lines)."
-}
+# abbreviations. (Removed with the Android device tooling; the wrapper policy
+# no longer applies to this repository.)
 
-$properties = @{}
-foreach ($line in Get-Content -LiteralPath (Join-Path $repoRoot 'android\gradle.properties')) {
-    if ($line -match '^([^#!][^=]+)=(.*)$') {
-        $properties[$Matches[1].Trim()] = $Matches[2].Trim()
-    }
-}
-$requiredGradle = [ordered]@{
-    'org.gradle.daemon' = 'true'
-    'org.gradle.parallel' = 'true'
-    'org.gradle.caching' = 'true'
-    'org.gradle.configuration-cache' = 'true'
-    'org.gradle.configuration-cache.problems' = 'fail'
-    'org.gradle.vfs.watch' = 'true'
-    'org.gradle.workers.max' = '16'
-    'kotlin.incremental' = 'true'
-}
-foreach ($entry in $requiredGradle.GetEnumerator()) {
-    if ($properties[$entry.Key] -ne $entry.Value) {
-        throw "Gradle policy mismatch: $($entry.Key)=$($properties[$entry.Key])"
-    }
-}
-if ($properties['org.gradle.jvmargs'] -notmatch '-Xmx6g' -or
-    $properties['org.gradle.jvmargs'] -notmatch 'MaxMetaspaceSize=1g' -or
-    $properties['org.gradle.jvmargs'] -notmatch 'UseParallelGC') {
-    throw 'Gradle JVM policy must use 6 GiB heap, 1 GiB Metaspace and Parallel GC.'
-}
-if ($properties['kotlin.daemon.jvmargs'] -notmatch '-Xmx4g') {
-    throw 'Kotlin daemon policy must use a 4 GiB heap.'
-}
-
-$androidAppBuild = Get-Content -LiteralPath (Join-Path $repoRoot 'android\app\build.gradle.kts') -Raw
-if ($androidAppBuild -notmatch '(?m)^\s*minSdk\s*=\s*26\s*$') {
-    throw 'Android minSdk must match the FFmpegKit native API 26 floor.'
-}
-$androidManifest = Get-Content -LiteralPath (Join-Path $repoRoot 'android\app\src\main\AndroidManifest.xml') -Raw
-if ($androidManifest -match 'overrideLibrary="com\.akashskypatel\.ffmpeg_kit_extended_flutter"') {
-    throw 'Android manifest must not bypass the FFmpegKit native minSdk requirement.'
-}
-foreach ($marker in @(
-    'it.name.contains("flutter", ignoreCase = true)',
-    'it.name.startsWith("assemble")',
-    'notCompatibleWithConfigurationCache('
-)) {
-    if (-not $androidAppBuild.Contains($marker)) {
-        throw "Android Flutter configuration-cache compatibility marker is missing: $marker"
-    }
-}
 $buildScript = Get-Content -LiteralPath (Join-Path $repoRoot 'tool\build_local_release.ps1') -Raw
 foreach ($marker in @(
-    "[ValidateSet('AndroidArm64', 'WindowsX64')]",
+    "[ValidateSet('WindowsX64')]",
     "[ValidateSet('Debug', 'Release')]",
-    '$gradleWorkers = if ($DedicatedBuild) { 20 } else { 16 }',
     'Enter-PureLiveHeavyTaskSlot',
     'Invoke-PureLiveLoggedFlutter',
     '[Parameter(Mandatory = $true)][int] $ExitCode',
     'PSNativeCommandUseErrorActionPreference',
-    'PureLive-$artifactVersion-android-arm64-v8a-release.apk',
-    "Join-Path `$PSScriptRoot 'verify_android_apk.ps1'",
-    "'--target-platform', 'android-arm64',",
     "'--no-pub',",
-    "Join-Path `$PSScriptRoot 'prefetch_windows_native.ps1'",
     '/DArtifactVersion=$artifactVersion',
     'build\windows\x64\install_manifest.txt',
     '$manifestSourceMarker = "\build\windows\x64\runner\$configurationDirectory\"',
@@ -303,86 +231,6 @@ foreach ($marker in @(
     }
 }
 
-$androidVerifier = Get-Content -LiteralPath (Join-Path $repoRoot 'tool\verify_android_apk.ps1') -Raw
-foreach ($marker in @(
-    'assets/flutter_assets/AssetManifest.bin',
-    'assets/flutter_assets/assets/version.json',
-    'libffmpegkit.so',
-    'libsqlite3.so',
-    '$flutterAssets.Count -lt 1000',
-    'verify_android_elf_alignment.ps1',
-    'zipalign.exe',
-    '-P 16'
-)) {
-    if (-not $androidVerifier.Contains($marker)) {
-        throw "Android APK integrity marker is missing: $marker"
-    }
-}
-
-$androidElfVerifier = Get-Content -LiteralPath (Join-Path $repoRoot 'tool\verify_android_elf_alignment.ps1') -Raw
-foreach ($marker in @(
-    'llvm-readelf.exe',
-    'minimum LOAD alignment',
-    'MinimumLoadAlignment = 0x4000'
-)) {
-    if (-not $androidElfVerifier.Contains($marker)) {
-        throw "Android 16 KB ELF verifier marker is missing: $marker"
-    }
-}
-
-$fplayerPluginBuildPath = Join-Path $repoRoot 'plugins\flv_lzc\android\build.gradle'
-$fplayerPluginBuild = Get-Content -LiteralPath $fplayerPluginBuildPath -Raw
-$androidRootBuild = Get-Content -LiteralPath (Join-Path $repoRoot 'android\build.gradle.kts') -Raw
-$fplayerCoreVersion = '1.0.4-purelive16k'
-$fplayerCoreRelativePath =
-    "plugins\flv_lzc\android\libs\io\github\flutterplayer\fplayer-core\$fplayerCoreVersion\fplayer-core-$fplayerCoreVersion.aar"
-$fplayerCorePath = Join-Path $repoRoot $fplayerCoreRelativePath
-foreach ($marker in @(
-    'url = uri("$projectDir/libs")',
-    'includeModule("io.github.flutterplayer", "fplayer-core")',
-    "io.github.flutterplayer:fplayer-core:$fplayerCoreVersion"
-)) {
-    if (-not $fplayerPluginBuild.Contains($marker)) {
-        throw "Local 16 KB fplayer dependency marker is missing: $marker"
-    }
-}
-foreach ($marker in @(
-    'maven(rootProject.file("../plugins/flv_lzc/android/libs"))',
-    'includeModule("io.github.flutterplayer", "fplayer-core")'
-)) {
-    if (-not $androidRootBuild.Contains($marker)) {
-        throw "Android app local fplayer repository marker is missing: $marker"
-    }
-}
-if ($fplayerPluginBuild.Contains("io.github.flutterplayer:fplayer-core:1.0.4'")) {
-    throw 'The 4 KB-aligned Maven fplayer-core 1.0.4 artifact must not be restored.'
-}
-if (-not (Test-Path -LiteralPath $fplayerCorePath -PathType Leaf)) {
-    throw "Local 16 KB fplayer AAR is missing: $fplayerCoreRelativePath"
-}
-$expectedFplayerCoreHash = '3643B36BC906F1FED56B313AC98669EEAA9DA0D2262409808429C5B614C676DA'
-$actualFplayerCoreHash = (Get-FileHash -LiteralPath $fplayerCorePath -Algorithm SHA256).Hash
-if ($actualFplayerCoreHash -ne $expectedFplayerCoreHash) {
-    throw "Local 16 KB fplayer AAR hash mismatch: $actualFplayerCoreHash"
-}
-
-$androidSigningWorkflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github\workflows\sign-staged-android.yml') -Raw
-foreach ($marker in @(
-    'assets/flutter_assets/AssetManifest.bin',
-    'assets/flutter_assets/assets/version.json',
-    'libffmpegkit.so',
-    'libsqlite3.so',
-    'Flutter asset file count is incomplete',
-    'verify_android_16kb',
-    'zipalign" -c -P 16 4',
-    'Android 16 KB ELF alignment failed',
-    'verify_android_16kb "$final_apk"'
-)) {
-    if (-not $androidSigningWorkflow.Contains($marker)) {
-        throw "Android signing workflow integrity marker is missing: $marker"
-    }
-}
-
 $flutterWrapper = Get-Content -LiteralPath (Join-Path $repoRoot 'tool\flutterw.ps1') -Raw
 foreach ($marker in @(
     'PSNativeCommandUseErrorActionPreference',
@@ -392,11 +240,6 @@ foreach ($marker in @(
     if (-not $flutterWrapper.Contains($marker)) {
         throw "Flutter wrapper native-process guard is missing: $marker"
     }
-}
-if ($buildScript -match '--no-daemon' -or
-    $buildScript -match 'org\.gradle\.daemon=false' -or
-    $buildScript -match 'org\.gradle\.vfs\.watch=false') {
-    throw 'Build script disables a required Gradle reuse feature.'
 }
 
 $publishScript = Get-Content -LiteralPath (Join-Path $repoRoot 'tool\publish_local_release.ps1') -Raw
@@ -439,18 +282,6 @@ foreach ($workflowText in @($featureWorkflow, $allPlatformWorkflow)) {
     }
     if ($workflowText.Contains('git clone https://github.com/SlotSun/fastforge.git')) {
         throw 'Windows workflow must not install Fastforge from a mutable branch.'
-    }
-}
-foreach ($marker in @(
-    'needs: [quality, android]',
-    'needs: [quality, android, windows]',
-    'needs: [quality, android, windows, linux]',
-    "needs.android.result == 'success'",
-    "needs.windows.result == 'success'",
-    "needs.linux.result == 'success'"
-)) {
-    if (-not $allPlatformWorkflow.Contains($marker)) {
-        throw "All-platform workflow is missing serial-stage marker: $marker"
     }
 }
 
@@ -501,7 +332,6 @@ $repositoryAuditScript = Get-Content -LiteralPath (Join-Path $repoRoot 'tool\aud
 foreach ($marker in @(
     'mutable_action_reference',
     'mutable_git_dependency',
-    'predictive_back_disabled',
     'global_back_interceptor_forbidden',
     'live_back_invariant_missing',
     'untracked_file_count',
@@ -513,10 +343,6 @@ foreach ($marker in @(
     }
 }
 
-$androidManifest = Get-Content -LiteralPath (Join-Path $repoRoot 'android\app\src\main\AndroidManifest.xml') -Raw
-if ($androidManifest -match 'enableOnBackInvokedCallback="false"') {
-    throw 'Android predictive back must not be disabled.'
-}
 $livePage = Get-Content -LiteralPath (Join-Path $repoRoot 'lib\modules\live_play\pages\live_play_page.dart') -Raw
 $liveController = Get-Content -LiteralPath (Join-Path $repoRoot 'lib\modules\live_play\controllers\live_play_controller.dart') -Raw
 if (-not $livePage.Contains('LivePlayBackScope(') -or -not $liveController.Contains('exitPresentationForSystemBack')) {
@@ -527,9 +353,8 @@ if ($liveController.Contains('BackButtonInterceptor') -or $liveController.Contai
 }
 
 $generalSettings = Get-Content -LiteralPath (Join-Path $repoRoot 'lib\modules\settings\pages\general_settings_page.dart') -Raw
-if (-not $generalSettings.Contains('Platform.isAndroid || Platform.isWindows') -or
-    -not $generalSettings.Contains('_showRefreshRateModeDialog(context)')) {
-    throw 'Android and Windows must both expose the shared refresh-rate policy.'
+if (-not $generalSettings.Contains('_showRefreshRateModeDialog(context)')) {
+    throw 'Windows must expose the shared refresh-rate policy.'
 }
 $backupPage = Get-Content -LiteralPath (Join-Path $repoRoot 'lib\modules\backup\backup_page.dart') -Raw
 $fileUtils = Get-Content -LiteralPath (Join-Path $repoRoot 'lib\plugins\file_utils.dart') -Raw
@@ -577,24 +402,16 @@ foreach ($marker in @(
 $fullscreenPolicy = Get-Content -LiteralPath (Join-Path $repoRoot 'lib\player\utils\fullscreen.dart') -Raw
 if (-not $fullscreenPolicy.Contains('supportsOrientationLockForLogicalDisplay') -or
     -not $fullscreenPolicy.Contains('logicalDisplaySize.shortestSide < 600')) {
-    throw 'Android large-screen orientation policy must remain adaptive.'
+    throw 'Large-screen orientation policy must remain adaptive.'
 }
 if ($featureWorkflow -match 'stage-build-' -or $featureWorkflow -match 'stage-apple-') {
     throw 'Feature workflow must use precise single-platform stage tags.'
 }
 foreach ($marker in @(
-    'needs: [quality, android]',
-    'needs: [quality, android, windows]',
-    'needs: [quality, android, windows, linux]',
     'cancel-in-progress: false',
     'flutter test --concurrency=12',
-    '--target-platform android-arm64',
-    'PureLive-${VERSION}-android-arm64-v8a-release.apk',
-    'Prefetch verified Firebase C++ SDK',
     'steps.version.outputs.artifact_version',
-    "!inputs.build_windows || needs.windows.result == 'success'",
-    "!(inputs.build_macos || inputs.build_ios) || needs.apple.result == 'success'",
-    'stage-macos-'
+    "inputs.build_windows && (needs.quality.result == 'success' || needs.quality.result == 'skipped')"
 )) {
     if (-not $featureWorkflow.Contains($marker)) { throw "Feature workflow policy marker is missing: $marker" }
 }
@@ -615,33 +432,6 @@ foreach ($workflow in Get-ChildItem -LiteralPath (Join-Path $repoRoot '.github\w
     }
 }
 
-$localAndroidWorkflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github\workflows\local-signed-android.yml') -Raw
-if ($localAndroidWorkflow -match '(?m)^\s+push:\s*$' -or $localAndroidWorkflow -match 'hosted-android') {
-    throw 'Local signed Android workflow must stay manual and local-runner only.'
-}
-foreach ($marker in @('run_full_regression:', "'-SkipQuality'", "'-FullRegression'")) {
-    if (-not $localAndroidWorkflow.Contains($marker)) {
-        throw "Local Android retry quality marker is missing: $marker"
-    }
-}
-
-$publisherWorkflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github\workflows\publish-staged-release.yml') -Raw
-foreach ($marker in @(
-    'name: pure-live-ios',
-    'ios-arm64-trollstore.ipa',
-    'Verify Android release signature',
-    'certificate SHA-256 digest',
-    'EXPECTED_ANDROID_CERT_SHA256',
-    "android_source == 'preuploaded-release'",
-    '.github/workflows/local-signed-android.yml',
-    'Windows package source does not match the release commit',
-    'gh release delete-asset'
-)) {
-    if (-not $publisherWorkflow.Contains($marker)) {
-        throw "Staged publisher verification marker is missing: $marker"
-    }
-}
-
 $pubspecText = Get-Content -LiteralPath (Join-Path $repoRoot 'pubspec.yaml') -Raw
 if ($pubspecText -notmatch '(?m)^version:\s*([0-9]+\.[0-9]+\.[0-9]+)\+([0-9]+)\s*$') {
     throw 'pubspec.yaml must expose a semantic version and numeric build.'
@@ -659,20 +449,14 @@ if ($msixConfig -notmatch "(?m)^msix_version:\s*$([regex]::Escape($windowsDispla
 if ($versionFeed.version -ne $displayVersion -or [int]$versionFeed.build_number -ne $buildNumber) {
     throw 'assets/version.json top-level version must match pubspec.yaml.'
 }
-if ($versionFeed.platforms.android.version -ne $displayVersion -or
-    [int]$versionFeed.platforms.android.build_number -ne $buildNumber) {
-    throw 'assets/version.json Android version must match the current application version.'
-}
 if ($versionFeed.download_url -ne "https://github.com/liuchuancong/pure_live/releases/tag/$releaseTag") {
     throw 'assets/version.json must advertise the maintained repository release.'
 }
-foreach ($workflowName in @('feature-build.yml', 'stage-hosted-artifacts.yml', 'publish-staged-release.yml')) {
-    $workflowText = Get-Content -LiteralPath (Join-Path $repoRoot ".github\workflows\$workflowName") -Raw
-    $acceptedDefaults = @("default: $releaseTag", "default: '$releaseTag'", "default: `"$releaseTag`"")
-    $hasCurrentDefault = @($acceptedDefaults | Where-Object { $workflowText.Contains($_) }).Count -gt 0
-    if (-not $hasCurrentDefault) {
-        throw "Workflow default tag is stale: $workflowName (expected $releaseTag)"
-    }
+$workflowText = Get-Content -LiteralPath (Join-Path $repoRoot '.github\workflows\feature-build.yml') -Raw
+$acceptedDefaults = @("default: $releaseTag", "default: '$releaseTag'", "default: `"$releaseTag`"")
+$hasCurrentDefault = @($acceptedDefaults | Where-Object { $workflowText.Contains($_) }).Count -gt 0
+if (-not $hasCurrentDefault) {
+    throw "Workflow default tag is stale: feature-build.yml (expected $releaseTag)"
 }
 
 $environmentText = Get-Content -LiteralPath (Join-Path $repoRoot '.env.prod') -Raw
