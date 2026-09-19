@@ -42,6 +42,20 @@ abstract class UnifiedPlayer {
 
   Future<void> setVolume(double volume);
 
+  Future<void> seekTo(Duration position);
+
+  Future<void> seekRelative(Duration offset);
+
+  Future<void> seekToLiveEdge();
+
+  Stream<Duration> get positionStream;
+
+  Duration get currentPosition;
+
+  Duration get liveEdgePosition;
+
+  bool get canSeek;
+
   /// 获取渲染组件
   /// [fitIndex] 对应 BoxFit 的索引
   /// [controls] 覆盖在视频上的 UI 控制层

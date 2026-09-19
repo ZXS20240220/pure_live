@@ -1,5 +1,6 @@
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/consts/app_consts.dart';
+import 'package:pure_live/common/services/settings/watch_time_service.dart';
 import 'package:pure_live/common/services/utils/backup_migration_util.dart';
 
 class FavoriteRoomController extends GetxController {
@@ -279,9 +280,13 @@ class FavoriteRoomController extends GetxController {
 
     if (index < 0) return false;
 
+    final identityKey = favoriteRooms.v[index].identityKey;
+
     final updated = List<LiveRoom>.from(favoriteRooms.v);
     updated.removeAt(index);
     favoriteRooms.v = updated;
+
+    WatchTimeService.removeFor(identityKey);
 
     return true;
   }

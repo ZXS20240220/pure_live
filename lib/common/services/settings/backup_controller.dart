@@ -22,6 +22,8 @@ import 'package:pure_live/common/services/settings/player_settings_controller.da
 import 'package:pure_live/common/services/settings/volume_settings_controller.dart';
 import 'package:pure_live/common/services/settings/cookie_settings_controller.dart';
 import 'package:pure_live/common/services/settings/danmaku_settings_controller.dart';
+import 'package:pure_live/common/services/settings/panel_size_controller.dart';
+import 'package:pure_live/modules/favorite/favorite_controller.dart';
 import 'package:pure_live/common/services/settings/room_card_settings_controller.dart';
 
 enum BackupRestoreScope { all, favorites }
@@ -59,7 +61,20 @@ class BackupController extends GetxController {
       'tags': Get.find<TagManagementController>().exportToJson(),
       'refresh': Get.find<RefreshConfigController>().toJson(),
       'page': Get.find<PageSettingsController>().toJson(),
+      'panelSize': Get.find<PanelSizeController>().toJson(),
+      'backupDirectory': backupDirectory.v,
     };
+
+    // 收藏页置顶/排序偏好（5.2）。控制器由 lazyPut 注册，仅在已实例化时导出：
+    // 未实例化说明用户从未改动过这些值，导出默认值反而会覆盖接收方的自定义。
+    if (Get.isRegistered<FavoriteController>()) {
+      final favCtrl = Get.find<FavoriteController>();
+      data['favoriteCtrl'] = {
+        'enablePinned': favCtrl.enablePinned.v,
+        'onlineSortMode': favCtrl.onlineSortMode.v.name,
+        'onlineSortOrder': favCtrl.onlineSortAscending.v ? 'asc' : 'desc',
+      };
+    }
 
     if (includeSensitiveData) {
       data['webdav'] = Get.find<WebDavController>().toJson();
@@ -104,6 +119,8 @@ class BackupController extends GetxController {
     'startup': StartupController.extractConfig(null).keys.toSet(),
     'refresh': RefreshConfigController.extractConfig(null).keys.toSet(),
     'page': PageSettingsController.extractConfig(null).keys.toSet(),
+    'panelSize': {'panelWidth', 'immersiveOpacity'},
+    'favoriteCtrl': {'enablePinned', 'onlineSortMode', 'onlineSortOrder'},
     'tags': {'tags', 'roomTagsMap'},
   };
 
@@ -131,6 +148,9 @@ class BackupController extends GetxController {
         final section = data[entry.key];
         return section is Map && section.keys.any(entry.value.contains);
       });
+      // 备份目录是字符串段，不参与 Map 段校验，但仍是合法的导入目标
+      // （远程同步预览页可能只勾选该段）。
+      if (!recognized && data['backupDirectory'] is String) recognized = true;
     }
     if (!recognized) throw const FormatException('No recognized backup settings');
   }
@@ -197,6 +217,288 @@ class BackupController extends GetxController {
     }
   }
 
+  /// 选择性导入：只应用 [allowedKeys] 中选中的模块，未选中模块的控制器
+  /// 不被触碰，保持当前值不变。远程同步预览页在用户勾选数据块后调用。
+  void importPartialSettings(Map<String, dynamic> data, Set<String> allowedKeys) {
+    validateBackupIdentity(data);
+    final version = data['backupVersion'];
+
+    if (version != null) validateSectionStructure(data);
+
+    // 与 importAllSettings 相同的解析链，仅应用选中的模块。
+    final parsers = <String, Map<String, dynamic> Function(Map<String, dynamic>)>{
+      'app': AppSettingsController.parseConfig,
+      'player': PlayerSettingsController.parseConfig,
+      'danmaku': DanmakuSettingsController.parseConfig,
+      'windowSize': WindowSizeController.parseConfig,
+      'theme': ThemeSettingsController.parseConfig,
+      'roomCard': RoomCardSettingsController.parseConfig,
+      'font': FontSettingsController.parseConfig,
+      'exit': ExitSettingsController.parseConfig,
+      'iptv': IptvSettingsController.parseConfig,
+      'startup': StartupController.parseConfig,
+      'proxy': ProxySettingsController.parseConfig,
+      'refresh': RefreshConfigController.parseConfig,
+      'cookie': CookieSettingsController.parseConfig,
+      'favorite': FavoriteRoomController.parseConfig,
+      'history': HistoryController.parseConfig,
+      'webdav': WebDavController.parseConfig,
+      'page': PageSettingsController.parseConfig,
+    };
+    for (final entry in parsers.entries) {
+      if (!allowedKeys.contains(entry.key)) continue;
+      if (version == null) {
+        entry.value(data);
+      } else if (data.containsKey(entry.key)) {
+        entry.value(Map<String, dynamic>.from(data[entry.key] ?? {}));
+      }
+    }
+    final tags = version == null ? data['custom_tags_data'] : data['tags'];
+    if (allowedKeys.contains('tags') && tags != null) {
+      TagManagementController.parseConfig(Map<String, dynamic>.from(tags));
+    }
+    if (version == null) {
+      if (allowedKeys.contains('volume')) {
+        VolumeSettingsController.parseConfig(data);
+      }
+      _importLegacyPartial(data, allowedKeys);
+      return;
+    }
+    if (allowedKeys.contains('volume')) {
+      VolumeSettingsController.parseConfig(Map<String, dynamic>.from(data['volume'] ?? {}));
+    }
+    // windowSize 的导入依赖 extractConfig 回读 player 块中的旧版字段位置，
+    // 调用方（远程同步合并器）保证只勾选 windowSize 时也附带过滤后的
+    // player 块；它不在 allowedKeys 中，不会被导入。
+    if (allowedKeys.contains('windowSize')) {
+      WindowSizeController.parseConfig(WindowSizeController.extractConfig(data));
+    }
+
+    switch (version) {
+      case 2:
+      case 3:
+        _importV2Partial(data, allowedKeys);
+        break;
+
+      default:
+        _importV2Partial(data, allowedKeys);
+        break;
+    }
+  }
+
+  void _importV2Partial(Map<String, dynamic> data, Set<String> allowedKeys) {
+    if (allowedKeys.contains('app')) {
+      Get.find<AppSettingsController>().fromJson(Map<String, dynamic>.from(data['app'] ?? {}));
+    }
+
+    if (allowedKeys.contains('theme')) {
+      Get.find<ThemeSettingsController>().fromJson(Map<String, dynamic>.from(data['theme'] ?? {}));
+    }
+
+    if (allowedKeys.contains('roomCard')) {
+      Get.find<RoomCardSettingsController>().fromJson(Map<String, dynamic>.from(data['roomCard'] ?? {}));
+    }
+
+    if (allowedKeys.contains('font')) {
+      Get.find<FontSettingsController>().fromJson(Map<String, dynamic>.from(data['font'] ?? {}));
+    }
+
+    if (allowedKeys.contains('player')) {
+      Get.find<PlayerSettingsController>().fromJson(Map<String, dynamic>.from(data['player'] ?? {}));
+    }
+
+    if (allowedKeys.contains('danmaku')) {
+      Get.find<DanmakuSettingsController>().fromJson(Map<String, dynamic>.from(data['danmaku'] ?? {}));
+    }
+
+    if (allowedKeys.contains('volume')) {
+      Get.find<VolumeSettingsController>().fromJson(Map<String, dynamic>.from(data['volume'] ?? {}));
+    }
+
+    if (allowedKeys.contains('favorite')) {
+      Get.find<FavoriteRoomController>().fromJson(Map<String, dynamic>.from(data['favorite'] ?? {}));
+    }
+
+    if (allowedKeys.contains('history')) {
+      Get.find<HistoryController>().fromJson(Map<String, dynamic>.from(data['history'] ?? {}));
+    }
+
+    if (allowedKeys.contains('webdav') && data.containsKey('webdav')) {
+      Get.find<WebDavController>().fromJson(Map<String, dynamic>.from(data['webdav'] ?? {}));
+    }
+
+    if (allowedKeys.contains('iptv')) {
+      Get.find<IptvSettingsController>().fromJson(Map<String, dynamic>.from(data['iptv'] ?? {}));
+    }
+
+    if (allowedKeys.contains('cookie') && data.containsKey('cookie')) {
+      Get.find<CookieSettingsController>().fromJson(Map<String, dynamic>.from(data['cookie'] ?? {}));
+    }
+
+    if (allowedKeys.contains('proxy')) {
+      Get.find<ProxySettingsController>().fromJson(Map<String, dynamic>.from(data['proxy'] ?? {}));
+    }
+
+    // Normalize both the old flat PiP rectangle and the former player-owned
+    // rememberPipPosition flag before importing the current window settings.
+    if (allowedKeys.contains('windowSize')) {
+      Get.find<WindowSizeController>().fromJson(WindowSizeController.extractConfig(data));
+    }
+
+    if (allowedKeys.contains('exit')) {
+      Get.find<ExitSettingsController>().fromJson(Map<String, dynamic>.from(data['exit'] ?? {}));
+    }
+
+    if (allowedKeys.contains('startup')) {
+      Get.find<StartupController>().fromJson(Map<String, dynamic>.from(data['startup'] ?? {}));
+    }
+
+    if (allowedKeys.contains('refresh')) {
+      Get.find<RefreshConfigController>().fromJson(Map<String, dynamic>.from(data['refresh'] ?? {}));
+    }
+
+    if (allowedKeys.contains('page')) {
+      Get.find<PageSettingsController>().fromJson(Map<String, dynamic>.from(data['page'] ?? {}));
+    }
+
+    // 沉浸侧栏面板尺寸（阶段五）：条件式导入，数据缺失该段时保持当前值。
+    if (allowedKeys.contains('panelSize') && data['panelSize'] is Map) {
+      Get.find<PanelSizeController>().fromJson(Map<String, dynamic>.from(data['panelSize']));
+    }
+
+    // 备份目录记忆：字符串段，不参与 validateSectionStructure 的 Map 校验。
+    if (allowedKeys.contains('backupDirectory') && data['backupDirectory'] is String) {
+      backupDirectory.v = data['backupDirectory'] as String;
+    }
+
+    // 收藏页置顶/排序偏好（5.2）：控制器未实例化（lazyPut）时直接写 Hive key，
+    // 等其创建时自行恢复；避免 Get.find 触发工厂初始化引发启动刷新等副作用。
+    if (allowedKeys.contains('favoriteCtrl') && data['favoriteCtrl'] is Map) {
+      final favData = Map<String, dynamic>.from(data['favoriteCtrl'] as Map);
+      if (Get.isRegistered<FavoriteController>()) {
+        final favCtrl = Get.find<FavoriteController>();
+        if (favData['enablePinned'] is bool) {
+          favCtrl.enablePinned.value = favData['enablePinned'] as bool;
+        }
+        if (favData['onlineSortMode'] is String) {
+          favCtrl.onlineSortMode.value = OnlineSortMode.values.firstWhere(
+            (e) => e.name == favData['onlineSortMode'],
+            orElse: () => OnlineSortMode.audience,
+          );
+        }
+        // 旧备份没有该字段时保持当前方向不变。
+        if (favData['onlineSortOrder'] is String) {
+          favCtrl.onlineSortAscending.value = favData['onlineSortOrder'] == 'asc';
+        }
+      } else {
+        if (favData['enablePinned'] is bool) {
+          HivePrefUtil.setBool(FavoriteController.pinnedPrefKey, favData['enablePinned'] as bool);
+        }
+        if (favData['onlineSortMode'] is String) {
+          HivePrefUtil.setString(FavoriteController.sortModePrefKey, favData['onlineSortMode'] as String);
+        }
+        if (favData['onlineSortOrder'] is String) {
+          HivePrefUtil.setBool(FavoriteController.sortAscendingPrefKey, favData['onlineSortOrder'] == 'asc');
+        }
+      }
+    }
+
+    if (allowedKeys.contains('tags')) {
+      if (!Get.isRegistered<TagManagementController>()) {
+        Get.put(TagManagementController());
+      }
+
+      final tagsData = data['tags'];
+      if (tagsData is Map) {
+        Get.find<TagManagementController>().importFromJson(Map<String, dynamic>.from(tagsData));
+      }
+    }
+  }
+
+  /// legacy 扁平格式的部分导入：与 [_importLegacy] 相同的控制器映射，
+  /// 但只应用 allowedKeys 中选中的模块，未选中模块保持当前值不变。
+  void _importLegacyPartial(Map<String, dynamic> data, Set<String> allowedKeys) {
+    if (allowedKeys.contains('app')) {
+      Get.find<AppSettingsController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('theme')) {
+      Get.find<ThemeSettingsController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('roomCard')) {
+      Get.find<RoomCardSettingsController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('font')) {
+      Get.find<FontSettingsController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('player')) {
+      Get.find<PlayerSettingsController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('danmaku')) {
+      Get.find<DanmakuSettingsController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('volume')) {
+      Get.find<VolumeSettingsController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('favorite')) {
+      Get.find<FavoriteRoomController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('history')) {
+      Get.find<HistoryController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('webdav') && data.containsKey('webdav')) {
+      Get.find<WebDavController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('iptv')) {
+      Get.find<IptvSettingsController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('cookie') && data.containsKey('cookie')) {
+      Get.find<CookieSettingsController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('proxy')) {
+      Get.find<ProxySettingsController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('windowSize')) {
+      Get.find<WindowSizeController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('exit')) {
+      Get.find<ExitSettingsController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('startup')) {
+      Get.find<StartupController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('refresh')) {
+      Get.find<RefreshConfigController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('page')) {
+      Get.find<PageSettingsController>().fromJson(data);
+    }
+
+    if (allowedKeys.contains('tags') && data['custom_tags_data'] is Map) {
+      if (!Get.isRegistered<TagManagementController>()) {
+        Get.put(TagManagementController());
+      }
+
+      Get.find<TagManagementController>().importFromJson(Map<String, dynamic>.from(data['custom_tags_data'] as Map));
+    }
+  }
+
   void _importLatestCompatible(Map<String, dynamic> data) {
     _importV2(data);
   }
@@ -245,6 +547,48 @@ class BackupController extends GetxController {
 
     Get.find<PageSettingsController>().fromJson(Map<String, dynamic>.from(data['page'] ?? {}));
 
+    // 沉浸侧栏面板尺寸（阶段五）：条件式导入，旧备份缺失该段时保持当前值。
+    if (data['panelSize'] is Map) {
+      Get.find<PanelSizeController>().fromJson(Map<String, dynamic>.from(data['panelSize']));
+    }
+
+    // 备份目录记忆：字符串段，不参与 validateSectionStructure 的 Map 校验。
+    if (data['backupDirectory'] is String) {
+      backupDirectory.v = data['backupDirectory'] as String;
+    }
+
+    // 收藏页置顶/排序偏好（5.2）：控制器未实例化（lazyPut）时直接写 Hive key，
+    // 等其创建时自行恢复；避免 Get.find 触发工厂初始化引发启动刷新等副作用。
+    if (data['favoriteCtrl'] is Map) {
+      final favData = Map<String, dynamic>.from(data['favoriteCtrl'] as Map);
+      if (Get.isRegistered<FavoriteController>()) {
+        final favCtrl = Get.find<FavoriteController>();
+        if (favData['enablePinned'] is bool) {
+          favCtrl.enablePinned.value = favData['enablePinned'] as bool;
+        }
+        if (favData['onlineSortMode'] is String) {
+          favCtrl.onlineSortMode.value = OnlineSortMode.values.firstWhere(
+            (e) => e.name == favData['onlineSortMode'],
+            orElse: () => OnlineSortMode.audience,
+          );
+        }
+        // 旧备份没有该字段时保持当前方向不变。
+        if (favData['onlineSortOrder'] is String) {
+          favCtrl.onlineSortAscending.value = favData['onlineSortOrder'] == 'asc';
+        }
+      } else {
+        if (favData['enablePinned'] is bool) {
+          HivePrefUtil.setBool(FavoriteController.pinnedPrefKey, favData['enablePinned'] as bool);
+        }
+        if (favData['onlineSortMode'] is String) {
+          HivePrefUtil.setString(FavoriteController.sortModePrefKey, favData['onlineSortMode'] as String);
+        }
+        if (favData['onlineSortOrder'] is String) {
+          HivePrefUtil.setBool(FavoriteController.sortAscendingPrefKey, favData['onlineSortOrder'] == 'asc');
+        }
+      }
+    }
+
     if (!Get.isRegistered<TagManagementController>()) {
       Get.put(TagManagementController());
     }
@@ -277,6 +621,8 @@ class BackupController extends GetxController {
       'startup',
       'refresh',
       'page',
+      'panelSize',
+      'favoriteCtrl',
       'tags',
     ];
     for (final name in sections) {

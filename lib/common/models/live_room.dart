@@ -208,6 +208,12 @@ class LiveRoom {
   /// Local epoch-millisecond timestamp used by the viewing-history UI.
   int? lastWatchedAt;
 
+  String? anchorLevel;
+  String? unionName;
+  int? startTime;
+  String? location;
+  List<Map<String, dynamic>>? aiHighlights;
+
   // 添加未命名的默认构造函数
   LiveRoom({
     this.roomId,
@@ -245,6 +251,11 @@ class LiveRoom {
     this.catchUpCorrectionHours,
     this.httpHeaders = const <String, String>{},
     this.lastWatchedAt,
+    this.anchorLevel,
+    this.unionName,
+    this.startTime,
+    this.location,
+    this.aiHighlights,
     List<String>? tagIds,
   }) : liveStatus = liveStatus ?? _legacyStatusToLiveStatus(status: status, isRecord: isRecord),
        tagIds = tagIds ?? [];
@@ -336,6 +347,11 @@ class LiveRoom {
     double? catchUpCorrectionHours,
     Map<String, String>? httpHeaders,
     int? lastWatchedAt,
+    String? anchorLevel,
+    String? unionName,
+    int? startTime,
+    String? location,
+    List<Map<String, dynamic>>? aiHighlights,
     List<String>? tagIds,
   }) {
     return LiveRoom(
@@ -374,6 +390,11 @@ class LiveRoom {
       catchUpCorrectionHours: catchUpCorrectionHours ?? this.catchUpCorrectionHours,
       httpHeaders: httpHeaders ?? this.httpHeaders,
       lastWatchedAt: lastWatchedAt ?? this.lastWatchedAt,
+      anchorLevel: anchorLevel ?? this.anchorLevel,
+      unionName: unionName ?? this.unionName,
+      startTime: startTime ?? this.startTime,
+      location: location ?? this.location,
+      aiHighlights: aiHighlights ?? this.aiHighlights,
       tagIds: tagIds ?? this.tagIds,
     );
   }
@@ -488,6 +509,11 @@ class LiveRoom {
       'catchUpCorrectionHours': catchUpCorrectionHours,
       'httpHeaders': HttpHeaderPolicy.normalize(httpHeaders),
       'lastWatchedAt': lastWatchedAt,
+      'anchorLevel': anchorLevel,
+      'unionName': unionName,
+      'startTime': startTime,
+      'location': location,
+      // aiHighlights 是会话内临时解析的斗鱼 AI 高亮数据，不进入持久化/备份 JSON。
     };
   }
 
@@ -752,6 +778,12 @@ extension LiveRoomExtension on LiveRoom {
       httpHeaders: incoming.normalizedPlatformId == 'iptv' ? incoming.httpHeaders : httpHeaders,
 
       lastWatchedAt: incoming.lastWatchedAt ?? lastWatchedAt,
+
+      anchorLevel: _preferValue(incoming.anchorLevel, anchorLevel),
+      unionName: _preferValue(incoming.unionName, unionName),
+      startTime: incoming.startTime ?? startTime,
+      location: _preferValue(incoming.location, location),
+      aiHighlights: incoming.aiHighlights ?? aiHighlights,
     );
   }
 

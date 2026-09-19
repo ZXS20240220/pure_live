@@ -36,6 +36,43 @@ class DouyinDanmakuArgs {
   }
 }
 
+_DouyinBadgeInfo _extractDouyinBadgeInfo(ChatMessage chatMessage) {
+  var userLevel = '';
+  var fansLevel = '';
+  var fansName = '';
+  final badges = <Map<String, dynamic>>[];
+  if (!chatMessage.hasUser()) return _DouyinBadgeInfo('', '', '', badges);
+  for (final badge in chatMessage.user.badgeImageList) {
+    if (!badge.hasContent()) continue;
+    final level = badge.content.level.toString();
+    final name = badge.content.name;
+    if (level.isNotEmpty && level != '0') {
+      if (badge.imageType == 1 && userLevel.isEmpty) userLevel = level;
+      if (badge.imageType == 7) {
+        if (fansLevel.isEmpty) fansLevel = level;
+        if (fansName.isEmpty) fansName = name;
+      }
+    }
+    badges.add({
+      'imageType': badge.imageType,
+      'level': level,
+      'name': name,
+      'alternativeText': badge.content.alternativeText,
+      'uri': badge.uri,
+    });
+  }
+  return _DouyinBadgeInfo(userLevel, fansLevel, fansName, badges);
+}
+
+class _DouyinBadgeInfo {
+  final String userLevel;
+  final String fansLevel;
+  final String fansName;
+  final List<Map<String, dynamic>> badges;
+
+  const _DouyinBadgeInfo(this.userLevel, this.fansLevel, this.fansName, this.badges);
+}
+
 class DouyinDanmaku implements LiveDanmaku {
   @override
   int heartbeatTime = 10 * 1000;
@@ -235,6 +272,7 @@ class DouyinDanmaku implements LiveDanmaku {
     final sentAt = rawCreateTime <= 0
         ? null
         : DateTime.fromMillisecondsSinceEpoch(rawCreateTime > 100000000000 ? rawCreateTime : rawCreateTime * 1000);
+    final badgeInfo = _extractDouyinBadgeInfo(chatMessage);
     onMessage?.call(
       LiveMessage(
         type: LiveMessageType.chat,
@@ -246,6 +284,9 @@ class DouyinDanmaku implements LiveDanmaku {
         message: chatMessage.content,
         userName: chatMessage.user.nickName,
         userId: chatMessage.user.id.toString(),
+        userLevel: badgeInfo.userLevel,
+        fansName: badgeInfo.fansName,
+        fansLevel: badgeInfo.fansLevel,
         messageId: resolvedMessageId.isEmpty ? '' : 'douyin:$resolvedMessageId',
         sentAt: sentAt,
       ),

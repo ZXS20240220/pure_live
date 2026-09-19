@@ -181,6 +181,27 @@ class OwnedSourceTestPlayer implements UnifiedPlayer, PrivateInputAwarePlayer {
   bool get isReusable => true;
 
   @override
+  Future<void> seekTo(Duration position) async {}
+
+  @override
+  Future<void> seekRelative(Duration offset) async {}
+
+  @override
+  Future<void> seekToLiveEdge() async {}
+
+  @override
+  Stream<Duration> get positionStream => const Stream<Duration>.empty();
+
+  @override
+  Duration get currentPosition => Duration.zero;
+
+  @override
+  Duration get liveEdgePosition => Duration.zero;
+
+  @override
+  bool get canSeek => false;
+
+  @override
   Stream<bool> get onComplete => _complete.stream;
 
   @override

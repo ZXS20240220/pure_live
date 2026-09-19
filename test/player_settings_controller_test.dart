@@ -176,29 +176,23 @@ void main() {
       final config = PlayerSettingsController.extractConfig({'player': <String, dynamic>{}});
 
       expect(config['enablePortraitStreamAdaptation'], isTrue);
-      expect(config['portraitAdaptiveHeight'], isTrue);
-      expect(config['portraitLayoutMode'], 'balanced');
       expect(config['portraitFullscreenPolicy'], 'followSource');
-      expect(config['portraitFullscreenDisplayMode'], 'ambient');
       expect(config['portraitPipFollowSource'], isTrue);
       expect(config['portraitDanmakuMode'], 'followGlobal');
       expect(config['portraitRoomOverrides'], isEmpty);
+      expect(config['enableImmersiveLayout'], isFalse);
     });
 
     test('sanitizes invalid portrait enum names while retaining room overrides', () {
       final config = PlayerSettingsController.extractConfig({
         'player': <String, dynamic>{
-          'portraitLayoutMode': 'broken',
           'portraitFullscreenPolicy': 'broken',
-          'portraitFullscreenDisplayMode': 'broken',
           'portraitDanmakuMode': 'broken',
           'portraitRoomOverrides': <String, String>{'bilibili:1': 'portrait'},
         },
       });
 
-      expect(config['portraitLayoutMode'], 'balanced');
       expect(config['portraitFullscreenPolicy'], 'followSource');
-      expect(config['portraitFullscreenDisplayMode'], 'ambient');
       expect(config['portraitDanmakuMode'], 'followGlobal');
       expect(config['portraitRoomOverrides'], <String, String>{'bilibili:1': 'portrait'});
     });

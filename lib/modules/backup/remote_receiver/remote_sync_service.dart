@@ -27,6 +27,15 @@ class RemoteSyncService extends GetxController {
 
   final RxList<RemoteSyncDevice> devices = <RemoteSyncDevice>[].obs;
 
+  /// 最近一次接收到的完整备份数据（未应用）。
+  /// 两端控制器的 fromJson 对缺键一律重置，直接全量导入会覆盖本地
+  /// 未选中的数据，因此接收后统一进入预览页由用户选择性应用。
+  final Rx<Map<String, dynamic>?> pendingReceivedSettings = Rx<Map<String, dynamic>?>(null);
+
+  /// 数据来源设备的地址（用于预览页回传）。
+  final RxString pendingReceivedIp = ''.obs;
+  final RxInt pendingReceivedPort = RemoteSyncProtocol.defaultHttpPort.obs;
+
   // ---------------------------------------------------------------------------
   // Internal
   // ---------------------------------------------------------------------------
@@ -225,10 +234,7 @@ class RemoteSyncService extends GetxController {
 
   Future<void> _refreshNetworkInfo() async {
     try {
-      final interfaces = await NetworkInterface.list(
-        type: InternetAddressType.IPv4,
-        includeLoopback: false,
-      );
+      final interfaces = await NetworkInterface.list(type: InternetAddressType.IPv4, includeLoopback: false);
 
       final ips = <String>{};
 
@@ -457,11 +463,7 @@ class RemoteSyncService extends GetxController {
       try {
         response.statusCode = HttpStatus.internalServerError;
 
-        await _writeResponse(response, {
-          'code': 500,
-          'msg': 'Internal Server Error',
-          'data': false,
-        });
+        await _writeResponse(response, {'code': 500, 'msg': 'Internal Server Error', 'data': false});
       } catch (_) {
         // Response may already be closed.
       }
@@ -532,11 +534,7 @@ class RemoteSyncService extends GetxController {
     } catch (_) {
       request.response.statusCode = HttpStatus.internalServerError;
 
-      await _writeResponse(request.response, {
-        'code': 500,
-        'msg': 'Export settings failed',
-        'data': false,
-      });
+      await _writeResponse(request.response, {'code': 500, 'msg': 'Export settings failed', 'data': false});
     }
   }
 
@@ -553,11 +551,7 @@ class RemoteSyncService extends GetxController {
       if (content.trim().isEmpty) {
         request.response.statusCode = HttpStatus.badRequest;
 
-        await _writeResponse(request.response, {
-          'code': 400,
-          'msg': 'Empty request',
-          'data': false,
-        });
+        await _writeResponse(request.response, {'code': 400, 'msg': 'Empty request', 'data': false});
 
         return;
       }
@@ -567,11 +561,7 @@ class RemoteSyncService extends GetxController {
       if (body is! Map<String, dynamic>) {
         request.response.statusCode = HttpStatus.badRequest;
 
-        await _writeResponse(request.response, {
-          'code': 400,
-          'msg': 'Invalid request',
-          'data': false,
-        });
+        await _writeResponse(request.response, {'code': 400, 'msg': 'Invalid request', 'data': false});
 
         return;
       }
@@ -581,11 +571,7 @@ class RemoteSyncService extends GetxController {
       if (type != RemoteSyncProtocol.syncType) {
         request.response.statusCode = HttpStatus.badRequest;
 
-        await _writeResponse(request.response, {
-          'code': 400,
-          'msg': 'Invalid sync type',
-          'data': false,
-        });
+        await _writeResponse(request.response, {'code': 400, 'msg': 'Invalid sync type', 'data': false});
 
         return;
       }
@@ -595,51 +581,49 @@ class RemoteSyncService extends GetxController {
       if (settings is! Map) {
         request.response.statusCode = HttpStatus.badRequest;
 
-        await _writeResponse(request.response, {
-          'code': 400,
-          'msg': 'Settings is empty',
-          'data': false,
-        });
+        await _writeResponse(request.response, {'code': 400, 'msg': 'Settings is empty', 'data': false});
 
         return;
       }
 
       isSyncing.value = true;
 
-      final success = await _applyRemoteSettings(Map<String, dynamic>.from(settings));
+      // 只暂存，不全量导入：由用户在预览页选择模块后经合并器应用。
+      pendingReceivedIp.value = _remoteHostOf(request);
+      pendingReceivedPort.value = RemoteSyncProtocol.defaultHttpPort;
+      pendingReceivedSettings.value = Map<String, dynamic>.from(settings);
 
       isSyncing.value = false;
 
-      await _writeResponse(request.response, {
-        'code': success ? 200 : 500,
-        'msg': success ? 'ok' : 'apply settings failed',
-        'data': success,
-      });
+      ToastUtil.show('收到远端配置，请在设备同步页选择应用');
+
+      await _writeResponse(request.response, {'code': 200, 'msg': 'ok', 'data': true});
     } catch (_) {
       isSyncing.value = false;
 
       try {
         request.response.statusCode = HttpStatus.internalServerError;
 
-        await _writeResponse(request.response, {
-          'code': 500,
-          'msg': 'Internal Server Error',
-          'data': false,
-        });
+        await _writeResponse(request.response, {'code': 500, 'msg': 'Internal Server Error', 'data': false});
       } catch (_) {}
     }
   }
 
-  Future<bool> _applyRemoteSettings(Map<String, dynamic> settings) async {
-    try {
-      final backup = Get.find<BackupController>();
+  String _remoteHostOf(HttpRequest request) {
+    return request.connectionInfo?.remoteAddress.address ?? '';
+  }
 
-      backup.importAllSettings(settings);
+  /// 暂存一条待预览的接收数据（POST /settings 与 receiveByQr 共用）。
+  void stashReceivedSettings({required Map<String, dynamic> settings, required String ip, required int port}) {
+    pendingReceivedIp.value = ip;
+    pendingReceivedPort.value = port;
+    pendingReceivedSettings.value = settings;
+  }
 
-      return true;
-    } catch (_) {
-      return false;
-    }
+  void clearPendingReceivedSettings() {
+    pendingReceivedSettings.value = null;
+    pendingReceivedIp.value = '';
+    pendingReceivedPort.value = RemoteSyncProtocol.defaultHttpPort;
   }
 
   Future<void> _writeMethodNotAllowed(HttpResponse response) async {
@@ -739,10 +723,7 @@ class RemoteSyncService extends GetxController {
     }
   }
 
-  Future<void> _handleDiscoveryEvent(
-    BonsoirDiscoveryEvent event,
-    BonsoirDiscovery discovery,
-  ) async {
+  Future<void> _handleDiscoveryEvent(BonsoirDiscoveryEvent event, BonsoirDiscovery discovery) async {
     if (_disposed) {
       return;
     }
@@ -814,9 +795,7 @@ class RemoteSyncService extends GetxController {
       return;
     }
 
-    final name = attributes['name']?.trim().isNotEmpty == true
-        ? attributes['name']!.trim()
-        : service.name;
+    final name = attributes['name']?.trim().isNotEmpty == true ? attributes['name']!.trim() : service.name;
 
     final devicePlatform = attributes['platform'] ?? '';
     final deviceVersion = attributes['version'] ?? '';
@@ -935,13 +914,7 @@ class RemoteSyncService extends GetxController {
       name: broadcastName,
       type: _mdnsServiceType,
       port: localPort.value,
-      attributes: {
-        'id': _deviceId,
-        'name': deviceName,
-        'platform': platform,
-        'version': version,
-        'ip': localIp.value,
-      },
+      attributes: {'id': _deviceId, 'name': deviceName, 'platform': platform, 'version': version, 'ip': localIp.value},
     );
 
     final broadcast = BonsoirBroadcast(service: service);
@@ -1001,6 +974,53 @@ class RemoteSyncService extends GetxController {
 
       final settings = backup.exportAllSettings(includeSensitiveData: true);
 
+      final client = HttpClient();
+
+      try {
+        final request = await client.postUrl(
+          Uri.parse(
+            'http://$ip:$port'
+            '${RemoteSyncProtocol.apiSettings}',
+          ),
+        );
+
+        request.headers.contentType = ContentType('application', 'json', charset: 'utf-8');
+
+        request.write(jsonEncode(RemoteSyncProtocol.settingsPacket(settings: settings)));
+
+        final response = await request.close();
+
+        final responseBody = await utf8.decoder.bind(response).join();
+
+        if (response.statusCode != HttpStatus.ok) {
+          return false;
+        }
+
+        final result = jsonDecode(responseBody);
+
+        return result is Map && result['data'] == true;
+      } finally {
+        client.close(force: true);
+      }
+    } catch (_) {
+      return false;
+    } finally {
+      isSyncing.value = false;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Push caller-supplied settings (bypasses exportAllSettings).
+  // Used by the preview/edit flow where the user manually curated the payload.
+
+  Future<bool> pushSettings(String ip, int port, Map<String, dynamic> settings) async {
+    if (_disposed || isSyncing.value) {
+      return false;
+    }
+
+    isSyncing.value = true;
+
+    try {
       final client = HttpClient();
 
       try {
@@ -1168,14 +1188,9 @@ class RemoteSyncService extends GetxController {
       return false;
     }
 
-    try {
-      final backup = Get.find<BackupController>();
+    // 与 POST 接收一致：暂存待预览，不做全量导入。
+    stashReceivedSettings(settings: settings, ip: parsed.ip, port: parsed.port);
 
-      backup.importAllSettings(settings);
-
-      return true;
-    } catch (_) {
-      return false;
-    }
+    return true;
   }
 }

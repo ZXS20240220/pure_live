@@ -10,6 +10,7 @@ import 'package:pure_live/common/utils/share_command_handler.dart';
 import 'package:pure_live/modules/tags/tag_management_controller.dart';
 import 'package:pure_live/plugins/event_bus.dart';
 import 'package:pure_live/common/services/settings/room_card_settings_controller.dart';
+import 'package:pure_live/common/services/settings/watch_time_service.dart';
 
 class RoomCard extends StatelessWidget {
   const RoomCard({
@@ -22,6 +23,7 @@ class RoomCard extends StatelessWidget {
     this.onDelete,
     this.deleteTooltip,
     this.settingsViewport,
+    this.isPinned = false,
   });
   final LiveRoom room;
   final bool dense;
@@ -31,6 +33,9 @@ class RoomCard extends StatelessWidget {
   final VoidCallback? onDelete;
   final String? deleteTooltip;
   final RoomCardViewport? settingsViewport;
+
+  /// 是否判定为置顶房间（由调用方按 enablePinned + pinTagId 计算，5.1/5.2）。
+  final bool isPinned;
   Widget _buildCover(BuildContext context, bool isDark) {
     final coverUrl = normalizeNetworkImageUrl(room.cover);
 
@@ -89,6 +94,19 @@ class RoomCard extends StatelessWidget {
       color: isDark ? Colors.grey.shade900 : Colors.grey.shade100,
       child: AppStatusView(type: AppStatusType.error, title: "", subtitle: "", isMini: true),
     );
+  }
+
+  /// 未开播时封面遮罩上的“上次直播”两行文本（5.x 开发版独有显示项）。
+  String _lastLiveTimeText() {
+    final ts = room.startTime;
+    if (ts == null || ts <= 0) return '';
+    final dt = DateTime.fromMillisecondsSinceEpoch(ts * 1000);
+    final y = dt.year;
+    final mo = dt.month.toString().padLeft(2, '0');
+    final d = dt.day.toString().padLeft(2, '0');
+    final h = dt.hour.toString().padLeft(2, '0');
+    final mi = dt.minute.toString().padLeft(2, '0');
+    return '${i18n('last_live_time_prefix')}\n$y-$mo-$d $h:$mi';
   }
 
   void onTap(BuildContext context) async {
@@ -202,7 +220,7 @@ class RoomCard extends StatelessWidget {
               onPressed: () {
                 Navigator.pop(context);
                 if (isFollowed) {
-                  unawaited(_showTagSelectionGridModal(context, theme, tagController));
+                  unawaited(showTagSelectionGridModal(context, theme, tagController, room));
                 } else {
                   SmartDialog.showToast(i18n('tags_need_follow_tip'));
                   showFollowDialog(
@@ -211,7 +229,7 @@ class RoomCard extends StatelessWidget {
                     anchorName: room.nick ?? '',
                     onConfirm: () {
                       SettingsService.to.fav.addRoom(room);
-                      unawaited(_showTagSelectionGridModal(context, theme, tagController));
+                      unawaited(showTagSelectionGridModal(context, theme, tagController, room));
                     },
                   );
                 }
@@ -276,10 +294,14 @@ class RoomCard extends StatelessWidget {
     );
   }
 
-  Future<void> _showTagSelectionGridModal(
+  /// 打开房间标签选择弹窗（开发版 3.2：进入时自动选中该房间已有标签）。
+  /// 原为基础版私有实例方法；为供播放页 header（live_play_header）复用而静态化，
+  /// 房间对象改为参数传入，弹窗内部逻辑与原实现完全一致。
+  static Future<void> showTagSelectionGridModal(
     BuildContext context,
     ThemeData theme,
     TagManagementController tagController,
+    LiveRoom room,
   ) async {
     final availableTagIds = tagController.tags.map((tag) => tag.id).toSet();
     final tempSelectedIds = tagController
@@ -769,6 +791,7 @@ class RoomCard extends StatelessWidget {
           final textScale = MediaQuery.textScalerOf(context).scale(1);
           final showAutomaticPlatformBadge =
               config.automaticPlatformBadge && !dense && constraints.maxWidth >= 280 && textScale < 1.8;
+          final showPinBadge = config.showPinBadge && isPinned;
           return Card(
             key: const ValueKey('room-card-surface'),
             margin: EdgeInsets.zero,
@@ -795,6 +818,31 @@ class RoomCard extends StatelessWidget {
                           ),
                         ),
                       ),
+                      // 未开播且有 startTime 时全封面“上次直播”遮罩（5.x）。
+                      if (config.showLastLiveTime && !room.isLiveNow && (room.startTime ?? 0) > 0)
+                        Positioned.fill(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(radius),
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(color: Colors.black.withValues(alpha: isDark ? 0.55 : 0.45)),
+                              child: Center(
+                                child: Text(
+                                  _lastLiveTimeText(),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: dense ? 11 : 13,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.3,
+                                    height: 1.4,
+                                    shadows: const [Shadow(color: Colors.black54, blurRadius: 4, offset: Offset(0, 1))],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                       if (config.showPlatformBadge)
                         Positioned(
                           key: const ValueKey('room-card-platform-badge'),
@@ -819,13 +867,44 @@ class RoomCard extends StatelessWidget {
                       if (config.showReplayBadge && room.isRecord == true)
                         Positioned(
                           key: const ValueKey('room-card-replay-badge'),
-                          right: showDelete ? (dense ? 44 : 48) : 8,
+                          // 置顶徽章固定占用右上角 24px 槽位，回放徽章随之左移。
+                          right: (showDelete ? (dense ? 44 : 48) : 8) + (showPinBadge ? 24 : 0),
                           top: 8,
                           child: CountChip(
                             icon: Icons.videocam_rounded,
                             count: i18n("replay"),
                             dense: dense,
                             color: Get.theme.primaryColor,
+                          ),
+                        ),
+                      // 置顶徽章（5.2）：右上角 24×24，primary 底色图钉图标。
+                      if (showPinBadge)
+                        Positioned(
+                          key: const ValueKey('room-card-pin-badge'),
+                          right: 8,
+                          top: 8,
+                          child: Tooltip(
+                            message: i18n('favorite_pinned_badge'),
+                            child: Container(
+                              width: 24,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.primary,
+                                borderRadius: BorderRadius.circular(6),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.3),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 1),
+                                  ),
+                                ],
+                              ),
+                              child: Icon(
+                                RemixIcons.pushpin_fill,
+                                color: Theme.of(context).colorScheme.onPrimary,
+                                size: dense ? 14 : 16,
+                              ),
+                            ),
                           ),
                         ),
                       if (statusPending)
@@ -877,9 +956,26 @@ class RoomCard extends StatelessWidget {
                             );
                           }),
                         ),
+                      // 累计观看时长徽标（5.x）：封面左下角，Obx 响应式，无记录不占位。
+                      if (config.showWatchTimeBadge && room.identityKey.isNotEmpty)
+                        Positioned(
+                          key: const ValueKey('room-card-watchtime-badge'),
+                          left: 8,
+                          bottom: 8,
+                          child: Obx(() {
+                            final seconds = WatchTimeService.secondsFor(room.identityKey);
+                            if (seconds <= 0) return const SizedBox.shrink();
+                            return CoverMetricBadge(
+                              icon: Icons.schedule_rounded,
+                              value: WatchTimeService.formatCompact(seconds),
+                              semanticLabel: '${i18n('watch_time_total')} ${WatchTimeService.formatFull(seconds)}',
+                              dense: dense,
+                            );
+                          }),
+                        ),
                       if (showDelete)
                         Positioned(
-                          right: 0,
+                          right: showPinBadge ? 32 : 0,
                           top: 0,
                           child: IconButton(
                             key: const ValueKey('room-card-delete'),

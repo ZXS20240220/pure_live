@@ -121,6 +121,7 @@ class WebSearchController extends GetxController {
   final isOpeningExternal = false.obs;
 
   WebSearchBrowser? _browser;
+  Timer? _creationWatchdog;
   InAppWebViewController? _nativeController;
   WebSearchRoomTarget? _pendingTarget;
   String? _dismissedTarget;
@@ -156,6 +157,7 @@ class WebSearchController extends GetxController {
       return;
     }
     _logInfo('[WebSearch] Initialized for ${request.uri.scheme}://${request.uri.host} (${request.platform}).');
+    if (!usesExternalBrowser) _startCreationWatchdog();
   }
 
   Future<void> openExternalBrowser() {
@@ -206,6 +208,7 @@ class WebSearchController extends GetxController {
     final previous = _browser;
     _browser = browser;
     _nativeController = nativeController;
+    _cancelCreationWatchdog();
     if (previous != null && !identical(previous, browser)) {
       await _disposeSpecificBrowser(previous);
     }
@@ -216,8 +219,7 @@ class WebSearchController extends GetxController {
       await browser.load(request.uri);
     } catch (error) {
       if (!_closed && identical(_browser, browser)) {
-        debugPrint('[WebSearch] Initial page load failed: $error');
-        _setFailure('web_search_load_failed');
+        debugPrint('[WebSearch] Initial page load threw (non-fatal): $error');
       }
     }
   }
@@ -264,17 +266,19 @@ class WebSearchController extends GetxController {
     WebResourceRequest request,
     WebResourceResponse response,
   ) {
-    if (!_acceptNativeController(controller) || request.isForMainFrame != true) return;
+    if (!_acceptNativeController(controller)) return;
     final uri = _parseHttpUri(request.url.toString());
-    _logWarning('[WebSearch] Main document HTTP status ${response.statusCode} from ${uri?.host ?? 'unknown host'}.');
-    _setFailure('web_search_load_failed');
+    _logWarning(
+      '[WebSearch] HTTP status ${response.statusCode} for ${uri?.host ?? 'unknown host'} (mainFrame: ${request.isForMainFrame}).',
+    );
   }
 
   void onReceivedError(InAppWebViewController controller, WebResourceRequest request, WebResourceError error) {
-    if (!_acceptNativeController(controller) || request.isForMainFrame != true) return;
+    if (!_acceptNativeController(controller)) return;
     final uri = _parseHttpUri(request.url.toString());
-    _logWarning('[WebSearch] Main document load error on ${uri?.host ?? 'unknown host'} (${error.type}).');
-    _setFailure('web_search_load_failed');
+    _logWarning(
+      '[WebSearch] Load error on ${uri?.host ?? 'unknown host'} (${error.type}, mainFrame: ${request.isForMainFrame}).',
+    );
   }
 
   Future<ServerTrustAuthResponse?> onReceivedServerTrustAuthRequest(
@@ -297,14 +301,15 @@ class WebSearchController extends GetxController {
     InAppWebViewController controller,
     NavigationAction action,
   ) async {
-    if (!_acceptNativeController(controller)) return NavigationActionPolicy.CANCEL;
-    final uri = action.request.url;
-    final documentUri = _parseHttpUri(uri?.toString());
-    if (documentUri == null) {
-      _logWarning('[WebSearch] Blocked a non-HTTP(S) navigation request.');
-      return NavigationActionPolicy.CANCEL;
+    // 身份不匹配只应让其他回调忽略事件，绝不能作为导航策略取消导航：
+    // 首次导航若被静默 CANCEL，页面将永远加载不出来（对齐开发版永远放行）。
+    if (_acceptNativeController(controller)) {
+      final uri = action.request.url;
+      if (uri != null) {
+        final link = uri.toString();
+        unawaited(observeUrl(link));
+      }
     }
-    unawaited(observeUrl(documentUri.toString()));
     return NavigationActionPolicy.ALLOW;
   }
 
@@ -369,15 +374,42 @@ class WebSearchController extends GetxController {
     }
   }
 
+  /// WebView 插件在 Windows 上原生创建失败时 [onWebViewCreated] 永不触发，
+  /// 页面会停留在无限空白加载且无任何报错；看门狗超时后兜底转为失败态，
+  /// 让用户可以点击重试（retry 会强制重建 WebView）。
+  void _startCreationWatchdog() {
+    _cancelCreationWatchdog();
+    _creationWatchdog = Timer(const Duration(seconds: 10), () {
+      if (_closed || _browser != null || usesExternalBrowser) return;
+      if (viewStatus.value != WebSearchViewStatus.loading) return;
+      _logWarning('[WebSearch] WebView was not created within 10s; marking the load as failed.');
+      _setFailure('web_search_load_failed');
+    });
+  }
+
+  void _cancelCreationWatchdog() {
+    _creationWatchdog?.cancel();
+    _creationWatchdog = null;
+  }
+
   Future<void> retry() async {
     final request = launchRequest;
     if (_closed || request == null) return;
     errorMessageKey.value = '';
     viewStatus.value = WebSearchViewStatus.loading;
     loadProgress.value = 0;
-    showWebView.value = true;
     final browser = _browser;
-    if (browser == null) return;
+    if (browser == null) {
+      // 原生 WebView 创建失败时没有可 reload 的控制器；
+      // 先把控件移出控件树再延时放回，强制重建 InAppWebView 重新走创建流程。
+      showWebView.value = false;
+      _startCreationWatchdog();
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (_closed) return;
+      showWebView.value = true;
+      return;
+    }
+    showWebView.value = true;
     try {
       await browser.reload();
     } catch (error) {
@@ -431,6 +463,7 @@ class WebSearchController extends GetxController {
     if (existing != null) return existing;
     _closed = true;
     _generation++;
+    _cancelCreationWatchdog();
     _pendingTarget = null;
     showWebView.value = false;
     isOpeningExternal.value = false;
@@ -488,6 +521,7 @@ class WebSearchController extends GetxController {
 
   @override
   void onClose() {
+    _cancelCreationWatchdog();
     if (!_closed) {
       _closed = true;
       _generation++;

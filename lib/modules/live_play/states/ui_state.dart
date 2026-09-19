@@ -1,9 +1,9 @@
 import 'package:flutter/foundation.dart';
 
-enum VideoMode { normal, widescreen, fullscreen, portraitFullscreen }
+enum VideoMode { normal, widescreen, fullscreen }
 
 bool requiresSystemFullscreenExit(VideoMode mode) {
-  return mode == VideoMode.fullscreen || mode == VideoMode.portraitFullscreen;
+  return mode == VideoMode.fullscreen;
 }
 
 @immutable

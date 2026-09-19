@@ -73,14 +73,14 @@ class _RecordActionButtonState extends State<RecordActionButton> {
         message: label,
         child: SizedBox(
           width: widget.compactHeader ? 40 : null,
-          height: widget.compactHeader ? 38 : null,
+          height: widget.compactHeader ? 30 : null,
           child: FilledButton(
             key: const ValueKey('record-action-button'),
             style: FilledButton.styleFrom(
               backgroundColor: backgroundColor,
               foregroundColor: foregroundColor,
               padding: widget.compactHeader ? EdgeInsets.zero : const EdgeInsets.symmetric(horizontal: 8),
-              minimumSize: widget.compactHeader ? const Size(38, 38) : const Size(0, 38),
+              minimumSize: widget.compactHeader ? const Size(38, 30) : const Size(0, 38),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               elevation: 0,

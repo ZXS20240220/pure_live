@@ -1,6 +1,6 @@
 import 'package:pure_live/common/index.dart';
+import 'package:pure_live/common/services/settings/favorite_room_controller.dart';
 import 'package:pure_live/common/services/settings/history_controller.dart';
-import 'package:pure_live/common/services/settings/refresh_config_controller.dart';
 import 'package:pure_live/plugins/global.dart';
 import 'package:waterfall_flow/waterfall_flow.dart';
 
@@ -26,38 +26,14 @@ class _HistoryPageState extends State<HistoryPage> {
   Future<void> onRefresh() => _refreshTask ??= _refreshHistory().whenComplete(() => _refreshTask = null);
 
   Future<void> _refreshHistory() async {
-    bool result = true;
     final history = SettingsService.to.history;
-    final list = List<LiveRoom>.from(history.historyRooms.v);
-    final concurrency = RefreshConfigController.normalizeMaxConcurrentRefresh(
-      SettingsService.to.refreshConfig.maxConcurrentRefresh.v,
-    );
-    final refreshed = await boundedAsyncMap<LiveRoom, LiveRoom>(
-      list,
-      maxConcurrent: concurrency,
-      task: (room) async {
-        final platform = room.platform;
-        final roomId = room.roomId;
-        if (platform == null || platform.isEmpty || roomId == null || roomId.isEmpty) {
-          result = false;
-          return room;
-        }
-        try {
-          final newRoom =
-              await (widget.loadRoom?.call(room) ??
-                      Sites.of(platform).liveSite.getRoomDetail(roomId: roomId, platform: platform))
-                  .timeout(const Duration(seconds: 12));
-          return preserveHistoryMetadata(newRoom, room);
-        } catch (_) {
-          result = false;
-          return room;
-        }
-      },
-      shouldCancel: () => !mounted,
-    );
-    if (!mounted || history.isClosed) return;
-    history.applyRefreshedRooms(list, refreshed);
-    if (result) {
+    // 6.3 统一刷新核心：先按历史条数上限截断，再走 refreshRoomDetails 分平台并发刷新。
+    // loadRoom 为测试注入点；合并走 applyRefreshedRooms（快照安全：保留刷新期间的新增/删除/上限调整）。
+    final list = applyHistoryLimit(history.historyRooms.v, history.historyLimit.v);
+    final result = await history.refreshRoomDetails(list, shouldCancel: () => !mounted, fetch: widget.loadRoom);
+    if (!mounted || history.isClosed || result == null) return;
+    history.applyRefreshedRooms(list, result.rooms);
+    if (result.allSuccess) {
       refreshController.finishRefresh(IndicatorResult.success);
       refreshController.resetFooter();
     } else {
@@ -176,7 +152,19 @@ class _HistoryPageState extends State<HistoryPage> {
       ),
       body: Obx(() {
         const dense = true;
-        final rooms = SettingsService.to.history.historyRooms.v;
+        final allRooms = SettingsService.to.history.historyRooms.v;
+        // 5.9-(4)：先按收藏夹同步最新状态，再只显示正在直播的房间（"正在播的历史"视图）。
+        // 收藏服务未注册时（测试环境/极端场景）跳过同步。
+        final favoriteMap = Get.isRegistered<FavoriteRoomController>()
+            ? {for (final fav in SettingsService.to.fav.favoriteRooms.v) fav.identityKey: fav}
+            : <String, LiveRoom>{};
+        final rooms = allRooms
+            .map((room) {
+              final fav = favoriteMap[room.identityKey];
+              return fav != null ? preserveHistoryMetadata(fav, room) : room;
+            })
+            .where((room) => room.isLiveNow)
+            .toList();
         return LayoutBuilder(
           builder: (context, constraint) {
             final width = constraint.maxWidth;

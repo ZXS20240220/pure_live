@@ -1,13 +1,14 @@
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/global/platform_utils.dart';
+import 'package:pure_live/modules/tags/tag_management_controller.dart';
 
 @visibleForTesting
 bool shouldWrapFavoritePullToRefresh({required double viewportWidth, required bool isMobilePlatform}) {
-  // A wide Android/iOS tablet still uses the touch-first home shell and must
-  // keep pull-to-refresh. Width alone only selects the responsive grid; it is
-  // not a reliable desktop-platform signal.
-  return isMobilePlatform || viewportWidth <= 680;
+  // 对齐开发版：桌面/移动、任意宽度一律包裹 EasyRefresh 下拉刷新。
+  // 桌面端鼠标拖拽由全局 MyCustomScrollBehavior.dragDevices（含 mouse）提供。
+  // 参数保留与开发版签名一致，便于后续按需恢复条件。
+  return true;
 }
 
 class RoomGridView extends GetView<FavoriteController> {
@@ -34,6 +35,13 @@ class RoomGridView extends GetView<FavoriteController> {
           final spacing = SettingsService.to.theme.crossAxisSpacing.v;
           final mainAxisSpacing = SettingsService.to.theme.mainAxisSpacing.v;
           final isVerifyingFavorites = controller.isVerifyingFavorites.value;
+          // 置顶判定（5.2）：enablePinned 开关 + 首位标签即置顶标签。
+          // pinTagId 在 Obx 作用域内读取，置顶切换（标签重排）时可触发重排。
+          final enablePinned = controller.enablePinned.v;
+          final tagController = Get.isRegistered<TagManagementController>()
+              ? Get.find<TagManagementController>()
+              : null;
+          final pinTagId = tagController?.pinTagId;
           var crossAxisCount = width > 1280 ? 4 : (width > 960 ? 3 : (width > 640 ? 2 : 1));
           if (dense) {
             crossAxisCount = width > 1280 ? 5 : (width > 960 ? 4 : (width > 640 ? 3 : 2));
@@ -79,6 +87,8 @@ class RoomGridView extends GetView<FavoriteController> {
               itemCount: displayList.length,
               itemBuilder: (context, index) {
                 final room = displayList[index];
+                final isPinned =
+                    enablePinned && pinTagId != null && tagController!.getTagsForRoom(room).contains(pinTagId);
                 return RoomCard(
                   key: ValueKey('${room.platform}:${room.roomId}'),
                   room: room,
@@ -87,6 +97,7 @@ class RoomGridView extends GetView<FavoriteController> {
                   statusPendingLabel: isVerifyingFavorites
                       ? i18n('favorite_status_verifying')
                       : i18n('favorite_status_unknown'),
+                  isPinned: isPinned,
                 );
               },
             );

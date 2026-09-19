@@ -22,6 +22,7 @@ import 'package:pure_live/common/services/settings/cookie_settings_controller.da
 import 'package:pure_live/common/services/settings/volume_settings_controller.dart';
 import 'package:pure_live/common/services/settings/danmaku_settings_controller.dart';
 import 'package:pure_live/common/services/settings/room_card_settings_controller.dart';
+import 'package:pure_live/common/services/settings/panel_size_controller.dart';
 
 class SettingsService extends GetxService {
   static SettingsService get to => Get.find<SettingsService>();
@@ -42,6 +43,7 @@ class SettingsService extends GetxService {
   VolumeSettingsController get vol => Get.find<VolumeSettingsController>();
   ThemeSettingsController get theme => Get.find<ThemeSettingsController>();
   RoomCardSettingsController get roomCard => Get.find<RoomCardSettingsController>();
+  PanelSizeController get panel => Get.find<PanelSizeController>();
   ProxySettingsController get proxy => Get.find<ProxySettingsController>();
   BackupController get backup => Get.find<BackupController>();
   RefreshConfigController get refreshConfig => Get.find<RefreshConfigController>();
@@ -76,6 +78,7 @@ class SettingsService extends GetxService {
     Get.lazyPut(() => TagManagementController(), fenix: true);
     Get.lazyPut(() => BiliBiliAccountService(), fenix: true);
     Get.lazyPut(() => FontSettingsController(), fenix: true);
+    Get.lazyPut(() => PanelSizeController(), fenix: true);
     Get.lazyPut(() => LogController(), fenix: true);
 
     Get.put(ExitSettingsController(), permanent: true);

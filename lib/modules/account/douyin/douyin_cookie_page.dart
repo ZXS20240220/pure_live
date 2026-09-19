@@ -1,5 +1,6 @@
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/modules/account/douyin/douyin_cookie_controller.dart';
+import 'package:pure_live/modules/account/web_cookie_capture.dart';
 import 'package:pure_live/modules/account/widgets/account_cookie_editor.dart';
 
 class DouyinCookiePage extends GetView<DouyinCookieController> {
@@ -12,6 +13,7 @@ class DouyinCookiePage extends GetView<DouyinCookieController> {
       hintText: i18n('douyin_cookie_hint'),
       tipText: i18n('douyin_cookie_tip'),
       onSave: controller.setCookie,
+      autoCaptureTarget: kCookieCaptureTargets['douyin'],
     );
   }
 }

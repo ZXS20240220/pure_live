@@ -1,5 +1,6 @@
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/modules/account/soop/soop_cookie_controller.dart';
+import 'package:pure_live/modules/account/web_cookie_capture.dart';
 import 'package:pure_live/modules/account/widgets/account_cookie_editor.dart';
 
 class SoopCookiePage extends GetView<SoopCookieBindingCookieController> {
@@ -12,6 +13,7 @@ class SoopCookiePage extends GetView<SoopCookieBindingCookieController> {
       hintText: i18n('soop_cookie_hint'),
       tipText: i18n('soop_cookie_tip'),
       onSave: controller.setCookie,
+      autoCaptureTarget: kCookieCaptureTargets['soop'],
     );
   }
 }

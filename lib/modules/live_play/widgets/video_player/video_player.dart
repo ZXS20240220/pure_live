@@ -4,20 +4,11 @@ import 'package:pure_live/common/global/platform_utils.dart';
 import 'package:pure_live/modules/live_play/widgets/video_player/video_loading.dart';
 import 'package:pure_live/modules/live_play/widgets/video_player/video_controller.dart';
 import 'package:pure_live/modules/live_play/widgets/video_player/video_controller_panel.dart';
-import 'package:pure_live/player/core/portrait_stream_support.dart';
 
 class VideoPlayer extends StatefulWidget {
   final VideoController controller;
   final Color surfaceColor;
-  final double? videoViewportAspectRatio;
-  final PortraitFullscreenDisplayMode? portraitFullscreenDisplayMode;
-  const VideoPlayer({
-    super.key,
-    required this.controller,
-    this.surfaceColor = Colors.black,
-    this.videoViewportAspectRatio,
-    this.portraitFullscreenDisplayMode,
-  });
+  const VideoPlayer({super.key, required this.controller, this.surfaceColor = Colors.black});
 
   @override
   State<VideoPlayer> createState() => _VideoPlayerState();
@@ -42,19 +33,28 @@ class _VideoPlayerState extends State<VideoPlayer> {
         // texture widget down only on Windows; the Player itself stays alive.
         preserveMountedVideo: !PlatformUtils.isWindows,
         placeholder: const VideoLoading(),
-        video: PlaybackFailureOverlay(
-          hasError: hasError,
-          onRetry: controller.refresh,
-          child: GlobalPlayerService.instance.player.getVideoWidget(
-            SettingsService.to.player.videoFitIndex.v,
-            fitList: SettingsService.to.player.videoFitArray,
-            trackPipSource: true,
-            audioOnlyOverride: audioOnly,
-            controls: VideoControllerPanel(controller: controller),
-            surfaceColor: widget.surfaceColor,
-            videoViewportAspectRatio: widget.videoViewportAspectRatio,
-            portraitFullscreenDisplayMode: widget.portraitFullscreenDisplayMode,
-          ),
+        // The controller panel must sit as a Stack sibling ABOVE the video
+        // (dev-version structure). Its full-surface hit-test layer absorbs
+        // pointer events before PureLivePipWidget/DragToResizeArea's 8px
+        // window-resize bands around the video, so the play page no longer
+        // shows the OS-style resize cursor/resize-window drag around the
+        // video area; only the real window borders resize the window.
+        video: Stack(
+          fit: StackFit.expand,
+          children: [
+            PlaybackFailureOverlay(
+              hasError: hasError,
+              onRetry: controller.refresh,
+              child: GlobalPlayerService.instance.player.getVideoWidget(
+                SettingsService.to.player.videoFitIndex.v,
+                fitList: SettingsService.to.player.videoFitArray,
+                trackPipSource: true,
+                audioOnlyOverride: audioOnly,
+                surfaceColor: widget.surfaceColor,
+              ),
+            ),
+            VideoControllerPanel(controller: controller),
+          ],
         ),
       );
     });

@@ -1,5 +1,6 @@
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
+import 'package:pure_live/common/services/settings/history_controller.dart';
 import 'package:pure_live/common/widgets/common_avatar.dart';
 
 /// 选台数据来源。
@@ -46,10 +47,20 @@ class _MultiviewRoomPickerState extends State<MultiviewRoomPicker> {
   String _query = '';
 
   List<LiveRoom> _roomsFor(_PickerSource source) {
-    final raw = switch (source) {
-      _PickerSource.favorites => SettingsService.to.fav.favoriteRooms.v,
-      _PickerSource.history => SettingsService.to.history.historyRooms.v,
-    };
+    // 历史来源条目先与收藏按 identityKey 匹配，命中则用收藏元数据覆盖
+    // （收藏刷新后的标题/封面更准）；历史选台只显示当前在播房间。
+    final favMap = <String, LiveRoom>{for (final fav in SettingsService.to.fav.favoriteRooms.v) fav.identityKey: fav};
+
+    List<LiveRoom> raw;
+    switch (source) {
+      case _PickerSource.favorites:
+        raw = SettingsService.to.fav.favoriteRooms.v;
+      case _PickerSource.history:
+        raw = SettingsService.to.history.historyRooms.v.map((room) {
+          final fav = favMap[room.identityKey];
+          return fav != null ? preserveHistoryMetadata(fav, room) : room;
+        }).toList();
+    }
 
     final query = _query.trim().toLowerCase();
 
@@ -57,6 +68,8 @@ class _MultiviewRoomPickerState extends State<MultiviewRoomPicker> {
       final platform = room.platform?.trim().toLowerCase() ?? '';
       if (!Sites.isSupported(platform)) return false;
       if ((room.roomId?.trim() ?? '').isEmpty) return false;
+
+      if (source == _PickerSource.history && !room.isLiveNow) return false;
 
       if (query.isNotEmpty) {
         final nick = (room.nick ?? '').toLowerCase();

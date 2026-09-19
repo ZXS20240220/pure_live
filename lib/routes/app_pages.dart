@@ -14,6 +14,7 @@ import 'package:pure_live/modules/account/account_page.dart';
 import 'package:pure_live/modules/popular/popular_page.dart';
 import 'package:pure_live/modules/history/history_page.dart';
 import 'package:pure_live/modules/about/version_history.dart';
+import 'package:pure_live/modules/about/changes_summary_page.dart';
 import 'package:pure_live/modules/search/search_binding.dart';
 import 'package:pure_live/modules/search/web_search_page.dart';
 import 'package:pure_live/modules/favorite/favorite_page.dart';
@@ -124,6 +125,8 @@ class AppPages {
     ),
 
     GetPage(name: RoutePath.kVersionHistory, page: _smoothPage(() => const VersionHistoryPage())),
+
+    GetPage(name: RoutePath.kChangesSummary, page: _smoothPage(() => const ChangesSummaryPage())),
 
     GetPage(name: RoutePath.kToolbox, page: _smoothPage(() => const ToolBoxPage()), bindings: [ToolBoxBinding()]),
 

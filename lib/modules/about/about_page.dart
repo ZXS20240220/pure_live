@@ -121,6 +121,25 @@ class _AboutPageState extends State<AboutPage> {
               },
             ),
             context.buildTile(
+              icon: Remix.git_branch_line,
+              title: i18n("fork_repository"),
+              subtitle: 'https://github.com/ZXS20240220/pure_live/tree/dev_from_v3.1.4',
+              isLong: true,
+              onTap: () {
+                launchUrl(
+                  Uri.parse('https://github.com/ZXS20240220/pure_live/tree/dev_from_v3.1.4'),
+                  mode: LaunchMode.externalApplication,
+                );
+              },
+            ),
+            context.buildTile(
+              icon: Remix.file_list_3_line,
+              title: i18n("changes_summary"),
+              subtitle: i18n("changes_summary_desc"),
+              isLong: true,
+              onTap: () => Get.toNamed(RoutePath.kChangesSummary),
+            ),
+            context.buildTile(
               icon: Remix.error_warning_line,
               title: i18n("project_alert"),
               subtitle: i18n("app_legalese"),

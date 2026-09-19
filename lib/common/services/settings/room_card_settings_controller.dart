@@ -28,6 +28,9 @@ class RoomCardAppearance {
     required this.automaticPlatformBadge,
     required this.showAudience,
     required this.showReplayBadge,
+    required this.showPinBadge,
+    required this.showWatchTimeBadge,
+    required this.showLastLiveTime,
     required this.cornerRadius,
   });
 
@@ -42,6 +45,9 @@ class RoomCardAppearance {
     automaticPlatformBadge: false,
     showAudience: true,
     showReplayBadge: true,
+    showPinBadge: true,
+    showWatchTimeBadge: true,
+    showLastLiveTime: true,
     cornerRadius: 12,
   );
 
@@ -52,6 +58,9 @@ class RoomCardAppearance {
     automaticPlatformBadge: true,
     showAudience: true,
     showReplayBadge: true,
+    showPinBadge: true,
+    showWatchTimeBadge: true,
+    showLastLiveTime: true,
     cornerRadius: defaultCornerRadius,
   );
 
@@ -62,6 +71,9 @@ class RoomCardAppearance {
     automaticPlatformBadge: false,
     showAudience: true,
     showReplayBadge: true,
+    showPinBadge: true,
+    showWatchTimeBadge: true,
+    showLastLiveTime: true,
     cornerRadius: defaultCornerRadius,
   );
 
@@ -71,6 +83,17 @@ class RoomCardAppearance {
   final bool automaticPlatformBadge;
   final bool showAudience;
   final bool showReplayBadge;
+
+  /// 置顶徽章（开发版独有显示项，右上角）：仅当卡片被判定为置顶时渲染。
+  final bool showPinBadge;
+
+  /// 累计观看时长徽章（开发版独有显示项，封面左下角）：无记录时不占位。
+  final bool showWatchTimeBadge;
+
+  /// 上次直播时间及遮罩（开发版独有显示项）：未开播且有 startTime 时
+  /// 全封面黑色半透明遮罩 + 居中两行文本。
+  final bool showLastLiveTime;
+
   final double cornerRadius;
 
   RoomCardPlatformBadgeMode get platformBadgeMode {
@@ -128,6 +151,9 @@ class RoomCardAppearance {
       automaticPlatformBadge: showPlatformBadge ? false : automaticPlatformBadge,
       showAudience: readBool('showAudience', 'showAudience', fallback.showAudience),
       showReplayBadge: readBool('showReplayBadge', 'showRecordBadge', fallback.showReplayBadge),
+      showPinBadge: readBool('showPinBadge', 'showPinBadge', fallback.showPinBadge),
+      showWatchTimeBadge: readBool('showWatchTimeBadge', 'showWatchTimeBadge', fallback.showWatchTimeBadge),
+      showLastLiveTime: readBool('showLastLiveTime', 'showLastLiveTime', fallback.showLastLiveTime),
       cornerRadius: readRadius(),
     );
   }
@@ -139,6 +165,9 @@ class RoomCardAppearance {
     bool? automaticPlatformBadge,
     bool? showAudience,
     bool? showReplayBadge,
+    bool? showPinBadge,
+    bool? showWatchTimeBadge,
+    bool? showLastLiveTime,
     double? cornerRadius,
   }) {
     return RoomCardAppearance(
@@ -148,6 +177,9 @@ class RoomCardAppearance {
       automaticPlatformBadge: automaticPlatformBadge ?? this.automaticPlatformBadge,
       showAudience: showAudience ?? this.showAudience,
       showReplayBadge: showReplayBadge ?? this.showReplayBadge,
+      showPinBadge: showPinBadge ?? this.showPinBadge,
+      showWatchTimeBadge: showWatchTimeBadge ?? this.showWatchTimeBadge,
+      showLastLiveTime: showLastLiveTime ?? this.showLastLiveTime,
       cornerRadius: normalizeCornerRadius(cornerRadius ?? this.cornerRadius),
     );
   }
@@ -167,6 +199,9 @@ class RoomCardAppearance {
       'automaticPlatformBadge': automaticPlatformBadge,
       'showAudience': showAudience,
       'showReplayBadge': showReplayBadge,
+      'showPinBadge': showPinBadge,
+      'showWatchTimeBadge': showWatchTimeBadge,
+      'showLastLiveTime': showLastLiveTime,
       'cornerRadius': normalizeCornerRadius(cornerRadius),
     };
   }
@@ -180,6 +215,9 @@ class RoomCardAppearance {
         other.automaticPlatformBadge == automaticPlatformBadge &&
         other.showAudience == showAudience &&
         other.showReplayBadge == showReplayBadge &&
+        other.showPinBadge == showPinBadge &&
+        other.showWatchTimeBadge == showWatchTimeBadge &&
+        other.showLastLiveTime == showLastLiveTime &&
         other.cornerRadius == cornerRadius;
   }
 
@@ -191,6 +229,9 @@ class RoomCardAppearance {
     automaticPlatformBadge,
     showAudience,
     showReplayBadge,
+    showPinBadge,
+    showWatchTimeBadge,
+    showLastLiveTime,
     cornerRadius,
   );
 }

@@ -27,9 +27,13 @@ class HuyaDanmakuArgs {
 typedef HuyaSuperChatFetcher = Future<List<LiveSuperChatMessage>> Function(int lPid);
 
 class HuyaDanmaku implements LiveDanmaku {
-  HuyaDanmaku({HuyaSuperChatFetcher? superChatFetcher, List<Duration>? superChatRetryDelays})
-    : _superChatFetcher = superChatFetcher ?? ((lPid) => getHuyaSuperChatMessageList(lPid: lPid, first: true)),
-      _superChatRetryDelays = List<Duration>.unmodifiable(superChatRetryDelays ?? defaultSuperChatRetryDelays);
+  HuyaDanmaku({
+    HuyaSuperChatFetcher? superChatFetcher,
+    List<Duration>? superChatRetryDelays,
+    bool Function()? filterSystemMessages,
+  }) : _superChatFetcher = superChatFetcher ?? ((lPid) => getHuyaSuperChatMessageList(lPid: lPid, first: true)),
+       _superChatRetryDelays = List<Duration>.unmodifiable(superChatRetryDelays ?? defaultSuperChatRetryDelays),
+       _filterSystemMessages = filterSystemMessages ?? (() => true);
 
   static const List<Duration> defaultSuperChatRetryDelays = <Duration>[
     Duration.zero,
@@ -40,8 +44,14 @@ class HuyaDanmaku implements LiveDanmaku {
 
   final HuyaSuperChatFetcher _superChatFetcher;
   final List<Duration> _superChatRetryDelays;
+  final bool Function() _filterSystemMessages;
   final Set<LiveSuperChatMessage> _emittedSuperChats = <LiveSuperChatMessage>{};
   static const int _maxRememberedSuperChats = 512;
+
+  static bool _isHuyaSystemMessage({required int uid, required String nick, required int level}) {
+    return (uid == 0 || uid <= 255) && level == 0 && (nick.isEmpty || nick == '系统消息');
+  }
+
   Future<void>? _superChatRefreshFuture;
   bool _superChatRefreshQueued = false;
 
@@ -193,7 +203,17 @@ class HuyaDanmaku implements LiveDanmaku {
     if (uri == 1400) {
       final messageNotice = HYMessage();
       messageNotice.readFrom(TarsInputStream(Uint8List.fromList(payload)));
+      final nick = messageNotice.userInfo.nickName;
+      final uid = messageNotice.userInfo.uid;
+      final level = messageNotice.senderLevel;
+      if (_filterSystemMessages() && _isHuyaSystemMessage(uid: uid, nick: nick, level: level)) {
+        return;
+      }
       final color = messageNotice.bulletFormat.fontColor;
+      final badge = messageNotice.fansBadge();
+      final fansLevel = badge == null || badge.$2 <= 0 ? '' : '${badge.$2}';
+      final fansName = badge == null ? '' : badge.$1;
+      final senderLevel = messageNotice.senderLevel;
       onMessage?.call(
         LiveMessage(
           type: LiveMessageType.chat,
@@ -201,6 +221,9 @@ class HuyaDanmaku implements LiveDanmaku {
           message: messageNotice.content,
           userName: messageNotice.userInfo.nickName,
           userId: messageNotice.userInfo.uid.toString(),
+          userLevel: senderLevel > 0 ? '$senderLevel' : '',
+          fansName: fansName,
+          fansLevel: fansLevel,
           messageId: messageId > 0 ? 'huya:$messageId' : '',
         ),
       );
@@ -420,12 +443,25 @@ class HYMessage extends TarsStruct {
   HYSender userInfo = HYSender();
   String content = "";
   HYBulletFormat bulletFormat = HYBulletFormat();
+  int senderLevel = 0;
+  List<HYDecoration> prefixDecorations = <HYDecoration>[];
 
   @override
   void readFrom(TarsInputStream inputStream) {
     userInfo = inputStream.readTarsStruct(userInfo, 0, false) as HYSender;
     content = inputStream.read(content, 3, false);
     bulletFormat = inputStream.readTarsStruct(bulletFormat, 6, false) as HYBulletFormat;
+    senderLevel = inputStream.read(senderLevel, 7, false);
+    prefixDecorations = inputStream.readList<HYDecoration>(<HYDecoration>[HYDecoration()], 8, false);
+  }
+
+  (String, int)? fansBadge() {
+    for (final decoration in prefixDecorations) {
+      if (decoration.appId != 10400) continue;
+      final badge = decodeHuyaBadgeBlob(decoration.payload);
+      if (badge != null) return badge;
+    }
+    return null;
   }
 
   @override
@@ -436,11 +472,52 @@ class HYMessage extends TarsStruct {
     return HYMessage()
       ..userInfo = userInfo.deepCopy() as HYSender
       ..content = content
-      ..bulletFormat = bulletFormat.deepCopy() as HYBulletFormat;
+      ..bulletFormat = bulletFormat.deepCopy() as HYBulletFormat
+      ..senderLevel = senderLevel
+      ..prefixDecorations = prefixDecorations.map((decoration) => decoration.deepCopy() as HYDecoration).toList();
   }
 
   @override
   void displayAsString(StringBuffer sb, int level) {}
+}
+
+class HYDecoration extends TarsStruct {
+  int appId = 0;
+  int decorationType = 0;
+  Uint8List payload = Uint8List(0);
+
+  @override
+  void readFrom(TarsInputStream inputStream) {
+    appId = inputStream.read(appId, 0, false);
+    decorationType = inputStream.read(decorationType, 1, false);
+    payload = inputStream.readBytes(2, false);
+    inputStream.readInt(3, false);
+    inputStream.readInt(4, false);
+  }
+
+  @override
+  void writeTo(TarsOutputStream outputStream) {}
+
+  @override
+  Object deepCopy() => HYDecoration()
+    ..appId = appId
+    ..decorationType = decorationType
+    ..payload = Uint8List.fromList(payload);
+
+  @override
+  void displayAsString(StringBuffer sb, int level) {}
+}
+
+(String, int)? decodeHuyaBadgeBlob(Uint8List blob) {
+  try {
+    final stream = TarsInputStream(blob);
+    final name = stream.read('', 3, false);
+    final level = stream.read(0, 4, false);
+    if (name.isEmpty && level <= 0) return null;
+    return (name, level);
+  } catch (e) {
+    return null;
+  }
 }
 
 class HYBulletFormat extends TarsStruct {

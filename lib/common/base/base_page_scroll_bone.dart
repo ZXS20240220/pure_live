@@ -59,9 +59,8 @@ abstract class BasePageScrollAndStateBone<T> extends BaseController {
     _syncScrollFlags();
   }
 
-  /// Async pagers expose their current operation, including connectivity and
-  /// re-paging, so layout commits cannot change its dimensions mid-response.
-  /// Synchronous local projections have no operation to await.
+  /// Async pagers expose their current operation so callers (tests, favorite
+  /// overrides) can await or inspect the in-flight request.
   Future<void>? get activePageOperation => null;
 
   void checkAndNotifyLayoutChange(bool isDesktop) {
@@ -71,17 +70,13 @@ abstract class BasePageScrollAndStateBone<T> extends BaseController {
     _pendingIsDesktop = isDesktop == _lastIsDesktop ? null : isDesktop;
     if (_pendingIsDesktop == null) return;
 
-    // Keep the existing breakpoint debounce, but defer the state transition
-    // itself as well as the refresh. Crossing back cancels the whole intent.
-    _layoutRefreshTimer = Timer(const Duration(milliseconds: 120), () => unawaited(_commitLayout(version)));
+    // 跨越 680px 断点只切换分页布局（pageSize/currentPage），绝不重新拉取
+    // 数据（对齐开发版：窗口宽度变化不触发刷新）。延迟 120ms 提交是为了
+    // 避免在 build 期间修改状态；拖回原断点则整个意图取消。
+    _layoutRefreshTimer = Timer(const Duration(milliseconds: 120), () => _commitLayout(version));
   }
 
-  Future<void> _commitLayout(int version) async {
-    while (!isClosed && version == _layoutVersion) {
-      final active = activePageOperation;
-      if (active == null) break;
-      await active;
-    }
+  void _commitLayout(int version) {
     if (isClosed || version != _layoutVersion) return;
     final isDesktop = _pendingIsDesktop;
     if (isDesktop == null) return;
@@ -97,8 +92,6 @@ abstract class BasePageScrollAndStateBone<T> extends BaseController {
       pageSize.value = 20;
       currentPage = 1;
     }
-
-    await refreshData();
   }
 
   bool get usesDesktopPagination => _lastIsDesktop ?? Get.width > 680 && !PlatformUtils.isMobile;

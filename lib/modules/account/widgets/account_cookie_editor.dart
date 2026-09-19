@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/services/settings/cookie_value.dart';
+import 'package:pure_live/modules/account/web_cookie_capture.dart';
 
 export 'package:pure_live/common/services/settings/cookie_value.dart' show normalizeAccountCookie;
 
@@ -12,6 +13,7 @@ class AccountCookieEditorPage extends StatefulWidget {
     required this.hintText,
     required this.tipText,
     required this.onSave,
+    this.autoCaptureTarget,
     super.key,
   });
 
@@ -19,6 +21,9 @@ class AccountCookieEditorPage extends StatefulWidget {
   final String hintText;
   final String tipText;
   final ValueChanged<String> onSave;
+
+  /// 平台网页抓取配置；非空时显示「自动获取」按钮，打开内置浏览器登录页。
+  final CookieCaptureTarget? autoCaptureTarget;
 
   @override
   State<AccountCookieEditorPage> createState() => _AccountCookieEditorPageState();
@@ -50,6 +55,16 @@ class _AccountCookieEditorPageState extends State<AccountCookieEditorPage> {
     final dirty = normalizeAccountCookie(widget.controller.text) != _savedCookie;
     if (dirty == _dirty || !mounted) return;
     setState(() => _dirty = dirty);
+  }
+
+  /// 启动内置浏览器自动抓取流程：捕获成功后自动填入并走保存链路。
+  Future<void> _autoCaptureCookie() async {
+    final target = widget.autoCaptureTarget;
+    if (target == null) return;
+    final cookie = await WebCookieCapturePage.capture(target);
+    if (cookie == null || cookie.isEmpty) return;
+    widget.controller.text = cookie;
+    _save();
   }
 
   void _save() {
@@ -167,24 +182,49 @@ class _AccountCookieEditorPageState extends State<AccountCookieEditorPage> {
                             ),
                           ),
                           const SizedBox(height: 16),
-                          FilledButton.icon(
-                            key: const ValueKey('account-cookie-save'),
-                            onPressed: _save,
-                            style: FilledButton.styleFrom(
-                              minimumSize: const Size.fromHeight(48),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            ),
-                            icon: const Icon(Icons.save_rounded, size: 18),
-                            label: Text(
-                              i18n('save'),
-                              textAlign: TextAlign.center,
-                              style: AppTextStyles.t14.copyWith(
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 0.5,
-                                color: theme.colorScheme.onPrimary,
+                          Row(
+                            children: [
+                              if (widget.autoCaptureTarget != null) ...[
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: _autoCaptureCookie,
+                                    style: OutlinedButton.styleFrom(
+                                      minimumSize: const Size.fromHeight(48),
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    ),
+                                    icon: const Icon(Remix.global_line, size: 18),
+                                    label: Text(
+                                      i18n('cookie_auto_capture'),
+                                      textAlign: TextAlign.center,
+                                      style: AppTextStyles.t14.copyWith(fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                              ],
+                              Expanded(
+                                child: FilledButton.icon(
+                                  key: const ValueKey('account-cookie-save'),
+                                  onPressed: _save,
+                                  style: FilledButton.styleFrom(
+                                    minimumSize: const Size.fromHeight(48),
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  icon: const Icon(Icons.save_rounded, size: 18),
+                                  label: Text(
+                                    i18n('save'),
+                                    textAlign: TextAlign.center,
+                                    style: AppTextStyles.t14.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.5,
+                                      color: theme.colorScheme.onPrimary,
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
+                            ],
                           ),
                         ],
                       ),

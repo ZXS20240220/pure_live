@@ -1,5 +1,7 @@
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/services/utils/backup_migration_util.dart';
+import 'package:pure_live/core/interface/live_site.dart';
+import 'package:pure_live/plugins/event_bus.dart';
 
 const int defaultHistoryLimit = 50;
 const int unlimitedHistoryLimit = 0;
@@ -81,19 +83,23 @@ class HistoryController extends GetxController {
       watchedAt: DateTime.now().millisecondsSinceEpoch,
       limit: historyLimit.v,
     );
+    EventBus.instance.emit('history_changed', true);
   }
 
   void removeRoomFromHistory(LiveRoom room) {
     historyRooms.v = List<LiveRoom>.from(historyRooms.v)..removeWhere((entry) => entry.hasSameIdentity(room));
+    EventBus.instance.emit('history_changed', true);
   }
 
   void removeRoomFromHistoryAt(int index) {
     if (index < 0 || index >= historyRooms.v.length) return;
     historyRooms.v = List<LiveRoom>.from(historyRooms.v)..removeAt(index);
+    EventBus.instance.emit('history_changed', true);
   }
 
   void clearHistory() {
     historyRooms.v = <LiveRoom>[];
+    EventBus.instance.emit('history_changed', true);
   }
 
   void clearHistorySnapshot(Iterable<LiveRoom> snapshot) {
@@ -148,5 +154,78 @@ class HistoryController extends GetxController {
     rootConfig['history'] = history;
 
     return rootConfig;
+  }
+
+  Future<({List<LiveRoom> rooms, bool allSuccess})?> refreshRoomDetails(
+    List<LiveRoom> rooms, {
+    bool Function()? shouldCancel,
+    // 可选的详情拉取注入点（测试用），默认走各平台 LiveSite。
+    Future<LiveRoom> Function(LiveRoom room)? fetch,
+  }) async {
+    var allSuccess = true;
+    final valid = <LiveRoom>[];
+    for (final room in rooms) {
+      if ((room.platform?.isNotEmpty ?? false) && (room.roomId?.isNotEmpty ?? false)) {
+        valid.add(room);
+      } else {
+        allSuccess = false;
+      }
+    }
+    if (valid.isEmpty) {
+      return (rooms: List<LiveRoom>.from(rooms), allSuccess: allSuccess);
+    }
+
+    final groups = <String, List<LiveRoom>>{};
+    for (final room in valid) {
+      groups.putIfAbsent(room.normalizedPlatformId, () => []).add(room);
+    }
+
+    final refreshConfig = SettingsService.to.refreshConfig;
+    final siteCache = <String, LiveSite>{};
+
+    final groupResults = await Future.wait(
+      groups.entries.map((entry) {
+        return boundedAsyncMap<LiveRoom, LiveRoom>(
+          entry.value,
+          maxConcurrent: refreshConfig.platformConcurrencyOf(entry.key),
+          task: (room) => _refreshOneRoom(room, siteCache, () => allSuccess = false, fetch: fetch),
+          shouldCancel: shouldCancel,
+        );
+      }),
+    );
+
+    if (shouldCancel?.call() ?? false) return null;
+
+    final refreshedByIdentity = <String, LiveRoom>{};
+    for (final results in groupResults) {
+      for (final room in results) {
+        if (room != null) refreshedByIdentity[room.identityKey] = room;
+      }
+    }
+
+    return (rooms: [for (final room in rooms) refreshedByIdentity[room.identityKey] ?? room], allSuccess: allSuccess);
+  }
+
+  Future<LiveRoom> _refreshOneRoom(
+    LiveRoom room,
+    Map<String, LiveSite> siteCache,
+    void Function() markFailure, {
+    Future<LiveRoom> Function(LiveRoom)? fetch,
+  }) async {
+    try {
+      final platform = room.normalizedPlatformId;
+      final roomId = room.normalizedRoomId;
+      final liveSite = siteCache.putIfAbsent(platform, () => Sites.of(platform).liveSite);
+      final operation =
+          fetch?.call(room) ??
+          (liveSite is LiveSiteRoomRefresher
+              ? (liveSite as LiveSiteRoomRefresher).getRoomDetailForRefresh(roomId: roomId, platform: platform)
+              : liveSite.getRoomDetail(roomId: roomId, platform: platform));
+      final refreshed = await operation.timeout(const Duration(seconds: 12));
+      return preserveHistoryMetadata(refreshed, room);
+    } catch (_) {
+      markFailure();
+      return room;
+    }
   }
 }

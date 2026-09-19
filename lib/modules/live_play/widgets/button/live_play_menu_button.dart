@@ -180,7 +180,7 @@ class LivePlayMenuButton extends StatelessWidget {
 
   List<PopupMenuEntry<int>> _buildItems(BuildContext context) {
     return [
-      _item(value: 0, icon: Icons.open_in_new_rounded, text: i18n('open_live_room')),
+      _item(value: 0, icon: Icons.open_in_browser_rounded, text: i18n('open_live_room')),
 
       _item(value: 1, icon: Icons.swap_horiz_outlined, text: i18n('switch_live_room')),
 

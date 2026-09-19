@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:math';
 import 'dart:async';
+
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter/gestures.dart';
 import 'package:remixicon/remixicon.dart';
@@ -10,7 +11,6 @@ import 'package:flame_barrage/flame_barrage.dart';
 import 'package:pure_live/common/utils/live_url_tool.dart';
 import 'package:pure_live/common/global/platform_utils.dart';
 import 'package:pure_live/common/utils/play_quality_label.dart';
-import 'package:pure_live/modules/live_play/states/ui_state.dart';
 import 'package:pure_live/modules/live_play/states/load_type.dart';
 import 'package:pure_live/player/core/portrait_stream_support.dart';
 import 'package:pure_live/modules/live_play/dialogs/play_other.dart';
@@ -19,15 +19,13 @@ import 'package:pure_live/modules/live_play/pages/danmaku_settings_page.dart';
 import 'package:pure_live/modules/live_play/controllers/live_play_controller.dart';
 import 'package:pure_live/modules/live_play/widgets/content_first_panel_layout.dart';
 import 'package:pure_live/modules/live_play/widgets/video_player/volume_control.dart';
+import 'package:pure_live/modules/live_play/widgets/video_player/live_progress_bar.dart';
 import 'package:pure_live/modules/live_play/widgets/layout/control_hover_region.dart';
 import 'package:pure_live/modules/live_play/widgets/video_player/video_controller.dart';
 import 'package:pure_live/modules/live_play/widgets/layout/bottom_control_surface.dart';
 import 'package:pure_live/modules/live_play/widgets/danmaku/danmaku_settings_binding.dart';
 import 'package:pure_live/modules/live_play/widgets/video_player/iptv_schedule_dialog.dart';
-import 'package:pure_live/modules/live_play/widgets/layout/portrait_fullscreen_interaction.dart';
-import 'package:pure_live/modules/live_play/widgets/video_player/portrait_playback_picker_dialog.dart';
 import 'package:pure_live/modules/live_play/widgets/local_interaction/local_danmaku_style_editor.dart';
-
 
 @visibleForTesting
 enum TopActionLeadingSlot { back, datetime, battery }
@@ -83,18 +81,11 @@ bool shouldHandleVideoSurfaceTap({
   return localPosition.dy > guardedHeight && localPosition.dy < surfaceSize.height - guardedHeight;
 }
 
-const double portraitFullscreenBottomBarHeight = portraitFullscreenControlsHeight;
-
 @visibleForTesting
 String fullscreenActionLabelKey(bool expanded) => expanded ? 'exit_fullscreen' : 'enter_fullscreen';
 
 @visibleForTesting
 String playerWindowActionLabelKey(bool expanded) => expanded ? 'collapse_player_window' : 'expand_player_window';
-
-@visibleForTesting
-double resolveBottomActionBarHeight(VideoMode screenMode, {double regularHeight = 56}) {
-  return screenMode == VideoMode.portraitFullscreen ? portraitFullscreenBottomBarHeight : regularHeight;
-}
 
 class VideoControllerPanel extends StatefulWidget {
   final VideoController controller;
@@ -129,8 +120,6 @@ class _VideoControllerPanelState extends State<VideoControllerPanel> {
         child: Obx(() {
           final double currentVolume = controller.currentVolume.value;
           final int percentage = (currentVolume * 100).round();
-          final screenMode = controller.livePlayController.state.value.ui.screenMode;
-          final bottomBarHeight = resolveBottomActionBarHeight(screenMode, regularHeight: barHeight);
 
           final IconData iconData = currentVolume <= 0
               ? Icons.volume_mute
@@ -206,7 +195,7 @@ class _VideoControllerPanelState extends State<VideoControllerPanel> {
                           localPosition: localPosition,
                           surfaceSize: context.size ?? Size.zero,
                           controlsVisible: controller.showController.value,
-                          controlBarHeight: bottomBarHeight,
+                          controlBarHeight: barHeight,
                         )) {
                       controller.enableController();
                       return;
@@ -228,7 +217,7 @@ class _VideoControllerPanelState extends State<VideoControllerPanel> {
                       localPosition: details.localPosition,
                       surfaceSize: context.size ?? Size.zero,
                       controlsVisible: controller.showController.value,
-                      controlBarHeight: bottomBarHeight,
+                      controlBarHeight: barHeight,
                     )) {
                       controller.enableController();
                       return;
@@ -245,13 +234,8 @@ class _VideoControllerPanelState extends State<VideoControllerPanel> {
                   child: BrightnessVolumnDargArea(controller: controller),
                 ),
                 LockButton(controller: controller),
-                const PortraitStreamDiagnosticsBadge(),
                 TopActionBar(controller: controller, barHeight: barHeight),
-                BottomActionBar(
-                  controller: controller,
-                  barHeight: bottomBarHeight,
-                  portraitFullscreen: screenMode == VideoMode.portraitFullscreen,
-                ),
+                BottomActionBar(controller: controller, barHeight: barHeight),
               ],
             ),
           );
@@ -567,164 +551,6 @@ class PIPButton extends StatelessWidget {
   }
 }
 
-class PortraitOrientationButton extends StatelessWidget {
-  const PortraitOrientationButton({super.key, required this.controller});
-
-  final VideoController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Obx(() {
-      final settings = SettingsService.to.player;
-      final selected = settings.portraitOverrideForRoom(controller.room);
-      final icon = switch (selected) {
-        PortraitOrientationOverride.automatic => Icons.screen_rotation_alt_rounded,
-        PortraitOrientationOverride.portrait => Icons.stay_current_portrait_rounded,
-        PortraitOrientationOverride.landscape => Icons.stay_current_landscape_rounded,
-      };
-      return IconButton(
-        key: const ValueKey('portrait-orientation-override'),
-        tooltip: i18n('portrait_room_override'),
-        visualDensity: VisualDensity.compact,
-        color: selected == PortraitOrientationOverride.automatic ? Colors.white : const Color(0xFFFFD166),
-        onPressed: () => _showPicker(context, selected),
-        icon: Icon(icon, size: 21),
-      );
-    });
-  }
-
-  Future<void> _showPicker(BuildContext context, PortraitOrientationOverride selected) async {
-    controller.isMenuOpen.value = true;
-    controller.stopHideController();
-    try {
-      final settings = SettingsService.to.player;
-      final result = await showDialog<PortraitOrientationPickerResult>(
-        context: context,
-        builder: (dialogContext) =>
-            PortraitOrientationPickerDialog(selected: selected, remember: settings.rememberPortraitRoomOverride.v),
-      );
-      if (result != null) {
-        settings.rememberPortraitRoomOverride.v = result.remember;
-        settings.setPortraitOverrideForRoom(controller.room, result.orientation, remember: result.remember);
-        GlobalPlayerService.instance.player.refreshPortraitPresentationPolicy();
-      }
-    } finally {
-      if (controller.status != PlayerStatus.disposed) {
-        controller.isMenuOpen.value = false;
-        controller.enableController();
-      }
-    }
-  }
-}
-
-/// A portrait-fullscreen-only display selector. Keeping it beside the existing
-/// orientation override makes the distinction explicit: one decides what the
-/// source is, while this control decides how a confirmed portrait source uses
-/// the remaining phone surface.
-class PortraitFullscreenDisplayModeButton extends StatelessWidget {
-  const PortraitFullscreenDisplayModeButton({super.key, required this.controller});
-
-  final VideoController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Obx(() {
-      final manager = GlobalPlayerService.instance.player;
-      final screenMode = controller.livePlayController.state.value.ui.screenMode;
-      if (screenMode != VideoMode.portraitFullscreen || !manager.isVerticalVideo.value) {
-        return const SizedBox.shrink();
-      }
-      final selected = SettingsService.to.player.portraitFullscreenDisplayMode;
-      return IconButton(
-        key: const ValueKey('portrait-fullscreen-display-mode'),
-        tooltip: i18n('portrait_fullscreen_display_mode'),
-        visualDensity: VisualDensity.compact,
-        color: selected == PortraitFullscreenDisplayMode.ambient ? Colors.white : const Color(0xFFFFD166),
-        onPressed: () => _showPicker(context, selected),
-        icon: Icon(portraitFullscreenDisplayModeIcon(selected), size: 21),
-      );
-    });
-  }
-
-  Future<void> _showPicker(BuildContext context, PortraitFullscreenDisplayMode selected) async {
-    controller.isMenuOpen.value = true;
-    controller.stopHideController();
-    try {
-      final value = await showDialog<PortraitFullscreenDisplayMode>(
-        context: context,
-        builder: (dialogContext) => PortraitFullscreenDisplayModePickerDialog(selected: selected),
-      );
-      if (value != null) {
-        SettingsService.to.player.portraitFullscreenDisplayModeName.v = value.name;
-      }
-    } finally {
-      if (controller.status != PlayerStatus.disposed) {
-        controller.isMenuOpen.value = false;
-        controller.enableController();
-      }
-    }
-  }
-}
-
-class PortraitStreamDiagnosticsBadge extends StatelessWidget {
-  const PortraitStreamDiagnosticsBadge({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Obx(() {
-      final settings = SettingsService.to.player;
-      if (!settings.showPortraitDiagnostics.v) return const SizedBox.shrink();
-      final manager = GlobalPlayerService.instance.player;
-      final geometry = manager.videoGeometry.value;
-      final roomOverride = settings.portraitOverrideForRoom(manager.currentFloatRoom);
-      final orientation = manager.effectiveVideoOrientation;
-      final pending = geometry.candidateOrientation != geometry.orientation;
-      final ratio = geometry.hasValidDimensions ? geometry.aspectRatio.toStringAsFixed(3) : '--';
-      final effectiveRatio = geometry.hasValidDimensions ? geometry.effectiveAspectRatio.toStringAsFixed(3) : '--';
-      final evidence = geometry.evidence.name;
-      final state = pending ? '${_orientationLabel(geometry.candidateOrientation)}…' : _orientationLabel(orientation);
-      final observedAt = geometry.observedAt;
-      final observedTime = observedAt == null
-          ? '--:--:--'
-          : '${observedAt.hour.toString().padLeft(2, '0')}:'
-                '${observedAt.minute.toString().padLeft(2, '0')}:'
-                '${observedAt.second.toString().padLeft(2, '0')}';
-      return Positioned(
-        key: const ValueKey('portrait-stream-diagnostics'),
-        top: 62,
-        left: 12,
-        child: IgnorePointer(
-          child: DecoratedBox(
-            decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(8)),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-              child: Text(
-                '${geometry.width > 0 ? geometry.width : '--'}×${geometry.height > 0 ? geometry.height : '--'}  '
-                '$ratio→$effectiveRatio  $state  ${_overrideLabel(roomOverride)}\n'
-                '$evidence  C${(geometry.confidence * 100).round()}%  S${geometry.stableSampleCount}  $observedTime',
-                style: const TextStyle(color: Colors.white, fontSize: 11, decoration: TextDecoration.none),
-              ),
-            ),
-          ),
-        ),
-      );
-    });
-  }
-}
-
-String _orientationLabel(VideoSourceOrientation value) => switch (value) {
-  VideoSourceOrientation.portrait => i18n('portrait_orientation_portrait'),
-  VideoSourceOrientation.landscape => i18n('portrait_orientation_landscape'),
-  VideoSourceOrientation.square => i18n('portrait_orientation_square'),
-  VideoSourceOrientation.unknown => i18n('portrait_orientation_unknown'),
-};
-
-String _overrideLabel(PortraitOrientationOverride value) => switch (value) {
-  PortraitOrientationOverride.automatic => i18n('portrait_override_auto'),
-  PortraitOrientationOverride.portrait => i18n('portrait_override_portrait'),
-  PortraitOrientationOverride.landscape => i18n('portrait_override_landscape'),
-};
-
 // Center widgets
 class DanmakuViewer extends StatelessWidget {
   const DanmakuViewer({super.key, required this.controller});
@@ -792,25 +618,38 @@ class BrightnessVolumnDargAreaState extends State<BrightnessVolumnDargArea> {
   VideoController get controller => widget.controller;
 
   Timer? _hideBVTimer;
+  Timer? _activateTimer;
   bool _hideBVStuff = true;
-  bool _isDargLeft = true;
+  bool _isBrightness = false;
+  bool _isActivated = false;
   double _updateDargVarVal = 1.0;
-  bool _portraitRestoreGesture = false;
-  double _portraitRestoreDistance = 0;
+  double _cachedBrightness = 0.5;
+
+  static const Duration _activateDelay = Duration(milliseconds: 300);
+
+  static const double _dragPixelsPerFullRange = 560.0;
+  static const double _wheelDyPerStep = 120.0;
+  static const double _wheelStepRatio = 0.05;
 
   @override
   void initState() {
     super.initState();
+    if (PlatformUtils.isMobile) {
+      controller.brightness().then((v) {
+        if (mounted) _cachedBrightness = v;
+      });
+    }
   }
 
   @override
   void dispose() {
     _hideBVTimer?.cancel();
+    _activateTimer?.cancel();
     super.dispose();
   }
 
   void updateVolumn(double? volume) {
-    _isDargLeft = false;
+    _isBrightness = false;
     _cancelAndRestartHideBVTimer();
     setState(() {
       _updateDargVarVal = volume!;
@@ -820,88 +659,72 @@ class BrightnessVolumnDargAreaState extends State<BrightnessVolumnDargArea> {
   void _cancelAndRestartHideBVTimer() {
     _hideBVTimer?.cancel();
     _hideBVTimer = Timer(const Duration(seconds: 1), () {
+      if (!mounted) return;
       setState(() => _hideBVStuff = true);
     });
     setState(() => _hideBVStuff = false);
   }
 
-  void _onVerticalDragUpdate(Offset position, Offset delta) async {
-    if (controller.showLocked.value) return;
-
-    if (delta.distance < 0.5) return;
-
+  void _syncBaseValue(Offset position) {
     final size = MediaQuery.of(context).size;
-    final width = size.width;
-    final height = size.height;
+    final isLeft = position.dx <= (size.width / 2);
 
-    final dargLeft = (position.dx > (width / 2)) ? false : true;
-
-    if (Platform.isWindows && dargLeft) return;
-
-    if (_hideBVStuff || _isDargLeft != dargLeft) {
-      _isDargLeft = dargLeft;
-      if (_isDargLeft) {
-        if (PlatformUtils.isMobile) {
-          double v = await controller.brightness();
-          setState(() => _updateDargVarVal = v);
-        }
-      } else {
-        double? v = await controller.volume();
-        setState(() => _updateDargVarVal = v ?? 1.0);
-      }
-    }
-
-    _cancelAndRestartHideBVTimer();
-
-    double sensitivity = 0.25;
-    double deltaValue = -(delta.dy / (height / 2)) * sensitivity;
-
-    double dragRange = _updateDargVarVal + deltaValue;
-
-    dragRange = dragRange.clamp(0.0, 1.0);
-
-    if ((dragRange - _updateDargVarVal).abs() > 0.001) {
-      if (_isDargLeft) {
-        controller.setBrightness(dragRange);
-      } else {
-        controller.setVolume(dragRange);
-      }
-      setState(() => _updateDargVarVal = dragRange);
-    }
-  }
-
-  void _onVerticalDragStart(DragStartDetails details) {
-    final size = context.size ?? MediaQuery.sizeOf(context);
-    _portraitRestoreGesture =
-        controller.livePlayController.state.value.ui.screenMode == VideoMode.portraitFullscreen &&
-        details.localPosition.dy >= size.height - portraitFullscreenRestoreGestureZone;
-    _portraitRestoreDistance = 0;
-  }
-
-  void _onVerticalDragDetails(DragUpdateDetails details) {
-    if (_portraitRestoreGesture) {
-      _portraitRestoreDistance = (_portraitRestoreDistance - details.delta.dy).clamp(0.0, double.infinity).toDouble();
+    if (Platform.isWindows && isLeft) {
+      _isBrightness = false;
+      _updateDargVarVal = controller.currentVolume.value;
       return;
     }
-    _onVerticalDragUpdate(details.localPosition, details.delta);
+
+    final newIsBrightness = isLeft && PlatformUtils.isMobile;
+
+    if (newIsBrightness != _isBrightness) {
+      _isBrightness = newIsBrightness;
+      _updateDargVarVal = _isBrightness ? _cachedBrightness : controller.currentVolume.value;
+    } else if (_hideBVStuff) {
+      _updateDargVarVal = _isBrightness ? _cachedBrightness : controller.currentVolume.value;
+    }
   }
 
-  void _onVerticalDragEnd(DragEndDetails details) {
-    final shouldRestore =
-        _portraitRestoreGesture &&
-        shouldRestorePortraitPanelFromSwipe(
-          upwardDistance: _portraitRestoreDistance,
-          velocity: details.primaryVelocity ?? 0,
-        );
-    _portraitRestoreGesture = false;
-    _portraitRestoreDistance = 0;
-    if (shouldRestore) unawaited(controller.exitPortraitFullScreen());
+  void _applyVerticalDelta(double dy) {
+    if (controller.showLocked.value) return;
+
+    double deltaValue = -(dy / _dragPixelsPerFullRange);
+    double nextValue = (_updateDargVarVal + deltaValue).clamp(0.0, 1.0);
+
+    if ((nextValue - _updateDargVarVal).abs() < 0.001) return;
+
+    _updateDargVarVal = nextValue;
+    if (_isBrightness) {
+      _cachedBrightness = nextValue;
+      controller.setBrightness(nextValue);
+    } else {
+      controller.setVolume(nextValue);
+    }
+    setState(() {});
+  }
+
+  void _applyScrollDelta(double dy) {
+    if (controller.showLocked.value) return;
+
+    double deltaValue = -(dy / _wheelDyPerStep) * _wheelStepRatio;
+    double nextValue = (_updateDargVarVal + deltaValue).clamp(0.0, 1.0);
+
+    if ((nextValue - _updateDargVarVal).abs() < 0.001) return;
+
+    _updateDargVarVal = nextValue;
+    if (_isBrightness) {
+      _cachedBrightness = nextValue;
+      controller.setBrightness(nextValue);
+    } else {
+      controller.setVolume(nextValue);
+    }
+    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
     IconData iconData;
-    if (_isDargLeft) {
+    if (_isBrightness) {
       iconData = _updateDargVarVal <= 0
           ? Icons.brightness_low
           : _updateDargVarVal < 0.5
@@ -918,54 +741,73 @@ class BrightnessVolumnDargAreaState extends State<BrightnessVolumnDargArea> {
     final int percentage = (_updateDargVarVal * 100).round();
 
     return Listener(
+      onPointerDown: (event) {
+        if (event.buttons != kPrimaryButton) return;
+        _syncBaseValue(event.position);
+        if (Platform.isWindows && _isBrightness) return;
+        _activateTimer?.cancel();
+        _isActivated = false;
+        _activateTimer = Timer(_activateDelay, () {
+          if (!mounted) return;
+          _isActivated = true;
+          _cancelAndRestartHideBVTimer();
+        });
+      },
+      onPointerMove: (event) {
+        if (!_isActivated) return;
+        _applyVerticalDelta(event.delta.dy);
+        _cancelAndRestartHideBVTimer();
+      },
+      onPointerUp: (_) {
+        _activateTimer?.cancel();
+        _isActivated = false;
+      },
+      onPointerCancel: (_) {
+        _activateTimer?.cancel();
+        _isActivated = false;
+      },
       onPointerSignal: (event) {
         if (event is PointerScrollEvent) {
-          _onVerticalDragUpdate(event.localPosition, event.scrollDelta);
+          _syncBaseValue(event.position);
+          if (Platform.isWindows && _isBrightness) return;
+          _applyScrollDelta(event.scrollDelta.dy);
+          _cancelAndRestartHideBVTimer();
         }
       },
-      child: GestureDetector(
-        onVerticalDragStart: _onVerticalDragStart,
-        onVerticalDragUpdate: _onVerticalDragDetails,
-        onVerticalDragEnd: _onVerticalDragEnd,
-        onVerticalDragCancel: () {
-          _portraitRestoreGesture = false;
-          _portraitRestoreDistance = 0;
-        },
-        child: Container(
-          color: Colors.transparent,
-          alignment: Alignment.center,
-          child: AnimatedOpacity(
-            opacity: !_hideBVStuff ? 0.8 : 0.0,
-            duration: const Duration(milliseconds: 300),
-            child: Card(
-              color: Colors.black,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Icon(iconData, color: Colors.white),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: SizedBox(
-                          width: 100,
-                          height: 20,
-                          child: LinearProgressIndicator(
-                            value: _updateDargVarVal,
-                            backgroundColor: Colors.white38,
-                            valueColor: const AlwaysStoppedAnimation(Colors.white),
-                          ),
+      child: Container(
+        color: Colors.transparent,
+        alignment: Alignment.center,
+        child: AnimatedOpacity(
+          opacity: !_hideBVStuff ? 0.8 : 0.0,
+          duration: const Duration(milliseconds: 300),
+          child: Card(
+            color: Colors.black,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Icon(iconData, color: Colors.white),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: SizedBox(
+                        width: 100,
+                        height: 20,
+                        child: LinearProgressIndicator(
+                          value: _updateDargVarVal,
+                          backgroundColor: Colors.white38,
+                          valueColor: const AlwaysStoppedAnimation(Colors.white),
                         ),
                       ),
                     ),
-                    Text(
-                      "$percentage%",
-                      style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
+                  ),
+                  Text(
+                    '$percentage%',
+                    style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                  ),
+                ],
               ),
             ),
           ),
@@ -1738,17 +1580,14 @@ class _StreamChoiceItem extends StatelessWidget {
 
 // Bottom action bar widgets
 class BottomActionBar extends StatelessWidget {
-  const BottomActionBar({
-    super.key,
-    required this.controller,
-    required this.barHeight,
-    required this.portraitFullscreen,
-  });
+  const BottomActionBar({super.key, required this.controller, required this.barHeight});
 
   final VideoController controller;
   final double barHeight;
-  // Keep the layout and its height from the same parent mode snapshot.
-  final bool portraitFullscreen;
+
+  /// Vertical space reserved for the live cache progress bar above the
+  /// playback button row.
+  static const double progressBarSlot = 28.0;
 
   @override
   Widget build(BuildContext context) {
@@ -1757,73 +1596,80 @@ class BottomActionBar extends StatelessWidget {
           (controller.showController.value || controller.isMenuOpen.value) && !controller.showLocked.value;
       return BottomControlSurface(
         visible: shouldShow,
-        height: barHeight,
+        height: barHeight + progressBarSlot,
         child: ControlHoverRegion(
           enabled: shouldShow,
           onEnter: controller.onMouseEnterController,
           onExit: controller.onMouseExitController,
-          child: PortraitFullscreenRestoreGestureRegion(
-            enabled: portraitFullscreen,
-            onRestore: () => unawaited(controller.exitPortraitFullScreen()),
-            child: Container(
-              height: barHeight,
-              alignment: Alignment.centerLeft,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Colors.black45],
-                ),
+          child: Container(
+            height: barHeight + progressBarSlot,
+            alignment: Alignment.bottomLeft,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.transparent, Colors.black45],
               ),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final fullscreen = GlobalPlayerState.to.fullscreenUI;
-                  final localInteraction = controller.livePlayController.localInteractionController;
-                  if (portraitFullscreen) {
-                    return _buildPortraitFullscreenLayout();
-                  }
-                  final compact = constraints.maxWidth < 760;
-                  final left = _buildLeftActions(compact: fullscreen && compact && localInteraction.enabled.value);
-                  final right = _buildRightActions(compact: fullscreen && compact);
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                LiveProgressBar(controller: controller),
+                SizedBox(
+                  height: barHeight,
+                  child: Container(
+                    alignment: Alignment.centerLeft,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final fullscreen = GlobalPlayerState.to.fullscreenUI;
+                        final localInteraction = controller.livePlayController.localInteractionController;
+                        final compact = constraints.maxWidth < 760;
+                        final left = _buildLeftActions(
+                          compact: fullscreen && compact && localInteraction.enabled.value,
+                        );
+                        final right = _buildRightActions(compact: fullscreen && compact);
 
-                  if (fullscreen) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Row(
-                        children: [
-                          left,
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Align(
-                              alignment: Alignment.center,
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(maxWidth: 420),
-                                child: FullscreenLocalDanmakuComposer(controller: controller),
-                              ),
+                        if (fullscreen) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: Row(
+                              children: [
+                                left,
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Align(
+                                    alignment: Alignment.center,
+                                    child: ConstrainedBox(
+                                      constraints: const BoxConstraints(maxWidth: 420),
+                                      child: FullscreenLocalDanmakuComposer(controller: controller),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                right,
+                              ],
+                            ),
+                          );
+                        }
+
+                        return SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          physics: const PureLiveBoundedScrollPhysics(),
+                          clipBehavior: Clip.hardEdge,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [left, right]),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          right,
-                        ],
-                      ),
-                    );
-                  }
-
-                  return SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    physics: const PureLiveBoundedScrollPhysics(),
-                    clipBehavior: Clip.hardEdge,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [left, right]),
-                      ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -1831,49 +1677,12 @@ class BottomActionBar extends StatelessWidget {
     });
   }
 
-  Widget _buildPortraitFullscreenLayout() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: Column(
-        children: [
-          SizedBox(
-            height: 38,
-            child: Row(
-              children: [
-                Expanded(child: FullscreenLocalDanmakuComposer(controller: controller)),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: VideoFitSetting(controller: controller),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 2),
-          SizedBox(
-            height: 48,
-            child: Row(
-              children: [
-                _buildLeftActions(compact: true),
-                const Spacer(),
-                if (PlatformUtils.isMobile) PortraitFullscreenDisplayModeButton(controller: controller),
-                if (PlatformUtils.isMobile) PortraitOrientationButton(controller: controller),
-                if (!GlobalPlayerState.to.isWindowFullscreen.value) ExpandButton(controller: controller),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildLeftActions({required bool compact}) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         PlayPauseButton(controller: controller),
+        LiveEdgeButton(controller: controller),
         if (!compact) RefreshButton(controller: controller),
         if (!compact) FavoriteButton(controller: controller),
         if (SettingsService.to.danmaku.enableDanmakuDisplay.v) ...[
@@ -1892,8 +1701,6 @@ class BottomActionBar extends StatelessWidget {
             GlobalPlayerState.to.isFullscreen.value && !compact) ...[
           FullscreenStreamSelectorButton(controller: controller),
         ],
-        if (PlatformUtils.isMobile) PortraitFullscreenDisplayModeButton(controller: controller),
-        if (PlatformUtils.isMobile) PortraitOrientationButton(controller: controller),
         VideoFitSetting(controller: controller),
         if (Platform.isWindows) OverlayVolumeControl(controller: controller),
         if (Platform.isWindows && controller.supportWindowFull && !GlobalPlayerState.to.isFullscreen.value)
@@ -2105,8 +1912,43 @@ class RefreshButton extends StatelessWidget {
       child: Container(
         alignment: Alignment.center,
         padding: const EdgeInsets.only(right: 6),
-        child: const Icon(Icons.refresh_rounded, color: Colors.white),
+        child: const Icon(Icons.autorenew_rounded, color: Colors.white),
       ),
+    );
+  }
+}
+
+/// Jumps the playhead back to the live edge. Only shown for live streams
+/// that expose a seekable cache window (`player.canSeek`). Bound to the E
+/// key in [VideoKeyboardShortcuts].
+class LiveEdgeButton extends StatelessWidget {
+  const LiveEdgeButton({super.key, required this.controller});
+
+  final VideoController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final player = GlobalPlayerService.instance.player;
+    return StreamBuilder<Duration>(
+      stream: player.positionStream,
+      builder: (context, _) {
+        if (!player.canSeek) return const SizedBox.shrink();
+        return Tooltip(
+          message: i18n('live_edge_back_to_live'),
+          child: GestureDetector(
+            onTap: () {
+              controller.enableController();
+              player.seekToLiveEdge();
+              if (!player.isPlayingNow) player.resume();
+            },
+            child: Container(
+              alignment: Alignment.center,
+              padding: const EdgeInsets.only(right: 6, left: 6),
+              child: const Icon(Icons.refresh_rounded, color: Colors.white),
+            ),
+          ),
+        );
+      },
     );
   }
 }

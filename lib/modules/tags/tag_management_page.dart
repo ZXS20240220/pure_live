@@ -64,94 +64,138 @@ class _TagManagementPageState extends State<TagManagementPage> {
                 ),
               );
             }
+            // 5.6 房间数角标：统计 roomTagsMap 中各标签被引用次数。
+            final roomCountByTag = <String, int>{};
+            for (final tagIds in controller.roomTagsMap.values) {
+              for (final id in tagIds) {
+                roomCountByTag[id] = (roomCountByTag[id] ?? 0) + 1;
+              }
+            }
             final children = List.generate(controller.tags.length, (index) {
               final tag = controller.tags[index];
               final isTop = index == 0;
+              final roomCount = roomCountByTag[tag.id] ?? 0;
               return Material(
                 key: ValueKey(tag.id),
                 color: Colors.transparent,
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.secondary.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: theme.colorScheme.secondary.withValues(alpha: 0.3), width: 1.0),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(children: [Expanded(child: _buildTagDetailAction(context, tag))]),
+                child: Stack(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.secondary.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: theme.colorScheme.secondary.withValues(alpha: 0.3), width: 1.0),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(children: [Expanded(child: _buildTagDetailAction(context, tag))]),
 
-                      const SizedBox(height: 4),
-                      Expanded(
-                        child: Text(
-                          tag.description.isNotEmpty ? tag.description : i18n('no_description_placeholder'),
-                          style: AppTextStyles.t11.copyWith(
-                            color: tag.description.isNotEmpty
-                                ? theme.disabledColor
-                                : theme.disabledColor.withValues(alpha: 0.4),
-                            fontStyle: tag.description.isNotEmpty ? FontStyle.normal : FontStyle.italic,
+                          const SizedBox(height: 4),
+                          Expanded(
+                            child: Text(
+                              tag.description.isNotEmpty ? tag.description : i18n('no_description_placeholder'),
+                              style: AppTextStyles.t11.copyWith(
+                                color: tag.description.isNotEmpty
+                                    ? theme.disabledColor
+                                    : theme.disabledColor.withValues(alpha: 0.4),
+                                fontStyle: tag.description.isNotEmpty ? FontStyle.normal : FontStyle.italic,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                          Container(
+                            margin: const EdgeInsets.only(top: 6),
+                            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.surfaceContainer.withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                Expanded(
+                                  child: _buildTagCardAction(
+                                    key: ValueKey('pin-tag-${tag.id}'),
+                                    label: i18n(
+                                      isTop ? 'tag_already_at_top_named' : 'move_tag_to_top_named',
+                                      args: {'name': tag.name},
+                                    ),
+                                    onActivate: _dialogActive || isTop ? null : () => controller.pinToTop(index),
+                                    child: Icon(
+                                      isTop ? Remix.pushpin_fill : Remix.pushpin_line,
+                                      size: 16,
+                                      color: isTop
+                                          ? theme.colorScheme.primary
+                                          : theme.colorScheme.primary.withValues(alpha: 0.8),
+                                    ),
+                                  ),
+                                ),
+                                Container(width: 1, height: 14, color: theme.dividerColor.withValues(alpha: 0.1)),
+                                Expanded(
+                                  child: _buildTagCardAction(
+                                    key: ValueKey('edit-tag-${tag.id}'),
+                                    label: i18n('edit_tag_named', args: {'name': tag.name}),
+                                    onActivate: _dialogActive
+                                        ? null
+                                        : () => unawaited(_showTagDialog(context, index: index, tag: tag)),
+                                    child: Icon(Remix.edit_line, size: 16, color: theme.colorScheme.onSurfaceVariant),
+                                  ),
+                                ),
+                                Container(width: 1, height: 14, color: theme.dividerColor.withValues(alpha: 0.1)),
+                                Expanded(
+                                  child: _buildTagCardAction(
+                                    key: ValueKey('delete-tag-${tag.id}'),
+                                    label: i18n('delete_tag_named', args: {'name': tag.name}),
+                                    onActivate: _dialogActive ? null : () => unawaited(_confirmDelete(context, tag)),
+                                    child: Icon(
+                                      Remix.delete_bin_line,
+                                      size: 16,
+                                      color: theme.colorScheme.error.withValues(alpha: 0.7),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // 5.6 房间数角标：标签卡片右上角胶囊，>99 显示 99+。
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: IgnorePointer(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary,
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.15),
+                                blurRadius: 4,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                          constraints: const BoxConstraints(minWidth: 18),
+                          alignment: Alignment.center,
+                          child: Text(
+                            roomCount > 99 ? '99+' : roomCount.toString(),
+                            style: TextStyle(
+                              color: theme.colorScheme.onPrimary,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              height: 1.1,
+                            ),
+                          ),
                         ),
                       ),
-                      Container(
-                        margin: const EdgeInsets.only(top: 6),
-                        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainer.withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            Expanded(
-                              child: _buildTagCardAction(
-                                key: ValueKey('pin-tag-${tag.id}'),
-                                label: i18n(
-                                  isTop ? 'tag_already_at_top_named' : 'move_tag_to_top_named',
-                                  args: {'name': tag.name},
-                                ),
-                                onActivate: _dialogActive || isTop ? null : () => controller.pinToTop(index),
-                                child: Icon(
-                                  isTop ? Remix.pushpin_fill : Remix.pushpin_line,
-                                  size: 16,
-                                  color: isTop
-                                      ? theme.colorScheme.primary
-                                      : theme.colorScheme.primary.withValues(alpha: 0.8),
-                                ),
-                              ),
-                            ),
-                            Container(width: 1, height: 14, color: theme.dividerColor.withValues(alpha: 0.1)),
-                            Expanded(
-                              child: _buildTagCardAction(
-                                key: ValueKey('edit-tag-${tag.id}'),
-                                label: i18n('edit_tag_named', args: {'name': tag.name}),
-                                onActivate: _dialogActive
-                                    ? null
-                                    : () => unawaited(_showTagDialog(context, index: index, tag: tag)),
-                                child: Icon(Remix.edit_line, size: 16, color: theme.colorScheme.onSurfaceVariant),
-                              ),
-                            ),
-                            Container(width: 1, height: 14, color: theme.dividerColor.withValues(alpha: 0.1)),
-                            Expanded(
-                              child: _buildTagCardAction(
-                                key: ValueKey('delete-tag-${tag.id}'),
-                                label: i18n('delete_tag_named', args: {'name': tag.name}),
-                                onActivate: _dialogActive ? null : () => unawaited(_confirmDelete(context, tag)),
-                                child: Icon(
-                                  Remix.delete_bin_line,
-                                  size: 16,
-                                  color: theme.colorScheme.error.withValues(alpha: 0.7),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               );
             });

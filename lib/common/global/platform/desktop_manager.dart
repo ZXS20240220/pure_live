@@ -130,6 +130,11 @@ class DesktopManager {
     return Obx(() {
       final fullscreen = GlobalPlayerState.to.isFullscreen.value;
       final pipMode = GlobalPlayerState.to.isPipMode.value;
+      // 沉浸模式播放页：与开发版一致，连自定义标题栏一并隐藏，
+      // 让 LivePlayShell 铺满整个窗口。
+      final isImmersiveLivePlay =
+          RouteObserverController.to.currentRoute.value == RoutePath.kLivePlay &&
+          SettingsService.to.player.enableImmersiveLayout.v;
 
       if (!PlatformUtils.isWindows) {
         return child ?? const SizedBox.shrink();
@@ -137,7 +142,7 @@ class DesktopManager {
 
       return Column(
         children: [
-          if (!fullscreen && !pipMode) const CustomTitleBar(),
+          if (!fullscreen && !pipMode && !isImmersiveLivePlay) const CustomTitleBar(),
           if (child != null) Expanded(child: child),
         ],
       );
@@ -469,44 +474,41 @@ class _TitleBarProjectLinkState extends State<TitleBarProjectLink> {
       enabled: !_busy,
       label: widget.semanticLabel,
       excludeSemantics: true,
-      child: Tooltip(
-        message: widget.semanticLabel,
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            excludeFromSemantics: true,
-            onTap: _busy ? null : () => unawaited(_openProject()),
-            onHover: (value) => setState(() => _hovered = value),
-            onHighlightChanged: (value) => setState(() => _pressed = value),
-            onFocusChange: (value) => setState(() => _focused = value),
-            overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-            child: AnimatedContainer(
-              height: 32,
-              duration: const Duration(milliseconds: 80),
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              decoration: BoxDecoration(
-                color: active ? widget.hoverColor : Colors.transparent,
-                border: _focused ? Border.all(color: widget.iconColor.withValues(alpha: 0.8)) : null,
-              ),
-              child: FittedBox(
-                alignment: Alignment.centerLeft,
-                fit: BoxFit.scaleDown,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Image.asset('assets/icons/icon.png', width: 16, height: 16),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          excludeFromSemantics: true,
+          onTap: _busy ? null : () => unawaited(_openProject()),
+          onHover: (value) => setState(() => _hovered = value),
+          onHighlightChanged: (value) => setState(() => _pressed = value),
+          onFocusChange: (value) => setState(() => _focused = value),
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+          child: AnimatedContainer(
+            height: 32,
+            duration: const Duration(milliseconds: 80),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            decoration: BoxDecoration(
+              color: active ? widget.hoverColor : Colors.transparent,
+              border: _focused ? Border.all(color: widget.iconColor.withValues(alpha: 0.8)) : null,
+            ),
+            child: FittedBox(
+              alignment: Alignment.centerLeft,
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Image.asset('assets/icons/icon.png', width: 16, height: 16),
+                  const SizedBox(width: 6),
+                  Text(widget.appName, maxLines: 1, style: widget.appNameStyle),
+                  if (widget.showSizeText) ...[
                     const SizedBox(width: 6),
-                    Text(widget.appName, maxLines: 1, style: widget.appNameStyle),
-                    if (widget.showSizeText) ...[
-                      const SizedBox(width: 6),
-                      Text(
-                        '[${widget.currentSize.width.toInt()} × ${widget.currentSize.height.toInt()}]',
-                        maxLines: 1,
-                        style: widget.sizeTextStyle,
-                      ),
-                    ],
+                    Text(
+                      '[${widget.currentSize.width.toInt()} × ${widget.currentSize.height.toInt()}]',
+                      maxLines: 1,
+                      style: widget.sizeTextStyle,
+                    ),
                   ],
-                ),
+                ],
               ),
             ),
           ),
@@ -575,28 +577,25 @@ class _WindowControlButtonState extends State<WindowControlButton> {
       enabled: !_busy,
       label: widget.semanticLabel,
       excludeSemantics: true,
-      child: Tooltip(
-        message: widget.semanticLabel,
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            excludeFromSemantics: true,
-            onTap: _busy ? null : () => unawaited(_runAction()),
-            onHover: (value) => setState(() => _hovered = value),
-            onHighlightChanged: (value) => setState(() => _pressed = value),
-            onFocusChange: (value) => setState(() => _focused = value),
-            overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-            child: AnimatedContainer(
-              width: 46,
-              height: 32,
-              duration: const Duration(milliseconds: 80),
-              decoration: BoxDecoration(
-                color: active ? widget.hoverColor : Colors.transparent,
-                border: _focused ? Border.all(color: activeIconColor.withValues(alpha: 0.8)) : null,
-              ),
-              alignment: Alignment.center,
-              child: Icon(widget.icon, size: 16, color: active ? activeIconColor : widget.iconColor),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          excludeFromSemantics: true,
+          onTap: _busy ? null : () => unawaited(_runAction()),
+          onHover: (value) => setState(() => _hovered = value),
+          onHighlightChanged: (value) => setState(() => _pressed = value),
+          onFocusChange: (value) => setState(() => _focused = value),
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+          child: AnimatedContainer(
+            width: 46,
+            height: 32,
+            duration: const Duration(milliseconds: 80),
+            decoration: BoxDecoration(
+              color: active ? widget.hoverColor : Colors.transparent,
+              border: _focused ? Border.all(color: activeIconColor.withValues(alpha: 0.8)) : null,
             ),
+            alignment: Alignment.center,
+            child: Icon(widget.icon, size: 16, color: active ? activeIconColor : widget.iconColor),
           ),
         ),
       ),

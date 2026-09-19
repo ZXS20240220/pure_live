@@ -357,6 +357,36 @@ class BiliBiliDanmaku implements LiveDanmaku {
             final sentAt = rawTimestamp == null
                 ? null
                 : DateTime.fromMillisecondsSinceEpoch(rawTimestamp > 100000000000 ? rawTimestamp : rawTimestamp * 1000);
+            String userLevel = '';
+            String fansName = '';
+            String fansLevel = '';
+            final richer = metadata.length > 15 ? metadata[15] : null;
+            if (richer is Map && richer['user'] is Map) {
+              final u = richer['user'] as Map;
+              final wealth = u['wealth'];
+              if (wealth is Map) {
+                final lv = wealth['level']?.toString();
+                if (lv != null && lv.isNotEmpty && lv != '0') userLevel = lv;
+              }
+              final medal = u['medal'];
+              if (medal is Map) {
+                final mname = medal['name']?.toString() ?? '';
+                final mlv = medal['level']?.toString() ?? '';
+                // Fan level is meaningful on its own; the badge name is
+                // optional because wearing the medal is a per-user choice.
+                if (mname.isNotEmpty) fansName = mname;
+                if (mlv.isNotEmpty && mlv != '0') fansLevel = mlv;
+              }
+            }
+            if (fansName.isEmpty) {
+              final legacyMedal = obj["info"][3];
+              if (legacyMedal is List && legacyMedal.length >= 2) {
+                final mname = legacyMedal[1]?.toString() ?? '';
+                final mlv = legacyMedal[0]?.toString() ?? '';
+                if (mname.isNotEmpty) fansName = mname;
+                if (mlv.isNotEmpty && mlv != '0') fansLevel = mlv;
+              }
+            }
             var liveMsg = LiveMessage(
               type: LiveMessageType.chat,
               userName: username,
@@ -365,6 +395,9 @@ class BiliBiliDanmaku implements LiveDanmaku {
               color: color == 0 ? LiveMessageColor.white : LiveMessageColor.numberToColor(color),
               messageId: rawNonce.isEmpty ? '' : 'bilibili:$rawNonce',
               sentAt: sentAt,
+              userLevel: userLevel,
+              fansName: fansName,
+              fansLevel: fansLevel,
             );
             onMessage?.call(liveMsg);
           }

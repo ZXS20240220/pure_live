@@ -311,6 +311,29 @@ class BetterPlayerAdapter
     await _controller?.setVolume(volume);
   }
 
+  // Timeshift is only implemented by MediaKitAdapter; other engines are
+  // live-only and expose inert stubs so the shared interface stays satisfied.
+  @override
+  Future<void> seekTo(Duration position) async {}
+
+  @override
+  Future<void> seekRelative(Duration offset) async {}
+
+  @override
+  Future<void> seekToLiveEdge() async {}
+
+  @override
+  Stream<Duration> get positionStream => const Stream.empty();
+
+  @override
+  Duration get currentPosition => Duration.zero;
+
+  @override
+  Duration get liveEdgePosition => Duration.zero;
+
+  @override
+  bool get canSeek => false;
+
   @override
   bool get isInitialized => _initialized;
   @override

@@ -1,5 +1,6 @@
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/modules/account/huya/huya_cookie_controller.dart';
+import 'package:pure_live/modules/account/web_cookie_capture.dart';
 import 'package:pure_live/modules/account/widgets/account_cookie_editor.dart';
 
 class HuyaCookiePage extends GetView<HuyaCookieController> {
@@ -12,6 +13,7 @@ class HuyaCookiePage extends GetView<HuyaCookieController> {
       hintText: i18n('huya_cookie_hint'),
       tipText: i18n('huya_cookie_tip'),
       onSave: controller.setCookie,
+      autoCaptureTarget: kCookieCaptureTargets['huya'],
     );
   }
 }

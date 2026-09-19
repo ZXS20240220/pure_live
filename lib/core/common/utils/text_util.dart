@@ -1,3 +1,4 @@
+import 'package:html_unescape/html_unescape.dart';
 import 'package:pure_live/core/common/core_log.dart';
 
 String readableCount(String info) {
@@ -15,6 +16,16 @@ String readableCount(String info) {
     return info;
   }
   return info;
+}
+
+String stripHtmlAndUnescape(String input) {
+  final noTags = input.replaceAll(RegExp(r'<[^>]*>'), '');
+  final unescaped = HtmlUnescape().convert(noTags);
+  return unescaped.replaceAll(RegExp(r'\s+'), ' ').trim();
+}
+
+String unescapeHtml(String input) {
+  return HtmlUnescape().convert(input).trim();
 }
 
 /// 统计人数 字符串转 int

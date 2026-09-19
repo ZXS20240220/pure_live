@@ -3,7 +3,9 @@ import 'package:pure_live/modules/live_play/pages/super_chat_page.dart';
 import 'package:pure_live/modules/live_play/pages/keyword_block_page.dart';
 import 'package:pure_live/modules/live_play/pages/danmaku_settings_page.dart';
 import 'package:pure_live/modules/live_play/controllers/live_play_controller.dart';
+import 'package:pure_live/modules/live_play/dialogs/play_other.dart';
 import 'package:pure_live/modules/live_play/widgets/danmaku/danmaku_list_view.dart';
+import 'package:pure_live/modules/multiview/danmaku/multiview_danmaku_settings_binding.dart';
 
 class DanmakuTabView extends GetView<LivePlayController> {
   const DanmakuTabView({super.key});
@@ -12,9 +14,13 @@ class DanmakuTabView extends GetView<LivePlayController> {
   Widget build(BuildContext context) {
     return Obx(() {
       final state = controller.state.value;
-      if (state.room.detail == null || state.player.videoController == null) {
-        return AppStatusView(type: AppStatusType.loading, title: "", subtitle: "");
+      if (state.room.detail == null) {
+        return const AppStatusView(type: AppStatusType.loading, title: '', subtitle: '');
       }
+
+      // 无 VideoController 的场景(画中画/多画面)也能打开弹幕设置。
+      final settingsBinding = state.player.videoController ?? MultiviewDanmakuSettingsBinding();
+
       return ColoredBox(
         color: Theme.of(context).colorScheme.surface,
         child: Column(
@@ -33,12 +39,17 @@ class DanmakuTabView extends GetView<LivePlayController> {
                             child: Text(i18n('danmaku_display_disabled_hint'), textAlign: TextAlign.center),
                           ),
                         ),
-                  // RxList mutations do not invalidate this outer Obx unless
-                  // its value is read while building. Snapshot it here so new
-                  // SC entries appear immediately without switching tabs.
-                  Obx(() => SuperChatPage(messages: controller.superChats.toList(growable: false))),
-                  DanmakuSettingsPage(controller: state.player.videoController!),
+                  const SuperChatPage(),
+                  DanmakuSettingsPage(controller: settingsBinding),
                   const KeywordBlockPage(),
+                  // 3.1/6.5 换台页签：持久面板，页签与筛选状态记忆在 controller。
+                  PlayOtherPanel(
+                    controller: controller,
+                    showHeader: true,
+                    showCloseButton: false,
+                    isPersistent: true,
+                    onSelectRoom: (room) => controller.switchRoom(room),
+                  ),
                 ],
               ),
             ),

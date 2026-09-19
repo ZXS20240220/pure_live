@@ -18,13 +18,12 @@ void main() {
       expect(state.clearError().loadError, isNull);
     });
 
-    test('portrait fullscreen is a distinct presentation state', () {
+    test('fullscreen is a distinct presentation state', () {
       const state = UIState();
 
-      final fullscreen = state.copyWith(screenMode: VideoMode.portraitFullscreen);
-      expect(fullscreen.screenMode, VideoMode.portraitFullscreen);
+      final fullscreen = state.copyWith(screenMode: VideoMode.fullscreen);
+      expect(fullscreen.screenMode, VideoMode.fullscreen);
       expect(state.screenMode, VideoMode.normal);
-      expect(requiresSystemFullscreenExit(VideoMode.portraitFullscreen), isTrue);
       expect(requiresSystemFullscreenExit(VideoMode.fullscreen), isTrue);
       expect(requiresSystemFullscreenExit(VideoMode.widescreen), isFalse);
       expect(requiresSystemFullscreenExit(VideoMode.normal), isFalse);

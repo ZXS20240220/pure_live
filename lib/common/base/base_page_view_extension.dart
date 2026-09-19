@@ -5,33 +5,32 @@ import 'package:pure_live/common/index.dart';
 extension BasePageViewContentExtension<C extends BasePageScrollAndStateBone<T>, T> on BasePageView<C, T> {
   Widget buildActualContent(BuildContext context, bool isDesktop) {
     if (isDesktop) {
+      final content = Column(
+        children: [
+          Expanded(child: contentBuilder(context, controller.list, controller.scrollController)),
+          if (enableLoadMore)
+            DesktopPaginationBar(controller: controller, showSelector: showPageSizeSelector, options: pageSizeOptions),
+        ],
+      );
+      if (!keyboardPagingEnabled) {
+        return content;
+      }
       return CallbackShortcuts(
         bindings: <ShortcutActivator, VoidCallback>{
           const SingleActivator(LogicalKeyboardKey.arrowLeft): () {
+            if (isEditingFocused()) return;
             if (controller.currentPage > 1 && !controller.loadding.value) {
               controller.goToPage(controller.currentPage - 1);
             }
           },
           const SingleActivator(LogicalKeyboardKey.arrowRight): () {
+            if (isEditingFocused()) return;
             if (controller.canLoadMore.value && !controller.loadding.value && enableLoadMore) {
               controller.goToPage(controller.currentPage + 1);
             }
           },
         },
-        child: Focus(
-          autofocus: true,
-          child: Column(
-            children: [
-              Expanded(child: contentBuilder(context, controller.list, controller.scrollController)),
-              if (enableLoadMore)
-                DesktopPaginationBar(
-                  controller: controller,
-                  showSelector: showPageSizeSelector,
-                  options: pageSizeOptions,
-                ),
-            ],
-          ),
-        ),
+        child: Focus(autofocus: true, child: content),
       );
     } else if (wrapMobileRefresh) {
       return LayoutBuilder(

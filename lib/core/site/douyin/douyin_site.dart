@@ -384,6 +384,28 @@ class DouyinSite implements LiveSite, LiveSiteRecordRoomResolver {
     return '热门推荐';
   }
 
+  static int? parseDouyinStartTime(dynamic raw) {
+    final ts = int.tryParse(raw?.toString() ?? '');
+    return ts != null && ts > 0 ? ts : null;
+  }
+
+  static String parseDouyinAnchorLocation(dynamic owner) {
+    if (owner is! Map) return '';
+    for (final key in const ['location_city', 'city']) {
+      final value = owner[key]?.toString().trim() ?? '';
+      if (value.isNotEmpty && value != 'null') return value;
+    }
+    return '';
+  }
+
+  static String parseDouyinFollowers(dynamic owner) {
+    if (owner is! Map) return '';
+    final info = owner['follow_info'];
+    if (info is! Map) return '';
+    final count = int.tryParse(info['follower_count']?.toString() ?? '');
+    return count != null && count > 0 ? count.toString() : '';
+  }
+
   @override
   Future<LiveRoom> getRoomDetail({required String platform, required String roomId}) async {
     if (roomId.length <= 16) {
@@ -419,6 +441,18 @@ class DouyinSite implements LiveSite, LiveSiteRecordRoomResolver {
     // 所以如果roomId对应的直播间状态不是直播中，就通过webRid获取直播间信息
     if (status == 4) {
       var result = await getRoomDetailByWebRid(webRid);
+      final lastStart = parseDouyinStartTime(room['start_time']);
+      if (lastStart != null) {
+        result.startTime = lastStart;
+      }
+      final anchorLocation = parseDouyinAnchorLocation(owner);
+      if (anchorLocation.isNotEmpty) {
+        result.location = anchorLocation;
+      }
+      final anchorFollowers = parseDouyinFollowers(owner);
+      if (anchorFollowers.isNotEmpty) {
+        result.followers = anchorFollowers;
+      }
       return result;
     }
 
@@ -452,6 +486,9 @@ class DouyinSite implements LiveSite, LiveSiteRecordRoomResolver {
         userId: userUniqueId,
         cookie: headers["cookie"]?.toString() ?? "",
       ),
+      startTime: parseDouyinStartTime(room['start_time']),
+      location: parseDouyinAnchorLocation(owner),
+      followers: parseDouyinFollowers(owner),
       data: room["stream_url"],
     );
   }
@@ -479,6 +516,21 @@ class DouyinSite implements LiveSite, LiveSiteRecordRoomResolver {
     var roomData = data["data"][0];
     var userData = data["user"];
     var roomId = roomData["id_str"].toString();
+
+    // The enter API returns a reduced room object: no start_time and no
+    // anchor location. The reflow API keeps both — enrich it now.
+    int? roomStartTime;
+    var anchorLocation = '';
+    var anchorFollowers = '';
+    try {
+      final extras = await _getRoomDataByRoomId(roomId);
+      final extrasRoom = extras['data'] is Map ? (extras['data'] as Map)['room'] : null;
+      if (extrasRoom is Map) {
+        roomStartTime = parseDouyinStartTime(extrasRoom['start_time']);
+        anchorLocation = parseDouyinAnchorLocation(extrasRoom['owner']);
+        anchorFollowers = parseDouyinFollowers(extrasRoom['owner']);
+      }
+    } catch (_) {}
 
     var userUniqueId = _anonymousUserUniqueId;
 
@@ -516,6 +568,9 @@ class DouyinSite implements LiveSite, LiveSiteRecordRoomResolver {
         userId: userUniqueId,
         cookie: headers["cookie"]?.toString() ?? "",
       ),
+      startTime: roomStartTime,
+      location: anchorLocation,
+      followers: anchorFollowers,
       data: roomStatus ? roomData["stream_url"] : {},
     );
   }
@@ -566,6 +621,9 @@ class DouyinSite implements LiveSite, LiveSiteRecordRoomResolver {
         userId: userUniqueId,
         cookie: headers["cookie"]?.toString() ?? "",
       ),
+      startTime: parseDouyinStartTime(roomInfo['start_time']),
+      location: parseDouyinAnchorLocation(owner),
+      followers: parseDouyinFollowers(owner),
       data: roomStatus ? roomInfo["stream_url"] : {},
     );
   }

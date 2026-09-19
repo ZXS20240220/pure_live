@@ -31,6 +31,7 @@ class BasePageView<C extends BasePageScrollAndStateBone<T>, T> extends Stateless
   final Widget Function(BuildContext context)? notLoginBuilder;
   final Widget Function(BuildContext context, String errorMsg)? errorBuilder;
   final Widget Function(BuildContext context)? emptyBuilder;
+  final bool keyboardPagingEnabled;
 
   const BasePageView({
     super.key,
@@ -48,6 +49,7 @@ class BasePageView<C extends BasePageScrollAndStateBone<T>, T> extends Stateless
     this.notLoginBuilder,
     this.errorBuilder,
     this.emptyBuilder,
+    this.keyboardPagingEnabled = true,
   });
 
   @override

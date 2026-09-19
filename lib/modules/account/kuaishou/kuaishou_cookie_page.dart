@@ -1,5 +1,6 @@
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/modules/account/kuaishou/kuaishou_cookie_controller.dart';
+import 'package:pure_live/modules/account/web_cookie_capture.dart';
 import 'package:pure_live/modules/account/widgets/account_cookie_editor.dart';
 
 class KuaishouCookiePage extends GetView<KuaishouCookieController> {
@@ -12,6 +13,7 @@ class KuaishouCookiePage extends GetView<KuaishouCookieController> {
       hintText: i18n('kuaishou_cookie_hint'),
       tipText: i18n('kuaishou_cookie_tip'),
       onSave: controller.setCookie,
+      autoCaptureTarget: kCookieCaptureTargets['kuaishou'],
     );
   }
 }

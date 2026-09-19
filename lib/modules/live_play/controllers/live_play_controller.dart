@@ -32,6 +32,7 @@ import 'package:pure_live/modules/live_play/widgets/danmaku/danmaku_list_view.da
 import 'package:pure_live/modules/live_play/widgets/video_player/video_controller.dart';
 import 'package:pure_live/modules/live_play/controllers/danmaku_presentation_recovery.dart';
 import 'package:pure_live/modules/live_play/widgets/local_interaction/local_interaction_controller.dart';
+import 'package:pure_live/modules/tags/tag_management_controller.dart';
 import 'package:pure_live/modules/live_play/widgets/local_interaction/local_message_delivery_queue.dart';
 
 // live_play_controller.dart
@@ -70,7 +71,18 @@ class LivePlayController extends GetxController
   late Site currentSite;
   late TabController tabController;
 
-  final List<String> tabs = [i18n('danmaku_list'), i18n('super_chat'), i18n('danmaku_settings'), i18n('block_list')];
+  final List<String> tabs = [
+    i18n('danmaku_list'),
+    i18n('super_chat'),
+    i18n('danmaku_settings'),
+    i18n('block_list'),
+    i18n('switch_live_room'),
+  ];
+
+  // 3.1 换台侧栏记忆状态：isPersistent 的 PlayOtherPanel 借此在重建时恢复页签与筛选。
+  int sidePanelTabIndex = 0;
+  String sidePanelPlatformFilter = TagManagementController.allTagKey;
+  String sidePanelTagFilter = TagManagementController.allTagKey;
 
   bool _floatingResourcesReleased = false;
   bool _ownerClosed = false;
@@ -376,6 +388,36 @@ class LivePlayController extends GetxController
     _superChatExpiryTimer?.cancel();
     _superChatExpiryTimer = null;
     if (superChats.isNotEmpty) superChats.clear();
+  }
+
+  /// Manually refreshes Super Chats plus AI highlights for the current room.
+  ///
+  /// Re-pulls the room detail so [LiveRoom.aiHighlights] is re-parsed, then
+  /// reloads the Super Chat list behind the same load-epoch fence as a normal
+  /// room load so stale responses can never land in a switched room.
+  Future<void> refreshSuperChatAndHighlights() async {
+    final detail = state.value.room.detail;
+    final roomId = detail?.roomId;
+    final platform = detail?.platform;
+    if (roomId == null || platform == null) return;
+
+    clearSuperChats();
+
+    final loadEpoch = ++_roomLoadEpoch;
+
+    try {
+      final fetchedRoom = await currentSite.liveSite.getRoomDetail(roomId: roomId, platform: platform);
+      if (isClosed || _ownerClosed) return;
+      if (!_isRoomLoadCurrent(loadEpoch, roomId, platform)) return;
+
+      var liveRoom = fetchedRoom.withAudienceFallbackFrom(detail!);
+      liveRoom = liveRoom.fillFromDetail(detail);
+      updateRoom(detail: liveRoom);
+      unawaited(getSuperChatMessage(roomId, platform: platform, loadEpoch: loadEpoch));
+    } catch (e) {
+      if (!_isRoomLoadCurrent(loadEpoch, roomId, platform)) return;
+      addSystemMessage('刷新失败');
+    }
   }
 
   /// Restores the normal room presentation for one system-back attempt.
@@ -705,7 +747,7 @@ class LivePlayController extends GetxController
       _handleCurrentLineAndQuality(reloadDataType, line, isReCalculate);
 
       if (liveRoom.isLiveStatusPending) {
-        _handleUnknownStatus();
+        _handleUnknownStatus(liveRoom);
         return liveRoom;
       }
 
@@ -770,7 +812,8 @@ class LivePlayController extends GetxController
   }
 
   void _handleNotLiveRoom(LiveRoom liveRoom) {
-    unawaited(danmakuController.stopDanmaku());
+    // 未开播/状态未知房间不再无条件断开弹幕连接：白名单外且开关开启时保持连接。
+    unawaited(_syncDanmakuConnection(liveRoom));
     updateRoom(success: false, isLiving: false);
     setNormalScreen();
     GlobalPlayerState.to.isFullscreen.value = false;
@@ -785,8 +828,8 @@ class LivePlayController extends GetxController
     _restoreQualityAndLines();
   }
 
-  void _handleUnknownStatus() {
-    unawaited(danmakuController.stopDanmaku());
+  void _handleUnknownStatus(LiveRoom liveRoom) {
+    unawaited(_syncDanmakuConnection(liveRoom));
     if (Get.currentRoute == '/live_play') {
       ToastUtil.show(i18n('get_room_info_failed_retry'));
       setNormalScreen();
@@ -991,7 +1034,6 @@ class LivePlayController extends GetxController
   void setNormalScreen() => updateUI(screenMode: VideoMode.normal);
   void setWidescreen() => updateUI(screenMode: VideoMode.widescreen);
   void setFullScreen() => updateUI(screenMode: VideoMode.fullscreen);
-  void setPortraitFullScreen() => updateUI(screenMode: VideoMode.portraitFullscreen);
 
   /// Hides media_kit's native surface before opening the recorder route.
   ///

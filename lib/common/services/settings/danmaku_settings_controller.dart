@@ -30,6 +30,8 @@ class DanmakuSettingsController extends GetxController {
   static const bool defaultNoEmojiMode = false;
   static const bool defaultPipDanmakuNoEmojiMode = false;
   static const bool defaultFilterDouyuSuspectedAutomatedMessages = true;
+  static const bool defaultFilterDouyuActivityMessages = true;
+  static const bool defaultFilterHuyaSystemMessages = true;
   // Preserve the complete platform feed unless the user explicitly chooses
   // fuzzy suppression. Enabling this by default can hide a large share of
   // short messages in busy rooms even though the transport received them.
@@ -97,6 +99,11 @@ class DanmakuSettingsController extends GetxController {
   final RxBool filterDouyuSuspectedAutomatedMessages = hiveBool(
     'filterDouyuSuspectedAutomatedMessages',
     defaultFilterDouyuSuspectedAutomatedMessages,
+  );
+  final RxBool filterHuyaSystemMessages = hiveBool('filterHuyaSystemMessages', defaultFilterHuyaSystemMessages);
+  final RxBool filterDouyuActivityMessages = hiveBool(
+    'filterDouyuActivityMessages',
+    defaultFilterDouyuActivityMessages,
   );
 
   //   Enable danmaku Similarity Filter
@@ -213,6 +220,8 @@ class DanmakuSettingsController extends GetxController {
       'pipDanmakuFps': pipDanmakuFps.v,
       'pipDanmakuAutoFps': pipDanmakuAutoFps.v,
       'filterDouyuSuspectedAutomatedMessages': filterDouyuSuspectedAutomatedMessages.v,
+      'filterHuyaSystemMessages': filterHuyaSystemMessages.v,
+      'filterDouyuActivityMessages': filterDouyuActivityMessages.v,
       'enableDanmakuSimilarityFilter': enableDanmakuSimilarityFilter.v,
       'danmakuSimilarityThreshold': danmakuSimilarityThreshold.v,
       'danmakuSimilarityCacheDuration': danmakuSimilarityCacheDuration.v,
@@ -291,6 +300,10 @@ class DanmakuSettingsController extends GetxController {
       'filterDouyuSuspectedAutomatedMessages': typed<bool>(
         json['filterDouyuSuspectedAutomatedMessages'] ?? defaultFilterDouyuSuspectedAutomatedMessages,
       ),
+      'filterHuyaSystemMessages': typed<bool>(json['filterHuyaSystemMessages'] ?? defaultFilterHuyaSystemMessages),
+      'filterDouyuActivityMessages': typed<bool>(
+        json['filterDouyuActivityMessages'] ?? defaultFilterDouyuActivityMessages,
+      ),
       'enableDanmakuSimilarityFilter': typed<bool>(
         json['enableDanmakuSimilarityFilter'] ?? defaultEnableDanmakuSimilarityFilter,
       ),
@@ -343,6 +356,8 @@ class DanmakuSettingsController extends GetxController {
     pipDanmakuFps.v = parsed['pipDanmakuFps'];
     pipDanmakuAutoFps.v = parsed['pipDanmakuAutoFps'];
     filterDouyuSuspectedAutomatedMessages.v = parsed['filterDouyuSuspectedAutomatedMessages'];
+    filterHuyaSystemMessages.v = parsed['filterHuyaSystemMessages'];
+    filterDouyuActivityMessages.v = parsed['filterDouyuActivityMessages'];
     enableDanmakuSimilarityFilter.v = parsed['enableDanmakuSimilarityFilter'];
     danmakuSimilarityThreshold.v = parsed['danmakuSimilarityThreshold'];
     danmakuSimilarityCacheDuration.v = parsed['danmakuSimilarityCacheDuration'];
@@ -417,6 +432,8 @@ class DanmakuSettingsController extends GetxController {
       'pipDanmakuAutoFps': danmaku['pipDanmakuAutoFps'] ?? defaultPipDanmakuAutoFps,
       'filterDouyuSuspectedAutomatedMessages':
           danmaku['filterDouyuSuspectedAutomatedMessages'] ?? defaultFilterDouyuSuspectedAutomatedMessages,
+      'filterHuyaSystemMessages': danmaku['filterHuyaSystemMessages'] ?? defaultFilterHuyaSystemMessages,
+      'filterDouyuActivityMessages': danmaku['filterDouyuActivityMessages'] ?? defaultFilterDouyuActivityMessages,
       'enableDanmakuSimilarityFilter': danmaku['enableDanmakuSimilarityFilter'] ?? defaultEnableDanmakuSimilarityFilter,
       'danmakuSimilarityThreshold': (danmaku['danmakuSimilarityThreshold'] ?? 85).toInt().clamp(50, 100).toInt(),
       'danmakuSimilarityCacheDuration': (danmaku['danmakuSimilarityCacheDuration'] ?? 3).toInt().clamp(1, 60).toInt(),

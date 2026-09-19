@@ -13,6 +13,14 @@ class TagManagementController extends GetxController {
   static const Map<String, String> allTag = {'all': '全部'};
   static String get allTagKey => allTag.keys.first;
   static String get allTagLabel => allTag.values.first;
+
+  /// “无标签”虚拟标签 key：永远不会出现在 roomTagsMap 中，
+  /// 筛选时按“房间没有任何标签”判断（5.5）。
+  static const String untaggedTagKey = '__untagged__';
+  static const String untaggedTagLabel = '无标签';
+
+  /// 保留名拦截：这些名字不允许被真实标签占用（5.5/5.6）。
+  static const Set<String> reservedTagNames = {'无标签', '全部', 'all', 'untagged'};
   @override
   void onInit() {
     super.onInit();
@@ -103,9 +111,48 @@ class TagManagementController extends GetxController {
     return roomTagsMap[room.identityKey] ?? roomTagsMap[room.normalizedRoomId] ?? [];
   }
 
+  /// 置顶标签 = 标签列表第一个标签（5.1：显式置顶，用户在标签页置顶到首位）。
+  String? get pinTagId => tags.isEmpty ? null : tags.first.id;
+
+  bool isPinRoom(LiveRoom room) {
+    final pinId = pinTagId;
+    if (pinId == null) return false;
+    return getTagsForRoom(room).contains(pinId);
+  }
+
+  /// 按名称精确查找标签（大小写不敏感）；保留名不会匹配到真实标签。
+  LiveTag? findTagByName(String name) {
+    final cleanName = name.trim().toLowerCase();
+    if (cleanName.isEmpty) return null;
+    for (final tag in tags) {
+      if (tag.name.trim().toLowerCase() == cleanName) return tag;
+    }
+    return null;
+  }
+
+  /// 自动匹配分类标签（5.6）：存在则复用，不存在则创建；
+  /// 保留名安全跳过（返回 null），调用方无需额外判重。
+  LiveTag? ensureTagByNameSafe(String name) {
+    final cleanName = name.trim();
+    if (cleanName.isEmpty) return null;
+    if (reservedTagNames.contains(cleanName.toLowerCase())) return null;
+    final existing = findTagByName(cleanName);
+    if (existing != null) return existing;
+    final newTag = LiveTag(
+      id: _allocateTagId(tags.map((tag) => tag.id).toSet()),
+      name: cleanName,
+      description: '',
+      order: tags.length,
+    );
+    tags.add(newTag);
+    saveTags();
+    return newTag;
+  }
+
   bool addTag(String name, String description) {
     final cleanName = name.trim();
     if (validateTagName(cleanName) != TagNameValidation.valid) return false;
+    if (reservedTagNames.contains(cleanName.toLowerCase())) return false;
 
     final newTag = LiveTag(
       id: _allocateTagId(tags.map((tag) => tag.id).toSet()),
@@ -126,12 +173,19 @@ class TagManagementController extends GetxController {
     }
     tags.refresh();
     saveTags();
+    // 幽灵标签防御（5.7）：tags 被外部整体替换后，同步清洗映射表中的失效引用。
+    final normalized = _normalizeRoomTagsMap(_copyRoomTagsMap(roomTagsMap));
+    if (!_roomTagsMapsEqual(roomTagsMap, normalized)) {
+      roomTagsMap.assignAll(normalized);
+      saveRoomTagsMapping();
+    }
   }
 
   bool updateTag(int index, String newName, String newDescription) {
     if (index < 0 || index >= tags.length) return false;
     final cleanName = newName.trim();
     if (validateTagName(cleanName, excludingIndex: index) != TagNameValidation.valid) return false;
+    if (reservedTagNames.contains(cleanName.toLowerCase())) return false;
 
     tags[index].name = cleanName;
     tags[index].description = newDescription.trim();

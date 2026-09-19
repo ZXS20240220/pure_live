@@ -75,7 +75,7 @@ class _Favorite extends FavoriteController {
     'size': pageSize.value,
     'site': tabSiteIndex.value,
     'status': tabOnlineIndex.value,
-    'selectedTag': selectedTagId.value,
+    'selectedTags': selectedTagIds.toList(),
     'finishes': finishes.toList(),
   };
 }
@@ -217,13 +217,13 @@ void main() {
     c.tagController.setRoomTags(_room(), [tag.id]);
     c.changeSelectedTag(tag.id);
     await tester.pump(Duration.zero);
-    expect(c.selectedTagId.value, tag.id);
+    expect(c.selectedTagIds.toList(), [tag.id]);
     expect(c.list, hasLength(1));
 
     c.tagController.deleteTag(0);
     await tester.pump(Duration.zero);
 
-    expect(c.selectedTagId.value, TagManagementController.allTagKey);
+    expect(c.selectedTagIds.toList(), [TagManagementController.allTagKey]);
     expect(c.list, hasLength(1));
   });
 
@@ -335,7 +335,7 @@ void main() {
 
   for (final startup in [false, true]) {
     for (final desktop in [false, true]) {
-      _testWidgets('favorite layout awaits refresh startup=$startup desktop=$desktop', (tester) async {
+      _testWidgets('favorite layout commits without refetching startup=$startup desktop=$desktop', (tester) async {
         final c = await _mount(tester, desktop: desktop);
         if (!startup) {
           await _drain(tester, c.source);
@@ -343,16 +343,12 @@ void main() {
           await tester.pump(Duration.zero);
         }
         final count = c.source.requests.length;
-        final size = c.pageSize.value;
         c.checkAndNotifyLayoutChange(!desktop);
         await tester.pump(const Duration(milliseconds: 200));
-        final duringMode = c.usesDesktopPagination;
-        final duringSize = c.pageSize.value;
-        await _drain(tester, c.source);
-        expect(duringMode, desktop);
-        expect(duringSize, size);
         expect(c.usesDesktopPagination, !desktop);
-        expect(c.source.requests, hasLength(count + 1));
+        // 窗口宽度变化不再触发数据刷新（对齐开发版），只切换分页布局。
+        expect(c.source.requests, hasLength(count));
+        await _drain(tester, c.source);
       });
     }
   }

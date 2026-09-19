@@ -16,11 +16,9 @@ import 'package:pure_live/player/utils/fullscreen.dart';
 import 'package:volume_controller/volume_controller.dart';
 import 'package:pure_live/player/core/player_manager.dart';
 import 'package:pure_live/player/core/portrait_stream_support.dart';
-import 'package:pure_live/modules/live_play/widgets/layout/portrait_fullscreen_interaction.dart';
 import 'package:pure_live/player/models/player_exception.dart';
 import 'package:pure_live/player/models/player_error_type.dart';
 import 'package:pure_live/modules/live_play/states/load_type.dart';
-import 'package:pure_live/modules/live_play/states/ui_state.dart';
 import 'package:pure_live/core/iptv/local/database.dart' as database;
 import 'package:pure_live/modules/live_play/controllers/player_state.dart';
 import 'package:pure_live/modules/live_play/controllers/live_play_controller.dart';
@@ -826,7 +824,7 @@ class VideoController with ChangeNotifier implements DanmakuSettingsBinding {
 
   void _handleControllerHideDeadline() {
     showControllerTimer = null;
-    if (_isDisposed || _isMouseOverController || _isMouseOverPlayer) return;
+    if (_isDisposed || _isMouseOverController || _isMouseOverPlayer || _interactionActive) return;
     final deadline = _controllerHideDeadlineMs;
     if (deadline == null) return;
     final remainingMs = deadline - _controllerIdleClock.elapsedMilliseconds;
@@ -842,6 +840,24 @@ class VideoController with ChangeNotifier implements DanmakuSettingsBinding {
     showControllerTimer?.cancel();
     showControllerTimer = null;
     _controllerHideDeadlineMs = null;
+  }
+
+  /// Lock the controls visible while the user drags the seekbar. Pointer
+  /// moves during a drag don't fire `MouseRegion.onHover`, so without this
+  /// the auto-hide deadline expires mid-drag. See [releaseController].
+  void holdController() {
+    if (_isDisposed) return;
+    _interactionActive = true;
+    stopHideController();
+    showController.value = true;
+  }
+
+  /// Release the lock acquired by [holdController] and restart the normal
+  /// auto-hide countdown.
+  void releaseController() {
+    if (_isDisposed) return;
+    _interactionActive = false;
+    enableController();
   }
 
   // 鼠标进入控制器区域
@@ -1347,75 +1363,8 @@ class VideoController with ChangeNotifier implements DanmakuSettingsBinding {
     }
   }
 
-  /// Enters the panel-dismiss fullscreen used only by a trusted portrait live
-  /// source on Android phones. It bypasses the user's ordinary fullscreen
-  /// orientation preference because the downward gesture explicitly requests
-  /// a portrait presentation rather than the conventional landscape action.
-  Future<void> enterPortraitFullScreen() async {
-    final settings = _settingsService.player;
-    if (_fullscreenTransitioning ||
-        _livePlayController.state.value.ui.screenMode != VideoMode.normal ||
-        GlobalPlayerState.to.isFullscreen.value ||
-        !canEnterPortraitPanelFullscreen(
-          isPortraitSource: _playerManager.isVerticalVideo.value,
-          adaptationEnabled: settings.enablePortraitStreamAdaptation.v,
-          adaptiveHeightEnabled: settings.portraitAdaptiveHeight.v,
-          compatibilityLayout: settings.portraitLayoutMode == PortraitLayoutMode.compatibility,
-          mobilePlatform: Platform.isAndroid,
-        )) {
-      return;
-    }
-    _fullscreenTransitioning = true;
-    showLocked.value = false;
-    stopHideController();
-    GlobalPlayerState.to.isWindowFullscreen.value = false;
-    try {
-      _livePlayController.setPortraitFullScreen();
-      await WindowService().doEnterFullScreen();
-      final stillEligible = canEnterPortraitPanelFullscreen(
-        isPortraitSource: _playerManager.isVerticalVideo.value,
-        adaptationEnabled: settings.enablePortraitStreamAdaptation.v,
-        adaptiveHeightEnabled: settings.portraitAdaptiveHeight.v,
-        compatibilityLayout: settings.portraitLayoutMode == PortraitLayoutMode.compatibility,
-        mobilePlatform: Platform.isAndroid,
-      );
-      if (_livePlayController.state.value.ui.screenMode != VideoMode.portraitFullscreen || !stillEligible) {
-        _livePlayController.setNormalScreen();
-        await exitFullScreen();
-        return;
-      }
-      GlobalPlayerState.to.isFullscreen.value = true;
-      await WindowService().verticalScreen();
-      enableController();
-    } finally {
-      _fullscreenTransitioning = false;
-    }
-  }
-
-  Future<void> exitPortraitFullScreen() async {
-    if (_fullscreenTransitioning || _livePlayController.state.value.ui.screenMode != VideoMode.portraitFullscreen) {
-      return;
-    }
-    _fullscreenTransitioning = true;
-    try {
-      _livePlayController.setNormalScreen();
-      await exitFullScreen();
-      enableController();
-    } finally {
-      _fullscreenTransitioning = false;
-    }
-  }
-
   Future<void> applyFullscreenOrientationPolicy() async {
     if (_isDisposed || !GlobalPlayerState.to.isFullscreen.value || !(Platform.isAndroid || Platform.isIOS)) return;
-    if (_livePlayController.state.value.ui.screenMode == VideoMode.portraitFullscreen) {
-      if (!_playerManager.isVerticalVideo.value) {
-        await exitPortraitFullScreen();
-      } else {
-        await WindowService().verticalScreen();
-      }
-      return;
-    }
     switch (_settingsService.player.portraitFullscreenPolicy) {
       case PortraitFullscreenPolicy.followSource:
         if (_playerManager.isVerticalVideo.value) {
@@ -1499,6 +1448,12 @@ class VideoController with ChangeNotifier implements DanmakuSettingsBinding {
   final _legacyControlHoverOwner = Object();
   bool get _isMouseOverController => _controlHoverOwners.isNotEmpty;
   bool _isMouseOverPlayer = false;
+
+  /// Set while the user is actively interacting with the seekbar (dragging).
+  /// Prevents the auto-hide timer from firing, because pointer-move events
+  /// during a drag do not reach `MouseRegion.onHover` and so the deadline
+  /// would otherwise expire mid-drag and hide the controls.
+  bool _interactionActive = false;
   Timer? _defaultFullscreenTimer;
   Timer? _controllerTransitionTimer;
   Timer? _debounceTimer;

@@ -42,6 +42,9 @@ class RoutePath {
   /// 版本历史记录
   static const kVersionHistory = "/version_history";
 
+  /// 修改总结（相对上游原始版本）
+  static const kChangesSummary = "/changes_summary";
+
   /// 历史记录
   static const kHistory = "/history";
 

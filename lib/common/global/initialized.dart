@@ -60,10 +60,14 @@ class AppInitializer {
     await _initWindowsSingleInstance(args, instanceId);
 
     await AppPathManager().initialize(instanceId: instanceId);
-    await EasyLocalization.ensureInitialized();
-    final Directory hiveDir = await AppPathManager().getDir(AppPathManager.dirHiveDB);
-
-    await Hive.initFlutter(hiveDir.path);
+    await Future.wait([
+      EasyLocalization.ensureInitialized(),
+      (() async {
+        final Directory hiveDir = await AppPathManager().getDir(AppPathManager.dirHiveDB);
+        await Hive.initFlutter(hiveDir.path);
+        return hiveDir;
+      })(),
+    ]);
     await HivePrefUtil.init();
     final migrationReport = await SettingsUpgradeMigration.migrate(
       target: Hive.box('app_settings'),

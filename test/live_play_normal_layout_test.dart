@@ -1,10 +1,17 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pure_live/common/index.dart';
 import 'package:pure_live/modules/live_play/widgets/layout/live_play_content.dart';
 import 'package:pure_live/modules/live_play/widgets/layout/live_play_video.dart';
-import 'package:pure_live/player/core/portrait_stream_support.dart';
 
 void main() {
+  setUp(() {
+    Get.put(SettingsService());
+  });
+
+  tearDown(() {
+    Get.reset();
+  });
+
   Widget fixture({bool showPanel = true}) {
     return MaterialApp(
       home: Scaffold(
@@ -33,7 +40,6 @@ void main() {
     expect(find.byKey(const ValueKey('video')), findsOneWidget);
     expect(find.byKey(const ValueKey('resolution')), findsOneWidget);
     expect(find.byKey(const ValueKey('danmaku')), findsOneWidget);
-    expect(find.byKey(const ValueKey('live-play-adaptive-video-frame')), findsNothing);
 
     final video = tester.getRect(find.byKey(const ValueKey('video')));
     final resolution = tester.getRect(find.byKey(const ValueKey('resolution')));
@@ -56,232 +62,9 @@ void main() {
     final resolution = tester.getRect(find.byKey(const ValueKey('resolution')));
     final danmaku = tester.getRect(find.byKey(const ValueKey('danmaku')));
     expect(panel.width, inInclusiveRange(300, 400));
-    expect(video.right, panel.left);
+    expect(panel.left, video.right + 6);
     expect(resolution.width, panel.width);
     expect(danmaku.height, greaterThan(0));
-  });
-
-  testWidgets('portrait source grows video but preserves the interaction list', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(390, 780));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: LivePlayNormalLayout(
-            isPortraitSource: true,
-            sourceAspectRatio: 9 / 16,
-            adaptivePortraitHeight: true,
-            portraitLayoutMode: PortraitLayoutMode.balanced,
-            video: const ColoredBox(key: ValueKey('portrait-video'), color: Colors.black),
-            resolution: const SizedBox(height: 44),
-            danmaku: const ColoredBox(key: ValueKey('portrait-danmaku'), color: Colors.white),
-          ),
-        ),
-      ),
-    );
-
-    final video = tester.getRect(find.byKey(const ValueKey('portrait-video')));
-    final danmaku = tester.getRect(find.byKey(const ValueKey('portrait-danmaku')));
-    expect(find.byKey(const ValueKey('live-play-adaptive-video-frame')), findsOneWidget);
-    expect(find.byKey(const ValueKey('live-play-portrait-sheet')), findsOneWidget);
-    expect(video.height, 780);
-    expect(danmaku.height, greaterThanOrEqualTo(200));
-  });
-
-  testWidgets('portrait interaction sheet has bounded drag stops independent from list scrolling', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(390, 780));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: PortraitLiveRoomLayout(
-            mode: PortraitLayoutMode.balanced,
-            video: ColoredBox(color: Colors.black),
-            resolution: SizedBox(height: 44),
-            danmaku: ColoredBox(color: Colors.white),
-          ),
-        ),
-      ),
-    );
-
-    final before = tester.getSize(find.byKey(const ValueKey('live-play-portrait-sheet'))).height;
-    await tester.drag(find.byKey(const ValueKey('live-play-portrait-sheet-handle')), const Offset(0, -180));
-    await tester.pump();
-    final after = tester.getSize(find.byKey(const ValueKey('live-play-portrait-sheet'))).height;
-    final range = portraitPanelRange(780, PortraitLayoutMode.balanced);
-    expect(after, greaterThan(before));
-    expect(after, inInclusiveRange(range.minimum, range.maximum));
-  });
-
-  testWidgets('portrait sheet can dismiss downward into portrait fullscreen', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(390, 780));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    var requestCount = 0;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: PortraitLiveRoomLayout(
-            mode: PortraitLayoutMode.balanced,
-            video: const ColoredBox(color: Colors.black),
-            resolution: const SizedBox(height: 44),
-            danmaku: const ColoredBox(color: Colors.white),
-            onEnterPortraitFullscreen: () => requestCount++,
-          ),
-        ),
-      ),
-    );
-
-    expect(find.byKey(const ValueKey('portrait-fullscreen-enter-hint')), findsOneWidget);
-    final gesture = await tester.startGesture(
-      tester.getCenter(find.byKey(const ValueKey('live-play-portrait-sheet-handle'))),
-    );
-    await gesture.moveBy(const Offset(0, 160));
-    await tester.pump();
-    await gesture.moveBy(const Offset(0, 120));
-    await tester.pump();
-    final slide = tester.widget<AnimatedSlide>(find.byType(AnimatedSlide));
-    expect(slide.offset.dy, greaterThan(0.30));
-    await gesture.up();
-    await tester.pumpAndSettle();
-    expect(requestCount, 1);
-  });
-
-  testWidgets('short downward pull restores the portrait sheet', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(390, 780));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    var requestCount = 0;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: PortraitLiveRoomLayout(
-            mode: PortraitLayoutMode.balanced,
-            video: const ColoredBox(color: Colors.black),
-            resolution: const SizedBox(height: 44),
-            danmaku: const ColoredBox(color: Colors.white),
-            onEnterPortraitFullscreen: () => requestCount++,
-          ),
-        ),
-      ),
-    );
-
-    await tester.timedDrag(
-      find.byKey(const ValueKey('live-play-portrait-sheet-handle')),
-      const Offset(0, 150),
-      const Duration(milliseconds: 700),
-    );
-    await tester.pumpAndSettle();
-
-    final sheet = tester.getRect(find.byKey(const ValueKey('live-play-portrait-sheet')));
-    expect(requestCount, 0);
-    expect(sheet.bottom, closeTo(780, 0.1));
-  });
-
-  testWidgets('ordinary landscape source never exposes portrait fullscreen dismissal', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(390, 780));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    var requestCount = 0;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: LivePlayNormalLayout(
-            isPortraitSource: false,
-            adaptivePortraitHeight: true,
-            onEnterPortraitFullscreen: () => requestCount++,
-            video: const ColoredBox(key: ValueKey('landscape-video'), color: Colors.black),
-            resolution: const SizedBox(height: 44),
-            danmaku: const ColoredBox(color: Colors.white),
-          ),
-        ),
-      ),
-    );
-
-    expect(find.byKey(const ValueKey('portrait-fullscreen-enter-hint')), findsNothing);
-    expect(find.byKey(const ValueKey('live-play-portrait-sheet')), findsNothing);
-    expect(requestCount, 0);
-  });
-
-  testWidgets('portrait room keeps an explicit landscape fullscreen action above the sheet', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(390, 780));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    var requested = false;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: PortraitLiveRoomLayout(
-            mode: PortraitLayoutMode.balanced,
-            video: const ColoredBox(color: Colors.black),
-            resolution: const SizedBox(height: 44),
-            danmaku: const ColoredBox(color: Colors.white),
-            onEnterLandscapeFullscreen: () => requested = true,
-          ),
-        ),
-      ),
-    );
-
-    final action = find.byKey(const ValueKey('portrait-landscape-fullscreen'));
-    final sheet = tester.getRect(find.byKey(const ValueKey('live-play-portrait-sheet')));
-    expect(action, findsOneWidget);
-    expect(tester.getRect(action).bottom, lessThan(sheet.top));
-    await tester.tap(action);
-    expect(requested, isTrue);
-  });
-
-  testWidgets('portrait fullscreen presentation keeps its child above the ambient layer', (tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: PortraitFullscreenPresentation(
-          coverUrl: '',
-          child: ColoredBox(key: ValueKey('portrait-fullscreen-video'), color: Colors.transparent),
-        ),
-      ),
-    );
-
-    expect(find.byKey(const ValueKey('fullscreen-portrait-presentation')), findsOneWidget);
-    expect(find.byKey(const ValueKey('fullscreen-portrait-ambient-fallback')), findsOneWidget);
-    expect(find.byKey(const ValueKey('portrait-fullscreen-video')), findsOneWidget);
-  });
-
-  testWidgets('portrait fullscreen presentation exposes ambient only for the two non-destructive modes', (
-    tester,
-  ) async {
-    for (final mode in PortraitFullscreenDisplayMode.values) {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: PortraitFullscreenPresentation(
-            coverUrl: '',
-            mode: mode,
-            child: const ColoredBox(color: Colors.transparent),
-          ),
-        ),
-      );
-      final expectsAmbient =
-          mode == PortraitFullscreenDisplayMode.ambient || mode == PortraitFullscreenDisplayMode.balanced;
-      expect(
-        find.byKey(const ValueKey('fullscreen-portrait-ambient-fallback')),
-        expectsAmbient ? findsOneWidget : findsNothing,
-        reason: mode.name,
-      );
-      expect(find.byKey(ValueKey('fullscreen-portrait-mode-${mode.name}')), findsOneWidget);
-    }
-  });
-
-  test('portrait fullscreen background falls back through cover and avatar metadata', () {
-    expect(
-      resolvePortraitFullscreenBackgroundUrl(
-        detailCover: '  ',
-        roomCover: '',
-        detailAvatar: 'https://example.invalid/detail-avatar.jpg',
-        roomAvatar: 'https://example.invalid/room-avatar.jpg',
-      ),
-      'https://example.invalid/detail-avatar.jpg',
-    );
-    expect(
-      resolvePortraitFullscreenBackgroundUrl(
-        detailCover: 'https://example.invalid/detail-cover.jpg',
-        roomCover: 'https://example.invalid/room-cover.jpg',
-      ),
-      'https://example.invalid/detail-cover.jpg',
-    );
   });
 
   testWidgets('generic live video keeps 16:9 unless its caller owns an explicit frame', (tester) async {

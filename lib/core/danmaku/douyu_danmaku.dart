@@ -12,10 +12,12 @@ import 'package:pure_live/core/common/web_socket_util.dart';
 import 'package:pure_live/core/interface/live_danmaku.dart';
 
 class DouyuDanmaku implements LiveDanmaku {
-  DouyuDanmaku({bool Function()? filterSuspectedAutomatedMessages})
-    : _filterSuspectedAutomatedMessages = filterSuspectedAutomatedMessages ?? (() => true);
+  DouyuDanmaku({bool Function()? filterSuspectedAutomatedMessages, bool Function()? filterActivityMessages})
+    : _filterSuspectedAutomatedMessages = filterSuspectedAutomatedMessages ?? (() => true),
+      _filterActivityMessages = filterActivityMessages ?? (() => true);
 
   final bool Function() _filterSuspectedAutomatedMessages;
+  final bool Function() _filterActivityMessages;
 
   @override
   int heartbeatTime = 45 * 1000;
@@ -125,6 +127,10 @@ class DouyuDanmaku implements LiveDanmaku {
           if (packetRoomId.isNotEmpty && _roomId.isNotEmpty && packetRoomId != _roomId) continue;
           final text = jsonData["txt"]?.toString() ?? '';
           if (text.isEmpty) continue;
+          if (_filterActivityMessages()) {
+            final gadid = jsonData['gadid']?.toString();
+            if (gadid != null && gadid.isNotEmpty) continue;
+          }
           final isSuspectedAutomated = jsonData['dms'] == null && jsonData['if']?.toString() != '1';
           if (isSuspectedAutomated && _filterSuspectedAutomatedMessages()) continue;
           final col = int.tryParse(jsonData["col"]?.toString() ?? '') ?? 0;
@@ -133,6 +139,11 @@ class DouyuDanmaku implements LiveDanmaku {
               ? null
               : DateTime.fromMillisecondsSinceEpoch(rawTimestamp > 100000000000 ? rawTimestamp : rawTimestamp * 1000);
           final messageId = jsonData['cid']?.toString() ?? '';
+          final rawFansName = jsonData['bnn']?.toString() ?? '';
+          final rawFansLevel = jsonData['bl']?.toString() ?? '';
+          // A fan level is meaningful on its own: the badge name (bnn) is
+          // optional because wearing the medal is a per-user choice.
+          final fansLevel = (rawFansLevel.isNotEmpty && rawFansLevel != '0') ? rawFansLevel : '';
           liveMsg = LiveMessage(
             type: LiveMessageType.chat,
             userName: jsonData["nn"]?.toString() ?? '',
@@ -141,6 +152,9 @@ class DouyuDanmaku implements LiveDanmaku {
             color: getColor(col),
             messageId: messageId.isEmpty ? '' : 'douyu:$messageId',
             sentAt: sentAt,
+            userLevel: jsonData['level']?.toString() ?? '',
+            fansName: rawFansName,
+            fansLevel: fansLevel,
           );
         } else if (type == "comm_chatmsg") {
           liveMsg = _parseCommonSuperChat(jsonData);

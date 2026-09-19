@@ -40,6 +40,26 @@ class RefreshSettingsPage extends GetView<RefreshConfigController> {
             }),
             Obx(
               () => context.buildTile(
+                icon: Remix.shield_check_line,
+                title: i18n("refresh_success_cooldown"),
+                subtitle:
+                    '${controller.successCooldownSeconds.value <= 0 ? i18n("cooldown_disabled") : "${controller.successCooldownSeconds.value} ${i18n("second")}"} · ${i18n("refresh_success_cooldown_subtitle")}',
+                isLong: true,
+                onTap: () => showSuccessCooldownDialog(context),
+              ),
+            ),
+            Obx(
+              () => context.buildTile(
+                icon: Remix.error_warning_line,
+                title: i18n("refresh_failure_cooldown"),
+                subtitle:
+                    '${controller.failureRetryMinutes.value <= 0 ? i18n("cooldown_disabled") : "${controller.failureRetryMinutes.value} ${i18n("minute")}"} · ${i18n("refresh_failure_cooldown_subtitle")}',
+                isLong: true,
+                onTap: () => showFailureCooldownDialog(context),
+              ),
+            ),
+            Obx(
+              () => context.buildTile(
                 icon: Remix.server_line,
                 title: i18n("max_concurrent_refresh"),
                 subtitle:
@@ -48,6 +68,23 @@ class RefreshSettingsPage extends GetView<RefreshConfigController> {
                 onTap: () => showMaxConcurrentDialog(context),
               ),
             ),
+            Obx(() {
+              final sites = Sites().availableSites();
+              if (sites.isEmpty) return const SizedBox.shrink();
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final site in sites)
+                    context.buildTile(
+                      icon: Remix.server_line,
+                      title: site.name,
+                      subtitle:
+                          '${controller.platformConcurrencyOf(site.id)} ${i18n('concurrent_tasks')} · ${controller.hasPlatformConcurrencyOverride(site.id) ? i18n('platform_concurrency_custom') : i18n('platform_concurrency_follow_default')}',
+                      onTap: () => showPlatformMaxConcurrentDialog(context, site),
+                    ),
+                ],
+              );
+            }),
             context.buildSwitchTile(
               icon: Remix.image_2_line,
               title: i18n('auto_refresh_thumbnails'),
@@ -117,6 +154,56 @@ class RefreshSettingsPage extends GetView<RefreshConfigController> {
     }
   }
 
+  /// 刷新成功保护（秒）：0~60，0 = 关闭。默认 15 秒（推荐）。
+  Future<void> showSuccessCooldownDialog(BuildContext context) async {
+    final Map<int, String> values = {
+      0: i18n("cooldown_disabled"),
+      for (final i in const [5, 10, 15, 20, 30, 45, 60]) i: "$i ${i18n("second")}",
+    };
+    values[15] = "15 ${i18n("second")} · ${i18n('recommended')}";
+
+    final int? value = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) {
+        return _RefreshRadioDialog(
+          title: i18n("refresh_success_cooldown"),
+          hint: i18n("refresh_success_cooldown_hint"),
+          value: controller.successCooldownSeconds.value,
+          items: values,
+        );
+      },
+    );
+
+    if (value != null && value != controller.successCooldownSeconds.value) {
+      controller.successCooldownSeconds.value = value;
+    }
+  }
+
+  /// 刷新失败保护（分钟）：0~60，0 = 关闭。默认 5 分钟（推荐）。
+  Future<void> showFailureCooldownDialog(BuildContext context) async {
+    final Map<int, String> values = {
+      0: i18n("cooldown_disabled"),
+      for (final i in const [1, 2, 3, 5, 10, 15, 30, 60]) i: "$i ${i18n("minute")}",
+    };
+    values[5] = "5 ${i18n("minute")} · ${i18n('recommended')}";
+
+    final int? value = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) {
+        return _RefreshRadioDialog(
+          title: i18n("refresh_failure_cooldown"),
+          hint: i18n("refresh_failure_cooldown_hint"),
+          value: controller.failureRetryMinutes.value,
+          items: values,
+        );
+      },
+    );
+
+    if (value != null && value != controller.failureRetryMinutes.value) {
+      controller.failureRetryMinutes.value = value;
+    }
+  }
+
   Future<void> showMaxConcurrentDialog(BuildContext context) async {
     final Map<int, String> values = {
       for (int i = 1; i <= 20; i++)
@@ -137,6 +224,31 @@ class RefreshSettingsPage extends GetView<RefreshConfigController> {
 
     if (value != null && value != controller.maxConcurrentRefresh.value) {
       controller.maxConcurrentRefresh.value = value;
+    }
+  }
+
+  Future<void> showPlatformMaxConcurrentDialog(BuildContext context, Site site) async {
+    final Map<int, String> values = {
+      for (int i = 1; i <= RefreshConfigController.maxAllowedConcurrentRefresh; i++)
+        i: i == RefreshConfigController.recommendedPlatformMaxConcurrentRefresh
+            ? '$i · ${i18n('recommended')}'
+            : i.toString(),
+    };
+
+    final int? value = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) {
+        return _RefreshRadioDialog(
+          title: '${site.name} · ${i18n('max_concurrent_refresh')}',
+          hint: i18n('platform_max_concurrent_hint'),
+          value: controller.platformConcurrencyOf(site.id),
+          items: values,
+        );
+      },
+    );
+
+    if (value != null && value != controller.platformConcurrencyOf(site.id)) {
+      controller.setPlatformConcurrency(site.id, value);
     }
   }
 

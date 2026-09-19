@@ -1,5 +1,6 @@
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/modules/account/twitch/twitch_cookie_controller.dart';
+import 'package:pure_live/modules/account/web_cookie_capture.dart';
 import 'package:pure_live/modules/account/widgets/account_cookie_editor.dart';
 
 class TwitchCookiePage extends GetView<TwitchCookieBindingCookieController> {
@@ -12,6 +13,7 @@ class TwitchCookiePage extends GetView<TwitchCookieBindingCookieController> {
       hintText: i18n('twitch_cookie_hint'),
       tipText: i18n('twitch_cookie_tip'),
       onSave: controller.setCookie,
+      autoCaptureTarget: kCookieCaptureTargets['twitch'],
     );
   }
 }

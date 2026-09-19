@@ -8,7 +8,6 @@ import 'package:pure_live/modules/settings/pages/font_family_manager_page.dart';
 import 'package:pure_live/common/services/settings/app_settings_controller.dart';
 import 'package:pure_live/common/services/settings/player_settings_controller.dart';
 import 'package:pure_live/modules/settings/pages/pip_danmaku_settings_page.dart';
-import 'package:pure_live/modules/settings/pages/portrait_live_settings_page.dart';
 import 'package:pure_live/modules/settings/pages/audience_metric_settings_page.dart';
 
 typedef SleepTimerConfigurator = Future<void> Function({required bool enabled, required int minutes});
@@ -159,12 +158,14 @@ class _VideoSettingsPageState extends State<VideoSettingsPage> {
           // 播放行为设置
           context.buildGroupTitle(i18n("playback_behavior_settings")),
           context.buildModernCard([
-            context.buildTile(
-              title: i18n('portrait_live_settings'),
-              subtitle: i18n('portrait_live_settings_desc'),
-              icon: Icons.stay_current_portrait_rounded,
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () => Get.to(() => const PortraitLiveSettingsPage()),
+            // buildSwitchTile 内部自带 Obx，外层不可再包空 Obx（无响应式订阅会抛异常）。
+            context.buildSwitchTile(
+              icon: Icons.fullscreen_rounded,
+              title: i18n('immersive_layout_mode'),
+              subtitle: i18n('immersive_layout_mode_desc'),
+              isLong: true,
+              value: SettingsService.to.player.enableImmersiveLayout,
+              onChanged: (enabled) => SettingsService.to.player.enableImmersiveLayout.v = enabled,
             ),
             context.buildTile(
               title: i18n('audience_metric_settings'),

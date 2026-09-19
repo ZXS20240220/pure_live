@@ -525,7 +525,8 @@ LiveRoom room(String id, int watchedAt) => LiveRoom(
   title: 'old-$id',
   nick: 'fixture',
   lastWatchedAt: watchedAt,
-  liveStatus: LiveStatus.offline,
+  // 5.9-(4) 历史页只显示正在直播的房间，夹具需为直播中状态才会在列表中渲染。
+  liveStatus: LiveStatus.live,
 );
 
 class _Settings extends SettingsService {

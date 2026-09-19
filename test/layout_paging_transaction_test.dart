@@ -131,7 +131,7 @@ void main() {
   tearDownAll(Hive.close);
 
   for (final kind in ['all', 'fixed', 'remote', 'native']) {
-    testWidgets('$kind stable breakpoint commits once despite repeated observations', (tester) async {
+    testWidgets('$kind stable breakpoint commits layout once without refetching', (tester) async {
       final c = await _mount(tester, kind, false);
       final p = c as _Probe<dynamic>;
       c.checkAndNotifyLayoutChange(true);
@@ -139,123 +139,72 @@ void main() {
       c.checkAndNotifyLayoutChange(true);
       await tester.pump(const Duration(milliseconds: 60));
       expect(c.usesDesktopPagination, isTrue);
-      expect(p.modes, [true]);
+      // 断点跨越只重排分页布局，绝不重新拉取数据（对齐开发版）。
+      expect(p.modes, isEmpty);
       expect(c.list, isNotEmpty);
     });
 
-    for (final close in [false, true]) {
-      testWidgets('$kind cancels a layout already awaiting its request close=$close', (tester) async {
-        final c = await _mount(tester, kind, false);
-        final p = c as _Probe<dynamic>;
-        final gate = Completer<void>();
-        p.response = gate.future;
-        final operation = c.loadData();
-        await tester.pump();
-        c.checkAndNotifyLayoutChange(true);
-        await tester.pump(const Duration(milliseconds: 200));
-        if (close) {
-          c.onDelete();
-        } else {
-          c.checkAndNotifyLayoutChange(false);
-        }
-        gate.complete();
-        await tester.pump();
-        await operation;
-        await tester.pump();
-        expect(c.usesDesktopPagination, isFalse);
-        expect(c.pageSize.value, 2);
-        expect(p.modes, [false]);
-      });
-    }
+    testWidgets('$kind layout commit ignores in-flight requests', (tester) async {
+      final c = await _mount(tester, kind, false);
+      final p = c as _Probe<dynamic>;
+      final gate = Completer<void>();
+      p.response = gate.future;
+      final operation = c.loadData();
+      await tester.pump();
+      c.checkAndNotifyLayoutChange(true);
+      await tester.pump(const Duration(milliseconds: 200));
+      // 布局提交不再等待请求：120ms 防抖后立即切换分页模式，且不追加刷新。
+      expect(c.usesDesktopPagination, isTrue);
+      expect(p.modes, isEmpty);
+      gate.complete();
+      await tester.pump();
+      await operation;
+      await tester.pump();
+      expect(p.modes, [false], reason: '只有初始 loadData 一次网络请求');
+      expect(c.list, isNotEmpty);
+    });
 
-    for (final desktop in [false, true]) {
-      for (final preflight in [false, true]) {
-        testWidgets('$kind layout waits for ${preflight ? "connectivity" : "response"} from desktop=$desktop', (
-          tester,
-        ) async {
-          final c = await _mount(tester, kind, desktop);
-          final p = c as _Probe<dynamic>;
-          final gate = Completer<void>();
-          final connectivity = Completer<List<ConnectivityResult>?>();
-          if (preflight) {
-            p.connectivity = connectivity.future;
-          } else {
-            p.response = gate.future;
-          }
-          final load = c.loadData();
-          await tester.pump();
-          c.checkAndNotifyLayoutChange(!desktop);
-          await tester.pump(const Duration(milliseconds: 200));
-          final modeDuring = c.usesDesktopPagination;
-          final sizeDuring = c.pageSize.value;
-          if (preflight) {
-            connectivity.complete(null);
-          } else {
-            gate.complete();
-          }
-          await tester.pump();
-          await load;
-          await tester.pump();
-          expect(modeDuring, desktop);
-          expect(sizeDuring, 2);
-          expect(p.modes.first, desktop);
-          expect(p.sizes.first, 2);
-          expect(c.usesDesktopPagination, !desktop);
-          expect(p.modes, [desktop, !desktop]);
-          expect(p.errors, isEmpty);
-          expect(c.list, isNotEmpty);
-        });
-      }
+    testWidgets('$kind transient breakpoint crossing is cancelled', (tester) async {
+      final c = await _mount(tester, kind, false);
+      final p = c as _Probe<dynamic>;
+      c.checkAndNotifyLayoutChange(true);
+      await tester.pump(const Duration(milliseconds: 50));
+      c.checkAndNotifyLayoutChange(false);
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(c.usesDesktopPagination, isFalse);
+      expect(c.pageSize.value, 2);
+      expect(p.modes, isEmpty);
+    });
 
-      testWidgets('$kind transient breakpoint crossing is cancelled desktop=$desktop', (tester) async {
-        final c = await _mount(tester, kind, desktop);
-        final p = c as _Probe<dynamic>;
-        c.checkAndNotifyLayoutChange(!desktop);
-        await tester.pump(const Duration(milliseconds: 50));
-        c.checkAndNotifyLayoutChange(desktop);
-        await tester.pump(const Duration(milliseconds: 200));
-        expect(c.usesDesktopPagination, desktop);
-        expect(c.pageSize.value, 2);
-        expect(p.modes, isEmpty);
-      });
-
-      testWidgets('$kind closed layout observation is inert desktop=$desktop', (tester) async {
-        final c = await _mount(tester, kind, desktop);
-        final p = c as _Probe<dynamic>;
-        c.onDelete();
-        c.checkAndNotifyLayoutChange(!desktop);
-        await tester.pump(const Duration(milliseconds: 200));
-        expect(c.usesDesktopPagination, desktop);
-        expect(c.pageSize.value, 2);
-        expect(p.modes, isEmpty);
-      });
-    }
+    testWidgets('$kind closed layout observation is inert', (tester) async {
+      final c = await _mount(tester, kind, false);
+      final p = c as _Probe<dynamic>;
+      c.onDelete();
+      c.checkAndNotifyLayoutChange(true);
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(c.usesDesktopPagination, isFalse);
+      expect(c.pageSize.value, 2);
+      expect(p.modes, isEmpty);
+    });
   }
 
-  testWidgets('layout waits for remote adaptive re-paging as well as ordinary loads', (tester) async {
+  testWidgets('remote adaptive re-paging is not re-triggered by breakpoint crossing', (tester) async {
     final c = await _mount(tester, 'remote', true);
     final p = c as _Probe<dynamic>;
     final initial = c.loadData();
     await tester.pump();
     await initial;
-    final gate = Completer<void>();
-    p.response = gate.future;
     c.setPageSize(4);
     await tester.pump();
     expect(p.modes, [true, true]);
     c.checkAndNotifyLayoutChange(false);
     await tester.pump(const Duration(milliseconds: 200));
-    final modeDuring = c.usesDesktopPagination;
-    gate.complete();
-    await tester.pump();
-    await tester.pump();
-    expect(modeDuring, isTrue);
     expect(c.usesDesktopPagination, isFalse);
-    expect(p.modes, [true, true, false]);
+    expect(p.modes, [true, true], reason: '断点跨越不再追加网络请求');
   });
 
   for (final desktop in [false, true]) {
-    testWidgets('actual BasePageView resize preserves in-flight dimensions from desktop=$desktop', (tester) async {
+    testWidgets('actual BasePageView resize only re-paginates from desktop=$desktop', (tester) async {
       var seeded = false;
       final c = await _mount(
         tester,
@@ -285,23 +234,11 @@ void main() {
       final p = c as _Probe<dynamic>;
       await tester.pump();
       expect(find.byKey(const ValueKey('layout-rows')), findsOneWidget);
-      final gate = Completer<void>();
-      p.response = gate.future;
-      final operation = c.loadData();
-      await tester.pump();
       tester.view.physicalSize = Size(desktop ? 400 : 900, 640);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
-      final modeDuring = c.usesDesktopPagination;
-      final sizeDuring = c.pageSize.value;
-      gate.complete();
-      await tester.pump();
-      await operation;
-      await tester.pumpAndSettle();
-      expect(modeDuring, desktop);
-      expect(sizeDuring, 2);
       expect(c.usesDesktopPagination, !desktop);
-      expect(p.modes, [desktop, !desktop]);
+      expect(p.modes, isEmpty, reason: '窗口宽度变化不再触发任何网络刷新');
       expect(find.byKey(const ValueKey('layout-rows')), findsOneWidget);
       expect(tester.takeException(), isNull);
     });

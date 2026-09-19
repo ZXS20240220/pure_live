@@ -6,9 +6,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pure_live/modules/favorite/room_grid_view.dart';
 
 void main() {
-  test('wide mobile tablets retain pull-to-refresh while wide desktop layouts do not', () {
+  test('pull-to-refresh wraps every viewport and platform, matching the dev build', () {
     expect(shouldWrapFavoritePullToRefresh(viewportWidth: 1280, isMobilePlatform: true), isTrue);
-    expect(shouldWrapFavoritePullToRefresh(viewportWidth: 1280, isMobilePlatform: false), isFalse);
+    expect(shouldWrapFavoritePullToRefresh(viewportWidth: 1280, isMobilePlatform: false), isTrue);
     expect(shouldWrapFavoritePullToRefresh(viewportWidth: 600, isMobilePlatform: false), isTrue);
   });
 

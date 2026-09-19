@@ -39,7 +39,8 @@ class HuyaSite
   @override
   String name = "虎牙直播";
   @override
-  LiveDanmaku getDanmaku() => HuyaDanmaku();
+  LiveDanmaku getDanmaku() =>
+      HuyaDanmaku(filterSystemMessages: () => SettingsService.to.danmaku.filterHuyaSystemMessages.v);
 
   /// Huya's web player treats playback as a viewer session, not as an anchor-
   /// signed static URL. Keep one anonymous identity for this site instance and
@@ -572,11 +573,60 @@ class HuyaSite
     return _loadRoomDetail(platform: platform, roomId: roomId, allowUiFallback: false);
   }
 
+  Future<String> _fetchHuyaUnion(String uid) async {
+    try {
+      final text = await HttpClient.instance.getText(
+        'https://chgate.huya.com/proxy/index',
+        queryParameters: {'service': 'thrift_sign', 'iface': 'getSignChannelInfo', 'data': uid},
+        header: {'Referer': 'https://www.huya.com/', 'user-agent': kUserAgent},
+      );
+      final decoded = jsonDecode(text);
+      if (decoded is! Map) return '';
+      final data = decoded['data'];
+      if (data is! Map) return '';
+      return data['name']?.toString().trim() ?? '';
+    } catch (e) {
+      CoreLog.error(e);
+      return '';
+    }
+  }
+
+  Future<String> _fetchHuyaFollowers(String roomId) async {
+    try {
+      final html = await HttpClient.instance.getText(
+        'https://www.huya.com/$roomId',
+        header: {'Referer': 'https://www.huya.com/', 'user-agent': kUserAgent},
+      );
+      final block = RegExp(r'TT_PROFILE_INFO\s*=\s*(\{[\s\S]*?\});').firstMatch(html)?.group(1);
+      if (block != null) {
+        final decoded = jsonDecode(block);
+        if (decoded is Map) {
+          final fans = decoded['fans']?.toString() ?? '';
+          if (fans.isNotEmpty && fans != 'null' && fans != '0') return fans;
+        }
+      }
+      return RegExp(r'"fans"\s*:\s*(\d+)').firstMatch(html)?.group(1) ?? '';
+    } catch (e) {
+      CoreLog.error(e);
+      return '';
+    }
+  }
+
+  Future<(String, String)> _resolveHuyaExtras(dynamic profile, Future<String> fansFuture) async {
+    final uid = profile is Map ? profile['uid']?.toString() ?? '' : '';
+    final results = await Future.wait<String>([
+      uid.isEmpty ? Future<String>.value('') : _fetchHuyaUnion(uid),
+      fansFuture,
+    ]);
+    return (results[0], results[1]);
+  }
+
   Future<LiveRoom> _loadRoomDetail({
     required String platform,
     required String roomId,
     required bool allowUiFallback,
   }) async {
+    final fansFuture = _fetchHuyaFollowers(roomId);
     var resultText = await HttpClient.instance.getText(
       'https://mp.huya.com/cache.php',
       queryParameters: <String, dynamic>{
@@ -584,9 +634,6 @@ class HuyaSite
         'do': 'profileRoom',
         'roomid': roomId,
         'showSecret': 1,
-        // The endpoint advertises a 30-second public cache. Room entry and an
-        // explicit refresh need an authoritative transition instead of a
-        // previously cached ON response after the anchor has stopped.
         '_': DateTime.now().millisecondsSinceEpoch,
       },
       header: {
@@ -607,7 +654,14 @@ class HuyaSite
     final responseData = result is Map && result['data'] is Map ? result['data'] as Map : null;
     final normalizedLiveState = responseData?['liveStatus']?.toString().trim().toUpperCase() ?? '';
     if (statusCode == 200 && responseData != null && isExplicitOfflineState(responseData['liveStatus'])) {
-      return _buildInactiveRoom(responseData, platform: platform, roomId: roomId);
+      final extras = await _resolveHuyaExtras(responseData['profileInfo'], fansFuture);
+      return _buildInactiveRoom(
+        responseData,
+        platform: platform,
+        roomId: roomId,
+        unionName: extras.$1,
+        followers: extras.$2,
+      );
     }
     if (statusCode == 200 && responseData != null && responseData['stream'] != null) {
       dynamic data = responseData;
@@ -702,6 +756,8 @@ class HuyaSite
       huyaBiterates.addAll(parseBitRates(rawBitRates));
       bool isXingxiu = data['liveData']['gid'] == 1663;
       final audience = parseRoomAudience(Map<String, dynamic>.from(data['liveData'] as Map));
+      final roomStartTime = int.tryParse(data['liveData']?['startTime']?.toString() ?? '');
+      final extras = await _resolveHuyaExtras(data['profileInfo'], fansFuture);
       return LiveRoom(
         cover: data['liveData']?['screenshot'] ?? '',
         watching: audience.popularity,
@@ -713,8 +769,11 @@ class HuyaSite
         title: data['liveData']?['introduction'] ?? '',
         nick: data['profileInfo']?['nick'] ?? '',
         avatar: data['profileInfo']?['avatar180'] ?? '',
-        introduction: data['liveData']?['introduction'] ?? '',
-        notice: data['welcomeText'] ?? '',
+        introduction: data['welcomeText'] ?? '',
+        notice: '',
+        anchorLevel: data['liveData']?['level']?.toString() ?? '',
+        unionName: extras.$1,
+        followers: extras.$2,
         isRecord: normalizedLiveState == 'REPLAY',
         status: normalizedLiveState == 'ON',
         liveStatus: parseHuyaLiveStatus(normalizedLiveState),
@@ -726,6 +785,7 @@ class HuyaSite
           subSid: subSid,
         ),
         link: "https://www.huya.com/$roomId",
+        startTime: roomStartTime != null && roomStartTime > 0 ? roomStartTime : null,
       );
     } else {
       if (!allowUiFallback) {
@@ -758,12 +818,19 @@ class HuyaSite
     };
   }
 
-  LiveRoom _buildInactiveRoom(Map<dynamic, dynamic> data, {required String platform, required String roomId}) {
+  LiveRoom _buildInactiveRoom(
+    Map<dynamic, dynamic> data, {
+    required String platform,
+    required String roomId,
+    String unionName = '',
+    String followers = '',
+  }) {
     final liveData = data['liveData'] is Map
         ? Map<String, dynamic>.from(data['liveData'] as Map)
         : const <String, dynamic>{};
     final profile = data['profileInfo'] is Map ? data['profileInfo'] as Map : const <dynamic, dynamic>{};
     final audience = parseRoomAudience(liveData);
+    final inactiveStartTime = int.tryParse(liveData['startTime']?.toString() ?? '');
     return LiveRoom(
       cover: liveData['screenshot']?.toString() ?? '',
       watching: audience.popularity,
@@ -775,13 +842,17 @@ class HuyaSite
       title: liveData['introduction']?.toString() ?? '',
       nick: profile['nick']?.toString() ?? '',
       avatar: profile['avatar180']?.toString() ?? '',
-      introduction: liveData['introduction']?.toString() ?? '',
-      notice: data['welcomeText']?.toString() ?? '',
+      introduction: liveData['welcomeText']?.toString() ?? '',
+      notice: '',
+      anchorLevel: liveData['level']?.toString() ?? '',
+      unionName: unionName,
+      followers: followers,
       isRecord: false,
       status: false,
       liveStatus: LiveStatus.offline,
       platform: platform,
       link: 'https://www.huya.com/$roomId',
+      startTime: inactiveStartTime != null && inactiveStartTime > 0 ? inactiveStartTime : null,
     );
   }
 
@@ -834,6 +905,7 @@ class HuyaSite
     final audience = parseRoomAudience(liveData);
     final state = data['liveStatus']?.toString().trim().toUpperCase() ?? '';
     final liveStatus = parseHuyaLiveStatus(state);
+    final refreshStartTime = int.tryParse(liveData['startTime']?.toString() ?? '');
     return LiveRoom(
       cover: liveData['screenshot']?.toString() ?? '',
       watching: audience.popularity,
@@ -845,13 +917,14 @@ class HuyaSite
       title: liveData['introduction']?.toString() ?? '',
       nick: profile['nick']?.toString() ?? '',
       avatar: profile['avatar180']?.toString() ?? '',
-      introduction: liveData['introduction']?.toString() ?? '',
-      notice: data['welcomeText']?.toString() ?? '',
+      introduction: data['welcomeText']?.toString() ?? '',
+      notice: '',
       isRecord: state == 'REPLAY',
       status: liveStatus == LiveStatus.live,
       liveStatus: liveStatus,
       platform: Sites.huyaSite,
       link: 'https://www.huya.com/$roomId',
+      startTime: refreshStartTime != null && refreshStartTime > 0 ? refreshStartTime : null,
     );
   }
 

@@ -43,6 +43,7 @@ import 'package:pure_live/player/utils/pip_window_widget.dart';
 import 'package:pure_live/player/core/live_audio_service.dart';
 import 'package:pure_live/common/utils/latest_async_value_queue.dart';
 import 'package:pure_live/player/adapters/player_adapter_factory.dart';
+import 'package:pure_live/player/adapters/media_kit_adapter.dart';
 import 'package:pure_live/player/interface/media_kit_player_accessor.dart';
 import 'package:pure_live/player/utils/media_kit_content_probe.dart';
 import 'package:pure_live/modules/live_play/controllers/player_state.dart';
@@ -2704,6 +2705,77 @@ class PlayerManager {
     await _currentPlayer?.setVolume(volume.clamp(0.0, 1.0));
   }
 
+  Future<void> seekTo(Duration position) async => await _currentPlayer?.seekTo(position);
+
+  Future<void> seekRelative(Duration offset) async => await _currentPlayer?.seekRelative(offset);
+
+  Future<void> seekToLiveEdge() async => await _currentPlayer?.seekToLiveEdge();
+
+  Duration get currentPosition => _currentPlayer?.currentPosition ?? Duration.zero;
+
+  Duration get liveEdgePosition => _currentPlayer?.liveEdgePosition ?? Duration.zero;
+
+  /// Full live timeline length (mpv `duration`, keeps growing from stream
+  /// start for live streams). [Duration.zero] when unavailable.
+  Duration get streamDuration {
+    final player = _currentPlayer;
+    if (player is MediaKitAdapter) return player.streamDuration;
+    return Duration.zero;
+  }
+
+  /// Playhead as a 0.0–1.0 fraction of the full timeline — equivalent to
+  /// mpv's `percent-pos / 100`. `null` while no duration is known or for
+  /// non-media-kit backends.
+  double? get positionFraction {
+    final player = _currentPlayer;
+    if (player is MediaKitAdapter) return player.positionFraction;
+    return null;
+  }
+
+  /// Cached seekable ranges projected onto the 0.0–1.0 timeline fraction.
+  List<({double start, double end})> get seekableFractions {
+    final player = _currentPlayer;
+    if (player is MediaKitAdapter) return player.seekableFractions;
+    return const [];
+  }
+
+  /// Seek to a 0.0–1.0 fraction of the full timeline. The target is snapped
+  /// into the cached seekable ranges before reaching mpv, so this can never
+  /// trigger a live-stream reconnect. No-op for non-media-kit backends.
+  Future<void> seekToFraction(double fraction, {bool exact = false}) async {
+    final player = _currentPlayer;
+    if (player is MediaKitAdapter) await player.seekToFraction(fraction, exact: exact);
+  }
+
+  Duration get streamStartPosition {
+    final player = _currentPlayer;
+    if (player is MediaKitAdapter) return player.streamStartPosition;
+    return Duration.zero;
+  }
+
+  /// Estimated oldest still-cached frame position; content before this has
+  /// been evicted from the back buffer. [Duration.zero] when no eviction has
+  /// occurred or for non-media-kit backends.
+  Duration get earliestCachedPosition {
+    final player = _currentPlayer;
+    if (player is MediaKitAdapter) return player.earliestCachedPosition;
+    return Duration.zero;
+  }
+
+  bool get isUserSeekedBack {
+    final player = _currentPlayer;
+    if (player is MediaKitAdapter) return player.isUserSeekedBack;
+    return false;
+  }
+
+  bool get canSeek => _currentPlayer?.canSeek ?? false;
+
+  Stream<Duration> get positionStream {
+    final player = _currentPlayer;
+    if (player == null) return const Stream.empty();
+    return player.positionStream;
+  }
+
   void changeVideoFit(int index) {
     final fitList = SettingsService.to.player.videoFitArray;
     if (fitList.isEmpty || index < 0 || index >= fitList.length) return;
@@ -3647,6 +3719,13 @@ class PlayerManager {
     _pendingRoomReentry = null;
     _appFloatingSession = null;
     isInitialized.value = false;
+    // The stream-forwarding subscriptions were just cleared, so the destroyed
+    // native player can never report playing=false by itself. Reset the
+    // aggregated state here or observers of onPlaying/onLoading (e.g. watch
+    // time tracking) keep believing the session is still playing after the
+    // room has been closed.
+    _playingSubject.add(false);
+    _loadingSubject.add(false);
   }
 
   Future<void> retry() {

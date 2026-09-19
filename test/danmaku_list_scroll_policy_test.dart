@@ -43,15 +43,29 @@ void main() {
     expect(guard.isCurrent(guard.capture()), isTrue);
   });
 
-  test('a stale PiP drag notification without a live pointer is ignored', () {
+  test('a stale PiP drag notification without a live pointer is filtered by caller', () {
     final notification = ScrollStartNotification(
       metrics: metrics,
       context: null,
       dragDetails: DragStartDetails(globalPosition: Offset.zero),
     );
 
-    expect(isDanmakuUserScrollStart(notification, hasActivePointer: false), isFalse);
-    expect(isDanmakuUserScrollStart(notification, hasActivePointer: true), isTrue);
+    expect(isDanmakuUserScrollStart(notification), isTrue);
+    // The caller guards against PiP-generated drags with _activeScrollPointers
+    // on non-desktop platforms; the pure function cannot distinguish a real
+    // finger drag from a synthetic viewport reattach signal.
+  });
+
+  testWidgets('desktop mouse wheel scroll-update also pauses live following', (tester) async {
+    const targetKey = ValueKey('wheel-update-target');
+    await tester.pumpWidget(const MaterialApp(home: SizedBox(key: targetKey)));
+    final notification = ScrollUpdateNotification(
+      metrics: metrics,
+      context: tester.element(find.byKey(targetKey)),
+      scrollDelta: -24,
+    );
+    expect(isDanmakuUserScrollStart(notification), isFalse);
+    expect(isDanmakuUserScrollStart(notification, acceptDirectionOnlyUserScroll: true), isTrue);
   });
 
   testWidgets('Android PiP viewport direction event does not pause live following', (tester) async {
@@ -65,7 +79,9 @@ void main() {
     expect(isDanmakuUserScrollStart(notification), isFalse);
   });
 
-  testWidgets('desktop mouse wheel user direction pauses live following immediately', (tester) async {
+  testWidgets('desktop mouse wheel user direction pauses live following immediately', (
+    tester,
+  ) async {
     const targetKey = ValueKey('desktop-target');
     await tester.pumpWidget(const MaterialApp(home: SizedBox(key: targetKey)));
     final notification = UserScrollNotification(

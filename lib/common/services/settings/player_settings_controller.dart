@@ -52,37 +52,25 @@ class PlayerSettingsController extends GetxController {
   // Portrait-source presentation. These are deliberately separate from the
   // device orientation and from the global danmaku style.
   final RxBool enablePortraitStreamAdaptation = hiveBool('enablePortraitStreamAdaptation', true);
-  final RxBool portraitAdaptiveHeight = hiveBool('portraitAdaptiveHeight', true);
-  final RxString portraitLayoutModeName = hiveString('portraitLayoutMode', PortraitLayoutMode.balanced.name);
   final RxString portraitFullscreenPolicyName = hiveString(
     'portraitFullscreenPolicy',
     PortraitFullscreenPolicy.followSource.name,
   );
-  final RxString portraitFullscreenDisplayModeName = hiveString(
-    'portraitFullscreenDisplayMode',
-    PortraitFullscreenDisplayMode.ambient.name,
-  );
   final RxBool portraitPipFollowSource = hiveBool('portraitPipFollowSource', true);
   final RxString portraitDanmakuModeName = hiveString('portraitDanmakuMode', PortraitDanmakuMode.followGlobal.name);
   final RxBool rememberPortraitRoomOverride = hiveBool('rememberPortraitRoomOverride', true);
-  final RxBool showPortraitDiagnostics = hiveBool('showPortraitDiagnostics', false);
   final RxString _portraitRoomOverridesRaw = hiveString('portraitRoomOverrides', '{}');
   final RxMap<String, String> portraitRoomOverrides = <String, String>{}.obs;
   final RxMap<String, String> _sessionPortraitRoomOverrides = <String, String>{}.obs;
 
-  PortraitLayoutMode get portraitLayoutMode =>
-      _enumByName(PortraitLayoutMode.values, portraitLayoutModeName.v, PortraitLayoutMode.balanced);
+  // 沉浸式播放页布局：视频铺满播放区，侧栏悬停右缘自动展开。
+  // 关闭时使用经典双栏布局（侧栏常驻）。
+  final RxBool enableImmersiveLayout = hiveBool('enableImmersiveLayout', false);
 
   PortraitFullscreenPolicy get portraitFullscreenPolicy => _enumByName(
     PortraitFullscreenPolicy.values,
     portraitFullscreenPolicyName.v,
     PortraitFullscreenPolicy.followSource,
-  );
-
-  PortraitFullscreenDisplayMode get portraitFullscreenDisplayMode => _enumByName(
-    PortraitFullscreenDisplayMode.values,
-    portraitFullscreenDisplayModeName.v,
-    PortraitFullscreenDisplayMode.ambient,
   );
 
   PortraitDanmakuMode get portraitDanmakuMode =>
@@ -195,21 +183,6 @@ class PlayerSettingsController extends GetxController {
     }
   }
 
-  void resetPortraitStreamSettings() {
-    enablePortraitStreamAdaptation.v = true;
-    portraitAdaptiveHeight.v = true;
-    portraitLayoutModeName.v = PortraitLayoutMode.balanced.name;
-    portraitFullscreenPolicyName.v = PortraitFullscreenPolicy.followSource.name;
-    portraitFullscreenDisplayModeName.v = PortraitFullscreenDisplayMode.ambient.name;
-    portraitPipFollowSource.v = true;
-    portraitDanmakuModeName.v = PortraitDanmakuMode.followGlobal.name;
-    rememberPortraitRoomOverride.v = true;
-    showPortraitDiagnostics.v = false;
-    portraitRoomOverrides.clear();
-    _sessionPortraitRoomOverrides.clear();
-    _persistPortraitRoomOverrides();
-  }
-
   void _loadPortraitRoomOverrides(dynamic raw) {
     try {
       final values = parsePortraitRoomOverrides(raw);
@@ -282,15 +255,12 @@ class PlayerSettingsController extends GetxController {
       'audioOnly': false,
       'useHardStopOnExit': useHardStopOnExit.v,
       'enablePortraitStreamAdaptation': enablePortraitStreamAdaptation.v,
-      'portraitAdaptiveHeight': portraitAdaptiveHeight.v,
-      'portraitLayoutMode': portraitLayoutMode.name,
       'portraitFullscreenPolicy': portraitFullscreenPolicy.name,
-      'portraitFullscreenDisplayMode': portraitFullscreenDisplayMode.name,
       'portraitPipFollowSource': portraitPipFollowSource.v,
       'portraitDanmakuMode': portraitDanmakuMode.name,
       'rememberPortraitRoomOverride': rememberPortraitRoomOverride.v,
-      'showPortraitDiagnostics': showPortraitDiagnostics.v,
       'portraitRoomOverrides': Map<String, String>.from(portraitRoomOverrides),
+      'enableImmersiveLayout': enableImmersiveLayout.v,
     };
   }
 
@@ -335,10 +305,6 @@ class PlayerSettingsController extends GetxController {
       'audioOnly': typed<bool>(false),
       'useHardStopOnExit': typed<bool>(json['useHardStopOnExit'] ?? false),
       'enablePortraitStreamAdaptation': typed<bool>(json['enablePortraitStreamAdaptation'] ?? true),
-      'portraitAdaptiveHeight': typed<bool>(json['portraitAdaptiveHeight'] ?? true),
-      'portraitLayoutModeName': typed<String>(
-        _enumName(PortraitLayoutMode.values, json['portraitLayoutMode'], PortraitLayoutMode.balanced),
-      ),
       'portraitFullscreenPolicyName': typed<String>(
         _enumName(
           PortraitFullscreenPolicy.values,
@@ -346,19 +312,12 @@ class PlayerSettingsController extends GetxController {
           PortraitFullscreenPolicy.followSource,
         ),
       ),
-      'portraitFullscreenDisplayModeName': typed<String>(
-        _enumName(
-          PortraitFullscreenDisplayMode.values,
-          json['portraitFullscreenDisplayMode'],
-          PortraitFullscreenDisplayMode.ambient,
-        ),
-      ),
       'portraitPipFollowSource': typed<bool>(json['portraitPipFollowSource'] ?? true),
       'portraitDanmakuModeName': typed<String>(
         _enumName(PortraitDanmakuMode.values, json['portraitDanmakuMode'], PortraitDanmakuMode.followGlobal),
       ),
       'rememberPortraitRoomOverride': typed<bool>(json['rememberPortraitRoomOverride'] ?? true),
-      'showPortraitDiagnostics': typed<bool>(json['showPortraitDiagnostics'] ?? false),
+      'enableImmersiveLayout': typed<bool>(json['enableImmersiveLayout'] ?? false),
     };
   }
 
@@ -380,14 +339,11 @@ class PlayerSettingsController extends GetxController {
     audioOnly.v = parsed['audioOnly'];
     useHardStopOnExit.v = parsed['useHardStopOnExit'];
     enablePortraitStreamAdaptation.v = parsed['enablePortraitStreamAdaptation'];
-    portraitAdaptiveHeight.v = parsed['portraitAdaptiveHeight'];
-    portraitLayoutModeName.v = parsed['portraitLayoutModeName'];
     portraitFullscreenPolicyName.v = parsed['portraitFullscreenPolicyName'];
-    portraitFullscreenDisplayModeName.v = parsed['portraitFullscreenDisplayModeName'];
     portraitPipFollowSource.v = parsed['portraitPipFollowSource'];
     portraitDanmakuModeName.v = parsed['portraitDanmakuModeName'];
     rememberPortraitRoomOverride.v = parsed['rememberPortraitRoomOverride'];
-    showPortraitDiagnostics.v = parsed['showPortraitDiagnostics'];
+    enableImmersiveLayout.v = parsed['enableImmersiveLayout'];
     portraitRoomOverrides.assignAll(parsed['portraitRoomOverrides']);
     _persistPortraitRoomOverrides();
   }
@@ -431,21 +387,10 @@ class PlayerSettingsController extends GetxController {
       'audioOnly': false,
       'useHardStopOnExit': player['useHardStopOnExit'] ?? false,
       'enablePortraitStreamAdaptation': player['enablePortraitStreamAdaptation'] ?? true,
-      'portraitAdaptiveHeight': player['portraitAdaptiveHeight'] ?? true,
-      'portraitLayoutMode': _enumName(
-        PortraitLayoutMode.values,
-        player['portraitLayoutMode'],
-        PortraitLayoutMode.balanced,
-      ),
       'portraitFullscreenPolicy': _enumName(
         PortraitFullscreenPolicy.values,
         player['portraitFullscreenPolicy'],
         PortraitFullscreenPolicy.followSource,
-      ),
-      'portraitFullscreenDisplayMode': _enumName(
-        PortraitFullscreenDisplayMode.values,
-        player['portraitFullscreenDisplayMode'],
-        PortraitFullscreenDisplayMode.ambient,
       ),
       'portraitPipFollowSource': player['portraitPipFollowSource'] ?? true,
       'portraitDanmakuMode': _enumName(
@@ -454,8 +399,8 @@ class PlayerSettingsController extends GetxController {
         PortraitDanmakuMode.followGlobal,
       ),
       'rememberPortraitRoomOverride': player['rememberPortraitRoomOverride'] ?? true,
-      'showPortraitDiagnostics': player['showPortraitDiagnostics'] ?? false,
       'portraitRoomOverrides': player['portraitRoomOverrides'] ?? {},
+      'enableImmersiveLayout': player['enableImmersiveLayout'] ?? false,
     };
   }
 

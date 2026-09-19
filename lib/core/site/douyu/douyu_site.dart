@@ -5,6 +5,7 @@ import 'package:html_unescape/html_unescape.dart';
 import 'package:pure_live/model/live_category.dart';
 import 'package:pure_live/model/live_anchor_item.dart';
 import 'package:pure_live/core/common/http_client.dart';
+import 'package:pure_live/core/common/utils/text_util.dart';
 import 'package:pure_live/model/live_play_quality.dart';
 import 'package:pure_live/core/interface/live_site.dart';
 import 'package:pure_live/core/danmaku/douyu_danmaku.dart';
@@ -30,6 +31,7 @@ class DouyuSite
   @override
   LiveDanmaku getDanmaku() => DouyuDanmaku(
     filterSuspectedAutomatedMessages: () => SettingsService.to.danmaku.filterDouyuSuspectedAutomatedMessages.v,
+    filterActivityMessages: () => SettingsService.to.danmaku.filterDouyuActivityMessages.v,
   );
 
   @override
@@ -423,9 +425,12 @@ class DouyuSite
   @override
   Future<LiveRoom> getRoomDetail({required String platform, required String roomId}) async {
     try {
-      final roomInfo = await _fetchRoomInfo(roomId);
+      final results = await Future.wait([_fetchRoomInfo(roomId), _fetchAiHighlight(roomId), _fetchAnchorCard(roomId)]);
+      final roomInfo = results[0] as Map<dynamic, dynamic>;
+      final aiHighlights = results[1] as List<Map<String, dynamic>>?;
+      final anchorCard = results[2] as Map<dynamic, dynamic>?;
 
-      return _buildRoom(roomInfo, roomId: roomId);
+      return _buildRoom(roomInfo, roomId: roomId, aiHighlights: aiHighlights, anchorCard: anchorCard);
     } catch (e) {
       if (Get.isRegistered<PlayerController>()) {
         final PlayerController playerController = Get.find<PlayerController>();
@@ -449,9 +454,6 @@ class DouyuSite
 
   @override
   Future<LiveRoom> getRoomDetailForRecording({required String platform, required String roomId}) async {
-    // Do not use getRoomDetail here: its UI fallback converts a failed betard
-    // request into an offline room, which previously stopped recording before
-    // Douyu signing/getH5PlayV1 was reached.
     final roomInfo = await _fetchRoomInfo(roomId);
     return _buildRoom(roomInfo, roomId: roomId);
   }
@@ -468,39 +470,112 @@ class DouyuSite
             'Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.43',
       },
     );
-    Map roomInfo;
 
     if (result is String) {
-      roomInfo = json.decode(result)["room"];
-    } else {
-      roomInfo = result["room"];
+      return json.decode(result) as Map<dynamic, dynamic>;
     }
-    return roomInfo;
+    return result as Map<dynamic, dynamic>;
   }
 
-  LiveRoom _buildRoom(Map<dynamic, dynamic> roomInfo, {required String roomId}) {
+  Future<List<Map<String, dynamic>>?> _fetchAiHighlight(String roomId) async {
+    try {
+      final result = await HttpClient.instance.postJson(
+        'https://www.douyu.com/wgapi/vodnc/center/ailive/getHighlightDetail',
+        data: {'rid': int.tryParse(roomId) ?? 0, 'sort': 0},
+        header: {
+          'referer': 'https://www.douyu.com/pages/ai-live-summary?rid=$roomId&sort=0&sourcekey=ai-live-summary',
+          'user-agent': DouyuUtils.requestHeaders(roomId)['user-agent'],
+          'content-type': 'application/json',
+        },
+      );
+      if (result is! Map) return null;
+      final data = result['data'];
+      if (data is! Map) return null;
+      final highlightList = data['highlightList'];
+      if (highlightList is! List || highlightList.isEmpty) return null;
+      final out = <Map<String, dynamic>>[];
+      for (final e in highlightList) {
+        if (e is Map) out.add(Map<String, dynamic>.from(e));
+      }
+      return out.isEmpty ? null : out;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Map<dynamic, dynamic>?> _fetchAnchorCard(String roomId) async {
+    try {
+      final result = await HttpClient.instance.getJson(
+        'https://www.douyu.com/wgapi/livenc/liveweb/getAnchorNewCard',
+        queryParameters: {'rid': roomId, 'client_sys': 'web'},
+        header: {
+          'referer': 'https://www.douyu.com/$roomId',
+          'user-agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+              'AppleWebKit/537.36 (KHTML, like Gecko) '
+              'Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.43',
+        },
+      );
+      if (result is Map && result['data'] is Map) {
+        return result['data'] as Map<dynamic, dynamic>;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  LiveRoom _buildRoom(
+    Map<dynamic, dynamic> payload, {
+    required String roomId,
+    List<Map<String, dynamic>>? aiHighlights,
+    Map<dynamic, dynamic>? anchorCard,
+  }) {
+    final roomInfo = payload['room'] ?? const <dynamic, dynamic>{};
+    final childCate = payload['child_cate'];
+
     final live = isLiveRoomPayload(roomInfo);
     final replay = _asInt(roomInfo['videoLoop']) == 1;
 
+    final levelInfo = roomInfo['levelInfo'];
+    final roomBizAll = roomInfo['room_biz_all'];
+
+    final signature = stripHtmlAndUnescape(roomInfo['show_details'].toString());
+
+    final anchorCardRoom = anchorCard?['roomInfo'];
+    final followers = anchorCardRoom is Map ? anchorCardRoom['fansNum']?.toString() ?? '' : '';
+
     return LiveRoom(
-      cover: roomInfo["room_pic"].toString(),
-      watching: roomInfo["room_biz_all"]["hot"].toString(),
-      popularity: roomInfo["room_biz_all"]["hot"].toString(),
+      cover: roomInfo['room_pic'].toString(),
+      watching: (roomBizAll is Map ? roomBizAll['hot'] : '')?.toString() ?? '',
+      popularity: (roomBizAll is Map ? roomBizAll['hot'] : '')?.toString() ?? '',
       audienceMetricType: AudienceMetricType.popularity,
-      roomId: roomInfo["room_id"].toString(),
-      title: roomInfo["room_name"].toString(),
-      nick: roomInfo["owner_name"].toString(),
-      avatar: roomInfo["owner_avatar"].toString(),
-      introduction: roomInfo["show_details"].toString(),
-      area: roomInfo["second_lvl_name"]?.toString() ?? '',
-      notice: "",
+      roomId: roomInfo['room_id'].toString(),
+      title: stripHtmlAndUnescape(roomInfo['room_name'].toString()),
+      nick: roomInfo['owner_name'].toString(),
+      avatar: roomInfo['owner_avatar'].toString(),
+      introduction: signature,
+      followers: followers,
+      area: () {
+        final first = roomInfo['first_lvl_name']?.toString().trim() ?? '';
+        final second = roomInfo['second_lvl_name']?.toString().trim() ?? '';
+        final child = childCate is Map ? childCate['name']?.toString().trim() ?? '' : '';
+        if (child.isNotEmpty && second.isNotEmpty) return '$second / $child';
+        if (second.isNotEmpty) return second;
+        if (child.isNotEmpty) return child;
+        if (first.isNotEmpty) return first;
+        return '';
+      }(),
+      notice: '',
+      aiHighlights: aiHighlights,
+      anchorLevel: levelInfo is Map ? levelInfo['level']?.toString() ?? '' : '',
+      unionName: roomBizAll is Map ? roomBizAll['clubOrgName']?.toString() ?? '' : '',
       liveStatus: live ? LiveStatus.live : LiveStatus.offline,
       status: live,
-      danmakuData: roomInfo["room_id"].toString(),
+      danmakuData: roomInfo['room_id'].toString(),
       data: null,
       platform: Sites.douyuSite,
-      link: "https://www.douyu.com/$roomId",
+      link: 'https://www.douyu.com/$roomId',
       isRecord: replay,
+      startTime: _asInt(roomInfo['show_time']),
     );
   }
 
@@ -591,7 +666,9 @@ class DouyuSite
 
   @override
   Future<bool> getLiveStatus({required String platform, required String roomId}) async {
-    var roomInfo = await _fetchRoomInfo(roomId);
+    final payload = await _fetchRoomInfo(roomId);
+    final roomInfo = payload['room'] as Map<dynamic, dynamic>?;
+    if (roomInfo == null) return false;
     return isLiveRoomPayload(roomInfo);
   }
 

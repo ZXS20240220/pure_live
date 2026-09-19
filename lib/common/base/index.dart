@@ -6,6 +6,8 @@ export 'package:pure_live/common/base/base_page_scroll_bone.dart';
 export 'package:pure_live/common/base/base_page_view.dart';
 export 'package:pure_live/common/base/base_page_view_extension.dart';
 export 'package:pure_live/common/base/desktop_components.dart';
+// base utilities
+export 'package:pure_live/common/base/focus_util.dart';
 // controllers
 export 'package:pure_live/common/base/server_fixed_page_controller.dart';
 export 'package:pure_live/common/base/server_remote_page_controller.dart';

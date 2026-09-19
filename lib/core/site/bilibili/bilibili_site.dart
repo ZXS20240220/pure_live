@@ -6,6 +6,7 @@ import 'package:pure_live/common/index.dart';
 import 'package:pure_live/model/live_category.dart';
 import 'package:pure_live/model/live_anchor_item.dart';
 import 'package:pure_live/core/common/http_client.dart';
+import 'package:pure_live/core/common/utils/text_util.dart';
 import 'package:pure_live/model/live_play_quality.dart';
 import 'package:pure_live/core/interface/live_site.dart';
 import 'package:pure_live/core/common/convert_helper.dart';
@@ -688,6 +689,7 @@ class BiliBiliSite implements LiveSite, LiveSiteRoomRefresher, LiveSiteRecordRoo
 
   LiveRoom _buildRoom(Map<String, dynamic> roomInfo, {required String roomId, Object? danmakuData}) {
     final live = int.tryParse(roomInfo['room_info']?['live_status']?.toString() ?? '') == 1;
+    final startTime = live ? int.tryParse(roomInfo['room_info']?['live_start_time']?.toString() ?? '') : null;
     return LiveRoom(
       roomId: roomId,
       title: roomInfo["room_info"]["title"].toString(),
@@ -698,13 +700,26 @@ class BiliBiliSite implements LiveSite, LiveSiteRoomRefresher, LiveSiteRecordRoo
       popularity: roomInfo["room_info"]["online"].toString(),
       audienceMetricType: AudienceMetricType.popularity,
       area: roomInfo['room_info']?['area_name'] ?? '',
+      anchorLevel: roomInfo['anchor_info']?['live_info']?['level']?.toString() ?? '',
+      followers: roomInfo['anchor_info']?['relation_info']?['attention']?.toString() ?? '',
       status: live,
       liveStatus: live ? LiveStatus.live : LiveStatus.offline,
       link: "https://live.bilibili.com/$roomId",
-      introduction: roomInfo["room_info"]["description"].toString(),
+      introduction: () {
+        final desc = roomInfo['room_info']['description']?.toString();
+        if (desc != null && desc.trim().isNotEmpty) {
+          return stripHtmlAndUnescape(desc);
+        }
+        final content = roomInfo['news_info']?['content']?.toString();
+        if (content != null && content.trim().isNotEmpty) {
+          return stripHtmlAndUnescape(content);
+        }
+        return '';
+      }(),
       notice: "",
       platform: Sites.bilibiliSite,
       danmakuData: danmakuData,
+      startTime: startTime != null && startTime > 0 ? startTime : null,
     );
   }
 
