@@ -503,6 +503,24 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     }
   }
 
+  void resetFilters() {
+    if (isClosed) return;
+    final availableSites = Sites().availableSites(containsAll: true);
+    final allSiteId = availableSites.isNotEmpty ? availableSites[0].id : Sites.allSite;
+    _selectionTransaction = true;
+    tabSiteIndex.value = 0;
+    selectedPlatformId = allSiteId;
+    tabOnlineIndex.value = 1;
+    if (tabController.index != 1 && tabController.length > 1) {
+      tabController.animateTo(1, duration: const Duration(milliseconds: 220), curve: Curves.easeOutCubic);
+    }
+    selectedTagIds.assignAll({TagManagementController.allTagKey});
+    searchKeyword.value = '';
+    currentPage = 1;
+    _selectionTransaction = false;
+    applyLocalFilter(resyncSource: false);
+  }
+
   List<LiveRoom> getAllRooms() {
     return List<LiveRoom>.from(SettingsService.to.fav.favoriteRooms.v);
   }

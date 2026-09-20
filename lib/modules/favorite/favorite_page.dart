@@ -420,6 +420,35 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
                   );
                 }),
               ),
+              Obx(() {
+                final hasActiveFilter =
+                    controller.searchKeyword.value.isNotEmpty ||
+                    controller.tabOnlineIndex.value != 1 ||
+                    controller.selectedTagIds.length != 1 ||
+                    !controller.selectedTagIds.contains(TagManagementController.allTagKey) ||
+                    controller.tabSiteIndex.value != 0 ||
+                    controller.currentPage != 1;
+                return IconButton(
+                  iconSize: 20,
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                  tooltip: i18n('reset'),
+                  onPressed: () {
+                    _searchController.clear();
+                    controller.resetFilters();
+                    if (_tabController.index != 0) {
+                      _tabController.animateTo(0);
+                    }
+                  },
+                  icon: Icon(
+                    Remix.refresh_line,
+                    color: hasActiveFilter
+                        ? Theme.of(context).colorScheme.primary
+                        : Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.45),
+                  ),
+                );
+              }),
             ],
           ),
         ),
