@@ -30,6 +30,7 @@ void main() {
         Sites.showroomSite,
         Sites.chzzkSite,
         Sites.kickSite,
+        Sites.seventeenLiveSite,
         Sites.iptvSite,
       ]),
     );

@@ -7,6 +7,7 @@ import 'site/acfun/acfun_site.dart';
 import 'site/douyu/douyu_site.dart';
 import 'site/chzzk/chzzk_site.dart';
 import 'site/kick/kick_site.dart';
+import 'site/seventeenlive/seventeenlive_site.dart';
 import 'site/showroom/showroom_site.dart';
 import 'site/tting/tting_site.dart';
 import 'site/weibo/weibo_site.dart';
@@ -56,6 +57,7 @@ class Sites {
   static const String showroomSite = 'showroom';
   static const String chzzkSite = 'chzzk';
   static const String kickSite = 'kick';
+  static const String seventeenLiveSite = '17live';
 
   static const Set<String> supportedSiteIds = {
     weiboSite,
@@ -82,6 +84,7 @@ class Sites {
     showroomSite,
     chzzkSite,
     kickSite,
+    seventeenLiveSite,
     iptvSite,
   };
 
@@ -208,6 +211,12 @@ class Sites {
       ),
       chzzkSite => Site(id: chzzkSite, name: i18n('site_chzzk'), logo: logoOf(chzzkSite), liveSite: ChzzkSite()),
       kickSite => Site(id: kickSite, name: i18n('site_kick'), logo: logoOf(kickSite), liveSite: KickSite()),
+      seventeenLiveSite => Site(
+        id: seventeenLiveSite,
+        name: i18n('site_17live'),
+        logo: logoOf(seventeenLiveSite),
+        liveSite: SeventeenLiveSite(),
+      ),
       iptvSite => Site(id: iptvSite, name: i18n('site_iptv'), logo: logoOf(iptvSite), liveSite: IptvSite()),
       _ => throw StateError('Unsupported live site: $normalizedId'),
     };
@@ -242,6 +251,7 @@ class Sites {
       showroomSite,
       chzzkSite,
       kickSite,
+      seventeenLiveSite,
       niconicoSite,
       weiboSite,
       iptvSite,

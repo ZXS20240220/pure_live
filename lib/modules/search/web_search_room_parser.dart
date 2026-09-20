@@ -12,6 +12,7 @@ import 'package:pure_live/core/site/xiaohongshu/xiaohongshu_link.dart';
 import 'package:pure_live/core/site/showroom/showroom_link.dart';
 import 'package:pure_live/core/site/chzzk/chzzk_link.dart';
 import 'package:pure_live/core/site/kick/kick_link.dart';
+import 'package:pure_live/core/site/seventeenlive/seventeenlive_link.dart';
 
 class WebSearchRoomTarget {
   const WebSearchRoomTarget({required this.platform, required this.roomId});
@@ -89,6 +90,10 @@ class WebSearchRoomParser {
     if (chzzk != null) return WebSearchRoomTarget(platform: Sites.chzzkSite, roomId: chzzk);
     final kick = KickLink.parse(rawUrl);
     if (kick != null) return WebSearchRoomTarget(platform: Sites.kickSite, roomId: kick);
+    final seventeenLive = SeventeenLiveLink.parse(rawUrl);
+    if (seventeenLive != null) {
+      return WebSearchRoomTarget(platform: Sites.seventeenLiveSite, roomId: seventeenLive);
+    }
     final host = uri.host.toLowerCase();
     final segments = uri.pathSegments.where((segment) => segment.trim().isNotEmpty).toList(growable: false);
 
