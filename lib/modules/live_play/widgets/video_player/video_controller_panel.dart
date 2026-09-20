@@ -295,11 +295,11 @@ class TopActionBar extends StatelessWidget {
             height: barHeight,
             alignment: Alignment.centerLeft,
             padding: const EdgeInsets.symmetric(horizontal: 8),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.bottomCenter,
                 end: Alignment.topCenter,
-                colors: [Colors.transparent, Colors.black45],
+                colors: [Colors.transparent, Colors.black.withValues(alpha: 0.6)],
               ),
             ),
             child: Row(
@@ -1604,11 +1604,11 @@ class BottomActionBar extends StatelessWidget {
           child: Container(
             height: barHeight + progressBarSlot,
             alignment: Alignment.bottomLeft,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Colors.transparent, Colors.black45],
+                colors: [Colors.transparent, Colors.black.withValues(alpha: 0.6)],
               ),
             ),
             child: Column(

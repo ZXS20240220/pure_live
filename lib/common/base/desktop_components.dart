@@ -100,7 +100,7 @@ class _DesktopPaginationBarState extends State<DesktopPaginationBar> {
           child: ConstrainedBox(
             constraints: BoxConstraints(minWidth: constraints.maxWidth),
             child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 24),
+              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 24),
               decoration: BoxDecoration(
                 color: Theme.of(context).cardColor,
                 border: Border(top: BorderSide(color: Theme.of(context).dividerColor.withValues(alpha: 0.15))),
@@ -161,6 +161,7 @@ class _DesktopPaginationBarState extends State<DesktopPaginationBar> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 6),
                         child: SizedBox(
+                          height: 32,
                           width: 50,
                           // The field grows with the configured text metrics.
                           child: TextField(

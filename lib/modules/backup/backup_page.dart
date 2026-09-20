@@ -48,17 +48,17 @@ class _BackupPageState extends State<BackupPage> {
           context.buildGroupTitle(i18n("cloud_backup")),
           context.buildModernCard([
             context.buildTile(
+              icon: Remix.qr_scan_2_line,
+              title: i18n('remote_sync'),
+              subtitle: i18n('remote_sync_subtitle'),
+              onTap: () => Get.toNamed(RoutePath.kRemoteSync),
+            ),
+            context.buildTile(
               icon: Remix.cloud_line,
               title: i18n("webdav"),
               subtitle: i18n("backup_to_webdav"),
               isLong: true,
               onTap: () => Get.toNamed(RoutePath.kWebDavPage),
-            ),
-            context.buildTile(
-              icon: Remix.qr_scan_2_line,
-              title: i18n('remote_sync'),
-              subtitle: i18n('remote_sync_subtitle'),
-              onTap: () => Get.toNamed(RoutePath.kRemoteSync),
             ),
             if (Platform.isAndroid || Platform.isIOS)
               context.buildTile(

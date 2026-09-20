@@ -71,7 +71,7 @@ class RoomGridView extends GetView<FavoriteController> {
 
             final itemWidth = (width - 24 - spacing * (crossAxisCount - 1)) / crossAxisCount;
             return GridView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
               controller: scrollController,
               physics: physics,
               scrollCacheExtent: ScrollCacheExtent.pixels(width > 680 ? 480 : 320),
@@ -82,7 +82,7 @@ class RoomGridView extends GetView<FavoriteController> {
                 crossAxisCount: crossAxisCount,
                 crossAxisSpacing: spacing,
                 mainAxisSpacing: mainAxisSpacing,
-                mainAxisExtent: itemWidth * 9 / 16 + (dense ? 72 : 84),
+                mainAxisExtent: itemWidth * 9 / 16 + (dense ? 50 : 62),
               ),
               itemCount: displayList.length,
               itemBuilder: (context, index) {

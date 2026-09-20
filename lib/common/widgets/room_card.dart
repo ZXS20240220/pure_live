@@ -97,9 +97,9 @@ class RoomCard extends StatelessWidget {
   }
 
   /// 未开播时封面遮罩上的“上次直播”两行文本（5.x 开发版独有显示项）。
-  String _lastLiveTimeText() {
+  String _offlineCoverText() {
     final ts = room.startTime;
-    if (ts == null || ts <= 0) return '';
+    if (ts == null || ts <= 0) return i18n('offline');
     final dt = DateTime.fromMillisecondsSinceEpoch(ts * 1000);
     final y = dt.year;
     final mo = dt.month.toString().padLeft(2, '0');
@@ -818,8 +818,7 @@ class RoomCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      // 未开播且有 startTime 时全封面“上次直播”遮罩（5.x）。
-                      if (config.showLastLiveTime && !room.isLiveNow && (room.startTime ?? 0) > 0)
+                      if (config.showLastLiveTime && !room.isLiveNow)
                         Positioned.fill(
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(radius),
@@ -827,7 +826,7 @@ class RoomCard extends StatelessWidget {
                               decoration: BoxDecoration(color: Colors.black.withValues(alpha: isDark ? 0.55 : 0.45)),
                               child: Center(
                                 child: Text(
-                                  _lastLiveTimeText(),
+                                  _offlineCoverText(),
                                   textAlign: TextAlign.center,
                                   maxLines: 2,
                                   style: TextStyle(
@@ -998,7 +997,7 @@ class RoomCard extends StatelessWidget {
                   ListTile(
                     dense: dense,
                     minLeadingWidth: dense ? 34 : 40,
-                    contentPadding: EdgeInsets.symmetric(horizontal: dense ? 10 : 12, vertical: dense ? 4 : 6),
+                    contentPadding: EdgeInsets.symmetric(horizontal: dense ? 10 : 12, vertical: dense ? 0 : 2),
                     horizontalTitleGap: dense ? 8 : 12,
                     leading: config.showAvatar
                         ? KeyedSubtree(

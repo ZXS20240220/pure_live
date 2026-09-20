@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/modules/search/web_search_controller.dart';
@@ -20,7 +19,7 @@ class _WebSearchPageState extends State<WebSearchPage> {
   bool _allowPop = false;
   bool _popScheduled = false;
 
-  bool get _showDeveloperTools => widget.showDeveloperTools ?? kDebugMode;
+  bool get _showDeveloperTools => widget.showDeveloperTools ?? true;
 
   @override
   Widget build(BuildContext context) {

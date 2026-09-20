@@ -47,7 +47,7 @@ class FavoritePage extends GetView<FavoriteController> {
                 _FavoriteSiteTabs(key: siteKey, controller: controller, availableSitesList: availableSitesList),
                 Positioned(
                   right: 14,
-                  bottom: 14,
+                  bottom: 4,
                   child: Obx(() {
                     final count = controller.getFilteredRooms().length;
                     return Container(

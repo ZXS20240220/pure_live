@@ -341,6 +341,7 @@ class _WindowSizeDialogState extends State<_WindowSizeDialog> {
       ('1600 × 900', const Size(1600, 900)),
       ('1920 × 1080 (1080P)', const Size(1920, 1080)),
       ('2560 × 1440 (2K)', const Size(2560, 1440)),
+      ('1280 × 768', const Size(1280, 768)),
     ];
     return AlertDialog(
       scrollable: true,

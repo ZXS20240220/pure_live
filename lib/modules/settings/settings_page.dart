@@ -65,16 +65,29 @@ class SettingsPage extends GetView<SettingsService> {
             ),
           ]),
 
-          const SizedBox(height: 20),
-          context.buildGroupTitle(i18n("iptv_settings")),
+          context.buildGroupTitle(i18n("general_settings")),
           context.buildModernCard([
             context.buildTile(
-              icon: Remix.tv_line,
-              title: i18n("iptv_settings"),
-              subtitle: i18n("manage_iptv_sources"),
-              onTap: () => Get.to(() => const IptvPage()),
+              icon: Remix.settings_4_line,
+              title: i18n("general"),
+              subtitle: i18n("general_desc"),
+              onTap: () => Get.to(() => const GeneralSettingsPage()),
+            ),
+            context.buildTile(
+              icon: Remix.menu_line,
+              title: i18n("navigation_display_settings"),
+              subtitle: i18n("navigation_display_settings_desc"),
+              onTap: () => Get.to(() => NavigationSettingsPage()),
+            ),
+            context.buildTile(
+              icon: Remix.apps_2_line,
+              title: i18n("platform_settings"),
+              subtitle: i18n("platform_settings_desc"),
+              onTap: () => Get.to(() => const PlatformSettingsPage()),
             ),
           ]),
+
+          
           const SizedBox(height: 20),
           context.buildGroupTitle(i18n("refresh_settings")),
           context.buildModernCard([
@@ -99,6 +112,17 @@ class SettingsPage extends GetView<SettingsService> {
               title: i18n('pip_danmaku'),
               subtitle: i18n('pip_danmaku_desc'),
               onTap: () => Get.to(() => const PipDanmakuSettingsPage()),
+            ),
+          ]),
+
+          const SizedBox(height: 20),
+          context.buildGroupTitle(i18n("iptv_settings")),
+          context.buildModernCard([
+            context.buildTile(
+              icon: Remix.tv_line,
+              title: i18n("iptv_settings"),
+              subtitle: i18n("manage_iptv_sources"),
+              onTap: () => Get.to(() => const IptvPage()),
             ),
           ]),
 
@@ -135,28 +159,7 @@ class SettingsPage extends GetView<SettingsService> {
           ]),
 
           const SizedBox(height: 20),
-          context.buildGroupTitle(i18n("general_settings")),
-          context.buildModernCard([
-            context.buildTile(
-              icon: Remix.settings_4_line,
-              title: i18n("general"),
-              subtitle: i18n("general_desc"),
-              onTap: () => Get.to(() => const GeneralSettingsPage()),
-            ),
-            context.buildTile(
-              icon: Remix.menu_line,
-              title: i18n("navigation_display_settings"),
-              subtitle: i18n("navigation_display_settings_desc"),
-              onTap: () => Get.to(() => NavigationSettingsPage()),
-            ),
-            context.buildTile(
-              icon: Remix.apps_2_line,
-              title: i18n("platform_settings"),
-              subtitle: i18n("platform_settings_desc"),
-              onTap: () => Get.to(() => const PlatformSettingsPage()),
-            ),
-          ]),
-
+          
           const SizedBox(height: 20),
           context.buildGroupTitle(i18n("data_manage")),
           context.buildModernCard([

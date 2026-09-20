@@ -421,7 +421,7 @@ class WebSearchController extends GetxController {
   }
 
   Future<void> openDevTools() async {
-    if (!kDebugMode || _closed) return;
+    if (_closed) return;
     try {
       await _browser?.openDevTools();
     } catch (error) {

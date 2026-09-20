@@ -85,7 +85,14 @@ class FontFamilyManagerPage extends GetView<SettingsService> {
         ],
       ),
       body: Obx(() {
-        final fontModels = SettingsService.to.font.fontList;
+        final fontFolderSizes = SettingsService.to.font.fontFolderSizes;
+        final fontModels = List<FontModel>.from(SettingsService.to.font.fontList)
+          ..sort((a, b) {
+            final aDownloaded = fontFolderSizes.containsKey(a.id) ? 0 : 1;
+            final bDownloaded = fontFolderSizes.containsKey(b.id) ? 0 : 1;
+            if (aDownloaded != bDownloaded) return aDownloaded.compareTo(bDownloaded);
+            return a.id.compareTo(b.id);
+          });
 
         return CustomScrollView(
           physics: const PureLiveScrollPhysics(),
@@ -230,7 +237,7 @@ class FontFamilyManagerPage extends GetView<SettingsService> {
                           children: [
                             Expanded(child: name),
                             const SizedBox(width: 12),
-                            Flexible(child: badges),
+                            badges,
                           ],
                         ),
                       const SizedBox(height: 8),
