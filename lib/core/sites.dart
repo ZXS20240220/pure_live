@@ -5,6 +5,7 @@ import 'site/inke/inke_site.dart';
 import 'site/soop/soop_site.dart';
 import 'site/acfun/acfun_site.dart';
 import 'site/douyu/douyu_site.dart';
+import 'site/showroom/showroom_site.dart';
 import 'site/tting/tting_site.dart';
 import 'site/weibo/weibo_site.dart';
 import 'site/douyin/douyin_site.dart';
@@ -14,17 +15,17 @@ import 'site/picarto/picarto_site.dart';
 import 'site/kilakila/kilakila_site.dart';
 import 'site/missevan/missevan_site.dart';
 import 'site/niconico/niconico_site.dart';
+
 import 'package:pure_live/common/index.dart';
+
 import 'site/twitcasting/twitcasting_site.dart';
 import 'site/xiaohongshu/xiaohongshu_site.dart';
+
 import 'package:pure_live/core/site/cc/cc_site.dart';
 import 'package:pure_live/core/site/iptv/iptv_site.dart';
 import 'package:pure_live/core/site/twitch/twitch_site.dart';
 import 'package:pure_live/core/site/kuaishou/kuaishou_site.dart';
 import 'package:pure_live/core/site/bilibili/bilibili_site.dart';
-
-
-
 
 class Sites {
   static const String weiboSite = 'weibo';
@@ -50,6 +51,7 @@ class Sites {
   static const String openrecSite = 'openrec';
   static const String ttingSite = 'ttinglive';
   static const String xiaohongshuSite = 'xiaohongshu';
+  static const String showroomSite = 'showroom';
 
   static const Set<String> supportedSiteIds = {
     weiboSite,
@@ -73,6 +75,7 @@ class Sites {
     openrecSite,
     ttingSite,
     xiaohongshuSite,
+    showroomSite,
     iptvSite,
   };
 
@@ -191,6 +194,12 @@ class Sites {
         logo: logoOf(xiaohongshuSite),
         liveSite: XiaohongshuSite(),
       ),
+      showroomSite => Site(
+        id: showroomSite,
+        name: i18n('site_showroom'),
+        logo: logoOf(showroomSite),
+        liveSite: ShowroomSite(),
+      ),
       iptvSite => Site(id: iptvSite, name: i18n('site_iptv'), logo: logoOf(iptvSite), liveSite: IptvSite()),
       _ => throw StateError('Unsupported live site: $normalizedId'),
     };
@@ -222,6 +231,7 @@ class Sites {
       openrecSite,
       ttingSite,
       xiaohongshuSite,
+      showroomSite,
       niconicoSite,
       weiboSite,
       iptvSite,
