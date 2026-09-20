@@ -39,8 +39,8 @@ void main() {
   });
 
   group('player settings migration', () {
-    test('uses IJK only for a new iOS configuration', () {
-      expect(defaultVideoPlayerKeyForPlatform(TargetPlatform.iOS), 'ijk');
+    test('defaults every platform to the MPV engine', () {
+      expect(defaultVideoPlayerKeyForPlatform(TargetPlatform.iOS), 'mpv');
       expect(defaultVideoPlayerKeyForPlatform(TargetPlatform.android), 'mpv');
       expect(defaultVideoPlayerKeyForPlatform(TargetPlatform.windows), 'mpv');
     });
@@ -58,10 +58,13 @@ void main() {
       expect(parsed['videoPlayerKey'], 'mpv');
     });
 
-    test('keeps supported mobile engines and replaces unknown selections with the platform default', () {
-      expect(normalizeVideoPlayerKeyForPlatform('ijk', TargetPlatform.android), 'ijk');
-      expect(normalizeVideoPlayerKeyForPlatform('missing', TargetPlatform.android), 'mpv');
-      expect(normalizeVideoPlayerKeyForPlatform('missing', TargetPlatform.iOS), 'ijk');
+    test('normalizes every legacy or unknown selection to MPV on all platforms', () {
+      expect(normalizeVideoPlayerKeyForPlatform('ijk', TargetPlatform.android), 'mpv');
+      expect(normalizeVideoPlayerKeyForPlatform('exo', TargetPlatform.iOS), 'mpv');
+      expect(normalizeVideoPlayerKeyForPlatform('missing', TargetPlatform.iOS), 'mpv');
+      expect(normalizeVideoPlayerKeyForPlatform('missing', TargetPlatform.windows), 'mpv');
+      expect(availableVideoPlayerKeysForPlatform(TargetPlatform.iOS), const <String>['mpv']);
+      expect(availableVideoPlayerKeysForPlatform(TargetPlatform.android), const <String>['mpv']);
       expect(availableVideoPlayerKeysForPlatform(TargetPlatform.windows), const <String>['mpv']);
     });
 

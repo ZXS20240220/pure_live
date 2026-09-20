@@ -487,51 +487,6 @@ void main() {
     });
   }
 
-  test('engine fallback closes timed-out input and opens the next engine with the same remote policy', () async {
-    const url = 'https://cdn.example/fallback/master.m3u8?token=fixture';
-    final barrier = Completer<void>();
-    final mediaKit = _RecoveryFakePlayer(PlayerEngine.mediaKit, (_) => null, openBarrier: barrier.future);
-    final fijk = _RecoveryFakePlayer(PlayerEngine.fijk, (_) => null);
-    final closes = <int>[];
-    final policy = HlsSourceQueryPolicy.fromSource(Uri.parse(url));
-    final manager = _manager(
-      {PlayerEngine.mediaKit: mediaKit, PlayerEngine.fijk: fijk},
-      sourceOpenTimeout: const Duration(milliseconds: 30),
-      sourceInputFactory: (source, _, actualPolicy) async {
-        expect(source, url);
-        expect(actualPolicy, same(policy));
-        final index = closes.length;
-        closes.add(0);
-        return PlaybackInputLease(Uri.parse('http://127.0.0.1:19001/input$index/root.m3u8'), () async {
-          closes[index]++;
-        });
-      },
-    )..configureDefaultEngine(PlayerEngine.mediaKit);
-    try {
-      await manager.play(
-        url,
-        const [url],
-        const {},
-        room: LiveRoom(roomId: 'timeout', platform: 'test'),
-        sourceSelection: PlaybackSourceQualitySelection(
-          qualities: [LivePlayQuality(quality: 'Original')],
-          currentQuality: 0,
-          sourceQueryPolicies: {url: policy},
-        ),
-      );
-      expect(manager.currentEngine, PlayerEngine.fijk);
-      expect(manager.currentSourceCommit!.currentUrl, url);
-      expect(closes, [1, 0]);
-      barrier.complete();
-      await Future<void>.delayed(Duration.zero);
-      expect(closes, [1, 0], reason: 'late native completion must not close the replacement input');
-    } finally {
-      if (!barrier.isCompleted) barrier.complete();
-      await manager.dispose();
-    }
-    expect(closes, [1, 1]);
-  });
-
   test('source commit snapshot is published only after a successful native open', () async {
     final player = _RecoveryFakePlayer(PlayerEngine.mediaKit, (_) => null);
     final manager = _manager(<PlayerEngine, _RecoveryFakePlayer>{PlayerEngine.mediaKit: player})
@@ -705,77 +660,6 @@ void main() {
     }
   });
 
-  test('engine fallback keeps the fresh source cohort selection after its first open fails', () async {
-    const initialUrl = 'https://cdn.example/cohort-0.flv';
-    const freshUrl = 'https://cdn.example/cohort-1.flv';
-    final mediaKit = _RecoveryFakePlayer(
-      PlayerEngine.mediaKit,
-      (url) => url == freshUrl
-          ? PlayerException(message: 'fresh source rejected by first engine', type: PlayerErrorType.source)
-          : null,
-    );
-    final fijk = _RecoveryFakePlayer(PlayerEngine.fijk, (_) => null);
-    final manager = _manager(<PlayerEngine, _RecoveryFakePlayer>{
-      PlayerEngine.mediaKit: mediaKit,
-      PlayerEngine.fijk: fijk,
-    }, transientLiveRetryDelays: const [])..configureDefaultEngine(PlayerEngine.mediaKit);
-    final initialSelection = PlaybackSourceQualitySelection(
-      qualities: <LivePlayQuality>[LivePlayQuality(quality: '初始', id: 0)],
-      currentQuality: 0,
-    );
-    final freshSelection = PlaybackSourceQualitySelection(
-      qualities: <LivePlayQuality>[LivePlayQuality(quality: '服务端确认', id: 1)],
-      currentQuality: 0,
-    );
-    final requests = <PlaybackSourceRefreshRequest>[];
-    final commits = <PlaybackSourceCommitSnapshot>[];
-    final subscription = manager.onSourceCommitted.listen(commits.add);
-
-    try {
-      await manager.play(
-        initialUrl,
-        const [initialUrl],
-        const {},
-        room: LiveRoom(roomId: 'fresh-cohort-fallback', platform: 'test'),
-        sourceSelection: initialSelection,
-        sourceResolver: (request) async {
-          requests.add(request);
-          if (requests.length > 1) {
-            return const PlaybackSourceRefreshResult(urls: <String>[], preferredLineIndex: 0);
-          }
-          return PlaybackSourceRefreshResult(
-            urls: const <String>[freshUrl],
-            preferredLineIndex: 0,
-            selection: freshSelection,
-          );
-        },
-      );
-      mediaKit.emitError(PlayerException(message: 'initial transport expired', type: PlayerErrorType.network));
-
-      final deadline = DateTime.now().add(const Duration(seconds: 1));
-      while (!identical(manager.currentPlayer, fijk) && DateTime.now().isBefore(deadline)) {
-        await Future<void>.delayed(const Duration(milliseconds: 5));
-      }
-      await Future<void>.delayed(Duration.zero);
-
-      expect(manager.currentPlayer, same(fijk));
-      expect(fijk.openedUrls, <String>[freshUrl]);
-      expect(requests, hasLength(2));
-      expect(
-        requests.last.currentQuality?.selectionId,
-        1,
-        reason: 'fallback resolution must inherit metadata for the fresh URL cohort',
-      );
-      expect(commits, hasLength(2), reason: 'the failed first fresh open must not emit a commit');
-      expect(commits.last.currentUrl, freshUrl);
-      expect(commits.last.selection, same(freshSelection));
-      expect(manager.currentSourceCommit, same(commits.last));
-    } finally {
-      await subscription.cancel();
-      await manager.dispose();
-    }
-  });
-
   test('active content screenshot probing is opt-in', () async {
     final mediaKit = _RecoveryFakePlayer(PlayerEngine.mediaKit, (_) => null);
     final manager = _manager(<PlayerEngine, _RecoveryFakePlayer>{PlayerEngine.mediaKit: mediaKit});
@@ -785,184 +669,9 @@ void main() {
     await manager.dispose();
   });
 
-  test('consecutive source failures drain through the next line and engine', () async {
-    final mediaKit = _RecoveryFakePlayer(
-      PlayerEngine.mediaKit,
-      (_) => PlayerException(message: 'source open failed', type: PlayerErrorType.source),
-    );
-    final fijk = _RecoveryFakePlayer(PlayerEngine.fijk, (_) => null);
-    final manager = _manager(<PlayerEngine, _RecoveryFakePlayer>{
-      PlayerEngine.mediaKit: mediaKit,
-      PlayerEngine.fijk: fijk,
-    });
-    final terminalErrors = <PlayerException>[];
-    final subscription = manager.onError.listen(terminalErrors.add);
-
-    await manager.initialize(engine: PlayerEngine.mediaKit);
-    await manager.play(
-      'https://cdn.example/line-1.flv',
-      const <String>['https://cdn.example/line-1.flv', 'https://cdn.example/line-2.flv'],
-      const <String, String>{},
-      room: LiveRoom(roomId: '1', platform: 'test'),
-    );
-
-    expect(mediaKit.openedUrls, <String>['https://cdn.example/line-1.flv', 'https://cdn.example/line-2.flv']);
-    expect(fijk.openedUrls, <String>['https://cdn.example/line-2.flv']);
-    expect(manager.currentEngine, PlayerEngine.fijk);
-    expect(manager.hasError.value, isFalse);
-    expect(terminalErrors, isEmpty);
-
-    await subscription.cancel();
-    await manager.dispose();
-  });
-
-  test('automatic MPV fallback suppresses audio before the replacement engine initializes', () async {
-    final mediaKit = _RecoveryFakePlayer(
-      PlayerEngine.mediaKit,
-      (_) => PlayerException(message: 'mpv output rejected', type: PlayerErrorType.native),
-    );
-    final fijk = _RecoveryFakePlayer(PlayerEngine.fijk, (_) => null);
-    final manager = _manager(<PlayerEngine, _RecoveryFakePlayer>{
-      PlayerEngine.mediaKit: mediaKit,
-      PlayerEngine.fijk: fijk,
-    }, suppressAutomaticFallbackAudio: () => true);
-
-    await manager.initialize(engine: PlayerEngine.mediaKit);
-    await manager.play(
-      'https://cdn.example/null-output.flv',
-      const <String>['https://cdn.example/null-output.flv'],
-      const <String, String>{},
-      room: LiveRoom(roomId: 'null-output', platform: 'test'),
-    );
-
-    expect(manager.currentEngine, PlayerEngine.fijk);
-    expect(fijk.audioOutputSuppressionWrites, <bool>[true]);
-    expect(fijk.audioOutputWasSuppressedBeforeInit, isTrue);
-    expect(fijk.openedUrls, <String>['https://cdn.example/null-output.flv']);
-
-    await manager.dispose();
-  });
-
-  test('manual switch away from MPV keeps the selected engine audio enabled', () async {
-    final mediaKit = _RecoveryFakePlayer(PlayerEngine.mediaKit, (_) => null);
-    final fijk = _RecoveryFakePlayer(PlayerEngine.fijk, (_) => null);
-    final manager = _manager(<PlayerEngine, _RecoveryFakePlayer>{
-      PlayerEngine.mediaKit: mediaKit,
-      PlayerEngine.fijk: fijk,
-    }, suppressAutomaticFallbackAudio: () => true);
-
-    await manager.initialize(engine: PlayerEngine.mediaKit);
-    await manager.play(
-      'https://cdn.example/manual-engine.flv',
-      const <String>['https://cdn.example/manual-engine.flv'],
-      const <String, String>{},
-      room: LiveRoom(roomId: 'manual-engine', platform: 'test'),
-    );
-    await manager.switchEngine(PlayerEngine.fijk, isManual: true);
-
-    expect(manager.currentEngine, PlayerEngine.fijk);
-    expect(fijk.audioOutputSuppressionWrites, <bool>[false]);
-    expect(fijk.audioOutputWasSuppressedBeforeInit, isFalse);
-
-    await manager.dispose();
-  });
-
-  test('initial engine allocation failure stays private and falls back', () async {
-    final mediaKit = _RecoveryFakePlayer(
-      PlayerEngine.mediaKit,
-      (_) => null,
-      initFailure: StateError('libmpv initialization failed'),
-    );
-    final fijk = _RecoveryFakePlayer(PlayerEngine.fijk, (_) => null);
-    final manager = _manager(<PlayerEngine, _RecoveryFakePlayer>{
-      PlayerEngine.mediaKit: mediaKit,
-      PlayerEngine.fijk: fijk,
-    });
-    manager.configureDefaultEngine(PlayerEngine.mediaKit);
-    final terminalErrors = <PlayerException>[];
-    final subscription = manager.onError.listen(terminalErrors.add);
-
-    await manager.play(
-      'https://cdn.example/live.flv',
-      const <String>['https://cdn.example/live.flv'],
-      const <String, String>{},
-      room: LiveRoom(roomId: '1', platform: 'test'),
-    );
-
-    expect(mediaKit.openedUrls, isEmpty);
-    expect(fijk.openedUrls, <String>['https://cdn.example/live.flv']);
-    expect(manager.currentEngine, PlayerEngine.fijk);
-    expect(manager.hasError.value, isFalse);
-    expect(terminalErrors, isEmpty);
-
-    await subscription.cancel();
-    await manager.dispose();
-  });
-
-  test('only the final exhausted failure reaches the public error stream', () async {
-    _RecoveryFakePlayer failing(PlayerEngine engine, String name) => _RecoveryFakePlayer(
-      engine,
-      (_) => PlayerException(message: '$name decoder failed', type: PlayerErrorType.codec),
-    );
-    final manager = _manager(<PlayerEngine, _RecoveryFakePlayer>{
-      PlayerEngine.mediaKit: failing(PlayerEngine.mediaKit, 'mpv'),
-      PlayerEngine.fijk: failing(PlayerEngine.fijk, 'ijk'),
-    });
-    final terminalErrors = <PlayerException>[];
-    final subscription = manager.onError.listen(terminalErrors.add);
-
-    await manager.initialize(engine: PlayerEngine.mediaKit);
-    await manager.play(
-      'https://cdn.example/live.flv',
-      const <String>['https://cdn.example/live.flv'],
-      const <String, String>{},
-      room: LiveRoom(roomId: '1', platform: 'test'),
-    );
-    await Future<void>.delayed(Duration.zero);
-
-    expect(manager.hasError.value, isTrue);
-    expect(terminalErrors, hasLength(1));
-    expect(terminalErrors.single.message, contains('ijk'));
-
-    await subscription.cancel();
-    await manager.dispose();
-  });
-
-  test('a source that opens without playing reaches the next engine', () async {
-    final mediaKit = _RecoveryFakePlayer(PlayerEngine.mediaKit, (_) => null, emitPlaying: false);
-    final fijk = _RecoveryFakePlayer(PlayerEngine.fijk, (_) => null);
-    final manager = _manager(<PlayerEngine, _RecoveryFakePlayer>{
-      PlayerEngine.mediaKit: mediaKit,
-      PlayerEngine.fijk: fijk,
-    }, sourceReadyTimeout: const Duration(milliseconds: 2));
-    manager.configureDefaultEngine(PlayerEngine.mediaKit);
-    final terminalErrors = <PlayerException>[];
-    final subscription = manager.onError.listen(terminalErrors.add);
-
-    await manager.play(
-      'https://cdn.example/live.flv',
-      const <String>['https://cdn.example/live.flv'],
-      const <String, String>{},
-      room: LiveRoom(roomId: '1', platform: 'test'),
-    );
-    await Future<void>.delayed(const Duration(milliseconds: 40));
-
-    expect(mediaKit.openedUrls, <String>['https://cdn.example/live.flv']);
-    expect(fijk.openedUrls, <String>['https://cdn.example/live.flv']);
-    expect(manager.currentEngine, PlayerEngine.fijk);
-    expect(terminalErrors, isEmpty);
-
-    await subscription.cancel();
-    await manager.dispose();
-  });
-
   test('default policy never reopens a source from an inferred readiness timeout', () async {
     final mediaKit = _RecoveryFakePlayer(PlayerEngine.mediaKit, (_) => null, emitPlaying: false);
-    final fijk = _RecoveryFakePlayer(PlayerEngine.fijk, (_) => null);
-    final manager = _manager(<PlayerEngine, _RecoveryFakePlayer>{
-      PlayerEngine.mediaKit: mediaKit,
-      PlayerEngine.fijk: fijk,
-    });
+    final manager = _manager(<PlayerEngine, _RecoveryFakePlayer>{PlayerEngine.mediaKit: mediaKit});
     manager.configureDefaultEngine(PlayerEngine.mediaKit);
 
     await manager.play(
@@ -974,7 +683,6 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 30));
 
     expect(mediaKit.openedUrls, <String>['https://cdn.example/slow-live.flv']);
-    expect(fijk.openedUrls, isEmpty);
     expect(manager.currentEngine, PlayerEngine.mediaKit);
     expect(manager.hasError.value, isFalse);
 
@@ -1078,37 +786,9 @@ void main() {
     await manager.dispose();
   });
 
-  test('a native open Future that stalls is bounded and replaced by the next engine', () async {
-    final mediaKit = _RecoveryFakePlayer(PlayerEngine.mediaKit, (_) => null, hangWhileOpening: true);
-    final fijk = _RecoveryFakePlayer(PlayerEngine.fijk, (_) => null);
-    final manager = _manager(<PlayerEngine, _RecoveryFakePlayer>{
-      PlayerEngine.mediaKit: mediaKit,
-      PlayerEngine.fijk: fijk,
-    }, sourceOpenTimeout: const Duration(milliseconds: 2));
-
-    await manager.initialize(engine: PlayerEngine.mediaKit);
-    await manager.play(
-      'https://cdn.example/stalled-open.flv',
-      const <String>['https://cdn.example/stalled-open.flv'],
-      const <String, String>{},
-      room: LiveRoom(roomId: '1', platform: 'test'),
-    );
-
-    expect(mediaKit.openedUrls, <String>['https://cdn.example/stalled-open.flv']);
-    expect(fijk.openedUrls, <String>['https://cdn.example/stalled-open.flv']);
-    expect(manager.currentEngine, PlayerEngine.fijk);
-    expect(manager.hasError.value, isFalse);
-
-    await manager.dispose();
-  });
-
   test('a codec failure retries software decode once before replacing the engine', () async {
     final mediaKit = _DecoderRecoveryFakePlayer();
-    final fijk = _RecoveryFakePlayer(PlayerEngine.fijk, (_) => null);
-    final manager = _manager(<PlayerEngine, _RecoveryFakePlayer>{
-      PlayerEngine.mediaKit: mediaKit,
-      PlayerEngine.fijk: fijk,
-    });
+    final manager = _manager(<PlayerEngine, _RecoveryFakePlayer>{PlayerEngine.mediaKit: mediaKit});
     final terminalErrors = <PlayerException>[];
     final subscription = manager.onError.listen(terminalErrors.add);
 
@@ -1122,36 +802,11 @@ void main() {
 
     expect(mediaKit.softwareFallbackRequests, 1);
     expect(mediaKit.openedUrls, hasLength(2));
-    expect(fijk.openedUrls, isEmpty);
     expect(manager.currentEngine, PlayerEngine.mediaKit);
     expect(manager.hasError.value, isFalse);
     expect(terminalErrors, isEmpty);
 
     await subscription.cancel();
-    await manager.dispose();
-  });
-
-  test('an audio decoder failure skips the video software retry and changes engine', () async {
-    final mediaKit = _AudioDecoderRecoveryFakePlayer();
-    final fijk = _RecoveryFakePlayer(PlayerEngine.fijk, (_) => null);
-    final manager = _manager(<PlayerEngine, _RecoveryFakePlayer>{
-      PlayerEngine.mediaKit: mediaKit,
-      PlayerEngine.fijk: fijk,
-    });
-
-    await manager.initialize(engine: PlayerEngine.mediaKit);
-    await manager.play(
-      'https://cdn.example/audio-decoder-failure.flv',
-      const <String>['https://cdn.example/audio-decoder-failure.flv'],
-      const <String, String>{},
-      room: LiveRoom(roomId: '1', platform: 'test'),
-    );
-
-    expect(mediaKit.softwareFallbackRequests, 0);
-    expect(fijk.openedUrls, <String>['https://cdn.example/audio-decoder-failure.flv']);
-    expect(manager.currentEngine, PlayerEngine.fijk);
-    expect(manager.hasError.value, isFalse);
-
     await manager.dispose();
   });
 
@@ -1246,40 +901,6 @@ void main() {
     await manager.dispose();
   });
 
-  test('a hung unexpected-pause resume command is bounded before engine recovery', () async {
-    final resumeBarrier = Completer<void>();
-    final mediaKit = _RecoveryFakePlayer(PlayerEngine.mediaKit, (_) => null, playBarrier: resumeBarrier.future);
-    final fijk = _RecoveryFakePlayer(PlayerEngine.fijk, (_) => null);
-    final manager = _manager(
-      <PlayerEngine, _RecoveryFakePlayer>{PlayerEngine.mediaKit: mediaKit, PlayerEngine.fijk: fijk},
-      unexpectedPauseGrace: const Duration(milliseconds: 2),
-      unexpectedPauseFailureGrace: const Duration(milliseconds: 5),
-    );
-    manager.configureDefaultEngine(PlayerEngine.mediaKit);
-
-    try {
-      await manager.play(
-        'https://cdn.example/hung-resume.flv',
-        const <String>['https://cdn.example/hung-resume.flv'],
-        const <String, String>{},
-        room: LiveRoom(roomId: 'hung-resume', platform: 'test'),
-      );
-      mediaKit.emitUnexpectedPlaying(false);
-
-      final deadline = DateTime.now().add(const Duration(milliseconds: 300));
-      while (manager.currentEngine != PlayerEngine.fijk && DateTime.now().isBefore(deadline)) {
-        await Future<void>.delayed(const Duration(milliseconds: 5));
-      }
-
-      expect(mediaKit.playCalls, 1);
-      expect(manager.currentEngine, PlayerEngine.fijk);
-      expect(fijk.openedUrls, <String>['https://cdn.example/hung-resume.flv']);
-    } finally {
-      if (!resumeBarrier.isCompleted) resumeBarrier.complete();
-      await manager.dispose();
-    }
-  });
-
   for (final notification in ['paused-state', 'playing-toggle']) {
     test('continuous buffering deadline survives repeated $notification notifications', () async {
       final first = _RecoveryFakePlayer(PlayerEngine.mediaKit, (_) => null);
@@ -1366,30 +987,6 @@ void main() {
       }
     });
   }
-
-  test('a live buffering stall enters bounded source recovery', () async {
-    final mediaKit = _RecoveryFakePlayer(PlayerEngine.mediaKit, (_) => null);
-    final fijk = _RecoveryFakePlayer(PlayerEngine.fijk, (_) => null);
-    final manager = _manager(<PlayerEngine, _RecoveryFakePlayer>{
-      PlayerEngine.mediaKit: mediaKit,
-      PlayerEngine.fijk: fijk,
-    }, bufferingStallTimeout: const Duration(milliseconds: 3));
-    manager.configureDefaultEngine(PlayerEngine.mediaKit);
-
-    await manager.play(
-      'https://cdn.example/stalled-live.flv',
-      const <String>['https://cdn.example/stalled-live.flv'],
-      const <String, String>{},
-      room: LiveRoom(roomId: 'buffering-stall', platform: 'test'),
-    );
-    mediaKit.emitLoading(true);
-    mediaKit.emitUnexpectedPlaying(false);
-    await Future<void>.delayed(const Duration(milliseconds: 200));
-
-    expect(manager.currentEngine, PlayerEngine.fijk);
-    expect(fijk.openedUrls, <String>['https://cdn.example/stalled-live.flv']);
-    await manager.dispose();
-  });
 
   test('buffering remains supervised while native playing is true and recreates the sole engine', () async {
     final first = _RecoveryFakePlayer(PlayerEngine.mediaKit, (_) => null);
@@ -1905,23 +1502,23 @@ void main() {
   }, skip: !Platform.isWindows);
 
   for (final outcome in ['recovered', 'paused']) {
-    test('IJK recovery checks ownership after allocating a native engine: $outcome', () async {
-      final active = _RecoveryFakePlayer(PlayerEngine.fijk, (_) => null);
+    test('MPV recovery checks ownership after allocating a native engine: $outcome', () async {
+      final active = _RecoveryFakePlayer(PlayerEngine.mediaKit, (_) => null);
       final allocation = Completer<void>();
-      final candidate = _RecoveryFakePlayer(PlayerEngine.fijk, (_) => null, initBarrier: allocation.future);
+      final candidate = _RecoveryFakePlayer(PlayerEngine.mediaKit, (_) => null, initBarrier: allocation.future);
       var creations = 0;
       final manager = _manager(
-        {PlayerEngine.fijk: active},
+        {PlayerEngine.mediaKit: active},
         playerCreator: (_) => creations++ == 0 ? active : candidate,
         bufferingStallTimeout: const Duration(milliseconds: 30),
         transientLiveRetryDelays: const [],
-      )..configureDefaultEngine(PlayerEngine.fijk);
+      )..configureDefaultEngine(PlayerEngine.mediaKit);
       try {
         await manager.play(
           'https://cdn.example/live.flv',
           const [],
           const {},
-          room: LiveRoom(roomId: 'ijk-recovery', platform: 'test'),
+          room: LiveRoom(roomId: 'mpv-recovery', platform: 'test'),
         );
         active.emitLoading(true);
         final deadline = DateTime.now().add(const Duration(seconds: 2));
@@ -3308,64 +2905,6 @@ void main() {
     expect(mediaKit.playCalls, 1);
     await manager.dispose();
   });
-
-  test('unexpected live completion enters the existing engine fallback path', () async {
-    final mediaKit = _RecoveryFakePlayer(PlayerEngine.mediaKit, (_) => null);
-    final fijk = _RecoveryFakePlayer(PlayerEngine.fijk, (_) => null);
-    final manager = _manager(<PlayerEngine, _RecoveryFakePlayer>{
-      PlayerEngine.mediaKit: mediaKit,
-      PlayerEngine.fijk: fijk,
-    });
-    manager.configureDefaultEngine(PlayerEngine.mediaKit);
-
-    await manager.play(
-      'https://cdn.example/live.flv',
-      const <String>['https://cdn.example/live.flv'],
-      const <String, String>{},
-      room: LiveRoom(roomId: 'completed-live', platform: 'test'),
-    );
-    mediaKit.emitCompleted();
-    await Future<void>.delayed(const Duration(milliseconds: 30));
-
-    expect(manager.currentEngine, PlayerEngine.fijk);
-    expect(fijk.openedUrls, <String>['https://cdn.example/live.flv']);
-    await manager.dispose();
-  });
-
-  test('a hanging signed-source refresh is bounded before live completion fallback', () async {
-    final refreshBarrier = Completer<PlaybackSourceRefreshResult>();
-    final mediaKit = _RecoveryFakePlayer(PlayerEngine.mediaKit, (_) => null);
-    final fijk = _RecoveryFakePlayer(PlayerEngine.fijk, (_) => null);
-    final manager = _manager(<PlayerEngine, _RecoveryFakePlayer>{
-      PlayerEngine.mediaKit: mediaKit,
-      PlayerEngine.fijk: fijk,
-    }, sourceRefreshTimeout: const Duration(milliseconds: 5));
-    manager.configureDefaultEngine(PlayerEngine.mediaKit);
-
-    try {
-      await manager.play(
-        'https://cdn.example/expired-live.flv',
-        const <String>['https://cdn.example/expired-live.flv'],
-        const <String, String>{},
-        room: LiveRoom(roomId: 'hung-refresh', platform: 'test'),
-        sourceResolver: (_) => refreshBarrier.future,
-      );
-      mediaKit.emitCompleted();
-
-      final deadline = DateTime.now().add(const Duration(milliseconds: 300));
-      while (manager.currentEngine != PlayerEngine.fijk && DateTime.now().isBefore(deadline)) {
-        await Future<void>.delayed(const Duration(milliseconds: 5));
-      }
-
-      expect(manager.currentEngine, PlayerEngine.fijk);
-      expect(fijk.openedUrls, <String>['https://cdn.example/expired-live.flv']);
-    } finally {
-      if (!refreshBarrier.isCompleted) {
-        refreshBarrier.complete(const PlaybackSourceRefreshResult(urls: <String>[], preferredLineIndex: 0));
-      }
-      await manager.dispose();
-    }
-  });
 }
 
 PlayerManager _manager(
@@ -3425,12 +2964,9 @@ class _RecoveryFakePlayer implements UnifiedPlayer, PrivateInputAwarePlayer, Aud
   _RecoveryFakePlayer(
     this.engine,
     this.failureForUrl, {
-    this.initFailure,
     this.emitPlaying = true,
-    this.hangWhileOpening = false,
     this.initBarrier,
     this.openBarrier,
-    this.playBarrier,
     this.onOpenSource,
     this.pauseBarrier,
     this.unmuteBarrier,
@@ -3441,12 +2977,12 @@ class _RecoveryFakePlayer implements UnifiedPlayer, PrivateInputAwarePlayer, Aud
   @override
   final PlayerEngine engine;
   final PlayerException? Function(String url) failureForUrl;
-  final Object? initFailure;
+  Object? initFailure;
   final bool emitPlaying;
-  final bool hangWhileOpening;
+  bool hangWhileOpening = false;
   final Future<void>? initBarrier;
   final Future<void>? openBarrier;
-  final Future<void>? playBarrier;
+  Future<void>? playBarrier;
   final void Function()? onOpenSource;
   final Future<void>? pauseBarrier;
   final Future<void>? unmuteBarrier;
@@ -3679,26 +3215,6 @@ class _DecoderRecoveryFakePlayer extends _RecoveryFakePlayer implements DecoderR
     await super.setDataSource(url, playUrls, headers, room: room, audioOnly: audioOnly);
     // [super] records the successful open too; keep one entry per invocation.
     openedUrls.removeAt(openedUrls.length - 1);
-  }
-}
-
-class _AudioDecoderRecoveryFakePlayer extends _RecoveryFakePlayer implements DecoderRecoveryAwarePlayer {
-  _AudioDecoderRecoveryFakePlayer()
-    : super(
-        PlayerEngine.mediaKit,
-        (_) => PlayerException(
-          message: 'Audio decoder initialization failed',
-          type: PlayerErrorType.codec,
-          code: 'audio_decoder_runtime',
-        ),
-      );
-
-  int softwareFallbackRequests = 0;
-
-  @override
-  Future<bool> prepareSoftwareDecoderFallback(PlayerException error) async {
-    softwareFallbackRequests++;
-    return true;
   }
 }
 

@@ -1,18 +1,15 @@
 import 'dart:io';
+
 import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:pure_live/core/common/proxy_routing.dart';
 import 'package:pure_live/player/utils/player_consts.dart';
-import 'package:pure_live/player/models/player_engine.dart';
 import 'package:pure_live/common/global/platform_utils.dart';
 import 'package:pure_live/modules/settings/pages/decoder_settings.dart';
 import 'package:pure_live/modules/settings/pages/renderer_settings.dart';
 import 'package:pure_live/modules/settings/pages/audio_output_settings_page.dart';
-import 'package:pure_live/common/services/settings/player_settings_controller.dart';
-
 
 class PlayerKernelSettingsPage extends GetView<SettingsService> {
   const PlayerKernelSettingsPage({super.key});
@@ -20,8 +17,6 @@ class PlayerKernelSettingsPage extends GetView<SettingsService> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final availablePlayerKeys = availableVideoPlayerKeysForPlatform(defaultTargetPlatform);
-    final canSwitchPlayer = availablePlayerKeys.length > 1;
 
     return Scaffold(
       appBar: AppBar(title: Text(i18n("player_kernel_settings"))),
@@ -31,49 +26,31 @@ class PlayerKernelSettingsPage extends GetView<SettingsService> {
         children: [
           context.buildGroupTitle(i18n("core_kernel_settings")),
           context.buildModernCard([
-            Obx(() {
-              final activeKey = normalizeVideoPlayerKeyForPlatform(
-                SettingsService.to.player.videoPlayerKey.v,
-                defaultTargetPlatform,
-              );
-              String activeI18nKey = PlayerConsts.names[activeKey] ?? PlayerConsts.names[PlayerConsts.defaultKey]!;
-
-              return context.buildTile(
-                icon: Remix.toggle_line,
-                title: i18n("kernel_switch"),
-                subtitle: i18n(canSwitchPlayer ? "kernel_switch_subtitle" : "kernel_fixed_subtitle"),
-                onTap: canSwitchPlayer ? showVideoSetDialog : null,
-                trailing: Text(
-                  i18n(activeI18nKey),
-                  style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.w600),
+            // 仅剩 mpv（media_kit）内核，此处仅作只读展示，不再提供切换。
+            context.buildTile(
+              icon: Remix.toggle_line,
+              title: i18n("kernel_switch"),
+              subtitle: i18n("kernel_fixed_subtitle"),
+              trailing: Text(
+                i18n(PlayerConsts.names[PlayerConsts.defaultKey]!),
+                style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.w600),
+              ),
+              stackTrailingOnNarrow: true,
+            ),
+            context.buildTile(
+              icon: Remix.global_line,
+              title: i18n("network_proxy"),
+              subtitle: i18n("network_proxy_subtitle"),
+              onTap: showProxySettingsDialog,
+              trailing: Text(
+                SettingsService.to.proxy.enableProxy.v ? i18n("enabled") : i18n("disabled"),
+                style: AppTextStyles.t13.copyWith(
+                  color: SettingsService.to.proxy.enableProxy.v ? theme.colorScheme.primary : theme.hintColor,
+                  fontWeight: FontWeight.w600,
                 ),
-                stackTrailingOnNarrow: true,
-              );
-            }),
-            Obx(() {
-              final activeKey = normalizeVideoPlayerKeyForPlatform(
-                SettingsService.to.player.videoPlayerKey.v,
-                defaultTargetPlatform,
-              );
-              if (PlayerConsts.engines[activeKey] == PlayerEngine.exo) {
-                return const SizedBox.shrink();
-              }
-
-              return context.buildTile(
-                icon: Remix.global_line,
-                title: i18n("network_proxy"),
-                subtitle: i18n("network_proxy_subtitle"),
-                onTap: showProxySettingsDialog,
-                trailing: Text(
-                  SettingsService.to.proxy.enableProxy.v ? i18n("enabled") : i18n("disabled"),
-                  style: AppTextStyles.t13.copyWith(
-                    color: SettingsService.to.proxy.enableProxy.v ? theme.colorScheme.primary : theme.hintColor,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                stackTrailingOnNarrow: true,
-              );
-            }),
+              ),
+              stackTrailingOnNarrow: true,
+            ),
             context.buildSwitchTile(
               icon: Remix.speed_up_line,
               title: i18n('enable_codec'),
@@ -94,16 +71,7 @@ class PlayerKernelSettingsPage extends GetView<SettingsService> {
               value: SettingsService.to.player.useHardStopOnExit,
             ),
           ]),
-          Obx(() {
-            final activeKey = normalizeVideoPlayerKeyForPlatform(
-              SettingsService.to.player.videoPlayerKey.v,
-              defaultTargetPlatform,
-            );
-            if (PlayerConsts.engines[activeKey] != PlayerEngine.mediaKit) {
-              return const SizedBox.shrink();
-            }
-            return _buildMpvSettings(context);
-          }),
+          _buildMpvSettings(context),
           const SizedBox(height: 32),
         ],
       ),
@@ -303,61 +271,6 @@ class PlayerKernelSettingsPage extends GetView<SettingsService> {
           ),
         ]),
       ],
-    );
-  }
-
-  // 播放器选择弹窗
-  void showVideoSetDialog() {
-    final playerKeys = availableVideoPlayerKeysForPlatform(defaultTargetPlatform);
-    if (playerKeys.length <= 1) return;
-
-    showDialog(
-      context: Get.context!,
-      builder: (BuildContext context) {
-        return SimpleDialog(
-          title: Text(i18n("change_player")),
-          children: [
-            Obx(() {
-              final activeKey = normalizeVideoPlayerKeyForPlatform(
-                SettingsService.to.player.videoPlayerKey.v,
-                defaultTargetPlatform,
-              );
-
-              return RadioGroup<String>(
-                groupValue: activeKey,
-                onChanged: (String? key) {
-                  if (key != null && PlayerConsts.engines.containsKey(key)) {
-                    SettingsService.to.player.videoPlayerKey.v = key;
-                    GlobalPlayerService.instance.player.switchEngine(PlayerConsts.engines[key]!, isManual: true);
-                    Navigator.of(context).pop();
-                  }
-                },
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: playerKeys.map<Widget>((itemKey) {
-                    final i18nKey = PlayerConsts.names[itemKey]!;
-                    return ListTile(
-                      leading: Radio<String>(value: itemKey, activeColor: Theme.of(context).colorScheme.primary),
-                      title: Text(i18n(i18nKey), style: AppTextStyles.t15),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                      onTap: () {
-                        if (PlayerConsts.engines.containsKey(itemKey)) {
-                          SettingsService.to.player.videoPlayerKey.v = itemKey;
-                          GlobalPlayerService.instance.player.switchEngine(
-                            PlayerConsts.engines[itemKey]!,
-                            isManual: true,
-                          );
-                          Navigator.of(context).pop();
-                        }
-                      },
-                    );
-                  }).toList(),
-                ),
-              );
-            }),
-          ],
-        );
-      },
     );
   }
 

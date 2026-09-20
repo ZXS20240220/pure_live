@@ -4,17 +4,11 @@ import 'package:pure_live/player/models/player_engine.dart';
 class PlayerConsts {
   static const String defaultKey = 'mpv';
 
-  static const Map<String, PlayerEngine> engines = {
-    'mpv': PlayerEngine.mediaKit,
-    'ijk': PlayerEngine.fijk,
-    'exo': PlayerEngine.exo,
-  };
+  // 仅保留 mpv 内核；'ijk'/'exo' 的历史存储值由
+  // normalizeVideoPlayerKeyForPlatform 归一为 'mpv'。
+  static const Map<String, PlayerEngine> engines = {'mpv': PlayerEngine.mediaKit};
 
-  static const Map<String, String> names = {'mpv': 'player_mpv', 'ijk': 'player_ijk', 'exo': 'player_exo'};
-
-  static String getKeyByI18nKey(String i18nKey) {
-    return names.entries.firstWhere((e) => e.value == i18nKey, orElse: () => names.entries.first).key;
-  }
+  static const Map<String, String> names = {'mpv': 'player_mpv'};
 
   static const List<String> resolutions = ['原画', '蓝光8M', '蓝光4M', '超清', '流畅'];
   static const Map<String, String> resolutionLabelKeys = {

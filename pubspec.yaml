@@ -70,9 +70,6 @@ dependencies:
       ref: 994465d9bfca3f39d0b41199d16e7fd93fe97881
       path: ./libs/universal/media_kit_libs_video
 
-  better_player_plus:
-    path: plugins/built_in_kotlin/better_player_plus # Local AGP 9 Built‑in Kotlin patch
-
   audio_service: ^0.18.18 # 后台音频服务
   audio_service_win: ^0.0.3
   audio_session: ^0.2.3 # 音频会话管理
@@ -83,8 +80,6 @@ dependencies:
   ffmpeg_kit_extended_flutter: 0.6.2
   bonsoir: ^7.1.5 # 局域网同步
 
-  flv_lzc:
-    path: plugins/flv_lzc # Vendored from liuchuancong/flv_lzc@030d611
   # -------------------------- UI组件/界面样式 --------------------------
   flutter_svg: ^2.2.1 # SVG图片渲染
   lottie: ^3.3.3 #动画

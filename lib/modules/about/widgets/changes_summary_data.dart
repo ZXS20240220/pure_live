@@ -81,6 +81,7 @@ const String kChangesSummaryMarkdown = r'''
 ### 播放器内核
 
 - `UnifiedPlayer` 接口新增 7 个成员：`seekTo` / `seekRelative` / `seekToLiveEdge` / `positionStream` / `currentPosition` / `liveEdgePosition` / `canSeek`（breaking change，fijk 与 video_player 适配器补空实现，Media-Kit 完整实现）。
+- **移除非 mpv 播放内核**：彻底删除 fijk（flv_lzc）与 exo（better_player_plus）内核的适配器、accessor、辅助工具及对应依赖，`PlayerEngine` 收敛为单值 `mediaKit`，引擎选择设置项变为只读展示（内核设置页的代理、GPU 解码、RTX VSR、mpv 高级设置等其余配置保留）；历史存储的 'ijk'/'exo' 内核键自动归一为 'mpv'，`videoPlayerKey` 设置字段保留以兼容旧备份，跨引擎回退机制在单引擎下自动退化为同引擎重试。
 - **直播时移回放**（仅 Media-Kit）：`force-seekable` 强制直播流可 seek；轮询解析 mpv `demuxer-cache-state` 得到可回看缓冲区间；新增直播进度条（拖动位置自动吸附进缓冲区防止触发重连、拖动中关键帧节流 seek + 松手精确 seek、「回到直播」常驻按钮）；播放器销毁时复位播放状态，修复观看时长统计误判。
 - **缓冲参数调优**：前向缓存 32MB→150MB、回退缓存 4MB→256MB、预读 2s→5s——播放点贴近直播边缘，同时支持长时间回看不重连。
 

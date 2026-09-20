@@ -1,12 +1,10 @@
 import 'dart:io';
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/plugins/file_utils.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:pure_live/common/global/initialized.dart';
 import 'package:material_ui/material_ui.dart' as material;
-import 'package:pure_live/player/utils/player_consts.dart';
 import 'package:pure_live/routes/navigation_observer.dart';
 import 'package:pure_live/player/models/player_engine.dart';
 import 'package:pure_live/common/global/platform_utils.dart';
@@ -16,8 +14,6 @@ import 'package:pure_live/common/utils/share_command_handler.dart';
 import 'package:pure_live/core/iptv/services/epg_import_manager.dart';
 import 'package:pure_live/common/global/platform/desktop_manager.dart';
 import 'package:pure_live/core/iptv/services/iptv_import_manager.dart';
-import 'package:pure_live/common/services/settings/player_settings_controller.dart';
-
 
 void main(List<String> args) async {
   // Flutter abbreviates every framework error after the first one. In release
@@ -77,17 +73,8 @@ class _MyAppState extends State<MyApp> with DesktopWindowMixin {
   }
 
   Future<void> initGlobalPlayer() async {
-    final String savedKey = SettingsService.to.player.videoPlayerKey.v;
-    final String validKey = normalizeVideoPlayerKeyForPlatform(savedKey, defaultTargetPlatform);
-    final PlayerEngine targetEngine = PlayerConsts.engines[validKey]!;
-    final PlayerEngine defaultEngine;
-
-    if (PlatformUtils.isDesktop) {
-      defaultEngine = PlayerEngine.mediaKit;
-    } else {
-      defaultEngine = targetEngine;
-    }
-    await GlobalPlayerService.instance.initialize(defaultEngine: defaultEngine);
+    // 仅保留 mpv（media_kit）内核，历史 videoPlayerKey 存储值不再参与选择。
+    await GlobalPlayerService.instance.initialize(defaultEngine: PlayerEngine.mediaKit);
   }
 
   @override

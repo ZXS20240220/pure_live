@@ -484,111 +484,6 @@ void main() {
     await manager.dispose();
   });
 
-  test('manual engine switch opens the active source before retiring the old decoder', () async {
-    final oldPlayer = _FakePlayer(playerEngine: PlayerEngine.mediaKit);
-    late final _FakePlayer candidate;
-    candidate = _FakePlayer(
-      playerEngine: PlayerEngine.fijk,
-      onSetDataSource: (_, _, _, {room, required audioOnly}) async {
-        expect(oldPlayer.hardDisposeCalls, 0);
-      },
-    );
-    final manager = _createManager(
-      oldPlayer,
-      playerCreator: (engine) => engine == PlayerEngine.mediaKit ? oldPlayer : candidate,
-    );
-    await manager.initialize(engine: PlayerEngine.mediaKit);
-    await manager.play(
-      'https://example.invalid/live.flv',
-      const <String>['https://example.invalid/live.flv'],
-      const <String, String>{'referer': 'https://example.invalid'},
-      room: LiveRoom(roomId: 'switch-room', platform: 'test'),
-    );
-
-    await manager.switchEngine(PlayerEngine.fijk, isManual: true);
-
-    expect(manager.currentPlayer, same(candidate));
-    expect(manager.currentEngine, PlayerEngine.fijk);
-    expect(candidate.openedUrls, <String>['https://example.invalid/live.flv']);
-    expect(oldPlayer.hardDisposeCalls, 1);
-    expect(candidate.hardDisposeCalls, 0);
-    await manager.dispose();
-  });
-
-  test('failed engine candidate preserves the active decoder and engine selection', () async {
-    final oldPlayer = _FakePlayer(playerEngine: PlayerEngine.mediaKit);
-    final candidate = _FakePlayer(
-      playerEngine: PlayerEngine.fijk,
-      sourceError: StateError('candidate source rejected'),
-    );
-    final manager = _createManager(
-      oldPlayer,
-      playerCreator: (engine) => engine == PlayerEngine.mediaKit ? oldPlayer : candidate,
-    );
-    await manager.initialize(engine: PlayerEngine.mediaKit);
-    await manager.play(
-      'https://example.invalid/live.flv',
-      const <String>['https://example.invalid/live.flv'],
-      const <String, String>{},
-      room: LiveRoom(roomId: 'rollback-room', platform: 'test'),
-    );
-
-    await expectLater(manager.switchEngine(PlayerEngine.fijk, isManual: true), throwsA(isA<PlayerException>()));
-
-    expect(manager.currentPlayer, same(oldPlayer));
-    expect(manager.currentEngine, PlayerEngine.mediaKit);
-    expect(oldPlayer.hardDisposeCalls, 0);
-    expect(candidate.hardDisposeCalls, 1);
-    await manager.dispose();
-  });
-
-  test('play-time default engine replacement opens the requested source exactly once', () async {
-    final initialPlayer = _FakePlayer(playerEngine: PlayerEngine.mediaKit);
-    final fallbackPlayer = _FakePlayer(playerEngine: PlayerEngine.fijk);
-    final candidate = _FakePlayer(playerEngine: PlayerEngine.mediaKit);
-    var mediaKitCreations = 0;
-    final manager = _createManager(
-      initialPlayer,
-      playerCreator: (engine) {
-        if (engine == PlayerEngine.fijk) return fallbackPlayer;
-        return mediaKitCreations++ == 0 ? initialPlayer : candidate;
-      },
-    );
-    addTearDown(manager.dispose);
-    await manager.initialize(engine: PlayerEngine.mediaKit);
-    // A fallback belongs to an active source; switching before any play intent
-    // now correctly retires the candidate instead of installing an idle engine.
-    await manager.play(
-      'https://example.invalid/previous.flv',
-      const <String>['https://example.invalid/previous.flv'],
-      const <String, String>{},
-      room: LiveRoom(roomId: 'previous-room', platform: 'test'),
-    );
-    await manager.switchEngine(PlayerEngine.fijk, isManual: false);
-    expect(manager.currentPlayer, same(fallbackPlayer));
-    expect(manager.currentEngine, PlayerEngine.fijk);
-    expect(fallbackPlayer.openedUrls, <String>['https://example.invalid/previous.flv']);
-    expect(initialPlayer.hardDisposeCalls, 1);
-
-    await manager.play(
-      'https://example.invalid/next.flv',
-      const <String>['https://example.invalid/next.flv'],
-      const <String, String>{},
-      room: LiveRoom(roomId: 'next-room', platform: 'test'),
-    );
-
-    expect(manager.currentPlayer, same(candidate));
-    expect(candidate.setDataSourceCalls, 1);
-    expect(candidate.openedUrls, <String>['https://example.invalid/next.flv']);
-    expect(fallbackPlayer.setDataSourceCalls, 1);
-    expect(fallbackPlayer.openedUrls, <String>['https://example.invalid/previous.flv']);
-    expect(initialPlayer.openedUrls, <String>['https://example.invalid/previous.flv']);
-    expect(manager.currentEngine, PlayerEngine.mediaKit);
-    expect(initialPlayer.hardDisposeCalls, 1);
-    expect(fallbackPlayer.hardDisposeCalls, 1);
-    await manager.dispose();
-  });
-
   test('lifecycle pause resumes only the same session and playback intent', () async {
     final player = _FakePlayer();
     final manager = _createManager(player);
@@ -1370,9 +1265,6 @@ class _FakePlayer implements UnifiedPlayer {
     this.onStop,
     this.videoWidget,
     this.dedupeAudioMode = false,
-    this.playerEngine = PlayerEngine.fijk,
-    this.sourceError,
-    this.onSetDataSource,
   });
 
   final bool hangWhenEnablingAudioOnly;
@@ -1380,9 +1272,9 @@ class _FakePlayer implements UnifiedPlayer {
   final Future<void> Function()? onStop;
   final Widget? videoWidget;
   final bool dedupeAudioMode;
-  final PlayerEngine playerEngine;
-  final Object? sourceError;
-  final Future<void> Function(
+  final PlayerEngine playerEngine = PlayerEngine.mediaKit;
+  Object? sourceError;
+  Future<void> Function(
     String url,
     List<String> playUrls,
     Map<String, String> headers, {

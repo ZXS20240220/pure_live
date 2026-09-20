@@ -59,20 +59,6 @@ void main() {
     expect(f.manager.currentSourceCommit, isNull);
   });
 
-  test('engine switch creates a separate input and closes previous only after commit', () async {
-    final f = _Fixture();
-    final recipe = _Recipe('engine');
-    addTearDown(f.manager.dispose);
-    await f.manager.playSource(recipe.source, room: f.room, sourceSelection: _quality('high'));
-    await f.manager.switchEngine(PlayerEngine.fijk, isManual: true);
-    expect(f.players.length, 2);
-    expect(recipe.opened, 2);
-    expect(recipe.closed, [1]);
-    expect(f.players.last.openedSourceIdentities, ['engine']);
-    expect(f.manager.currentSourceCommit!.source, same(recipe.source));
-    expect(f.manager.currentSourceCommit!.selection!.quality.quality, 'high');
-  });
-
   test('distinct quality recipes with same public identity still warm-swap and commit independently', () async {
     final f = _Fixture();
     final first = _Recipe('same');
@@ -181,25 +167,6 @@ void main() {
     expect(f.players.single.openedUrls, [recipe.local(1)]);
     expect(f.players.single.playCalls, 0);
     expect(f.manager.currentSourceCommit!.source, same(source));
-  });
-
-  test('failed engine candidate closes only its own lease and retains committed recipe', () async {
-    final f = _Fixture(
-      create: (engine) => OwnedSourceTestPlayer(
-        engine,
-        (_) => engine == PlayerEngine.fijk
-            ? PlayerException(message: 'fixture failure', type: PlayerErrorType.codec)
-            : null,
-      ),
-    );
-    addTearDown(f.manager.dispose);
-    final recipe = _Recipe('failure');
-    await f.manager.playSource(recipe.source, room: f.room);
-    final old = f.manager.currentSourceCommit!;
-    await expectLater(f.manager.switchEngine(PlayerEngine.fijk), throwsA(isA<PlayerException>()));
-    expect(recipe.closed, [2]);
-    expect(f.manager.currentSourceCommit, same(old));
-    expect(f.players.first.disposeCalls, 0);
   });
 
   test('owned-to-direct replacement clears private input while retaining actual remote headers', () async {
@@ -380,7 +347,7 @@ class _Fixture {
       },
       fallbackManager: EngineFallbackManager(
         defaultEngine: PlayerEngine.mediaKit,
-        supportedEngines: [PlayerEngine.mediaKit, PlayerEngine.fijk],
+        supportedEngines: [PlayerEngine.mediaKit],
       ),
       lineManager: LineFallbackManager(),
       transientLiveRetryDelays: const [],

@@ -8,18 +8,13 @@ import 'package:pure_live/player/utils/mpv_platform_profile.dart';
 import 'package:pure_live/player/utils/player_consts.dart';
 
 @visibleForTesting
-String defaultVideoPlayerKeyForPlatform(TargetPlatform platform) => platform == TargetPlatform.iOS ? 'ijk' : 'mpv';
+String defaultVideoPlayerKeyForPlatform(TargetPlatform platform) => 'mpv';
 
-List<String> availableVideoPlayerKeysForPlatform(TargetPlatform platform) =>
-    platform == TargetPlatform.android || platform == TargetPlatform.iOS
-    ? PlayerConsts.engines.keys.toList(growable: false)
-    : const <String>['mpv'];
+List<String> availableVideoPlayerKeysForPlatform(TargetPlatform platform) => const <String>['mpv'];
 
 String normalizeVideoPlayerKeyForPlatform(String key, TargetPlatform platform) {
-  final availableKeys = availableVideoPlayerKeysForPlatform(platform);
-  if (availableKeys.contains(key)) return key;
-  final fallback = defaultVideoPlayerKeyForPlatform(platform);
-  return availableKeys.contains(fallback) ? fallback : availableKeys.first;
+  // 仅剩 mpv 内核：任何历史存储值（如 'ijk'/'exo'）都归一为 'mpv'。
+  return 'mpv';
 }
 
 String get _defaultVideoPlayerKey => defaultVideoPlayerKeyForPlatform(defaultTargetPlatform);
