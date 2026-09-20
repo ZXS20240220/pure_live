@@ -938,7 +938,7 @@ class LivePlayController extends GetxController
     _externalOpenInFlight = true;
     try {
       final result = await RoomExternalOpener.open(
-        site: site,
+        site: detail.normalizedPlatformId,
         room: detail,
         android: Platform.isAndroid,
         isCurrent: isCurrent,
