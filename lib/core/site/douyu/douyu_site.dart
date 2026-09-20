@@ -690,6 +690,9 @@ class DouyuSite
   Future<List<LiveSuperChatMessage>> getSuperChatMessage({required String roomId}) {
     return Future.value([]);
   }
+
+  @override
+  Future<List<Map<String, dynamic>>?> getAiHighlights({required String roomId}) => _fetchAiHighlight(roomId);
 }
 
 class DouyuPlayData {

@@ -46,7 +46,7 @@ const String kChangesSummaryMarkdown = r'''
 
 | 平台 | 新增内容 |
 | ---- | ---- |
-| 斗鱼 | AI 看点（高光摘要）+ 主播卡片（粉丝数/主播等级/公会/开播时间），`Future.wait` 并行请求、best-effort 不阻塞进房 |
+| 斗鱼 | AI 看点（高光摘要，自动轮询刷新见第四节）+ 主播卡片（粉丝数/主播等级/公会/开播时间），`Future.wait` 并行请求、best-effort 不阻塞进房 |
 | 虎牙 | 公会名（JSONP 接口）、粉丝数（房间页 HTML 解析）、主播等级、开播时间；弹幕 Tars 结构扩展（senderLevel / 粉丝牌装饰） |
 | Bilibili | 主播等级、订阅数、开播时间；标题 HTML 标签与实体清洗，零额外请求 |
 | 抖音 | 开播时间（三条解析路径）、IP 属地、粉丝数；弹幕徽章字段填充 |
@@ -73,6 +73,15 @@ const String kChangesSummaryMarkdown = r'''
 - **刷新遮罩语义对齐**：选中「全部平台 + 全部标签 + 无搜索」时显示「正在刷新全部」，筛选状态下显示「正在刷新当前筛选」。
 - **桌面宽屏下拉刷新**：收藏页在所有宽度下一律支持下拉刷新（此前桌面宽屏无下拉），鼠标拖拽由全局手势行为支持。
 - **移除窗口宽度断点刷新**：窗口跨越 680px 宽度断点时只切换分页模式（pageSize/currentPage，120ms 防抖），**不再触发数据刷新**（上游与开发版均无此行为，且实测存在内容消失风险）。
+
+### 斗鱼 AI 看点自动轮询
+
+- **问题背景**：斗鱼 AI 看点（高光摘要）此前仅在进房时通过 `getRoomDetail` 中的 `Future.wait` 并行请求拉取一次，直播过程中 AI 后端陆续生成的新看点条目用户完全感知不到，只能手动下拉 SC 面板触发 `refreshSuperChatAndHighlights` 才能看到。
+- **基础机制**：`LivePlayController` 内部新增 `Timer.periodic` 风格的 150 秒基础间隔轮询（`_aiHighlightRefreshInterval`），仅在斗鱼平台启用（`_scheduleAiHighlightRefresh` 入口处做 `platform == douyuSite` 守卫，其他平台直接跳过）。进房成功时由 `onInitPlayerState` 触发调度，房间切换时 `clearSuperChats` 自动 cancel 旧 Timer 并重置 epoch 围栏。
+- **后端产出节奏门槛**：每轮 Tick 先检查当前 `aiHighlights` 最新条目的 `endTime`，若距当前时间不足 3 分钟（`_aiHighlightFreshnessThreshold`），说明 AI 后端大概率还没来得及生成后续条目（每条看点本身就是 1-5 分钟的时间窗口，AI 处理至少需要 2-5 分钟延迟），直接 `reschedule` 到下个间隔而跳过本次 HTTP 请求。
+- **空轮询优化**：如果拉取回来的列表与当前列表完全一致（用 `startTime + endTime + summary` 三元组逐元素比对），不触发 `updateRoom`，避免无意义的 RxList 重建和 UI 重绘。
+- **生命周期管理**：`onClose` 时 `clearSuperChats()` 级联 cancel；Timer 内部检查 `_ownerClosed` / `isClosed` / epoch 围栏三重守卫，异步响应永远不会落到已关闭或已切换的房间；异常静默吞掉后 reschedule，下次继续尝试。
+- **接口层**：`LiveSite` 抽象新增 `getAiHighlights({roomId})`，默认返回 null，仅 `DouyuSite` override 并直接委托给已有的私有 `_fetchAiHighlight`，避免引入新的 HTTP 客户端逻辑。
 
 ---
 

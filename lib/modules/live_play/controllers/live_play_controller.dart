@@ -118,6 +118,12 @@ class LivePlayController extends GetxController
   static const Duration localChatDeliveryDelay = Duration(seconds: 2);
 
   Timer? _superChatExpiryTimer;
+
+  static const Duration _aiHighlightRefreshInterval = Duration(seconds: 150);
+  static const Duration _aiHighlightFreshnessThreshold = Duration(minutes: 3);
+  Timer? _aiHighlightRefreshTimer;
+  int _aiHighlightRefreshEpoch = 0;
+
   @override
   void onInit() {
     super.onInit();
@@ -388,7 +394,80 @@ class LivePlayController extends GetxController
   void clearSuperChats() {
     _superChatExpiryTimer?.cancel();
     _superChatExpiryTimer = null;
+    _cancelAiHighlightRefresh();
     if (superChats.isNotEmpty) superChats.clear();
+  }
+
+  void _cancelAiHighlightRefresh() {
+    _aiHighlightRefreshTimer?.cancel();
+    _aiHighlightRefreshTimer = null;
+  }
+
+  void _scheduleAiHighlightRefresh() {
+    _cancelAiHighlightRefresh();
+    if (isClosed || _ownerClosed) return;
+    final detail = state.value.room.detail;
+    if (detail?.platform != Sites.douyuSite) return;
+    _aiHighlightRefreshTimer = Timer(_aiHighlightRefreshInterval, _tickAiHighlightRefresh);
+  }
+
+  Future<void> _tickAiHighlightRefresh() async {
+    if (_ownerClosed || isClosed) return;
+    final detail = state.value.room.detail;
+    if (detail == null || detail.platform != Sites.douyuSite || detail.roomId == null) return;
+
+    final highlights = detail.aiHighlights;
+    if (highlights != null && highlights.isNotEmpty) {
+      final newestEnd = _parseHighlightEndTime(highlights.first);
+      if (newestEnd != null && DateTime.now().difference(newestEnd) < _aiHighlightFreshnessThreshold) {
+        _scheduleAiHighlightRefresh();
+        return;
+      }
+    }
+
+    final loadEpoch = ++_aiHighlightRefreshEpoch;
+    try {
+      final newList = await currentSite.liveSite.getAiHighlights(roomId: detail.roomId!);
+      if (_ownerClosed || isClosed || loadEpoch != _aiHighlightRefreshEpoch) return;
+      if (newList == null || newList.isEmpty) {
+        _scheduleAiHighlightRefresh();
+        return;
+      }
+
+      final currentDetail = state.value.room.detail;
+      if (currentDetail == null || currentDetail.roomId != detail.roomId) return;
+      if (_aiHighlightListsEqual(currentDetail.aiHighlights, newList)) {
+        _scheduleAiHighlightRefresh();
+        return;
+      }
+
+      final updated = currentDetail.copyWith(aiHighlights: newList);
+      updateRoom(detail: updated);
+    } catch (_) {
+    } finally {
+      if (!_ownerClosed && !isClosed) _scheduleAiHighlightRefresh();
+    }
+  }
+
+  static DateTime? _parseHighlightEndTime(Map<String, dynamic> highlight) {
+    final raw = highlight['endTime'] ?? highlight['end'];
+    if (raw == null) return null;
+    final ts = raw is int ? raw : int.tryParse(raw.toString());
+    if (ts == null) return null;
+    return DateTime.fromMillisecondsSinceEpoch(ts * 1000);
+  }
+
+  static bool _aiHighlightListsEqual(List<Map<String, dynamic>>? a, List<Map<String, dynamic>> b) {
+    if (a == null) return b.isEmpty;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      final x = a[i];
+      final y = b[i];
+      if (x['startTime'] != y['startTime'] || x['endTime'] != y['endTime'] || x['summary'] != y['summary']) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /// Manually refreshes Super Chats plus AI highlights for the current room.
@@ -415,6 +494,7 @@ class LivePlayController extends GetxController
       liveRoom = liveRoom.fillFromDetail(detail);
       updateRoom(detail: liveRoom);
       unawaited(getSuperChatMessage(roomId, platform: platform, loadEpoch: loadEpoch));
+      _scheduleAiHighlightRefresh();
     } catch (e) {
       if (!_isRoomLoadCurrent(loadEpoch, roomId, platform)) return;
       addSystemMessage('刷新失败');
@@ -739,6 +819,7 @@ class LivePlayController extends GetxController
       if (!_isRoomLoadCurrent(loadEpoch, roomId, requestedPlatform)) return liveRoom;
       updateRoom(detail: liveRoom);
       unawaited(getSuperChatMessage(roomId, platform: requestedPlatform, loadEpoch: loadEpoch));
+      _scheduleAiHighlightRefresh();
 
       if (currentSite.id == Sites.iptvSite) {
         await _initIptvPlayer(liveRoom, loadEpoch: loadEpoch);

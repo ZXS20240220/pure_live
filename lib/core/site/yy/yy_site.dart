@@ -787,4 +787,7 @@ class YYSite implements LiveSite, LiveSiteRoomRefresher, LiveSiteRecordRoomResol
     //尚不支持
     return Future.value([]);
   }
+
+  @override
+  Future<List<Map<String, dynamic>>?> getAiHighlights({required String roomId}) async => null;
 }

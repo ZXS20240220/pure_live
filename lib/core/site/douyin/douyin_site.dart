@@ -926,6 +926,9 @@ class DouyinSite implements LiveSite, LiveSiteRecordRoomResolver {
     return Future.value(<LiveSuperChatMessage>[]);
   }
 
+  @override
+  Future<List<Map<String, dynamic>>?> getAiHighlights({required String roomId}) async => null;
+
   //生成指定长度的16进制随机字符串
   String generateRandomString(int length) {
     var random = math.Random.secure();

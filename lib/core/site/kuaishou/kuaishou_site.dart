@@ -548,4 +548,7 @@ class KuaishowSite implements LiveSite, LiveSiteRoomRefresher, LiveSiteRecordRoo
     //尚不支持
     return Future.value([]);
   }
+
+  @override
+  Future<List<Map<String, dynamic>>?> getAiHighlights({required String roomId}) async => null;
 }

@@ -839,6 +839,9 @@ class TwitchSite implements LiveSite, LiveSiteRoomRefresher, LiveSiteRecordRoomR
     return Future.value([]);
   }
 
+  @override
+  Future<List<Map<String, dynamic>>?> getAiHighlights({required String roomId}) async => null;
+
   Future<List<LiveRoom>> getLiveRoomDetailList({required List<LiveRoom> list}) async {
     if (list.isEmpty) {
       return list;

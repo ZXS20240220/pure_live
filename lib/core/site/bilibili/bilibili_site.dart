@@ -835,6 +835,9 @@ class BiliBiliSite implements LiveSite, LiveSiteRoomRefresher, LiveSiteRecordRoo
     return ls;
   }
 
+  @override
+  Future<List<Map<String, dynamic>>?> getAiHighlights({required String roomId}) async => null;
+
   Future<Map> getBuvid() async {
     try {
       if (cookie.contains("buvid3")) {

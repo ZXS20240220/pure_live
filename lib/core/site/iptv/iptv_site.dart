@@ -348,6 +348,9 @@ class IptvSite implements LiveSite, LiveSiteRecordRoomResolver {
     return [];
   }
 
+  @override
+  Future<List<Map<String, dynamic>>?> getAiHighlights({required String roomId}) async => null;
+
   // =========================================================
   // 搜索主播
   // =========================================================

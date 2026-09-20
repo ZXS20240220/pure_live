@@ -255,6 +255,10 @@ class LiveSite {
   Future<List<LiveSuperChatMessage>> getSuperChatMessage({required String roomId}) async {
     return Future.value([]);
   }
+
+  Future<List<Map<String, dynamic>>?> getAiHighlights({required String roomId}) async {
+    return Future.value(null);
+  }
 }
 
 /// Unified playback URL resolution.

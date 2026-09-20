@@ -1132,6 +1132,9 @@ class HuyaSite
     return ls;
   }
 
+  @override
+  Future<List<Map<String, dynamic>>?> getAiHighlights({required String roomId}) async => null;
+
   /// Builds the per-open AntiCode using the viewer UID and the server-issued
   /// expiry. The official player refreshes the WUP token before expiry; it
   /// never extends `wsTime` locally.
