@@ -52,6 +52,7 @@
   "cast_screen": "投屏",
   "changes_summary": "修改总结",
   "changes_summary_desc": "相对上游原始版本的全部修改说明",
+  "changes_summary_toc": "目录",
   "language": "语言",
   "change_language": "切换语言",
   "change_language_subtitle": "切换软件的显示语言",

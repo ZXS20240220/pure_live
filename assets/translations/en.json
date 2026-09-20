@@ -54,6 +54,7 @@
   "cast_screen": "Cast Screen",
   "changes_summary": "Change Summary",
   "changes_summary_desc": "All changes compared to the upstream original version",
+  "changes_summary_toc": "Contents",
   "language": "Language",
   "change_language": "Change language",
   "change_language_subtitle": "Change the display language of the app",
