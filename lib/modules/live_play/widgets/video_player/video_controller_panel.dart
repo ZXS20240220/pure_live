@@ -997,46 +997,57 @@ class LineSelectorButton extends StatelessWidget {
 
       const double itemHeight = 40.0;
       final double totalMenuHeight = (controller.livePlayController.state.value.player.lineCount * itemHeight) + 32;
-      return PopupMenuButton<int>(
-        position: PopupMenuPosition.over,
-        offset: Offset(30, -totalMenuHeight),
-        constraints: const BoxConstraints(minWidth: 110, maxWidth: 110),
-        onOpened: () {
-          controller.isMenuOpen.value = true;
-          controller.stopHideController();
+      return Listener(
+        onPointerSignal: (event) {
+          if (event is! PointerScrollEvent) return;
+          final state = controller.livePlayController.state.value.player;
+          if (state.lineCount <= 1) return;
+          final dir = event.scrollDelta.dy > 0 ? 1 : -1;
+          final next = (state.currentLineIndex + dir) % state.lineCount;
+          if (next == state.currentLineIndex) return;
+          controller.livePlayController.setResolution(ReloadDataType.changeLine, state.currentQuality, next);
         },
-        onSelected: (index) {
-          controller.isMenuOpen.value = false;
-          controller.livePlayController.setResolution(
-            ReloadDataType.changeLine,
-            controller.livePlayController.state.value.player.currentQuality,
-            index,
-          );
-          controller.enableController();
-        },
-        onCanceled: () {
-          controller.isMenuOpen.value = false;
-          controller.enableController();
-        },
-        color: Colors.black.withValues(alpha: 0.85),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: const BorderSide(color: Colors.white10),
-        ),
-        child: _buildButtonChild(),
-        itemBuilder: (context) => List.generate(controller.livePlayController.state.value.player.lineCount, (index) {
-          final isSelected = index == controller.livePlayController.state.value.player.currentLineIndex;
-          return PopupMenuItem(
-            value: index,
-            height: itemHeight,
-            child: Center(
-              child: Text(
-                i18n("toolbox_line", args: {"index": (index + 1).toString()}),
-                style: AppTextStyles.t13.copyWith(color: isSelected ? Get.theme.colorScheme.primary : Colors.white),
+        child: PopupMenuButton<int>(
+          position: PopupMenuPosition.over,
+          offset: Offset(30, -totalMenuHeight),
+          constraints: const BoxConstraints(minWidth: 110, maxWidth: 110),
+          onOpened: () {
+            controller.isMenuOpen.value = true;
+            controller.stopHideController();
+          },
+          onSelected: (index) {
+            controller.isMenuOpen.value = false;
+            controller.livePlayController.setResolution(
+              ReloadDataType.changeLine,
+              controller.livePlayController.state.value.player.currentQuality,
+              index,
+            );
+            controller.enableController();
+          },
+          onCanceled: () {
+            controller.isMenuOpen.value = false;
+            controller.enableController();
+          },
+          color: Colors.black.withValues(alpha: 0.85),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: const BorderSide(color: Colors.white10),
+          ),
+          child: _buildButtonChild(),
+          itemBuilder: (context) => List.generate(controller.livePlayController.state.value.player.lineCount, (index) {
+            final isSelected = index == controller.livePlayController.state.value.player.currentLineIndex;
+            return PopupMenuItem(
+              value: index,
+              height: itemHeight,
+              child: Center(
+                child: Text(
+                  i18n("toolbox_line", args: {"index": (index + 1).toString()}),
+                  style: AppTextStyles.t13.copyWith(color: isSelected ? Get.theme.colorScheme.primary : Colors.white),
+                ),
               ),
-            ),
-          );
-        }),
+            );
+          }),
+        ),
       );
     });
   }
@@ -1169,48 +1180,59 @@ class ResolutionSelectorButton extends StatelessWidget {
       const double itemHeight = 40.0;
       final double totalMenuHeight = (qualityCount * itemHeight) + 32;
 
-      return PopupMenuButton<int>(
-        tooltip: i18n('toolbox_select_quality'),
-        position: PopupMenuPosition.over,
-        offset: Offset(15, -totalMenuHeight),
-        padding: EdgeInsets.zero,
-        onOpened: () {
-          controller.isMenuOpen.value = true;
-          controller.stopHideController();
+      return Listener(
+        onPointerSignal: (event) {
+          if (event is! PointerScrollEvent) return;
+          final state = controller.livePlayController.state.value.player;
+          if (state.qualites.length <= 1) return;
+          final dir = event.scrollDelta.dy > 0 ? 1 : -1;
+          final next = (state.currentQuality + dir) % state.qualites.length;
+          if (next == state.currentQuality) return;
+          controller.livePlayController.setResolution(ReloadDataType.changeQuality, next, state.currentLineIndex);
         },
-        onCanceled: () {
-          controller.isMenuOpen.value = false;
-          controller.enableController();
-        },
-        onSelected: (index) {
-          controller.isMenuOpen.value = false;
-          controller.livePlayController.setResolution(
-            ReloadDataType.changeQuality,
-            index,
-            controller.livePlayController.state.value.player.currentLineIndex,
-          );
-          controller.enableController();
-        },
-        color: Colors.black.withValues(alpha: 0.85),
+        child: PopupMenuButton<int>(
+          tooltip: i18n('toolbox_select_quality'),
+          position: PopupMenuPosition.over,
+          offset: Offset(15, -totalMenuHeight),
+          padding: EdgeInsets.zero,
+          onOpened: () {
+            controller.isMenuOpen.value = true;
+            controller.stopHideController();
+          },
+          onCanceled: () {
+            controller.isMenuOpen.value = false;
+            controller.enableController();
+          },
+          onSelected: (index) {
+            controller.isMenuOpen.value = false;
+            controller.livePlayController.setResolution(
+              ReloadDataType.changeQuality,
+              index,
+              controller.livePlayController.state.value.player.currentLineIndex,
+            );
+            controller.enableController();
+          },
+          color: Colors.black.withValues(alpha: 0.85),
 
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: const BorderSide(color: Colors.white10),
-        ),
-        child: _buildButtonChild(),
-        itemBuilder: (context) => List.generate(qualityCount, (index) {
-          final isSelected = index == controller.livePlayController.state.value.player.currentQuality;
-          return PopupMenuItem(
-            value: index,
-            height: itemHeight,
-            child: Center(
-              child: Text(
-                controller.livePlayController.state.value.player.qualites[index].quality,
-                style: AppTextStyles.t13.copyWith(color: isSelected ? Get.theme.colorScheme.primary : Colors.white),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: const BorderSide(color: Colors.white10),
+          ),
+          child: _buildButtonChild(),
+          itemBuilder: (context) => List.generate(qualityCount, (index) {
+            final isSelected = index == controller.livePlayController.state.value.player.currentQuality;
+            return PopupMenuItem(
+              value: index,
+              height: itemHeight,
+              child: Center(
+                child: Text(
+                  controller.livePlayController.state.value.player.qualites[index].quality,
+                  style: AppTextStyles.t13.copyWith(color: isSelected ? Get.theme.colorScheme.primary : Colors.white),
+                ),
               ),
-            ),
-          );
-        }),
+            );
+          }),
+        ),
       );
     });
   }

@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/modules/live_play/pages/super_chat_page.dart';
 import 'package:pure_live/modules/live_play/pages/keyword_block_page.dart';
@@ -73,14 +74,23 @@ class DanmakuSectionTabBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: Theme.of(context).colorScheme.surface,
-      child: TabBar(
-        key: const ValueKey('live-danmaku-section-tabs'),
-        isScrollable: false,
-        tabAlignment: TabAlignment.fill,
-        physics: const PureLiveBoundedScrollPhysics(),
-        labelPadding: const EdgeInsets.symmetric(horizontal: 4),
-        controller: controller,
-        tabs: tabs.map((name) => Tab(text: name)).toList(growable: false),
+      child: Listener(
+        onPointerSignal: (event) {
+          if (event is! PointerScrollEvent) return;
+          if (controller == null || controller!.length == 0) return;
+          final dir = event.scrollDelta.dy > 0 ? 1 : -1;
+          final next = (controller!.index + dir) % controller!.length;
+          controller!.animateTo(next);
+        },
+        child: TabBar(
+          key: const ValueKey('live-danmaku-section-tabs'),
+          isScrollable: false,
+          tabAlignment: TabAlignment.fill,
+          physics: const PureLiveBoundedScrollPhysics(),
+          labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+          controller: controller,
+          tabs: tabs.map((name) => Tab(text: name)).toList(growable: false),
+        ),
       ),
     );
   }

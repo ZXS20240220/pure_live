@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
@@ -24,21 +25,31 @@ class FavoritePage extends GetView<FavoriteController> {
               leading: showAction ? const MenuButton() : null,
               actions: showAction ? [CommonAppBarActions()] : null,
               title: Obx(() {
-                return TabBar(
-                  key: const ValueKey('favorite-status-tabs'),
-                  controller: controller.tabController,
-                  isScrollable: false,
-                  tabAlignment: TabAlignment.center,
-                  physics: const PureLiveBoundedScrollPhysics(),
-                  tabs: [
-                    Tab(
-                      text:
-                          '${i18n('recorder_tab_all')} (${controller.onlineRooms.length + controller.replayRooms.length + controller.offlineRooms.length})',
-                    ),
-                    Tab(text: '${i18n('online_room_title')} (${controller.onlineRooms.length})'),
-                    Tab(text: '${i18n('recording_room_title')} (${controller.replayRooms.length})'),
-                    Tab(text: '${i18n('offline_room_title')} (${controller.offlineRooms.length})'),
-                  ],
+                return Listener(
+                  onPointerSignal: (event) {
+                    if (event is! PointerScrollEvent) return;
+                    final ctrl = controller.tabController;
+                    if (ctrl.length == 0) return;
+                    final dir = event.scrollDelta.dy > 0 ? 1 : -1;
+                    final next = (ctrl.index + dir) % ctrl.length;
+                    ctrl.animateTo(next);
+                  },
+                  child: TabBar(
+                    key: const ValueKey('favorite-status-tabs'),
+                    controller: controller.tabController,
+                    isScrollable: false,
+                    tabAlignment: TabAlignment.center,
+                    physics: const PureLiveBoundedScrollPhysics(),
+                    tabs: [
+                      Tab(
+                        text:
+                            '${i18n('recorder_tab_all')} (${controller.onlineRooms.length + controller.replayRooms.length + controller.offlineRooms.length})',
+                      ),
+                      Tab(text: '${i18n('online_room_title')} (${controller.onlineRooms.length})'),
+                      Tab(text: '${i18n('recording_room_title')} (${controller.replayRooms.length})'),
+                      Tab(text: '${i18n('offline_room_title')} (${controller.offlineRooms.length})'),
+                    ],
+                  ),
                 );
               }),
             ),
@@ -263,15 +274,24 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
         children: [
           Obx(() {
             final statusIndex = controller.tabOnlineIndex.value;
-            return TabBar(
-              key: const ValueKey('favorite-platform-tabs'),
-              controller: _tabController,
-              isScrollable: true,
-              physics: const PureLiveBoundedScrollPhysics(),
-              tabs: availableSitesList.map((e) {
-                final count = controller.favoriteCountForSite(e.id, statusIndex: statusIndex);
-                return Tab(text: '${e.name} ($count)');
-              }).toList(),
+            return Listener(
+              onPointerSignal: (event) {
+                if (event is! PointerScrollEvent) return;
+                if (_tabController.length == 0) return;
+                final dir = event.scrollDelta.dy > 0 ? 1 : -1;
+                final next = (_tabController.index + dir) % _tabController.length;
+                _tabController.animateTo(next);
+              },
+              child: TabBar(
+                key: const ValueKey('favorite-platform-tabs'),
+                controller: _tabController,
+                isScrollable: true,
+                physics: const NeverScrollableScrollPhysics(),
+                tabs: availableSitesList.map((e) {
+                  final count = controller.favoriteCountForSite(e.id, statusIndex: statusIndex);
+                  return Tab(text: '${e.name} ($count)');
+                }).toList(),
+              ),
             );
           }),
           FavoriteTagStrip(

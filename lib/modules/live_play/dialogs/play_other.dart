@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/services/settings/history_controller.dart';
 import 'package:pure_live/common/services/settings/watch_time_service.dart';
@@ -406,19 +407,28 @@ class _PlayOtherPanelState extends State<PlayOtherPanel> with SingleTickerProvid
           height: 38,
           child: Row(
             children: [
-              TabBar(
-                controller: tabController,
-                physics: const PureLiveBoundedScrollPhysics(),
-                tabAlignment: TabAlignment.start,
-                labelColor: theme.colorScheme.primary,
-                unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
-                indicatorSize: TabBarIndicatorSize.label,
-                dividerHeight: 0,
-                labelPadding: const EdgeInsets.symmetric(horizontal: 10),
-                tabs: [
-                  _CompactTab(icon: Icons.sensors_rounded, label: i18n('online_room_title')),
-                  _CompactTab(icon: Icons.history_rounded, label: i18n('watch_history')),
-                ],
+              Listener(
+                onPointerSignal: (event) {
+                  if (event is! PointerScrollEvent) return;
+                  if (tabController.length == 0) return;
+                  final dir = event.scrollDelta.dy > 0 ? 1 : -1;
+                  final next = (tabController.index + dir) % tabController.length;
+                  tabController.animateTo(next);
+                },
+                child: TabBar(
+                  controller: tabController,
+                  physics: const PureLiveBoundedScrollPhysics(),
+                  tabAlignment: TabAlignment.start,
+                  labelColor: theme.colorScheme.primary,
+                  unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
+                  indicatorSize: TabBarIndicatorSize.label,
+                  dividerHeight: 0,
+                  labelPadding: const EdgeInsets.symmetric(horizontal: 10),
+                  tabs: [
+                    _CompactTab(icon: Icons.sensors_rounded, label: i18n('online_room_title')),
+                    _CompactTab(icon: Icons.history_rounded, label: i18n('watch_history')),
+                  ],
+                ),
               ),
               const Spacer(),
               Obx(
@@ -731,46 +741,58 @@ class _FilterDropdownState extends State<_FilterDropdown> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    return Tooltip(
-      message: widget.currentLabel,
-      waitDuration: const Duration(milliseconds: 400),
-      child: GestureDetector(
-        onTap: _toggle,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          width: _kTriggerWidth,
-          height: 30,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          decoration: BoxDecoration(
-            color: (_open
-                ? colors.primaryContainer.withValues(alpha: 0.55)
-                : colors.surfaceContainerHighest.withValues(alpha: 0.45)),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: _open ? colors.primary.withValues(alpha: 0.5) : colors.outlineVariant.withValues(alpha: 0.4),
-              width: 0.5,
+    return Listener(
+      onPointerSignal: (event) {
+        if (event is! PointerScrollEvent) return;
+        final options = widget.options;
+        if (options.isEmpty) return;
+        final curIdx = options.indexWhere((o) => o.label == widget.currentLabel);
+        final dir = event.scrollDelta.dy > 0 ? 1 : -1;
+        final base = curIdx >= 0 ? curIdx : 0;
+        final next = (base + dir) % options.length;
+        widget.onSelect(options[next].id);
+      },
+      child: Tooltip(
+        message: widget.currentLabel,
+        waitDuration: const Duration(milliseconds: 400),
+        child: GestureDetector(
+          onTap: _toggle,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            width: _kTriggerWidth,
+            height: 30,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(
+              color: (_open
+                  ? colors.primaryContainer.withValues(alpha: 0.55)
+                  : colors.surfaceContainerHighest.withValues(alpha: 0.45)),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: _open ? colors.primary.withValues(alpha: 0.5) : colors.outlineVariant.withValues(alpha: 0.4),
+                width: 0.5,
+              ),
             ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Expanded(
-                child: Text(
-                  widget.currentLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.fade,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: colors.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.currentLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.fade,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: colors.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-              ),
-              Icon(
-                _open ? Icons.arrow_drop_up_rounded : Icons.arrow_drop_down_rounded,
-                size: 18,
-                color: colors.onSurfaceVariant,
-              ),
-            ],
+                Icon(
+                  _open ? Icons.arrow_drop_up_rounded : Icons.arrow_drop_down_rounded,
+                  size: 18,
+                  color: colors.onSurfaceVariant,
+                ),
+              ],
+            ),
           ),
         ),
       ),

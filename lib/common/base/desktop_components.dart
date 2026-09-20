@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:pure_live/common/index.dart';
 
@@ -91,97 +92,116 @@ class _DesktopPaginationBarState extends State<DesktopPaginationBar> {
         );
       }
 
-      return LayoutBuilder(
-        builder: (context, constraints) => SingleChildScrollView(
-          key: const ValueKey('desktop-pagination-scroll'),
-          primary: false,
-          scrollDirection: Axis.horizontal,
-          physics: const PureLiveBoundedScrollPhysics(),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minWidth: constraints.maxWidth),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 24),
-              decoration: BoxDecoration(
-                color: Theme.of(context).cardColor,
-                border: Border(top: BorderSide(color: Theme.of(context).dividerColor.withValues(alpha: 0.15))),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: controller.loadding.value ? null : () => controller.refreshData(),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+      return Listener(
+        onPointerSignal: (event) {
+          if (event is! PointerScrollEvent) return;
+          if (controller.loadding.value) return;
+          if (event.scrollDelta.dy > 0) {
+            if (hasNext) {
+              controller.goToPage(current + 1);
+            } else {
+              controller.goToPage(1);
+            }
+          } else if (event.scrollDelta.dy < 0) {
+            if (current > 1) {
+              controller.goToPage(current - 1);
+            } else if (maxPage > 1) {
+              controller.goToPage(maxPage);
+            }
+          }
+        },
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            key: const ValueKey('desktop-pagination-scroll'),
+            primary: false,
+            scrollDirection: Axis.horizontal,
+            physics: const PureLiveBoundedScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: constraints.maxWidth),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 24),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).cardColor,
+                  border: Border(top: BorderSide(color: Theme.of(context).dividerColor.withValues(alpha: 0.15))),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: controller.loadding.value ? null : () => controller.refreshData(),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                      ),
+                      icon: const Icon(Icons.refresh_rounded, size: 16),
+                      label: Text(i18n("refresh")),
                     ),
-                    icon: const Icon(Icons.refresh_rounded, size: 16),
-                    label: Text(i18n("refresh")),
-                  ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextButton.icon(
-                        onPressed: (hasPrev && !controller.loadding.value)
-                            ? () => controller.goToPage(current - 1)
-                            : null,
-                        icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 12),
-                        label: Text(i18n("prev_page")),
-                      ),
-                      const SizedBox(width: 8),
-                      ...pageNodes,
-                      const SizedBox(width: 8),
-                      TextButton(
-                        onPressed: (hasNext && !controller.loadding.value)
-                            ? () => controller.goToPage(current + 1)
-                            : null,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(i18n("next_page")),
-                            const SizedBox(width: 4),
-                            if (controller.loadding.value)
-                              const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2))
-                            else
-                              const Icon(Icons.arrow_forward_ios_rounded, size: 12),
-                          ],
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextButton.icon(
+                          onPressed: (hasPrev && !controller.loadding.value)
+                              ? () => controller.goToPage(current - 1)
+                              : null,
+                          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 12),
+                          label: Text(i18n("prev_page")),
                         ),
-                      ),
-                    ],
-                  ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (showSelector) ...[
-                        Text('${i18n("per_page")}: ', style: AppTextStyles.t13Muted),
-                        const SizedBox(width: 6),
-                        CompactPageSizeSelector(controller: controller, options: options),
-                        const SizedBox(width: 24),
-                      ],
-                      Text(i18n("go_to"), style: AppTextStyles.t13Muted),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
-                        child: SizedBox(
-                          height: 32,
-                          width: 50,
-                          // The field grows with the configured text metrics.
-                          child: TextField(
-                            controller: _inputController,
-                            keyboardType: TextInputType.number,
-                            textAlign: TextAlign.center,
-                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                            style: AppTextStyles.t13.copyWith(height: 1.2),
-                            decoration: InputDecoration(
-                              contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 4),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-                            ),
-                            onSubmitted: (_) => _executeJump(context, maxPage, total != null),
+                        const SizedBox(width: 8),
+                        ...pageNodes,
+                        const SizedBox(width: 8),
+                        TextButton(
+                          onPressed: (hasNext && !controller.loadding.value)
+                              ? () => controller.goToPage(current + 1)
+                              : null,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(i18n("next_page")),
+                              const SizedBox(width: 4),
+                              if (controller.loadding.value)
+                                const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2))
+                              else
+                                const Icon(Icons.arrow_forward_ios_rounded, size: 12),
+                            ],
                           ),
                         ),
-                      ),
-                      Text(i18n("page_unit"), style: AppTextStyles.t13Muted),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (showSelector) ...[
+                          Text('${i18n("per_page")}: ', style: AppTextStyles.t13Muted),
+                          const SizedBox(width: 6),
+                          CompactPageSizeSelector(controller: controller, options: options),
+                          const SizedBox(width: 24),
+                        ],
+                        Text(i18n("go_to"), style: AppTextStyles.t13Muted),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                          child: SizedBox(
+                            height: 32,
+                            width: 50,
+                            // The field grows with the configured text metrics.
+                            child: TextField(
+                              controller: _inputController,
+                              keyboardType: TextInputType.number,
+                              textAlign: TextAlign.center,
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                              style: AppTextStyles.t13.copyWith(height: 1.2),
+                              decoration: InputDecoration(
+                                contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 4),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                              ),
+                              onSubmitted: (_) => _executeJump(context, maxPage, total != null),
+                            ),
+                          ),
+                        ),
+                        Text(i18n("page_unit"), style: AppTextStyles.t13Muted),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
