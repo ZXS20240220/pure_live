@@ -10,6 +10,7 @@ import 'package:pure_live/core/site/kilakila/kilakila_link.dart';
 import 'package:pure_live/core/site/tting/tting_link.dart';
 import 'package:pure_live/core/site/xiaohongshu/xiaohongshu_link.dart';
 import 'package:pure_live/core/site/showroom/showroom_link.dart';
+import 'package:pure_live/core/site/chzzk/chzzk_link.dart';
 
 class WebSearchRoomTarget {
   const WebSearchRoomTarget({required this.platform, required this.roomId});
@@ -83,6 +84,8 @@ class WebSearchRoomParser {
     if (twitcasting != null) return WebSearchRoomTarget(platform: Sites.twitcastingSite, roomId: twitcasting);
     final showroom = ShowroomLink.parse(rawUrl);
     if (showroom != null) return WebSearchRoomTarget(platform: Sites.showroomSite, roomId: showroom);
+    final chzzk = ChzzkLink.parse(rawUrl);
+    if (chzzk != null) return WebSearchRoomTarget(platform: Sites.chzzkSite, roomId: chzzk);
     final host = uri.host.toLowerCase();
     final segments = uri.pathSegments.where((segment) => segment.trim().isNotEmpty).toList(growable: false);
 
