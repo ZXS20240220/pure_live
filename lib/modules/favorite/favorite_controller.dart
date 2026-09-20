@@ -141,6 +141,19 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
   /// construction separate from snapshot ownership and persistence.
   LiveSite createRoomRefreshSite(String platform) => Sites.of(platform).liveSite;
 
+  /// Keeps the favourites platform rail focused on platforms that actually
+  /// have saved rooms. The aggregate tab remains available for an empty list
+  /// and for cross-platform browsing.
+  List<Site> get availableFavoriteSites => favoriteSitesForRooms(SettingsService.to.fav.favoriteRooms.v);
+
+  List<Site> favoriteSitesForRooms(Iterable<LiveRoom> rooms) {
+    final available = Sites().availableSites(containsAll: true);
+    final favoriteSiteIds = rooms.map((room) => room.normalizedPlatformId).where((siteId) => siteId.isNotEmpty).toSet();
+    return available
+        .where((site) => site.id == Sites.allSite || favoriteSiteIds.contains(site.id.trim().toLowerCase()))
+        .toList(growable: false);
+  }
+
   @override
   Future<void>? get activePageOperation => _startupRefresh ?? _activeRoomRefresh ?? super.activePageOperation;
 
@@ -448,7 +461,7 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
   /// single horizontal swipe could publish two different grids.
   void selectSiteIndex(int index) {
     if (isClosed) return;
-    final availableSites = Sites().availableSites(containsAll: true);
+    final availableSites = availableFavoriteSites;
     if (index < 0 || index >= availableSites.length) return;
     final nextPlatformId = availableSites[index].id;
     final resetTag = !selectedTagIds.contains(TagManagementController.allTagKey);
@@ -489,7 +502,7 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     _selectionTransaction = true;
     tabOnlineIndex.value = index;
     if (resetTag) {
-      final currentAvailableSites = Sites().availableSites(containsAll: true);
+      final currentAvailableSites = availableFavoriteSites;
       final siteId = (tabSiteIndex.value >= 0 && tabSiteIndex.value < currentAvailableSites.length)
           ? currentAvailableSites[tabSiteIndex.value].id
           : Sites.allSite;
@@ -597,7 +610,7 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
 
   /// 平台页签 + 房间标签多选 + 搜索关键词的公共筛选（忽略状态页签）。
   List<LiveRoom> _filterRoomsBySiteTagSearch(List<LiveRoom> source) {
-    final currentAvailableSites = Sites().availableSites(containsAll: true);
+    final currentAvailableSites = availableFavoriteSites;
     if (tabSiteIndex.value < 0 || tabSiteIndex.value >= currentAvailableSites.length) {
       return [];
     }
@@ -640,7 +653,7 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
   }
 
   List<LiveRoom> _filterSyncedRooms() {
-    final currentAvailableSites = Sites().availableSites(containsAll: true);
+    final currentAvailableSites = availableFavoriteSites;
     if (tabSiteIndex.value < 0 || tabSiteIndex.value >= currentAvailableSites.length) {
       return [];
     }
@@ -753,7 +766,7 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
         ? List<LiveRoom>.from(preview.replayRooms)
         : nonDormantRooms.where((r) => r.effectiveLiveStatus == LiveStatus.replay).toList();
 
-    final currentAvailableSites = Sites().availableSites(containsAll: true);
+    final currentAvailableSites = favoriteSitesForRooms(roomsBase);
     var nextVisibleTags = <LiveTag>[];
 
     if (tabSiteIndex.value >= 0 && tabSiteIndex.value < currentAvailableSites.length) {
@@ -847,7 +860,7 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
   }
 
   void _refreshVisibleTagsFromSyncedRooms() {
-    final sites = Sites().availableSites(containsAll: true);
+    final sites = availableFavoriteSites;
     if (tabSiteIndex.value < 0 || tabSiteIndex.value >= sites.length) {
       _assignIfSnapshotChanged(visibleTags, const <LiveTag>[]);
       return;
@@ -992,7 +1005,7 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
 
   /// "无标签"虚拟标签计数徽章（5.5）：按当前页签与平台统计无标签房间数。
   void _recalculateUntaggedCount() {
-    final sites = Sites().availableSites(containsAll: true);
+    final sites = availableFavoriteSites;
     if (tabSiteIndex.value < 0 || tabSiteIndex.value >= sites.length) {
       if (visibleUntaggedCount.value != 0) visibleUntaggedCount.value = 0;
       return;
@@ -1053,8 +1066,8 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     if (tabOnlineIndex.value == 4) {
       final isUnfiltered =
           tabSiteIndex.value >= 0 &&
-          tabSiteIndex.value < Sites().availableSites(containsAll: true).length &&
-          Sites().availableSites(containsAll: true)[tabSiteIndex.value].id == Sites.allSite &&
+          tabSiteIndex.value < availableFavoriteSites.length &&
+          availableFavoriteSites[tabSiteIndex.value].id == Sites.allSite &&
           selectedTagIds.contains(TagManagementController.allTagKey) &&
           searchKeyword.value.trim().isEmpty;
       refreshShieldScope.value = isUnfiltered ? FavoriteRefreshScope.dormantAll : FavoriteRefreshScope.dormantFiltered;
@@ -1070,7 +1083,7 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     }
     // 全部平台 + 全部标签 + 无搜索 = 筛选是 no-op，刷新范围就是全部收藏，
     // 遮罩语义保持"全部"而不是误导性的"当前筛选"（对齐开发版）。
-    final sites = Sites().availableSites(containsAll: true);
+    final sites = availableFavoriteSites;
     final isUnfiltered =
         tabSiteIndex.value >= 0 &&
         tabSiteIndex.value < sites.length &&
