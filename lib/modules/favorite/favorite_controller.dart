@@ -1042,16 +1042,15 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
         markFullRefresh: true,
         invalidateUnverified: true,
         bypassFailureCooldown: true,
+        ownsRefreshShield: false,
       );
       await _refreshHistoryAfterStartupVerification();
     } finally {
       _verificationPreview = null;
-      // Also restores a useful offline/unknown view if a controller-level
-      // exception interrupted a current refresh. The disposed view must not
-      // be rebuilt, nor may it read settings already released during exit.
       if (!isClosed) {
         isVerifyingFavorites.value = false;
         showRefreshShield.value = false;
+        loadding.value = false;
         applyLocalFilter();
       }
     }
@@ -1064,6 +1063,7 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     bool markFullRefresh = false,
     bool invalidateUnverified = false,
     bool bypassFailureCooldown = false,
+    bool ownsRefreshShield = true,
   }) {
     if (isClosed) return Future<void>.value();
     final completion = Completer<void>();
@@ -1078,7 +1078,7 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     final pending = _refreshLock.synchronized<void>(() async {
       if (isClosed) return;
       final refreshEpoch = _refreshEpoch;
-      if (showLoading) loadding.value = true;
+      if (ownsRefreshShield && showLoading) loadding.value = true;
       try {
         final updates = await _refreshRoomDetails(
           rooms,
@@ -1092,24 +1092,21 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
             ? mergeAuthoritativeFavoriteRefresh(latest, rooms.map(favoriteRoomIdentity), updates)
             : mergeFavoriteRoomUpdates(latest, updates);
         if (merged.changed) {
-          // One Hive write and one visible publication. A failed startup request
-          // remains unknown instead of carrying the previous process's live bit.
           SettingsService.to.fav.favoriteRooms.v = merged.rooms;
         }
         if (markFullRefresh) {
           _lastFullRefreshAt = _now();
-          // A resumed event can arrive while this pass is in flight. The
-          // completed full snapshot is newer than that event, so its delayed
-          // timer must not enqueue the same network work again.
           _cancelPendingResumeRefresh();
         }
         applyLocalFilter();
         if (emitFinish) EventBus.instance.emit('refresh_favorite_finish', true);
       } finally {
-        showRefreshShield.value = false;
-        cancelRequested.value = false;
-        if (showLoading && refreshEpoch == _refreshEpoch && !isClosed) {
-          loadding.value = false;
+        if (ownsRefreshShield) {
+          showRefreshShield.value = false;
+          cancelRequested.value = false;
+          if (showLoading && refreshEpoch == _refreshEpoch && !isClosed) {
+            loadding.value = false;
+          }
         }
       }
     });
