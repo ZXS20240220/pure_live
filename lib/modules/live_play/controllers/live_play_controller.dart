@@ -74,9 +74,9 @@ class LivePlayController extends GetxController
   final List<String> tabs = [
     i18n('danmaku_list'),
     i18n('super_chat'),
+    i18n('switch_live_room'),
     i18n('danmaku_settings'),
     i18n('block_list'),
-    i18n('switch_live_room'),
   ];
 
   // 3.1 换台侧栏记忆状态：isPersistent 的 PlayOtherPanel 借此在重建时恢复页签与筛选。

@@ -22,17 +22,28 @@ class LivePlayHeader extends StatelessWidget implements PreferredSizeWidget {
   Size get preferredSize => const Size.fromHeight(48);
   @override
   Widget build(BuildContext context) {
-    return AppBar(
-      toolbarHeight: 50,
-      titleSpacing: 0,
-      title: _buildTitle(context),
-      actions: [
-        _buildFavoriteButton(),
-        _buildRecordButton(),
-        _buildQuickActions(context),
-        LivePlayMenuButton(controller: controller),
-        const SizedBox(width: 4),
-      ],
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onPanStart: (_) => windowManager.startDragging(),
+      onDoubleTap: () async {
+        if (await windowManager.isMaximized()) {
+          await windowManager.unmaximize();
+        } else {
+          await windowManager.maximize();
+        }
+      },
+      child: AppBar(
+        toolbarHeight: 50,
+        titleSpacing: 0,
+        title: _buildTitle(context),
+        actions: [
+          _buildFavoriteButton(),
+          _buildRecordButton(),
+          _buildQuickActions(context),
+          LivePlayMenuButton(controller: controller),
+          const SizedBox(width: 4),
+        ],
+      ),
     );
   }
 

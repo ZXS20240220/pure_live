@@ -304,7 +304,7 @@ class VideoController with ChangeNotifier implements DanmakuSettingsBinding {
   // accessibility scan on phones, so controls could disappear before a user
   // reached Fullscreen or the local composer. Four seconds matches common
   // media-control behavior while any focused editor/menu still pins the bar.
-  static const _controllerHideDelay = Duration(seconds: 4);
+  static const _controllerHideDelay = Duration(seconds: 3);
   static const _fullscreenDelay = Duration(milliseconds: 1000);
   static const _volumeHideDelay = Duration(seconds: 1);
   static const _epgLookBackDays = 2;
@@ -672,6 +672,8 @@ class VideoController with ChangeNotifier implements DanmakuSettingsBinding {
           _setStatus(PlayerStatus.playing);
         } else if (_playerManager.hasError.value) {
           _setStatus(PlayerStatus.error);
+        } else {
+          enableController();
         }
       }),
     );

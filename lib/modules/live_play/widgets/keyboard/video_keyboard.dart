@@ -37,8 +37,7 @@ class _VideoKeyboardShortcutsState extends State<VideoKeyboardShortcuts> {
     final escape = event.logicalKey == LogicalKeyboardKey.escape;
     if (!escape && isEditingFocused()) return false;
 
-    if (event.logicalKey == LogicalKeyboardKey.space ||
-        event.logicalKey == LogicalKeyboardKey.mediaPlayPause) {
+    if (event.logicalKey == LogicalKeyboardKey.space || event.logicalKey == LogicalKeyboardKey.mediaPlayPause) {
       GlobalPlayerService.instance.player.togglePlayPause();
       return true;
     }
@@ -57,7 +56,7 @@ class _VideoKeyboardShortcutsState extends State<VideoKeyboardShortcuts> {
         controller.refresh();
         return true;
       }
-      if (event.logicalKey == LogicalKeyboardKey.keyQ) {
+      if (event.logicalKey == LogicalKeyboardKey.keyF) {
         final state = GlobalPlayerState.to;
         if (state.isFullscreen.value || state.isPipMode.value) {
           return false;
@@ -65,7 +64,7 @@ class _VideoKeyboardShortcutsState extends State<VideoKeyboardShortcuts> {
         controller.toggleWindowFullScreen();
         return true;
       }
-      if (event.logicalKey == LogicalKeyboardKey.tab) {
+      if (event.logicalKey == LogicalKeyboardKey.keyQ) {
         final state = GlobalPlayerState.to;
         if (state.isFullscreen.value || state.isPipMode.value || state.isWindowFullscreen.value) {
           return false;

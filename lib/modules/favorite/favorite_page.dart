@@ -172,7 +172,7 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
     controller.selectSiteIndex(tabController.index);
   }
 
-  /// 4.1 收藏页快捷键：Tab/Shift+Tab 切换平台、Ctrl+F 聚焦搜索、
+  /// 4.1 收藏页快捷键：Q/Shift+Q 切换平台、Ctrl+F 聚焦搜索、
   /// ←→ 翻页、↑↓ 整页滚动。编辑框聚焦时仅保留 Ctrl+F。
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
@@ -192,7 +192,7 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
     if (isEditingFocused()) return KeyEventResult.ignored;
 
     switch (event.logicalKey) {
-      case LogicalKeyboardKey.tab:
+      case LogicalKeyboardKey.keyQ:
         final tabs = widget.availableSitesList.length;
         if (tabs == 0) return KeyEventResult.ignored;
         final current = _tabController.index;

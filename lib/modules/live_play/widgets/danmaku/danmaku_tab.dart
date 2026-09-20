@@ -40,9 +40,6 @@ class DanmakuTabView extends GetView<LivePlayController> {
                           ),
                         ),
                   const SuperChatPage(),
-                  DanmakuSettingsPage(controller: settingsBinding),
-                  const KeywordBlockPage(),
-                  // 3.1/6.5 换台页签：持久面板，页签与筛选状态记忆在 controller。
                   PlayOtherPanel(
                     controller: controller,
                     showHeader: true,
@@ -50,6 +47,9 @@ class DanmakuTabView extends GetView<LivePlayController> {
                     isPersistent: true,
                     onSelectRoom: (room) => controller.switchRoom(room),
                   ),
+                  DanmakuSettingsPage(controller: settingsBinding),
+                  const KeywordBlockPage(),
+                  // 3.1/6.5 换台页签：持久面板，页签与筛选状态记忆在 controller。
                 ],
               ),
             ),
