@@ -234,6 +234,7 @@ class _VideoControllerPanelState extends State<VideoControllerPanel> {
                   child: BrightnessVolumnDargArea(controller: controller),
                 ),
                 LockButton(controller: controller),
+                ScreenshotButton(controller: controller),
                 TopActionBar(controller: controller, barHeight: barHeight),
                 BottomActionBar(controller: controller, barHeight: barHeight),
               ],
@@ -837,6 +838,44 @@ class LockButton extends StatelessWidget {
               child: IconButton(
                 onPressed: () => {controller.showLocked.toggle()},
                 icon: Icon(controller.showLocked.value ? Icons.lock_rounded : Icons.lock_open_rounded, size: 28),
+                color: Colors.white,
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.black38,
+                  shape: const StadiumBorder(),
+                  minimumSize: const Size(50, 50),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 播放器左侧的常驻截屏按钮（与右侧锁定按钮位置对称的播放器控件），
+/// 跟随控件栏显隐，任何窗口尺寸/模式下都可用，不限于宽屏模式。
+/// 截取 mpv 原始解码帧（不含 UI 控件），保存到设置的截图目录。
+class ScreenshotButton extends StatelessWidget {
+  const ScreenshotButton({super.key, required this.controller});
+
+  final VideoController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(
+      () => AnimatedOpacity(
+        opacity: controller.showController.value ? 0.9 : 0.0,
+        duration: const Duration(milliseconds: 300),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: AbsorbPointer(
+            absorbing: !controller.showController.value,
+            child: Container(
+              margin: const EdgeInsets.only(left: 20.0),
+              child: IconButton(
+                onPressed: controller.takeScreenshot,
+                icon: const Icon(Icons.photo_camera_outlined, size: 28),
                 color: Colors.white,
                 style: IconButton.styleFrom(
                   backgroundColor: Colors.black38,

@@ -54,6 +54,8 @@ class AppSettingsController extends GetxController {
   final RxBool showSplashPage = hiveBool('showSplashPage', true);
   late final RxString refreshRateModeName = hiveString('refreshRateMode', _initialRefreshRateMode());
   final RxBool preferRealOnlineCounts = hiveBool('preferRealOnlineCounts', false);
+  // 直播截图保存目录（Windows 文件名字符安全，目录本身不做限制）
+  final RxString screenshotDirectory = hiveString('screenshotDirectory', '');
   late final RxList<String> realOnlinePlatforms = hiveStringList('realOnlinePlatforms', defaultRealOnlinePlatforms);
   final RxInt audienceMetricMigration = hiveInt('audienceMetricMigration', 0);
   // These entry points existed before they became configurable upstream.
@@ -213,6 +215,7 @@ class AppSettingsController extends GetxController {
       'savedMenuIds': savedMenuIds.v,
       'enableMultiView': enableMultiView.v,
       'enableNewWindowPlay': enableNewWindowPlay.v,
+      'screenshotDirectory': screenshotDirectory.v,
     };
   }
 
@@ -243,6 +246,7 @@ class AppSettingsController extends GetxController {
       ),
       'enableMultiView': typed<bool>(json['enableMultiView'] ?? true),
       'enableNewWindowPlay': typed<bool>(json['enableNewWindowPlay'] ?? true),
+      'screenshotDirectory': typed<String>(json['screenshotDirectory'] ?? ''),
     };
   }
 
@@ -266,6 +270,7 @@ class AppSettingsController extends GetxController {
     savedMenuIds.v = parsed['savedMenuIds'];
     enableMultiView.v = parsed['enableMultiView'];
     enableNewWindowPlay.v = parsed['enableNewWindowPlay'];
+    screenshotDirectory.v = parsed['screenshotDirectory'];
   }
 
   static Map<String, dynamic> extractConfig(Map<String, dynamic>? rootConfig) {
@@ -293,6 +298,7 @@ class AppSettingsController extends GetxController {
       ),
       'enableMultiView': app['enableMultiView'] ?? true,
       'enableNewWindowPlay': app['enableNewWindowPlay'] ?? true,
+      'screenshotDirectory': app['screenshotDirectory'] ?? '',
     };
   }
 

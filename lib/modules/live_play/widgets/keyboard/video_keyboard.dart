@@ -116,6 +116,11 @@ class _VideoKeyboardShortcutsState extends State<VideoKeyboardShortcuts> {
         }
         return true;
       }
+      // Ctrl+S：截取当前直播画面（播放页专属快捷键）
+      if (event.logicalKey == LogicalKeyboardKey.keyS && HardwareKeyboard.instance.isControlPressed) {
+        unawaited(controller.takeScreenshot());
+        return true;
+      }
     }
 
     if (!escape) return false;

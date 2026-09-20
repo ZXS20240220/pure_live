@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
 
@@ -104,6 +105,15 @@ class _CacheDataSettingsPageState extends State<CacheDataSettingsPage> {
   Widget _progressIndicator(Color color) =>
       SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2, color: color));
 
+  /// 选择截图保存目录，实现方式与备份目录设置一致（FilePicker 选目录后持久化）。
+  Future<void> _pickScreenshotDirectory() async {
+    final controller = SettingsService.to.app;
+    final current = controller.screenshotDirectory.v;
+    final selected = await FilePicker.getDirectoryPath(initialDirectory: current.isEmpty ? null : current);
+    if (selected == null) return;
+    controller.screenshotDirectory.v = selected;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -114,6 +124,20 @@ class _CacheDataSettingsPageState extends State<CacheDataSettingsPage> {
         physics: const PureLiveScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
+          context.buildGroupTitle(i18n("screenshot_settings")),
+          context.buildModernCard([
+            Obx(() {
+              final screenshotDirectory = SettingsService.to.app.screenshotDirectory.v;
+              return context.buildTile(
+                icon: Remix.camera_line,
+                title: i18n("screenshot_directory"),
+                subtitle: screenshotDirectory.isEmpty ? i18n("please_set_screenshot_directory") : screenshotDirectory,
+                isLong: true,
+                onTap: _pickScreenshotDirectory,
+              );
+            }),
+          ]),
+          const SizedBox(height: 20),
           context.buildGroupTitle(i18n("cache_and_data")),
           context.buildModernCard([
             Obx(() {

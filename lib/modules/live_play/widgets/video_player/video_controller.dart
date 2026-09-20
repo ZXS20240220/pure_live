@@ -1244,6 +1244,50 @@ class VideoController with ChangeNotifier implements DanmakuSettingsBinding {
     }
   }
 
+  /// 截取当前原始直播画面（mpv 解码帧，不含 UI 控件）并保存为 png。
+  /// 目录未配置或不存在时直接提示错误，不做兜底路径。
+  Future<void> takeScreenshot() async {
+    final directory = SettingsService.to.app.screenshotDirectory.v;
+    if (directory.isEmpty || !Directory(directory).existsSync()) {
+      ToastUtil.show(i18n("screenshot_directory_invalid"));
+      return;
+    }
+    try {
+      final bytes = await _playerManager.captureScreenshot();
+      if (bytes == null || bytes.isEmpty) {
+        ToastUtil.show(i18n("screenshot_failed"));
+        return;
+      }
+      final file = File('$directory/${_buildScreenshotFileName(room)}');
+      await file.writeAsBytes(bytes, flush: true);
+      ToastUtil.show(i18n("screenshot_saved"));
+    } catch (_) {
+      ToastUtil.show(i18n("screenshot_failed"));
+    }
+  }
+
+  /// 生成"直播平台-主播名_时间戳.png"形式的文件名，
+  /// 时间戳格式为 yyyy-MM-dd-HH-mm-ss.SSS（毫秒补齐三位）。
+  String _buildScreenshotFileName(LiveRoom target) {
+    final now = DateTime.now();
+    String two(int value) => value.toString().padLeft(2, '0');
+    final timestamp =
+        '${now.year}-${two(now.month)}-${two(now.day)}_${two(now.hour)}-${two(now.minute)}-${two(now.second)}.${now.millisecond.toString().padLeft(3, '0')}';
+    // 已支持的平台取本地化名称，未知/空平台回退为原始 id 或 unknown，
+    // 避免 Sites.of 对未注册 id 抛出 StateError。
+    final platformRaw = (target.platform ?? '').trim().toLowerCase();
+    final platformLabel = Sites.supportedSiteIds.contains(platformRaw) ? Sites.of(platformRaw).name : platformRaw;
+    final platform = _sanitizeFileName(platformLabel.isEmpty ? 'unknown' : platformLabel);
+    final nick = _sanitizeFileName(target.nick ?? '');
+    return '$platform-${nick}_$timestamp.png';
+  }
+
+  /// 替换 Windows 文件名非法字符，并去掉结尾的点/空格（Windows 不允许）。
+  String _sanitizeFileName(String input) {
+    final sanitized = input.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_').trim();
+    return sanitized.replaceAll(RegExp(r'[. ]$'), '');
+  }
+
   Future<void> refresh() async {
     _livePlayController.invalidateRoomLoad();
     clearListener();

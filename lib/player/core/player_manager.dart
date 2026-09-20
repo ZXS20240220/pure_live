@@ -17,7 +17,7 @@ import 'engine_fallback_manager.dart';
 import 'playback_lifecycle_coordinator.dart';
 
 import 'package:floating/floating.dart';
-import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform;
+import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform, Uint8List;
 import 'package:flutter/scheduler.dart';
 
 import '../models/player_exception.dart';
@@ -461,6 +461,26 @@ class PlayerManager {
   final GlobalKey _pipSourceKey = GlobalKey(debugLabel: 'pip-video-source');
 
   UnifiedPlayer? get currentPlayer => _currentPlayer;
+
+  /// 捕获当前解码帧的原始直播画面（不含任何 UI 控件）。
+  ///
+  /// 仅 media_kit 引擎支持；其他引擎、播放器未初始化或截图失败时返回 null。
+  /// mpv 的原生截图走解码器输出，不会经过 RepaintBoundary，因此不受
+  /// 视频纹理合成方式的限制，Windows 下可稳定得到 png 原始帧。
+  Future<Uint8List?> captureScreenshot() async {
+    final player = _currentPlayer;
+    if (player is! MediaKitPlayerAccessor) return null;
+    try {
+      return await (player as MediaKitPlayerAccessor).mediaKitPlayer.safeScreenshot(
+        format: 'image/png',
+        includeLibassSubtitles: false,
+      );
+    } catch (error, stackTrace) {
+      log('Screenshot capture failed: $error', name: 'PlayerManager.Screenshot', error: error, stackTrace: stackTrace);
+      return null;
+    }
+  }
+
   PlayerEngine get currentEngine => _runtimeEngine ?? _defaultEngine ?? PlayerEngine.mediaKit;
   Stream<PlayerState> get onStateChanged => _stateSubject.stream;
   Stream<bool> get onPlaying => _playingSubject.stream;
