@@ -68,6 +68,7 @@ class LivePlayController extends GetxController
   final RxInt danmakuPresentationRevision = 0.obs;
   final Rxn<LiveMessage> localGiftEffect = Rxn<LiveMessage>();
   final RxList<LiveSuperChatMessage> superChats = <LiveSuperChatMessage>[].obs;
+  final RxInt immersivePanelToggleEpoch = 0.obs;
   late Site currentSite;
   late TabController tabController;
 

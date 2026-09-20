@@ -58,6 +58,7 @@ class _LivePlayShellState extends State<LivePlayShell> with SingleTickerProvider
   Timer? _cursorWatchdog;
   bool _dividerHovering = false;
   bool _isDesktopLayout = false;
+  Worker? _immersiveToggleWorker;
 
   /// 边缘控制区透明度轨道高度（垂直），对应音量控制条水平轨道的长度。
   static const double _opacityTrackHeight = 100.0;
@@ -80,10 +81,14 @@ class _LivePlayShellState extends State<LivePlayShell> with SingleTickerProvider
       duration: const Duration(milliseconds: 280),
       reverseDuration: const Duration(milliseconds: 240),
     );
+    _immersiveToggleWorker = ever(controller.immersivePanelToggleEpoch, (_) {
+      _togglePanel();
+    });
   }
 
   @override
   void dispose() {
+    _immersiveToggleWorker?.dispose();
     _openTimer?.cancel();
     _hideTimer?.cancel();
     _stopCursorWatchdog();

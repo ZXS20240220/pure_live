@@ -170,6 +170,7 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) widget.controller.selectSiteIndex(initialIndex);
     });
+    HardwareKeyboard.instance.addHandler(_handleGlobalKey);
   }
 
   void _handleTabChanged() {
@@ -183,10 +184,10 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
     controller.selectSiteIndex(tabController.index);
   }
 
-  /// 4.1 收藏页快捷键：Q/Shift+Q 切换平台、Ctrl+F 聚焦搜索、
-  /// ←→ 翻页、↑↓ 整页滚动。编辑框聚焦时仅保留 Ctrl+F。
-  KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
-    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+  bool _handleGlobalKey(KeyEvent event) {
+    if (event is! KeyDownEvent) return false;
+    if (!mounted) return false;
+    if (ModalRoute.of(context)?.isCurrent != true) return false;
 
     final ctrlOrCmd = HardwareKeyboard.instance.isControlPressed || HardwareKeyboard.instance.isMetaPressed;
 
@@ -197,44 +198,56 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
           _searchController.selection = TextSelection(baseOffset: 0, extentOffset: _searchController.text.length);
         }
       });
-      return KeyEventResult.handled;
+      return true;
     }
 
-    if (isEditingFocused()) return KeyEventResult.ignored;
+    if (isEditingFocused()) return false;
 
     switch (event.logicalKey) {
-      case LogicalKeyboardKey.keyQ:
+      case LogicalKeyboardKey.digit1:
         final tabs = widget.availableSitesList.length;
-        if (tabs == 0) return KeyEventResult.ignored;
+        if (tabs == 0) return false;
         final current = _tabController.index;
-        final next = HardwareKeyboard.instance.isShiftPressed ? (current - 1 + tabs) % tabs : (current + 1) % tabs;
+        final prev = (current - 1 + tabs) % tabs;
+        _tabController.animateTo(prev);
+        return true;
+
+      case LogicalKeyboardKey.digit2:
+        final tabs = widget.availableSitesList.length;
+        if (tabs == 0) return false;
+        final current = _tabController.index;
+        final next = (current + 1) % tabs;
         _tabController.animateTo(next);
-        return KeyEventResult.handled;
+        return true;
+
+      case LogicalKeyboardKey.f5:
+        widget.controller.refreshData();
+        return true;
 
       case LogicalKeyboardKey.arrowLeft:
         final controller = widget.controller;
         if (controller.currentPage > 1 && !controller.loadding.value) {
           controller.goToPage(controller.currentPage - 1);
         }
-        return KeyEventResult.handled;
+        return true;
 
       case LogicalKeyboardKey.arrowRight:
         final controller = widget.controller;
         if (controller.canLoadMore.value && !controller.loadding.value) {
           controller.goToPage(controller.currentPage + 1);
         }
-        return KeyEventResult.handled;
+        return true;
 
       case LogicalKeyboardKey.arrowUp:
         _scrollPage(-1);
-        return KeyEventResult.handled;
+        return true;
 
       case LogicalKeyboardKey.arrowDown:
         _scrollPage(1);
-        return KeyEventResult.handled;
+        return true;
     }
 
-    return KeyEventResult.ignored;
+    return false;
   }
 
   void _scrollPage(int direction) {
@@ -250,6 +263,7 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleGlobalKey);
     _searchSyncWorker?.dispose();
     _tabController.removeListener(_handleTabChanged);
     _tabController.dispose();
@@ -267,196 +281,189 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
   Widget build(BuildContext context) {
     final controller = widget.controller;
     final availableSitesList = widget.availableSitesList;
-    return Focus(
-      autofocus: true,
-      onKeyEvent: _onKeyEvent,
-      child: Column(
-        children: [
-          Obx(() {
-            final statusIndex = controller.tabOnlineIndex.value;
-            return Listener(
-              onPointerSignal: (event) {
-                if (event is! PointerScrollEvent) return;
-                if (_tabController.length == 0) return;
-                final dir = event.scrollDelta.dy > 0 ? 1 : -1;
-                final next = (_tabController.index + dir) % _tabController.length;
-                _tabController.animateTo(next);
-              },
-              child: TabBar(
-                key: const ValueKey('favorite-platform-tabs'),
-                controller: _tabController,
-                isScrollable: true,
-                physics: const NeverScrollableScrollPhysics(),
-                tabs: availableSitesList.map((e) {
-                  final count = controller.favoriteCountForSite(e.id, statusIndex: statusIndex);
-                  return Tab(text: '${e.name} ($count)');
-                }).toList(),
-              ),
-            );
-          }),
-          FavoriteTagStrip(
-            tags: controller.visibleTags,
-            selectedTagIds: controller.selectedTagIds,
-            visibleUntaggedCount: controller.visibleUntaggedCount,
-            multiSelectMode: controller.multiSelectMode,
-            onMultiSelectChanged: (v) => controller.multiSelectMode.value = v,
-            allLabel: i18n('recorder_tab_all'),
-            onSelected: controller.changeSelectedTag,
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 2, 12, 6),
-            child: Row(
-              children: [
-                Obx(() {
-                  // 观看时长排序对所有状态生效，排序按钮在所有页签下都可用。
-                  return Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
+    return Column(
+      children: [
+        Obx(() {
+          final statusIndex = controller.tabOnlineIndex.value;
+          return Listener(
+            onPointerSignal: (event) {
+              if (event is! PointerScrollEvent) return;
+              if (_tabController.length == 0) return;
+              final dir = event.scrollDelta.dy > 0 ? 1 : -1;
+              final next = (_tabController.index + dir) % _tabController.length;
+              _tabController.animateTo(next);
+            },
+            child: TabBar(
+              key: const ValueKey('favorite-platform-tabs'),
+              controller: _tabController,
+              isScrollable: true,
+              physics: const NeverScrollableScrollPhysics(),
+              tabs: availableSitesList.map((e) {
+                final count = controller.favoriteCountForSite(e.id, statusIndex: statusIndex);
+                return Tab(text: '${e.name} ($count)');
+              }).toList(),
+            ),
+          );
+        }),
+        FavoriteTagStrip(
+          tags: controller.visibleTags,
+          selectedTagIds: controller.selectedTagIds,
+          visibleUntaggedCount: controller.visibleUntaggedCount,
+          multiSelectMode: controller.multiSelectMode,
+          onMultiSelectChanged: (v) => controller.multiSelectMode.value = v,
+          allLabel: i18n('recorder_tab_all'),
+          onSelected: controller.changeSelectedTag,
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 2, 12, 6),
+          child: Row(
+            children: [
+              Obx(() {
+                // 观看时长排序对所有状态生效，排序按钮在所有页签下都可用。
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      iconSize: 20,
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                      onPressed: () => controller.enablePinned.value = !controller.enablePinned.value,
+                      tooltip: i18n('favorite_enable_pinned'),
+                      icon: Obx(
+                        () => Icon(
+                          controller.enablePinned.value ? Remix.pushpin_fill : Remix.pushpin_line,
+                          color: controller.enablePinned.value
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                    PopupMenuButton<OnlineSortMode>(
+                      initialValue: controller.onlineSortMode.value,
+                      onSelected: (mode) => controller.onlineSortMode.value = mode,
+                      tooltip: i18n('favorite_sort_menu'),
+                      icon: Obx(() {
+                        final mode = controller.onlineSortMode.value;
+                        return Icon(switch (mode) {
+                          OnlineSortMode.startTime => Remix.time_line,
+                          OnlineSortMode.watchTime => Remix.timer_2_line,
+                          _ => Remix.fire_line,
+                        }, color: Theme.of(context).colorScheme.onSurfaceVariant);
+                      }),
+                      itemBuilder: (_) => [
+                        PopupMenuItem(value: OnlineSortMode.audience, child: Text(i18n('favorite_sort_audience'))),
+                        PopupMenuItem(value: OnlineSortMode.startTime, child: Text(i18n('favorite_sort_start_time'))),
+                        PopupMenuItem(value: OnlineSortMode.watchTime, child: Text(i18n('favorite_sort_watch_time'))),
+                      ],
+                    ),
+                    // 升序/降序切换：对热度/开播时间/观看时长三种模式统一生效。
+                    Obx(() {
+                      final ascending = controller.onlineSortAscending.value;
+                      return IconButton(
                         iconSize: 20,
                         visualDensity: VisualDensity.compact,
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                        onPressed: () => controller.enablePinned.value = !controller.enablePinned.value,
-                        tooltip: i18n('favorite_enable_pinned'),
-                        icon: Obx(
-                          () => Icon(
-                            controller.enablePinned.value ? Remix.pushpin_fill : Remix.pushpin_line,
-                            color: controller.enablePinned.value
-                                ? Theme.of(context).colorScheme.primary
-                                : Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
+                        onPressed: () => controller.onlineSortAscending.value = !ascending,
+                        tooltip: i18n(ascending ? 'favorite_sort_asc' : 'favorite_sort_desc'),
+                        icon: Icon(
+                          ascending ? Remix.sort_asc : Remix.sort_desc,
+                          color: ascending
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
+                      );
+                    }),
+                  ],
+                );
+              }),
+              Expanded(
+                child: Obx(() {
+                  final hasKeyword = controller.searchKeyword.value.isNotEmpty;
+                  return TextField(
+                    focusNode: _searchFocusNode,
+                    controller: _searchController,
+                    onChanged: (value) => controller.searchKeyword.value = value,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: i18n('favorite_search_hint'),
+                      hintStyle: AppTextStyles.t12.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                       ),
-                      PopupMenuButton<OnlineSortMode>(
-                        initialValue: controller.onlineSortMode.value,
-                        onSelected: (mode) => controller.onlineSortMode.value = mode,
-                        tooltip: i18n('favorite_sort_menu'),
-                        icon: Obx(() {
-                          final mode = controller.onlineSortMode.value;
-                          return Icon(switch (mode) {
-                            OnlineSortMode.startTime => Remix.time_line,
-                            OnlineSortMode.watchTime => Remix.timer_2_line,
-                            _ => Remix.fire_line,
-                          }, color: Theme.of(context).colorScheme.onSurfaceVariant);
-                        }),
-                        itemBuilder: (_) => [
-                          PopupMenuItem(value: OnlineSortMode.audience, child: Text(i18n('favorite_sort_audience'))),
-                          PopupMenuItem(value: OnlineSortMode.startTime, child: Text(i18n('favorite_sort_start_time'))),
-                          PopupMenuItem(value: OnlineSortMode.watchTime, child: Text(i18n('favorite_sort_watch_time'))),
-                        ],
+                      prefixIcon: Icon(
+                        Remix.search_line,
+                        size: 18,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
-                      // 升序/降序切换：对热度/开播时间/观看时长三种模式统一生效。
-                      Obx(() {
-                        final ascending = controller.onlineSortAscending.value;
-                        return IconButton(
-                          iconSize: 20,
-                          visualDensity: VisualDensity.compact,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                          onPressed: () => controller.onlineSortAscending.value = !ascending,
-                          tooltip: i18n(ascending ? 'favorite_sort_asc' : 'favorite_sort_desc'),
-                          icon: Icon(
-                            ascending ? Remix.sort_asc : Remix.sort_desc,
-                            color: ascending
-                                ? Theme.of(context).colorScheme.primary
-                                : Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
-                        );
-                      }),
-                    ],
+                      suffixIcon: hasKeyword
+                          ? IconButton(
+                              iconSize: 18,
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                              icon: Icon(
+                                Remix.close_circle_fill,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                              onPressed: () {
+                                _searchController.clear();
+                                controller.searchKeyword.value = '';
+                              },
+                            )
+                          : null,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                      filled: true,
+                      fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
                   );
                 }),
-                Expanded(
-                  child: Obx(() {
-                    final hasKeyword = controller.searchKeyword.value.isNotEmpty;
-                    return TextField(
-                      focusNode: _searchFocusNode,
-                      controller: _searchController,
-                      onChanged: (value) => controller.searchKeyword.value = value,
-                      decoration: InputDecoration(
-                        isDense: true,
-                        hintText: i18n('favorite_search_hint'),
-                        hintStyle: AppTextStyles.t12.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                        ),
-                        prefixIcon: Icon(
-                          Remix.search_line,
-                          size: 18,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                        suffixIcon: hasKeyword
-                            ? IconButton(
-                                iconSize: 18,
-                                visualDensity: VisualDensity.compact,
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                                icon: Icon(
-                                  Remix.close_circle_fill,
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                ),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  controller.searchKeyword.value = '';
-                                },
-                              )
-                            : null,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide.none,
-                        ),
-                        filled: true,
-                        fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      ),
-                    );
-                  }),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-          Expanded(
-            child: BasePageView<FavoriteController, LiveRoom>(
-              controller: controller,
-              enableRefresh: true,
-              enableLoadMore: true,
-              wrapMobileRefresh: false,
-              preserveContentWhenEmpty: true,
-              keyboardPagingEnabled: false,
-              showScrollToTopBtn: SettingsService.to.page.showScrollToTopBtn.v,
-              showPageSizeSelector: SettingsService.to.page.showPageSizeSelector.v,
-              pageSizeOptions: SettingsService.to.page.pageSizeOptions,
-              contentBuilder: (context, list, _) {
-                final activeSiteIndex = controller.tabSiteIndex.value;
-                return TabBarView(
-                  controller: _tabController,
-                  physics: const PureLiveBoundedScrollPhysics(),
-                  children: availableSitesList.asMap().entries.map((entry) {
-                    final site = entry.value;
-                    return Builder(
-                      key: ValueKey('favorite_site_${site.id}'),
-                      builder: (context) {
-                        // PageView mounts only the active/nearby pages. Defer
-                        // platform filtering and ScrollController allocation to
-                        // that point rather than doing both for every platform
-                        // on each reactive rebuild.
-                        final isCurrentSite = entry.key == activeSiteIndex;
-                        final pageList = isCurrentSite ? list : controller.filteredSyncedRoomsForSite(site.id);
-                        return RoomGridView(
-                          siteId: site.id,
-                          scrollController: _scrollControllerFor(site.id),
-                          displayList: pageList,
-                          emptyBuilder: (context) => _FavoriteEmptyState(controller: controller, siteId: site.id),
-                        );
-                      },
-                    );
-                  }).toList(),
-                );
-              },
-            ),
+        ),
+        Expanded(
+          child: BasePageView<FavoriteController, LiveRoom>(
+            controller: controller,
+            enableRefresh: true,
+            enableLoadMore: true,
+            wrapMobileRefresh: false,
+            preserveContentWhenEmpty: true,
+            keyboardPagingEnabled: false,
+            showScrollToTopBtn: SettingsService.to.page.showScrollToTopBtn.v,
+            showPageSizeSelector: SettingsService.to.page.showPageSizeSelector.v,
+            pageSizeOptions: SettingsService.to.page.pageSizeOptions,
+            contentBuilder: (context, list, _) {
+              final activeSiteIndex = controller.tabSiteIndex.value;
+              return TabBarView(
+                controller: _tabController,
+                physics: const PureLiveBoundedScrollPhysics(),
+                children: availableSitesList.asMap().entries.map((entry) {
+                  final site = entry.value;
+                  return Builder(
+                    key: ValueKey('favorite_site_${site.id}'),
+                    builder: (context) {
+                      // PageView mounts only the active/nearby pages. Defer
+                      // platform filtering and ScrollController allocation to
+                      // that point rather than doing both for every platform
+                      // on each reactive rebuild.
+                      final isCurrentSite = entry.key == activeSiteIndex;
+                      final pageList = isCurrentSite ? list : controller.filteredSyncedRoomsForSite(site.id);
+                      return RoomGridView(
+                        siteId: site.id,
+                        scrollController: _scrollControllerFor(site.id),
+                        displayList: pageList,
+                        emptyBuilder: (context) => _FavoriteEmptyState(controller: controller, siteId: site.id),
+                      );
+                    },
+                  );
+                }).toList(),
+              );
+            },
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

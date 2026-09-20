@@ -2078,5 +2078,7 @@
   "history_remove_room": "Remove from history",
   "tag_multi_select_disabled": "Multi-select filter disabled",
   "tag_multi_select_enabled": "Multi-select filter enabled",
-  "favorite_search_hint": "Search title / host / room ID / tags (separate keywords with space)"
+  "favorite_search_hint": "Search title / host / room ID / tags (separate keywords with space)",
+  "keyboard_shortcuts": "Keyboard Shortcuts",
+  "keyboard_shortcuts_title": "Keyboard Shortcuts"
 }

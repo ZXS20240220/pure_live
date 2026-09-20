@@ -37,6 +37,8 @@ class _VideoKeyboardShortcutsState extends State<VideoKeyboardShortcuts> {
     final escape = event.logicalKey == LogicalKeyboardKey.escape;
     if (!escape && isEditingFocused()) return false;
 
+    final ctrlOrCmd = HardwareKeyboard.instance.isControlPressed || HardwareKeyboard.instance.isMetaPressed;
+
     if (event.logicalKey == LogicalKeyboardKey.space || event.logicalKey == LogicalKeyboardKey.mediaPlayPause) {
       GlobalPlayerService.instance.player.togglePlayPause();
       return true;
@@ -52,11 +54,11 @@ class _VideoKeyboardShortcutsState extends State<VideoKeyboardShortcuts> {
 
     final controller = widget.controller;
     if (controller != null) {
-      if (event.logicalKey == LogicalKeyboardKey.keyR) {
+      if (event.logicalKey == LogicalKeyboardKey.f5) {
         controller.refresh();
         return true;
       }
-      if (event.logicalKey == LogicalKeyboardKey.keyF) {
+      if (ctrlOrCmd && event.logicalKey == LogicalKeyboardKey.keyF) {
         final state = GlobalPlayerState.to;
         if (state.isFullscreen.value || state.isPipMode.value) {
           return false;
@@ -64,7 +66,23 @@ class _VideoKeyboardShortcutsState extends State<VideoKeyboardShortcuts> {
         controller.toggleWindowFullScreen();
         return true;
       }
-      if (event.logicalKey == LogicalKeyboardKey.keyQ) {
+      if (event.logicalKey == LogicalKeyboardKey.digit1) {
+        final state = GlobalPlayerState.to;
+        if (state.isFullscreen.value || state.isPipMode.value || state.isWindowFullscreen.value) {
+          return false;
+        }
+        if (Get.isRegistered<LivePlayController>()) {
+          final tabController = Get.find<LivePlayController>().tabController;
+          final total = tabController.length;
+          if (total > 0) {
+            final current = tabController.index;
+            final prev = (current - 1 + total) % total;
+            tabController.animateTo(prev);
+          }
+        }
+        return true;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.digit2) {
         final state = GlobalPlayerState.to;
         if (state.isFullscreen.value || state.isPipMode.value || state.isWindowFullscreen.value) {
           return false;
@@ -79,6 +97,15 @@ class _VideoKeyboardShortcutsState extends State<VideoKeyboardShortcuts> {
           }
         }
         return true;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.backquote) {
+        if (Get.isRegistered<LivePlayController>()) {
+          final ctrl = Get.find<LivePlayController>();
+          if (SettingsService.to.player.enableImmersiveLayout.v) {
+            ctrl.immersivePanelToggleEpoch.value++;
+            return true;
+          }
+        }
       }
       if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
         _adjustVolume(controller, 0.05);
@@ -106,7 +133,7 @@ class _VideoKeyboardShortcutsState extends State<VideoKeyboardShortcuts> {
         player.seekRelative(step);
         return true;
       }
-      if (event.logicalKey == LogicalKeyboardKey.keyE) {
+      if (ctrlOrCmd && event.logicalKey == LogicalKeyboardKey.keyE) {
         final player = GlobalPlayerService.instance.player;
         if (!player.canSeek) return false;
         controller.enableController();
@@ -119,6 +146,11 @@ class _VideoKeyboardShortcutsState extends State<VideoKeyboardShortcuts> {
       // Ctrl+S：截取当前直播画面（播放页专属快捷键）
       if (event.logicalKey == LogicalKeyboardKey.keyS && HardwareKeyboard.instance.isControlPressed) {
         unawaited(controller.takeScreenshot());
+        return true;
+      }
+      if (ctrlOrCmd && event.logicalKey == LogicalKeyboardKey.keyW) {
+        final v = SettingsService.to.vol;
+        v.globalVolumeMute.v = !v.globalVolumeMute.v;
         return true;
       }
     }

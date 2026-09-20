@@ -2078,5 +2078,7 @@
   "nearby_devices": "附近设备",
   "tag_multi_select_disabled": "多选筛选已关闭",
   "tag_multi_select_enabled": "多选筛选已开启",
-  "favorite_search_hint": "搜索标题 / 主播 / 房间号 / 标签（多关键字空格分隔）"
+  "favorite_search_hint": "搜索标题 / 主播 / 房间号 / 标签（多关键字空格分隔）",
+  "keyboard_shortcuts": "快捷键帮助",
+  "keyboard_shortcuts_title": "键盘快捷键"
 }
