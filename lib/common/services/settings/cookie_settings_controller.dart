@@ -13,6 +13,7 @@ class CookieSettingsController extends GetxController {
   final RxString twitchCookie = hiveString('twitchCookie', '');
   final RxString soopCookie = hiveString('soopCookie', '');
   final RxString yyCookie = hiveString('yyCookie', '');
+  final RxString taobaoCookie = hiveString('taobaoCookie', '');
 
   @override
   void onInit() {
@@ -30,6 +31,7 @@ class CookieSettingsController extends GetxController {
       twitchCookie,
       soopCookie,
       yyCookie,
+      taobaoCookie,
     ]) {
       final normalized = normalizeAccountCookie(cookie.v);
       if (normalized != cookie.v) cookie.v = normalized;
@@ -45,6 +47,7 @@ class CookieSettingsController extends GetxController {
     twitchCookie.v = '';
     soopCookie.v = '';
     yyCookie.v = '';
+    taobaoCookie.v = '';
     bilibiliUid.v = 0;
   }
 
@@ -59,6 +62,7 @@ class CookieSettingsController extends GetxController {
       'twitchCookie': twitchCookie.v,
       'soopCookie': soopCookie.v,
       'yyCookie': yyCookie.v,
+      'taobaoCookie': taobaoCookie.v,
     };
   }
 
@@ -74,6 +78,7 @@ class CookieSettingsController extends GetxController {
       'twitchCookie': normalizeAccountCookie((json['twitchCookie'] ?? '') as String),
       'soopCookie': normalizeAccountCookie((json['soopCookie'] ?? '') as String),
       'yyCookie': normalizeAccountCookie((json['yyCookie'] ?? '') as String),
+      'taobaoCookie': normalizeAccountCookie((json['taobaoCookie'] ?? '') as String),
     };
   }
 
@@ -88,6 +93,7 @@ class CookieSettingsController extends GetxController {
     twitchCookie.v = parsed['twitchCookie'];
     soopCookie.v = parsed['soopCookie'];
     yyCookie.v = parsed['yyCookie'];
+    taobaoCookie.v = parsed['taobaoCookie'];
 
     BiliBiliAccountService.instance.setCookie(bilibiliCookie.v);
     BiliBiliAccountService.instance.loadUserInfo();
