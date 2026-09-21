@@ -5,6 +5,7 @@ import 'site/inke/inke_site.dart';
 import 'site/soop/soop_site.dart';
 import 'site/acfun/acfun_site.dart';
 import 'site/douyu/douyu_site.dart';
+import 'site/dailymotion/dailymotion_site.dart';
 import 'site/chzzk/chzzk_site.dart';
 import 'site/kick/kick_site.dart';
 import 'site/seventeenlive/seventeenlive_site.dart';
@@ -76,6 +77,7 @@ class Sites {
   static const String shopeeLiveSite = 'shopeelive';
   static const String vkVideoLiveSite = 'vkvideolive';
   static const String nimoTvSite = 'nimotv';
+  static const String dailymotionSite = 'dailymotion';
 
   static const Set<String> supportedSiteIds = {
     weiboSite,
@@ -112,6 +114,7 @@ class Sites {
     shopeeLiveSite,
     vkVideoLiveSite,
     nimoTvSite,
+    dailymotionSite,
     iptvSite,
   };
 
@@ -273,6 +276,12 @@ class Sites {
         liveSite: VkVideoLiveSite(),
       ),
       nimoTvSite => Site(id: nimoTvSite, name: i18n('site_nimotv'), logo: logoOf(nimoTvSite), liveSite: NimoTvSite()),
+      dailymotionSite => Site(
+        id: dailymotionSite,
+        name: i18n('site_dailymotion'),
+        logo: logoOf(dailymotionSite),
+        liveSite: DailymotionSite(),
+      ),
       iptvSite => Site(id: iptvSite, name: i18n('site_iptv'), logo: logoOf(iptvSite), liveSite: IptvSite()),
       _ => throw StateError('Unsupported live site: $normalizedId'),
     };
@@ -317,6 +326,7 @@ class Sites {
       shopeeLiveSite,
       vkVideoLiveSite,
       nimoTvSite,
+      dailymotionSite,
       niconicoSite,
       weiboSite,
       iptvSite,
