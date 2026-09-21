@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer' as developer;
+
 import 'package:flutter/services.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
@@ -13,10 +14,10 @@ import 'package:pure_live/modules/live_play/controllers/player_state.dart';
 import 'package:pure_live/player/widgets/video_output_viewport_sizer.dart';
 import 'package:pure_live/modules/live_play/pages/danmaku_settings_page.dart';
 import 'package:pure_live/modules/multiview/widgets/multiview_room_picker.dart';
+import 'package:pure_live/modules/multiview/widgets/multiview_room_search_panel.dart';
 import 'package:pure_live/modules/live_play/widgets/layout/live_play_back_scope.dart';
 import 'package:pure_live/modules/multiview/widgets/multiview_fullscreen_surface.dart';
 import 'package:pure_live/modules/multiview/danmaku/multiview_danmaku_settings_binding.dart';
-
 
 /// 页面显示状态机：normal（完整界面）→ immersive（隐藏工具条与侧板，
 /// 留悬浮恢复钮）→ fullscreen（仅保留安全区内的退出钮）。
@@ -70,6 +71,14 @@ class _MultiviewPageState extends State<MultiviewPage> {
 
   /// 布局监听：缩容时把选台目标钳制回有效范围，避免向已不存在的格子提交。
   Worker? _layoutWorker;
+
+  /// 打开搜索面板的格子下标；null 表示面板未打开。
+  int? _panelCell;
+
+  /// 悬浮面板左上角位置（懒初始化，因为首次打开才拿得到视口尺寸）。
+  Offset? _panelOffset;
+
+  static const Size _panelSize = Size(360, 460);
 
   /// 每格 GlobalKey：一大多小晋升时格子跨父级移动（大格槽 ⇄ 小格列），
   /// 普通 ValueKey 无法跨父级复用元素；GlobalKey 让格子子树整体搬移，
@@ -139,9 +148,13 @@ class _MultiviewPageState extends State<MultiviewPage> {
 
   bool _handleGlobalKeyEvent(KeyEvent event) {
     if (event is! KeyDownEvent || event.logicalKey != LogicalKeyboardKey.escape) return false;
-    if (!mounted || _displayMode == _DisplayMode.normal) return false;
+    if (!mounted) return false;
     if (ModalRoute.of(context)?.isCurrent != true) return false;
-    unawaited(_changeDisplayMode(_DisplayMode.normal));
+    if (_panelCell != null) {
+      _closeRoomPanel();
+      return true;
+    }
+    _handleBackIntent();
     return true;
   }
 
@@ -202,6 +215,11 @@ class _MultiviewPageState extends State<MultiviewPage> {
     if (_targetCell > maxIndex && mounted) {
       setState(() => _targetCell = maxIndex);
     }
+    final panel = _panelCell;
+    if (panel == null) return;
+    if (panel > maxIndex) {
+      if (mounted) setState(() => _panelCell = maxIndex >= 0 ? maxIndex : null);
+    }
   }
 
   /// 分配成功后把目标推进到下一个空位，连续选台无需反复点击格子。
@@ -224,8 +242,7 @@ class _MultiviewPageState extends State<MultiviewPage> {
   }
 
   void _openPickerFor(int cellIndex, {required bool isWide}) {
-    setState(() => _targetCell = cellIndex);
-    // 宽屏侧板常驻，点击空格只切换目标高亮；窄屏弹出底部选台弹窗。
+    setState(() => _targetCell = cellIndex.clamp(0, controller.cells.length - 1));
     if (isWide) return;
     showModalBottomSheet<void>(
       context: context,
@@ -234,6 +251,29 @@ class _MultiviewPageState extends State<MultiviewPage> {
       builder: (sheetContext) => SafeArea(
         child: MultiviewRoomPicker(
           cellIndex: cellIndex,
+          onPicked: (room) {
+            Navigator.of(sheetContext).pop();
+            _pickRoom(room);
+          },
+          onSearch: () {
+            Navigator.of(sheetContext).pop();
+            _openSearchSheet(cellIndex);
+          },
+        ),
+      ),
+    );
+  }
+
+  void _openSearchSheet(int cellIndex) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.86),
+      builder: (sheetContext) => SafeArea(
+        child: MultiviewRoomSearchPanel(
+          cellIndex: cellIndex,
+          embedded: true,
+          onClose: () => Navigator.of(sheetContext).pop(),
           onPicked: (room) {
             Navigator.of(sheetContext).pop();
             _pickRoom(room);
@@ -354,10 +394,15 @@ class _MultiviewPageState extends State<MultiviewPage> {
             builder: (context, constraints) {
               // 侧板选台是桌面形态；手机横屏保持全宽网格 + 底部弹窗选台。
               final isWide = PlatformUtils.isDesktop && constraints.maxWidth > _wideBreakpoint;
-              return Column(
+              return Stack(
                 children: [
-                  _buildToolbar(),
-                  Expanded(child: _buildContentArea(isWide: isWide)),
+                  Column(
+                    children: [
+                      _buildToolbar(),
+                      Expanded(child: _buildContentArea(isWide: isWide)),
+                    ],
+                  ),
+                  _buildRoomPanel(),
                 ],
               );
             },
@@ -533,15 +578,81 @@ class _MultiviewPageState extends State<MultiviewPage> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: Text(
-            i18n('multiview_pick_for_cell', args: {'index': '${_targetCell + 1}'}),
-            style: AppTextStyles.t15Bold,
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  i18n('multiview_pick_for_cell', args: {'index': '${_targetCell + 1}'}),
+                  style: AppTextStyles.t15Bold,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              TextButton.icon(
+                onPressed: () => _openRoomPanel(_targetCell),
+                icon: const Icon(Remix.search_line, size: 16),
+                label: Text(i18n('multiview_search_rooms'), style: AppTextStyles.t12),
+              ),
+            ],
           ),
         ),
         Expanded(
-          child: MultiviewRoomPicker(cellIndex: _targetCell, onPicked: _pickRoom),
+          child: MultiviewRoomPicker(
+            cellIndex: _targetCell,
+            onPicked: _pickRoom,
+            onSearch: () => _openRoomPanel(_targetCell),
+            showHeader: false,
+          ),
         ),
       ],
+    );
+  }
+
+  void _openRoomPanel(int cellIndex) {
+    setState(() {
+      _targetCell = cellIndex.clamp(0, controller.cells.length - 1);
+      _panelCell = _targetCell;
+      _panelOffset ??= Offset(
+        MediaQuery.sizeOf(context).width - _panelSize.width - 24,
+        MediaQuery.paddingOf(context).top + kToolbarHeight + 12,
+      );
+    });
+  }
+
+  void _closeRoomPanel() {
+    if (_panelCell == null) return;
+    setState(() => _panelCell = null);
+  }
+
+  void _movePanel(Offset delta) {
+    final current = _panelOffset;
+    if (current == null) return;
+    final viewport = MediaQuery.sizeOf(context);
+    setState(() {
+      _panelOffset = Offset(
+        (current.dx + delta.dx).clamp(0.0, (viewport.width - _panelSize.width).clamp(0.0, double.infinity)),
+        (current.dy + delta.dy).clamp(0.0, (viewport.height - _panelSize.height).clamp(0.0, double.infinity)),
+      );
+    });
+  }
+
+  Widget _buildRoomPanel() {
+    final cell = _panelCell;
+    final offset = _panelOffset;
+    if (cell == null || offset == null) return const SizedBox.shrink();
+    return Positioned(
+      left: offset.dx,
+      top: offset.dy,
+      child: SizedBox(
+        width: _panelSize.width,
+        height: _panelSize.height,
+        child: MultiviewRoomSearchPanel(
+          cellIndex: cell,
+          onDragUpdate: _movePanel,
+          onClose: _closeRoomPanel,
+          onPicked: _pickRoom,
+        ),
+      ),
     );
   }
 
@@ -650,7 +761,24 @@ class _MultiviewPageState extends State<MultiviewPage> {
                         height: extent,
                         child: Padding(
                           padding: const EdgeInsets.all(3),
-                          child: _AddCellSlot(onTap: () => unawaited(controller.addCell())),
+                          child: _AddCellSlot(
+                            onTap: () async {
+                              final before = controller.cells.length;
+                              try {
+                                await controller.addCell();
+                              } on StateError catch (error, stackTrace) {
+                                developer.log(
+                                  'multiview addCell refused',
+                                  name: 'MultiviewPage',
+                                  error: error,
+                                  stackTrace: stackTrace,
+                                );
+                                return;
+                              }
+                              if (!mounted || controller.cells.length == before) return;
+                              _openRoomPanel(controller.cells.length - 1);
+                            },
+                          ),
                         ),
                       ),
                   ],
