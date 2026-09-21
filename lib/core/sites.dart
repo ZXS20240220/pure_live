@@ -12,6 +12,7 @@ import 'site/fc2live/fc2_site.dart';
 import 'site/steambroadcast/steam_broadcast_site.dart';
 import 'site/jdlive/jd_live_site.dart';
 import 'site/taobaolive/taobao_live_site.dart';
+import 'site/kugoulive/kugou_live_site.dart';
 import 'site/chzzk/chzzk_site.dart';
 import 'site/kick/kick_site.dart';
 import 'site/seventeenlive/seventeenlive_site.dart';
@@ -90,6 +91,7 @@ class Sites {
   static const String steamBroadcastSite = 'steambroadcast';
   static const String jdLiveSite = 'jdlive';
   static const String taobaoLiveSite = 'taobaolive';
+  static const String kugouLiveSite = 'kugoulive';
 
   static const Set<String> supportedSiteIds = {
     weiboSite,
@@ -133,6 +135,7 @@ class Sites {
     steamBroadcastSite,
     jdLiveSite,
     taobaoLiveSite,
+    kugouLiveSite,
     iptvSite,
   };
 
@@ -321,6 +324,12 @@ class Sites {
         logo: logoOf(taobaoLiveSite),
         liveSite: TaobaoLiveSite(),
       ),
+      kugouLiveSite => Site(
+        id: kugouLiveSite,
+        name: i18n('site_kugoulive'),
+        logo: logoOf(kugouLiveSite),
+        liveSite: KugouLiveSite(),
+      ),
       iptvSite => Site(id: iptvSite, name: i18n('site_iptv'), logo: logoOf(iptvSite), liveSite: IptvSite()),
       _ => throw StateError('Unsupported live site: $normalizedId'),
     };
@@ -372,6 +381,7 @@ class Sites {
       steamBroadcastSite,
       jdLiveSite,
       taobaoLiveSite,
+      kugouLiveSite,
       niconicoSite,
       weiboSite,
       iptvSite,
