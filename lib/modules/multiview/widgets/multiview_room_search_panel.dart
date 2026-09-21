@@ -228,7 +228,7 @@ class _MultiviewRoomSearchPanelState extends State<MultiviewRoomSearchPanel> {
   }
 }
 
-class _PlatformDropdown extends StatelessWidget {
+class _PlatformDropdown extends StatefulWidget {
   const _PlatformDropdown({required this.platforms, required this.value, required this.onChanged});
 
   final List<Site> platforms;
@@ -236,43 +236,170 @@ class _PlatformDropdown extends StatelessWidget {
   final ValueChanged<String> onChanged;
 
   @override
+  State<_PlatformDropdown> createState() => _PlatformDropdownState();
+}
+
+class _PlatformDropdownState extends State<_PlatformDropdown> {
+  static const double _kItemHeight = 36;
+  static const double _kPopupMaxHeight = 240;
+
+  bool _open = false;
+  OverlayEntry? _entry;
+
+  void _toggle() => _open ? _close() : _openMenu();
+
+  void _close() {
+    _entry?.remove();
+    _entry = null;
+    if (mounted) setState(() => _open = false);
+  }
+
+  void _openMenu() {
+    if (_entry != null) return;
+    final overlay = Overlay.of(context);
+    final overlayBox = overlay.context.findRenderObject() as RenderBox;
+    final renderBox = context.findRenderObject() as RenderBox;
+    final triggerSize = renderBox.size;
+    final triggerPos = renderBox.localToGlobal(Offset.zero, ancestor: overlayBox);
+
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    final items = <_PlatformItem>[
+      _PlatformItem(id: '', label: i18n('site_all'), icon: null),
+      ...widget.platforms.map((s) => _PlatformItem(id: s.id, label: s.name, icon: s.logo)),
+    ];
+
+    final itemCount = items.length;
+    final popupHeight = (itemCount * _kItemHeight).clamp(_kItemHeight, _kPopupMaxHeight);
+    final popupWidth = triggerSize.width.clamp(120.0, 220.0);
+
+    _entry = OverlayEntry(
+      builder: (overlayContext) {
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(behavior: HitTestBehavior.opaque, onTap: _close),
+            ),
+            Positioned(
+              left: triggerPos.dx,
+              top: triggerPos.dy + triggerSize.height + 4,
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  width: popupWidth,
+                  height: popupHeight,
+                  decoration: BoxDecoration(
+                    color: colors.surface,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.5)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.15),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ListView.builder(
+                    padding: EdgeInsets.zero,
+                    itemCount: itemCount,
+                    itemBuilder: (_, index) {
+                      final item = items[index];
+                      final isSelected = item.id == widget.value;
+                      return InkWell(
+                        onTap: () {
+                          _close();
+                          widget.onChanged(item.id);
+                        },
+                        child: Container(
+                          height: _kItemHeight,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          alignment: Alignment.centerLeft,
+                          child: Row(
+                            children: [
+                              if (item.icon != null) ...[
+                                Image.asset(item.icon!, width: 16, height: 16),
+                                const SizedBox(width: 8),
+                              ],
+                              Expanded(
+                                child: Text(
+                                  item.label,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.fade,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: colors.onSurface,
+                                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                  ),
+                                ),
+                              ),
+                              if (isSelected) Icon(Icons.check_rounded, size: 16, color: colors.primary),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    overlay.insert(_entry!);
+    setState(() => _open = true);
+  }
+
+  @override
+  void dispose() {
+    _close();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final selected = platforms.where((site) => site.id == value).firstOrNull;
-    return PopupMenuButton<String>(
-      tooltip: i18n('prefer_platform'),
-      position: PopupMenuPosition.under,
-      onSelected: onChanged,
-      itemBuilder: (context) => [
-        PopupMenuItem(
-          value: '',
-          child: Text(i18n('site_all'), style: AppTextStyles.t13),
-        ),
-        for (final site in platforms)
-          PopupMenuItem(
-            value: site.id,
-            child: Row(
-              children: [
-                Image.asset(site.logo, width: 16, height: 16),
-                const SizedBox(width: 8),
-                Text(site.name, style: AppTextStyles.t13),
-              ],
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final selected = widget.platforms.where((site) => site.id == widget.value).firstOrNull;
+    final label = selected?.name ?? i18n('site_all');
+
+    return Tooltip(
+      message: i18n('prefer_platform'),
+      child: GestureDetector(
+        onTap: _toggle,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          decoration: BoxDecoration(
+            color: _open
+                ? colors.primaryContainer.withValues(alpha: 0.55)
+                : colors.surfaceContainerHighest.withValues(alpha: 0.45),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: _open ? colors.primary.withValues(alpha: 0.5) : colors.outlineVariant.withValues(alpha: 0.4),
+              width: 0.5,
             ),
           ),
-      ],
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-        decoration: BoxDecoration(
-          border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(selected?.name ?? i18n('site_all'), style: AppTextStyles.t13),
-            const Icon(Icons.arrow_drop_down_rounded, size: 18),
-          ],
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(label, maxLines: 1, overflow: TextOverflow.fade, style: AppTextStyles.t13),
+              ),
+              Icon(_open ? Icons.arrow_drop_up_rounded : Icons.arrow_drop_down_rounded, size: 18),
+            ],
+          ),
         ),
       ),
     );
   }
+}
+
+class _PlatformItem {
+  const _PlatformItem({required this.id, required this.label, required this.icon});
+  final String id;
+  final String label;
+  final String? icon;
 }

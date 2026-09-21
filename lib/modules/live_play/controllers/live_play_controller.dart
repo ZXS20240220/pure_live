@@ -378,8 +378,16 @@ class LivePlayController extends GetxController
     return remaining.isNegative || remaining == Duration.zero ? const Duration(milliseconds: 1) : remaining;
   }
 
+  /// Display order for the SC panel: newest send time first, regardless of
+  /// whether an item came from the HTTP backfill (whose API order differs
+  /// per platform) or a live socket push (which used to land at the bottom).
+  static void _sortSuperChatsByStartTimeDesc(List<LiveSuperChatMessage> list) {
+    list.sort((a, b) => b.startTime.compareTo(a.startTime));
+  }
+
   void addSingleSuperChat(LiveSuperChatMessage item) {
     final next = <LiveSuperChatMessage>{...superChats, item}.toList(growable: false);
+    _sortSuperChatsByStartTimeDesc(next);
     superChats.assignAll(next);
     _scheduleSuperChatExpiry();
   }
@@ -387,6 +395,7 @@ class LivePlayController extends GetxController
   void addBatchSuperChat(List<LiveSuperChatMessage> sc) {
     if (sc.isEmpty) return;
     final next = <LiveSuperChatMessage>{...superChats, ...sc}.toList(growable: false);
+    _sortSuperChatsByStartTimeDesc(next);
     superChats.assignAll(next);
     _scheduleSuperChatExpiry();
   }
