@@ -2,6 +2,7 @@ import 'package:pure_live/core/interface/live_quality_discovery.dart';
 import 'package:pure_live/core/interface/live_input_recipe.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/core/interface/live_site.dart';
+import 'package:pure_live/core/utils/smart_quality_selector.dart';
 import 'package:pure_live/model/live_play_quality.dart';
 import 'package:pure_live/player/utils/player_consts.dart';
 import 'package:pure_live/core/common/hls_source_query_policy.dart';
@@ -312,6 +313,11 @@ class StreamResolverService extends GetxService {
     }
     final qualities = ordered.map((entry) => entry.$2).toList(growable: false);
     if (qualities.length < 2) return qualities;
+
+    if (preferredQuality == PlayerConsts.smartResolution) {
+      final smartIndex = SmartQualitySelector.selectSync(qualities: qualities);
+      if (smartIndex >= 0) return _moveToFront(qualities, smartIndex);
+    }
 
     final normalizedPreference = _normalizeQualityLabel(preferredQuality);
     final exactIndex = qualities.indexWhere(

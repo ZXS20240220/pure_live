@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:pure_live/core/interface/live_quality_discovery.dart';
+import 'package:pure_live/core/utils/smart_quality_selector.dart';
 import 'package:pure_live/player/core/live_input_playback_binding.dart';
 import 'package:pure_live/player/core/playback_source.dart';
 import 'package:pure_live/common/utils/play_quality_label.dart';
@@ -608,6 +609,14 @@ class PlayerController extends GetxController {
       userPrefer = SettingsService.to.player.resolvedPreferResolutionCellular;
     } else {
       userPrefer = SettingsService.to.player.resolvedPreferResolution;
+    }
+
+    if (userPrefer == PlayerConsts.smartResolution) {
+      final smartIndex = await SmartQualitySelector.select(qualities: playQualites);
+      if (smartIndex >= 0) {
+        _main.updatePlayer(currentQuality: smartIndex, hasUseDefaultResolution: true);
+        return;
+      }
     }
 
     final availableQualities = playQualites.map((e) => e.quality).toList();

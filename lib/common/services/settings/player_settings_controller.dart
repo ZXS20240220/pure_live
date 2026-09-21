@@ -26,8 +26,8 @@ class PlayerSettingsController extends GetxController {
   final RxInt videoFitIndex = hiveInt('videoFitIndex', 0);
   final RxString videoPlayerKey = hiveString('videoPlayerKey', _defaultVideoPlayerKey);
 
-  final RxString preferResolution = hiveString('preferResolution', PlayerConsts.resolutions.first);
-  final RxString preferResolutionCellular = hiveString('preferResolutionCellular', PlayerConsts.resolutions.first);
+  final RxString preferResolution = hiveString('preferResolution', '原画');
+  final RxString preferResolutionCellular = hiveString('preferResolutionCellular', '原画');
 
   final RxBool enableCodec = hiveBool('enableCodec', true);
   final RxBool playerCompatMode = hiveBool('playerCompatMode', false);
@@ -121,7 +121,8 @@ class PlayerSettingsController extends GetxController {
 
   static String normalizePreferredResolution(String value) {
     final normalized = value.trim();
-    return PlayerConsts.resolutions.contains(normalized) ? normalized : PlayerConsts.resolutions.first;
+    if (PlayerConsts.resolutions.contains(normalized)) return normalized;
+    return '原画';
   }
 
   void _repairPlaybackPreferences() {
@@ -227,8 +228,8 @@ class PlayerSettingsController extends GetxController {
     audioOutputDriver.v = 'auto';
     videoHardwareDecoder.v = 'auto';
     enableRtxVsr.v = false;
-    preferResolution.v = PlayerConsts.resolutions.first;
-    preferResolutionCellular.v = PlayerConsts.resolutions.first;
+    preferResolution.v = '原画';
+    preferResolutionCellular.v = '原画';
     useHardStopOnExit.v = false;
   }
 
@@ -269,12 +270,8 @@ class PlayerSettingsController extends GetxController {
         typed<String>(json['videoPlayerKey'] ?? _defaultVideoPlayerKey),
         defaultTargetPlatform,
       ),
-      'preferResolution': normalizePreferredResolution(
-        typed<String>(json['preferResolution'] ?? PlayerConsts.resolutions.first),
-      ),
-      'preferResolutionCellular': normalizePreferredResolution(
-        typed<String>(json['preferResolutionCellular'] ?? PlayerConsts.resolutions.first),
-      ),
+      'preferResolution': normalizePreferredResolution(typed<String>(json['preferResolution'] ?? '原画')),
+      'preferResolutionCellular': normalizePreferredResolution(typed<String>(json['preferResolutionCellular'] ?? '原画')),
       'enableCodec': typed<bool>(json['enableCodec'] ?? true),
       'playerCompatMode': defaultTargetPlatform == TargetPlatform.android
           ? typed<bool>(json['playerCompatMode'] ?? false)
@@ -351,12 +348,8 @@ class PlayerSettingsController extends GetxController {
         (player['videoPlayerKey'] ?? _defaultVideoPlayerKey) as String,
         defaultTargetPlatform,
       ),
-      'preferResolution': normalizePreferredResolution(
-        (player['preferResolution'] ?? PlayerConsts.resolutions.first) as String,
-      ),
-      'preferResolutionCellular': normalizePreferredResolution(
-        (player['preferResolutionCellular'] ?? PlayerConsts.resolutions.first) as String,
-      ),
+      'preferResolution': normalizePreferredResolution((player['preferResolution'] ?? '原画') as String),
+      'preferResolutionCellular': normalizePreferredResolution((player['preferResolutionCellular'] ?? '原画') as String),
       'enableCodec': player['enableCodec'] ?? true,
       'playerCompatMode': defaultTargetPlatform == TargetPlatform.android ? player['playerCompatMode'] ?? false : false,
       'customPlayerOutput': player['customPlayerOutput'] ?? false,

@@ -10,8 +10,10 @@ class PlayerConsts {
 
   static const Map<String, String> names = {'mpv': 'player_mpv'};
 
-  static const List<String> resolutions = ['原画', '蓝光8M', '蓝光4M', '超清', '流畅'];
+  static const String smartResolution = '__smart__';
+  static const List<String> resolutions = [smartResolution, '原画', '蓝光8M', '蓝光4M', '超清', '流畅'];
   static const Map<String, String> resolutionLabelKeys = {
+    smartResolution: 'prefer_resolution_option_smart',
     '原画': 'prefer_resolution_option_original',
     '蓝光8M': 'prefer_resolution_option_blu_ray_8m',
     '蓝光4M': 'prefer_resolution_option_blu_ray_4m',
