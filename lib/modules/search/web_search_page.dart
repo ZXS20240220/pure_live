@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:pure_live/common/index.dart';
+import 'package:pure_live/core/utils/web_view2_environment.dart';
 import 'package:pure_live/modules/search/web_search_controller.dart';
 
 class WebSearchPage extends StatefulWidget {
@@ -62,6 +63,7 @@ class _WebSearchPageState extends State<WebSearchPage> {
           child: Obx(
             () => controller.showWebView.value
                 ? InAppWebView(
+                    webViewEnvironment: AppWebView2Environment.optional,
                     onWebViewCreated: controller.onWebViewCreated,
                     onLoadStart: controller.onLoadStart,
                     onLoadStop: controller.onLoadStop,

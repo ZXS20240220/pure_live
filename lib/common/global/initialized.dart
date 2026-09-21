@@ -10,6 +10,7 @@ import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:pure_live/plugins/cache_manager.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:pure_live/core/common/proxy_routing.dart';
+import 'package:pure_live/core/utils/web_view2_environment.dart';
 import 'package:pure_live/common/utils/hive_pref_util.dart';
 import 'package:pure_live/core/common/web_socket_util.dart';
 import 'package:pure_live/common/global/platform_utils.dart';
@@ -60,6 +61,10 @@ class AppInitializer {
     await _initWindowsSingleInstance(args, instanceId);
 
     await AppPathManager().initialize(instanceId: instanceId);
+    // Windows 共享 WebView2 环境需在数据目录就绪后、任何网页入口打开前创建，
+    // 避免每个页面各自新建 Environment 与浏览器进程退出过程竞争导致
+    // “Cannot create the InAppWebView instance!”（详见 AppWebView2Environment）。
+    await AppWebView2Environment.ensureInitialized();
     await Future.wait([
       EasyLocalization.ensureInitialized(),
       (() async {

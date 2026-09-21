@@ -4,6 +4,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/services/settings/bilibili_account_service.dart';
 import 'package:pure_live/common/services/settings/cookie_value.dart';
+import 'package:pure_live/core/utils/web_view2_environment.dart';
 
 const String bilibiliWebLoginUrl = 'https://passport.bilibili.com/login';
 
@@ -19,12 +20,12 @@ class BiliBiliWebLoginController extends GetxController {
     BilibiliWebLoginCompletion? completeLogin,
     BilibiliQrLoginNavigator? openQrLogin,
     this.transitionDelay = const Duration(milliseconds: 300),
-  }) : _cookieLoader = cookieLoader ?? _loadBrowserCookie,
+  }) : _injectedCookieLoader = cookieLoader,
        _cookieVerifier = cookieVerifier ?? _verifyCookie,
        _completeLogin = completeLogin ?? _finishLogin,
        _openQrLogin = openQrLogin ?? _navigateToQrLogin;
 
-  final BilibiliWebCookieLoader _cookieLoader;
+  final BilibiliWebCookieLoader? _injectedCookieLoader;
   final BilibiliWebCookieVerifier _cookieVerifier;
   final BilibiliWebLoginCompletion _completeLogin;
   final BilibiliQrLoginNavigator _openQrLogin;
@@ -85,7 +86,7 @@ class BiliBiliWebLoginController extends GetxController {
   Future<void> _loadAndVerifyCookie(WebUri uri, int revision) async {
     String cookie;
     try {
-      cookie = normalizeAccountCookie(await _cookieLoader(uri));
+      cookie = normalizeAccountCookie(await _loadCookie(uri));
     } catch (_) {
       if (_isLoginCurrent(revision)) _showLoginError('bilibili_web_cookie_failed');
       return;
@@ -172,8 +173,18 @@ class BiliBiliWebLoginController extends GetxController {
     super.onClose();
   }
 
-  static Future<String> _loadBrowserCookie(WebUri uri) async {
-    final cookies = await CookieManager.instance().getCookies(url: uri);
+  /// 测试注入的 loader 优先；默认实现绑定当前页面控制器，
+  /// 避免 Windows 上 CookieManager 未绑定控制器时走临时 WebView 路径
+  /// （该路径在插件内有延迟 1 秒销毁的临时 WebView2 与已知崩溃风险）。
+  Future<String> _loadCookie(WebUri uri) {
+    final loader = _injectedCookieLoader;
+    if (loader != null) return loader(uri);
+    return _loadBrowserCookie(uri, webViewController);
+  }
+
+  static Future<String> _loadBrowserCookie(WebUri uri, InAppWebViewController? controller) async {
+    final cookies = await CookieManager.instance(webViewEnvironment: AppWebView2Environment.optional)
+        .getCookies(url: uri, webViewController: controller);
     return cookies
         .map((cookie) => normalizeAccountCookie('${cookie.name}=${cookie.value}'))
         .where((cookie) => cookie.isNotEmpty)

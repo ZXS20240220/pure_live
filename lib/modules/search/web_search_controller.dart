@@ -7,6 +7,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/services/settings/log_controller.dart';
 import 'package:pure_live/core/common/log.dart';
+import 'package:pure_live/core/utils/web_view2_environment.dart';
 import 'package:pure_live/modules/search/web_search_room_parser.dart';
 import 'package:pure_live/plugins/utils.dart';
 import 'package:pure_live/routes/app_navigation.dart';
@@ -550,7 +551,11 @@ class WebSearchController extends GetxController {
   }
 
   static Future<void> _defaultFlushCookies() {
-    return CookieManager.instance().flush();
+    // Windows 原生未实现 flush（调用只会抛 MissingPluginException 且被忽略），
+    // 但插件在分发方法前会先创建默认 WebViewEnvironment；直接跳过，
+    // 避免每次加载都额外拉起默认用户数据目录的浏览器进程。
+    if (!kIsWeb && Platform.isWindows) return Future.value();
+    return CookieManager.instance(webViewEnvironment: AppWebView2Environment.optional).flush();
   }
 
   static void _defaultNotice(String localizationKey) {

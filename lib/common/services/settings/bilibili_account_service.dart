@@ -5,6 +5,7 @@ import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/models/bilibili_user_info_page.dart';
 import 'package:pure_live/common/services/settings/cookie_value.dart';
 import 'package:pure_live/core/common/http_client.dart';
+import 'package:pure_live/core/utils/web_view2_environment.dart';
 
 typedef BilibiliAccountLoader = Future<Map<String, dynamic>?> Function(String cookie);
 typedef BrowserCookieClearer = Future<void> Function();
@@ -197,7 +198,11 @@ class BiliBiliAccountService extends GetxController {
     return Map<String, dynamic>.from(result);
   }
 
-  static Future<void> _clearBrowserCookies() => CookieManager.instance().deleteAllCookies();
+  /// deleteAllCookies 在 Windows 原生始终经临时 WebView 执行；
+  /// 绑定共享 WebViewEnvironment 让临时 WebView 落在常驻热进程内，
+  /// 且避免按需创建默认 Environment 拉起第二个浏览器进程。
+  static Future<void> _clearBrowserCookies() =>
+      CookieManager.instance(webViewEnvironment: AppWebView2Environment.optional).deleteAllCookies();
 
   static void _showNotice(String localizationKey) {
     ToastUtil.show(i18n(localizationKey));
