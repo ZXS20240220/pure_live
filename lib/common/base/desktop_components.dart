@@ -6,8 +6,15 @@ class DesktopPaginationBar extends StatefulWidget {
   final BasePageScrollAndStateBone controller;
   final bool showSelector;
   final List<int> options;
+  final Widget? leftWidget;
 
-  const DesktopPaginationBar({super.key, required this.controller, required this.showSelector, required this.options});
+  const DesktopPaginationBar({
+    super.key,
+    required this.controller,
+    required this.showSelector,
+    required this.options,
+    this.leftWidget,
+  });
 
   @override
   State<DesktopPaginationBar> createState() => _DesktopPaginationBarState();
@@ -119,62 +126,68 @@ class _DesktopPaginationBarState extends State<DesktopPaginationBar> {
             child: ConstrainedBox(
               constraints: BoxConstraints(minWidth: constraints.maxWidth),
               child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 24),
+                padding: const EdgeInsets.symmetric(vertical: 4),
                 decoration: BoxDecoration(
                   color: Theme.of(context).cardColor,
                   border: Border(top: BorderSide(color: Theme.of(context).dividerColor.withValues(alpha: 0.15))),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                child: Stack(
+                  alignment: Alignment.center,
                   children: [
-                    OutlinedButton.icon(
-                      onPressed: controller.loadding.value ? null : () => controller.refreshData(),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                      ),
-                      icon: const Icon(Icons.refresh_rounded, size: 16),
-                      label: Text(i18n("refresh")),
-                    ),
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        TextButton.icon(
-                          onPressed: (hasPrev && !controller.loadding.value)
-                              ? () => controller.goToPage(current - 1)
-                              : null,
-                          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 12),
-                          label: Text(i18n("prev_page")),
-                        ),
-                        const SizedBox(width: 8),
-                        ...pageNodes,
-                        const SizedBox(width: 8),
-                        TextButton(
-                          onPressed: (hasNext && !controller.loadding.value)
-                              ? () => controller.goToPage(current + 1)
-                              : null,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(i18n("next_page")),
-                              const SizedBox(width: 4),
-                              if (controller.loadding.value)
-                                const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2))
-                              else
-                                const Icon(Icons.arrow_forward_ios_rounded, size: 12),
-                            ],
+                        OutlinedButton.icon(
+                          onPressed: controller.loadding.value ? null : () => controller.refreshData(),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                           ),
+                          icon: const Icon(Icons.refresh_rounded, size: 16),
+                          label: Text(i18n("refresh")),
                         ),
-                      ],
-                    ),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
+                        const SizedBox(width: 8),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TextButton.icon(
+                              onPressed: (hasPrev && !controller.loadding.value)
+                                  ? () => controller.goToPage(current - 1)
+                                  : null,
+                              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 12),
+                              label: Text(i18n("prev_page")),
+                            ),
+                            const SizedBox(width: 8),
+                            ...pageNodes,
+                            const SizedBox(width: 8),
+                            TextButton(
+                              onPressed: (hasNext && !controller.loadding.value)
+                                  ? () => controller.goToPage(current + 1)
+                                  : null,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(i18n("next_page")),
+                                  const SizedBox(width: 4),
+                                  if (controller.loadding.value)
+                                    const SizedBox(
+                                      width: 12,
+                                      height: 12,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  else
+                                    const Icon(Icons.arrow_forward_ios_rounded, size: 12),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(width: 16),
                         if (showSelector) ...[
                           Text('${i18n("per_page")}: ', style: AppTextStyles.t13Muted),
                           const SizedBox(width: 6),
                           CompactPageSizeSelector(controller: controller, options: options),
-                          const SizedBox(width: 24),
+                          const SizedBox(width: 16),
                         ],
                         Text(i18n("go_to"), style: AppTextStyles.t13Muted),
                         Padding(
@@ -182,7 +195,6 @@ class _DesktopPaginationBarState extends State<DesktopPaginationBar> {
                           child: SizedBox(
                             height: 32,
                             width: 50,
-                            // The field grows with the configured text metrics.
                             child: TextField(
                               controller: _inputController,
                               keyboardType: TextInputType.number,
@@ -200,6 +212,8 @@ class _DesktopPaginationBarState extends State<DesktopPaginationBar> {
                         Text(i18n("page_unit"), style: AppTextStyles.t13Muted),
                       ],
                     ),
+                    if (widget.leftWidget != null)
+                      Positioned(left: 8, child: SizedBox(height: 32, child: widget.leftWidget!)),
                   ],
                 ),
               ),

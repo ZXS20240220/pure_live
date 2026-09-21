@@ -50,144 +50,154 @@ class LivePlayHeader extends StatelessWidget implements PreferredSizeWidget {
   Widget _buildTitle(BuildContext context) {
     return Row(
       children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Obx(() {
-              final avatar = controller.state.value.room.detail?.avatar;
-              return CircleAvatar(
-                radius: 16,
-                foregroundImage: avatar != null && avatar.isNotEmpty ? CachedNetworkImageProvider(avatar) : null,
-                backgroundColor: Theme.of(context).disabledColor,
-              );
-            }),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Obx(() {
-                final detail = controller.state.value.room.detail;
-                if (detail == null) {
-                  return const SizedBox.shrink();
-                }
-                final platform = detail.platform ?? '';
-                final area = detail.area;
-                final anchorLevel = detail.anchorLevel?.trim() ?? '';
-                final unionName = detail.unionName?.trim() ?? '';
-                final hasLevel = anchorLevel.isNotEmpty;
-                final hasUnion = unionName.isNotEmpty;
+        MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () {
+              final detail = controller.state.value.room.detail;
+              if (detail != null) RoomCard.showRoomInfoDialog(context, detail);
+            },
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Obx(() {
+                  final avatar = controller.state.value.room.detail?.avatar;
+                  return CircleAvatar(
+                    radius: 16,
+                    foregroundImage: avatar != null && avatar.isNotEmpty ? CachedNetworkImageProvider(avatar) : null,
+                    backgroundColor: Theme.of(context).disabledColor,
+                  );
+                }),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Obx(() {
+                    final detail = controller.state.value.room.detail;
+                    if (detail == null) {
+                      return const SizedBox.shrink();
+                    }
+                    final platform = detail.platform ?? '';
+                    final area = detail.area;
+                    final anchorLevel = detail.anchorLevel?.trim() ?? '';
+                    final unionName = detail.unionName?.trim() ?? '';
+                    final hasLevel = anchorLevel.isNotEmpty;
+                    final hasUnion = unionName.isNotEmpty;
 
-                final introduction = detail.introduction?.trim() ?? '';
-                final hasIntroduction = introduction.isNotEmpty;
+                    final introduction = detail.introduction?.trim() ?? '';
+                    final hasIntroduction = introduction.isNotEmpty;
 
-                // IP属地 — only douyin fills LiveRoom.location today.
-                final anchorLocation = detail.location?.trim() ?? '';
+                    // IP属地 — only douyin fills LiveRoom.location today.
+                    final anchorLocation = detail.location?.trim() ?? '';
 
-                final textColumn = Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
+                    final textColumn = Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Flexible(
-                          child: Text(
-                            detail.nick ?? '',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.labelSmall,
-                          ),
-                        ),
-                        if (anchorLocation.isNotEmpty) ...[
-                          const SizedBox(width: 4),
-                          Flexible(
-                            child: Tooltip(
-                              message: 'IP属地',
-                              verticalOffset: 8,
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
                               child: Text(
-                                anchorLocation,
+                                detail.nick ?? '',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.labelSmall
-                                    ?.copyWith(color: Theme.of(context).colorScheme.outline),
+                                style: Theme.of(context).textTheme.labelSmall,
                               ),
                             ),
-                          ),
-                        ],
+                            if (anchorLocation.isNotEmpty) ...[
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Tooltip(
+                                  message: 'IP属地',
+                                  verticalOffset: 8,
+                                  child: Text(
+                                    anchorLocation,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context).textTheme.labelSmall
+                                        ?.copyWith(color: Theme.of(context).colorScheme.outline),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        Text(
+                          area == null || area.isEmpty ? i18n('site_$platform') : '${i18n("site_$platform")} / $area',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelSmall,
+                        ),
                       ],
-                    ),
-                    Text(
-                      area == null || area.isEmpty ? i18n('site_$platform') : '${i18n("site_$platform")} / $area',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelSmall,
-                    ),
-                  ],
-                );
+                    );
 
-                final infoColumn = Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    if (hasLevel || hasUnion)
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (hasLevel)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                              decoration: BoxDecoration(
-                                color: Colors.orange.shade800.withValues(alpha: 0.85),
-                                borderRadius: BorderRadius.circular(3),
-                              ),
-                              child: Text(
-                                'Lv.$anchorLevel',
-                                style: Theme.of(context).textTheme.labelSmall
-                                    ?.copyWith(color: Colors.white, fontSize: 10, height: 1.1),
-                              ),
-                            ),
-                          if (hasLevel && hasUnion) const SizedBox(height: 2),
-                          if (hasUnion)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                              decoration: BoxDecoration(
-                                color: Colors.blueGrey.shade700.withValues(alpha: 0.8),
-                                borderRadius: BorderRadius.circular(3),
-                              ),
-                              child: Text(
-                                unionName,
-                                style: Theme.of(context).textTheme.labelSmall
-                                    ?.copyWith(color: Colors.white70, fontSize: 10, height: 1.1),
-                              ),
-                            ),
-                        ],
-                      ),
-                    if (hasLevel || hasUnion) const SizedBox(width: 4),
-                    Flexible(
-                      child: hasIntroduction
-                          ? Tooltip(message: introduction, verticalOffset: 8, child: textColumn)
-                          : textColumn,
-                    ),
-                  ],
-                );
+                    final infoColumn = Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        if (hasLevel || hasUnion)
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (hasLevel)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.shade800.withValues(alpha: 0.85),
+                                    borderRadius: BorderRadius.circular(3),
+                                  ),
+                                  child: Text(
+                                    'Lv.$anchorLevel',
+                                    style: Theme.of(context).textTheme.labelSmall
+                                        ?.copyWith(color: Colors.white, fontSize: 10, height: 1.1),
+                                  ),
+                                ),
+                              if (hasLevel && hasUnion) const SizedBox(height: 2),
+                              if (hasUnion)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blueGrey.shade700.withValues(alpha: 0.8),
+                                    borderRadius: BorderRadius.circular(3),
+                                  ),
+                                  child: Text(
+                                    unionName,
+                                    style: Theme.of(context).textTheme.labelSmall
+                                        ?.copyWith(color: Colors.white70, fontSize: 10, height: 1.1),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        if (hasLevel || hasUnion) const SizedBox(width: 4),
+                        Flexible(
+                          child: hasIntroduction
+                              ? Tooltip(message: introduction, verticalOffset: 8, child: textColumn)
+                              : textColumn,
+                        ),
+                      ],
+                    );
 
-                return infoColumn;
-              }),
+                    return infoColumn;
+                  }),
+                ),
+                Obx(() {
+                  final detail = controller.state.value.room.detail;
+                  if (detail == null) return const SizedBox.shrink();
+                  if (!detail.isLiveNow) return const SizedBox.shrink();
+                  var startTime = detail.startTime;
+                  // 观看时长在已播时长上方堆叠；各自内部控制可见性。
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      _WatchTimeIndicator(identityKey: detail.identityKey),
+                      if (startTime != null && startTime > 0) _LiveDurationIndicator(startTime: startTime),
+                    ],
+                  );
+                }),
+              ],
             ),
-            Obx(() {
-              final detail = controller.state.value.room.detail;
-              if (detail == null) return const SizedBox.shrink();
-              if (!detail.isLiveNow) return const SizedBox.shrink();
-              var startTime = detail.startTime;
-              // 观看时长在已播时长上方堆叠；各自内部控制可见性。
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  _WatchTimeIndicator(identityKey: detail.identityKey),
-                  if (startTime != null && startTime > 0) _LiveDurationIndicator(startTime: startTime),
-                ],
-              );
-            }),
-          ],
+          ),
         ),
         const Spacer(),
       ],

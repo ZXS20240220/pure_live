@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/modules/tags/live_tag.dart';
@@ -277,6 +278,22 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
     super.dispose();
   }
 
+  Widget _buildLastRefreshTime(BuildContext context) {
+    return Obx(() {
+      final dt = widget.controller.lastFullRefreshAt.value;
+      if (dt == null) return const SizedBox.shrink();
+      final timeStr = DateFormat('HH:mm:ss').format(dt);
+      final text = i18n('refresh_last_updated_at').replaceAll('%T', timeStr);
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 0),
+          child: Text(text, style: AppTextStyles.t13Muted, overflow: TextOverflow.ellipsis),
+        ),
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
@@ -463,6 +480,7 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
             showScrollToTopBtn: SettingsService.to.page.showScrollToTopBtn.v,
             showPageSizeSelector: SettingsService.to.page.showPageSizeSelector.v,
             pageSizeOptions: SettingsService.to.page.pageSizeOptions,
+            leftPaginationWidget: _buildLastRefreshTime(context),
             contentBuilder: (context, list, _) {
               final activeSiteIndex = controller.tabSiteIndex.value;
               return TabBarView(

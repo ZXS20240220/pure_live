@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:remixicon/remixicon.dart';
+import 'package:pure_live/modules/live_play/services/room_external_opener.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/plugins/cache_manager.dart';
 import 'package:pure_live/routes/app_navigation.dart';
@@ -113,7 +115,7 @@ class RoomCard extends StatelessWidget {
     AppNavigator.toLiveRoomDetail(liveRoom: room);
   }
 
-  void showFollowDialog(
+  static void showFollowDialog(
     BuildContext context,
     ThemeData theme, {
     required String anchorName,
@@ -165,7 +167,9 @@ class RoomCard extends StatelessWidget {
     );
   }
 
-  void onLongPress(BuildContext context) {
+  void onLongPress(BuildContext context) => showRoomInfoDialog(context, room);
+
+  static void showRoomInfoDialog(BuildContext context, LiveRoom room) {
     final TagManagementController tagController = Get.find<TagManagementController>();
     final theme = Theme.of(context);
     final bool isFollowed = SettingsService.to.fav.isFavorite(room);
@@ -264,13 +268,35 @@ class RoomCard extends StatelessWidget {
               const SizedBox(height: 14),
               Padding(
                 padding: const EdgeInsets.only(left: 4),
-                child: Text(
-                  i18n('room_id_label', args: {"id": ?room.roomId}),
-                  style: AppTextStyles.t11.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                  ),
+                child: Row(
+                  children: [
+                    Text(
+                      i18n('room_id_label', args: {"id": ?room.roomId}),
+                      style: AppTextStyles.t11.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      tooltip: i18n('copy_link'),
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      padding: EdgeInsets.zero,
+                      iconSize: 16,
+                      icon: Icon(
+                        Icons.content_copy_rounded,
+                        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                      ),
+                      onPressed: () async {
+                        final target = RoomExternalOpener.resolve(room.platform ?? '', room);
+                        final url = target?.web ?? room.link?.trim() ?? room.roomId?.trim() ?? '';
+                        if (url.isEmpty) return;
+                        await Clipboard.setData(ClipboardData(text: url));
+                        ToastUtil.show(i18n('copied_to_clipboard'));
+                      },
+                    ),
+                  ],
                 ),
               ),
             ],

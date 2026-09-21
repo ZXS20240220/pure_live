@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/modules/live_play/widgets/layout/super_chat_card.dart';
 import 'package:pure_live/modules/live_play/controllers/live_play_controller.dart';
@@ -10,10 +11,7 @@ class SuperChatPage extends StatefulWidget {
 }
 
 class _SuperChatPageState extends State<SuperChatPage> {
-  final _refreshController = EasyRefreshController(
-    controlFinishRefresh: true,
-    controlFinishLoad: true,
-  );
+  final _refreshController = EasyRefreshController(controlFinishRefresh: true, controlFinishLoad: true);
 
   Future<void> _onRefresh() async {
     final controller = Get.find<LivePlayController>();
@@ -61,18 +59,12 @@ class _SuperChatPageState extends State<SuperChatPage> {
                       if (hasHighlight && index == 0) {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 8),
-                          child: _AiHighlightCompact(
-                            aiHighlights: aiHighlights,
-                            noticeText: notice,
-                          ),
+                          child: _AiHighlightCompact(aiHighlights: aiHighlights, noticeText: notice),
                         );
                       }
                       final messageIndex = hasHighlight ? index - 1 : index;
                       final message = list[messageIndex];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: SuperChatCard(message),
-                      );
+                      return Padding(padding: const EdgeInsets.only(bottom: 8), child: SuperChatCard(message));
                     },
                   ),
                 )
@@ -94,11 +86,7 @@ class _SuperChatPageState extends State<SuperChatPage> {
 }
 
 class _AiHighlightOverlay extends StatefulWidget {
-  const _AiHighlightOverlay({
-    required this.child,
-    required this.aiHighlights,
-    required this.noticeText,
-  });
+  const _AiHighlightOverlay({required this.child, required this.aiHighlights, required this.noticeText});
 
   final Widget child;
   final List<Map<String, dynamic>>? aiHighlights;
@@ -117,9 +105,7 @@ class _AiHighlightOverlayState extends State<_AiHighlightOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    final hasData =
-        (widget.aiHighlights != null && widget.aiHighlights!.isNotEmpty) ||
-        widget.noticeText.isNotEmpty;
+    final hasData = (widget.aiHighlights != null && widget.aiHighlights!.isNotEmpty) || widget.noticeText.isNotEmpty;
 
     return Stack(
       children: [
@@ -153,39 +139,41 @@ class _AiHighlightCompact extends StatelessWidget {
     // Non-douyu platforms have no AI highlights: the shared slot only carries
     // the room introduction. Render it as a static, always-expanded card.
     if (aiHighlights == null) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: colorScheme.primaryContainer.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: colorScheme.primary.withValues(alpha: 0.3)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.info_outline, size: 15, color: colorScheme.onPrimaryContainer),
-                const SizedBox(width: 5),
-                Text(
-                  '公告',
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: colorScheme.onPrimaryContainer,
-                    fontWeight: FontWeight.w600,
+      return GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onSecondaryTap: () => _copyHighlight(null, noticeText),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: colorScheme.primaryContainer.withValues(alpha: 0.6),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: colorScheme.primary.withValues(alpha: 0.3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.info_outline, size: 15, color: colorScheme.onPrimaryContainer),
+                  const SizedBox(width: 5),
+                  Text(
+                    '公告',
+                    style: Theme.of(context).textTheme.labelMedium
+                        ?.copyWith(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.w600),
                   ),
+                ],
+              ),
+              if (noticeText.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  noticeText,
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(color: colorScheme.onPrimaryContainer, height: 1.5),
                 ),
               ],
-            ),
-            if (noticeText.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Text(
-                noticeText,
-                style: Theme.of(context).textTheme.bodySmall
-                    ?.copyWith(color: colorScheme.onPrimaryContainer, height: 1.5),
-              ),
             ],
-          ],
+          ),
         ),
       );
     }
@@ -195,99 +183,82 @@ class _AiHighlightCompact extends StatelessWidget {
         final overlayState = context.findAncestorStateOfType<_AiHighlightOverlayState>();
         return Material(
           color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: overlayState?._toggle,
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: colorScheme.primaryContainer.withValues(alpha: 0.6),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: colorScheme.primary.withValues(alpha: 0.3)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.visibility_outlined,
-                        size: 15,
-                        color: colorScheme.onPrimaryContainer,
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        'AI 看点',
-                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: colorScheme.onPrimaryContainer,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      if (first != null) ...[
-                        const SizedBox(width: 10),
-                        Icon(
-                          Icons.local_fire_department_rounded,
-                          size: 14,
-                          color: Colors.orange.shade700,
-                        ),
-                        const SizedBox(width: 2),
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onSecondaryTap: () => _copyHighlight(first, noticeText),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: overlayState?._toggle,
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: colorScheme.primary.withValues(alpha: 0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.visibility_outlined, size: 15, color: colorScheme.onPrimaryContainer),
+                        const SizedBox(width: 5),
                         Text(
-                          _formatHeat(first['heat']),
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: colorScheme.onPrimaryContainer,
-                            fontWeight: FontWeight.w500,
-                          ),
+                          'AI 看点',
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.w600),
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _formatTimeRange(first),
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: colorScheme.onPrimaryContainer.withValues(alpha: 0.75),
+                        if (first != null) ...[
+                          const SizedBox(width: 10),
+                          Icon(Icons.local_fire_department_rounded, size: 14, color: Colors.orange.shade700),
+                          const SizedBox(width: 2),
+                          Text(
+                            _formatHeat(first['heat']),
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.w500),
                           ),
-                        ),
-                      ],
-                      if (aiHighlights != null && aiHighlights!.length > 1) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: colorScheme.primary.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(8),
+                          const SizedBox(width: 8),
+                          Text(
+                            _formatTimeRange(first),
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(color: colorScheme.onPrimaryContainer.withValues(alpha: 0.75)),
                           ),
-                          child: Text(
-                            '${aiHighlights!.length}条',
-                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: colorScheme.onPrimaryContainer,
-                              fontWeight: FontWeight.w600,
+                        ],
+                        if (aiHighlights != null && aiHighlights!.length > 1) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: colorScheme.primary.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '${aiHighlights!.length}条',
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.w600),
                             ),
                           ),
-                        ),
+                        ],
+                        const Spacer(),
+                        Icon(Icons.keyboard_arrow_down, size: 18, color: colorScheme.onPrimaryContainer),
                       ],
-                      const Spacer(),
-                      Icon(
-                        Icons.keyboard_arrow_down,
-                        size: 18,
-                        color: colorScheme.onPrimaryContainer,
+                    ),
+                    const SizedBox(height: 6),
+                    _FadeTitle(
+                      text: title,
+                      style: Theme.of(context).textTheme.titleSmall
+                          ?.copyWith(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.w700),
+                    ),
+                    if (body.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        body,
+                        style: Theme.of(context).textTheme.bodySmall
+                            ?.copyWith(color: colorScheme.onPrimaryContainer, height: 1.5),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 6),
-                  _FadeTitle(
-                    text: title,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: colorScheme.onPrimaryContainer,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  if (body.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      body,
-                      style: Theme.of(context).textTheme.bodySmall
-                          ?.copyWith(color: colorScheme.onPrimaryContainer, height: 1.5),
-                    ),
                   ],
-                ],
+                ),
               ),
             ),
           ),
@@ -298,11 +269,7 @@ class _AiHighlightCompact extends StatelessWidget {
 }
 
 class _AiHighlightExpanded extends StatelessWidget {
-  const _AiHighlightExpanded({
-    required this.aiHighlights,
-    required this.noticeText,
-    required this.onCollapse,
-  });
+  const _AiHighlightExpanded({required this.aiHighlights, required this.noticeText, required this.onCollapse});
 
   final List<Map<String, dynamic>>? aiHighlights;
   final String noticeText;
@@ -337,10 +304,8 @@ class _AiHighlightExpanded extends StatelessWidget {
                   const SizedBox(width: 6),
                   Text(
                     'AI 看点${count > 0 ? ' · $count条' : ''}',
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: colorScheme.onPrimaryContainer,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: Theme.of(context).textTheme.labelMedium
+                        ?.copyWith(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.w600),
                   ),
                   const Spacer(),
                   Icon(Icons.keyboard_arrow_up, size: 18, color: colorScheme.onPrimaryContainer),
@@ -378,58 +343,56 @@ class _HighlightItemCard extends StatelessWidget {
     final title = _extractTitle(data, '');
     final body = _extractBody(data, '');
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colorScheme.primaryContainer.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: _FadeTitle(
-                  text: title,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: colorScheme.onPrimaryContainer,
-                    fontWeight: FontWeight.w700,
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onSecondaryTap: () => _copyHighlight(data, ''),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: colorScheme.primaryContainer.withValues(alpha: 0.35),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: colorScheme.primary.withValues(alpha: 0.2)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _FadeTitle(
+                    text: title,
+                    style: Theme.of(context).textTheme.titleSmall
+                        ?.copyWith(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.w700),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Icon(Icons.local_fire_department_rounded, size: 13, color: Colors.orange.shade700),
-              const SizedBox(width: 2),
+                const SizedBox(width: 8),
+                Icon(Icons.local_fire_department_rounded, size: 13, color: Colors.orange.shade700),
+                const SizedBox(width: 2),
+                Text(
+                  _formatHeat(data['heat']),
+                  style: Theme.of(context).textTheme.labelSmall
+                      ?.copyWith(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(width: 8),
+                Icon(Icons.access_time_rounded, size: 12, color: colorScheme.onPrimaryContainer.withValues(alpha: 0.8)),
+                const SizedBox(width: 2),
+                Text(
+                  _formatTimeRange(data),
+                  style: Theme.of(context).textTheme.labelSmall
+                      ?.copyWith(color: colorScheme.onPrimaryContainer.withValues(alpha: 0.8)),
+                ),
+              ],
+            ),
+            if (body.isNotEmpty) ...[
+              const SizedBox(height: 8),
               Text(
-                _formatHeat(data['heat']),
-                style: Theme.of(context).textTheme.labelSmall
-                    ?.copyWith(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(width: 8),
-              Icon(
-                Icons.access_time_rounded,
-                size: 12,
-                color: colorScheme.onPrimaryContainer.withValues(alpha: 0.8),
-              ),
-              const SizedBox(width: 2),
-              Text(
-                _formatTimeRange(data),
-                style: Theme.of(context).textTheme.labelSmall
-                    ?.copyWith(color: colorScheme.onPrimaryContainer.withValues(alpha: 0.8)),
+                body,
+                style: Theme.of(context).textTheme.bodyMedium
+                    ?.copyWith(color: colorScheme.onPrimaryContainer, height: 1.6),
               ),
             ],
-          ),
-          if (body.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              body,
-              style: Theme.of(context).textTheme.bodyMedium
-                  ?.copyWith(color: colorScheme.onPrimaryContainer, height: 1.6),
-            ),
           ],
-        ],
+        ),
       ),
     );
   }
@@ -446,33 +409,37 @@ class _NoticeOnlyBody extends StatelessWidget {
     final title = _extractTitle(null, noticeText);
     final body = _extractBody(null, noticeText);
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colorScheme.primaryContainer.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.2)),
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleMedium
-                  ?.copyWith(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.w700),
-            ),
-            if (body.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Divider(height: 1, color: colorScheme.primary.withValues(alpha: 0.25)),
-              const SizedBox(height: 10),
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onSecondaryTap: () => _copyHighlight(null, noticeText),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: colorScheme.primaryContainer.withValues(alpha: 0.35),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: colorScheme.primary.withValues(alpha: 0.2)),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Text(
-                body,
-                style: Theme.of(context).textTheme.bodyMedium
-                    ?.copyWith(color: colorScheme.onPrimaryContainer, height: 1.7),
+                title,
+                style: Theme.of(context).textTheme.titleMedium
+                    ?.copyWith(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.w700),
               ),
+              if (body.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Divider(height: 1, color: colorScheme.primary.withValues(alpha: 0.25)),
+                const SizedBox(height: 10),
+                Text(
+                  body,
+                  style: Theme.of(context).textTheme.bodyMedium
+                      ?.copyWith(color: colorScheme.onPrimaryContainer, height: 1.7),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -527,11 +494,23 @@ String _formatTimeRange(Map<String, dynamic> data) {
   final end = data['endTime'];
   if (start == null) return '';
   final startDt = DateTime.fromMillisecondsSinceEpoch((start as int) * 1000);
-  final endDt = end != null && end != 0
-      ? DateTime.fromMillisecondsSinceEpoch((end as int) * 1000)
-      : DateTime.now();
+  final endDt = end != null && end != 0 ? DateTime.fromMillisecondsSinceEpoch((end as int) * 1000) : DateTime.now();
   return '${_fmtTime(startDt)} ~ ${_fmtTime(endDt)}';
 }
 
-String _fmtTime(DateTime dt) =>
-    '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+String _fmtTime(DateTime dt) => '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+
+Future<void> _copyHighlight(Map<String, dynamic>? data, String noticeText) async {
+  final title = _extractTitle(data, noticeText);
+  final body = _extractBody(data, noticeText);
+  final buffer = StringBuffer(title);
+  if (body.isNotEmpty) {
+    buffer
+      ..writeln()
+      ..write(body);
+  }
+  final text = buffer.toString().trim();
+  if (text.isEmpty) return;
+  await Clipboard.setData(ClipboardData(text: text));
+  ToastUtil.show(i18n('copied_to_clipboard'));
+}

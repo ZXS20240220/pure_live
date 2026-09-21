@@ -46,7 +46,7 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
   int? _lastSyncedFavoriteSnapshot;
   int _refreshEpoch = 0;
   final Lock _refreshLock = Lock();
-  DateTime? _lastFullRefreshAt;
+  final lastFullRefreshAt = Rx<DateTime?>(null);
   final isVerifyingFavorites = false.obs;
   Future<void>? _startupRefresh;
   Future<void>? _activeRoomRefresh;
@@ -285,7 +285,7 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
       _cancelPendingResumeRefresh();
       return;
     }
-    final last = _lastFullRefreshAt;
+    final last = lastFullRefreshAt.value;
     if (last == null || _now().difference(last) >= _resumeRefreshStaleAfter) {
       // Paint the retained snapshot first. JSON parsing and image URL updates
       // then land as one transaction instead of competing with the foreground
@@ -1095,7 +1095,7 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
           SettingsService.to.fav.favoriteRooms.v = merged.rooms;
         }
         if (markFullRefresh) {
-          _lastFullRefreshAt = _now();
+          lastFullRefreshAt.value = _now();
           _cancelPendingResumeRefresh();
         }
         applyLocalFilter();

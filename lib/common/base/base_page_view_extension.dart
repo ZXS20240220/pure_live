@@ -9,7 +9,12 @@ extension BasePageViewContentExtension<C extends BasePageScrollAndStateBone<T>, 
         children: [
           Expanded(child: contentBuilder(context, controller.list, controller.scrollController)),
           if (enableLoadMore)
-            DesktopPaginationBar(controller: controller, showSelector: showPageSizeSelector, options: pageSizeOptions),
+            DesktopPaginationBar(
+              controller: controller,
+              showSelector: showPageSizeSelector,
+              options: pageSizeOptions,
+              leftWidget: leftPaginationWidget,
+            ),
         ],
       );
       if (!keyboardPagingEnabled) {
