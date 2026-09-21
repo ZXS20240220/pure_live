@@ -7,6 +7,7 @@ import 'site/acfun/acfun_site.dart';
 import 'site/douyu/douyu_site.dart';
 import 'site/dailymotion/dailymotion_site.dart';
 import 'site/rumble/rumble_site.dart';
+import 'site/goodgame/goodgame_site.dart';
 import 'site/chzzk/chzzk_site.dart';
 import 'site/kick/kick_site.dart';
 import 'site/seventeenlive/seventeenlive_site.dart';
@@ -80,6 +81,7 @@ class Sites {
   static const String nimoTvSite = 'nimotv';
   static const String dailymotionSite = 'dailymotion';
   static const String rumbleSite = 'rumble';
+  static const String goodGameSite = 'goodgame';
 
   static const Set<String> supportedSiteIds = {
     weiboSite,
@@ -118,6 +120,7 @@ class Sites {
     nimoTvSite,
     dailymotionSite,
     rumbleSite,
+    goodGameSite,
     iptvSite,
   };
 
@@ -286,6 +289,12 @@ class Sites {
         liveSite: DailymotionSite(),
       ),
       rumbleSite => Site(id: rumbleSite, name: i18n('site_rumble'), logo: logoOf(rumbleSite), liveSite: RumbleSite()),
+      goodGameSite => Site(
+        id: goodGameSite,
+        name: i18n('site_goodgame'),
+        logo: logoOf(goodGameSite),
+        liveSite: GoodGameSite(),
+      ),
       iptvSite => Site(id: iptvSite, name: i18n('site_iptv'), logo: logoOf(iptvSite), liveSite: IptvSite()),
       _ => throw StateError('Unsupported live site: $normalizedId'),
     };
@@ -332,6 +341,7 @@ class Sites {
       nimoTvSite,
       dailymotionSite,
       rumbleSite,
+      goodGameSite,
       niconicoSite,
       weiboSite,
       iptvSite,
