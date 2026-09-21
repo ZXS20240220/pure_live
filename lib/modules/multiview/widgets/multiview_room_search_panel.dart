@@ -15,6 +15,7 @@ class MultiviewRoomSearchPanel extends StatefulWidget {
     this.onClose,
     this.embedded = false,
     this.search,
+    this.title,
   });
 
   final int cellIndex;
@@ -23,6 +24,7 @@ class MultiviewRoomSearchPanel extends StatefulWidget {
   final VoidCallback? onClose;
   final bool embedded;
   final MultiviewRoomSearchController? search;
+  final String? title;
 
   @override
   State<MultiviewRoomSearchPanel> createState() => _MultiviewRoomSearchPanelState();
@@ -80,6 +82,8 @@ class _MultiviewRoomSearchPanelState extends State<MultiviewRoomSearchPanel> {
   }
 
   Widget _buildHeader(ThemeData theme) {
+    final titleText =
+        widget.title ?? '${i18n('multiview_search_rooms')} · ${i18n('multiview_cell')} ${widget.cellIndex + 1}';
     return GestureDetector(
       onPanUpdate: widget.onDragUpdate == null ? null : (event) => widget.onDragUpdate!(event.delta),
       child: Container(
@@ -90,14 +94,9 @@ class _MultiviewRoomSearchPanelState extends State<MultiviewRoomSearchPanel> {
             Icon(Remix.search_line, size: 16, color: theme.colorScheme.onSurfaceVariant),
             const SizedBox(width: 6),
             Expanded(
-              child: Text(
-                '${i18n('multiview_search_rooms')} · ${i18n('multiview_cell')} ${widget.cellIndex + 1}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.t13Medium,
-              ),
+              child: Text(titleText, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTextStyles.t13Medium),
             ),
-            if (!widget.embedded)
+            if (!widget.embedded && widget.onDragUpdate != null)
               Tooltip(
                 message: i18n('multiview_panel_drag_hint'),
                 child: Icon(Remix.drag_move_line, size: 16, color: theme.colorScheme.onSurfaceVariant),

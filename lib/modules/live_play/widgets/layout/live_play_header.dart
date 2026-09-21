@@ -1,17 +1,16 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/services/settings/watch_time_service.dart';
 import 'package:pure_live/common/utils/live_url_tool.dart';
-import 'package:pure_live/common/utils/windows_multi_instance_launcher.dart';
 import 'package:pure_live/modules/live_play/controllers/live_play_controller.dart';
 import 'package:pure_live/modules/live_play/dialogs/play_other.dart';
 import 'package:pure_live/modules/live_play/widgets/button/record_action_button.dart';
 import 'package:pure_live/modules/live_play/widgets/button/live_play_menu_button.dart';
 import 'package:pure_live/modules/live_play/widgets/button/favorite_floating_button.dart';
+import 'package:pure_live/modules/multiview/widgets/multiview_room_search_panel.dart';
 import 'package:pure_live/modules/tags/tag_management_controller.dart';
 
 class LivePlayHeader extends StatelessWidget implements PreferredSizeWidget {
@@ -40,6 +39,7 @@ class LivePlayHeader extends StatelessWidget implements PreferredSizeWidget {
           _buildFavoriteButton(),
           _buildRecordButton(),
           _buildQuickActions(context),
+          _buildSearchRoomsButton(context),
           LivePlayMenuButton(controller: controller),
           const SizedBox(width: 4),
         ],
@@ -264,17 +264,44 @@ class LivePlayHeader extends StatelessWidget implements PreferredSizeWidget {
               ),
             ),
           ),
-          if (Platform.isWindows)
-            Tooltip(
-              message: i18n('open_room_in_new_window'),
-              child: IconButton(
-                icon: const Icon(Icons.open_in_new_rounded),
-                onPressed: () => WindowsMultiInstanceLauncher.launch(room: detail),
-              ),
-            ),
         ],
       );
     });
+  }
+
+  Widget _buildSearchRoomsButton(BuildContext context) {
+    return Tooltip(
+      message: i18n('multiview_search_rooms'),
+      child: IconButton(
+        icon: const Icon(Remix.search_2_line),
+        onPressed: () {
+          final layout = MediaQuery.sizeOf(context);
+          final maxWidth = layout.width.clamp(360.0, 480.0);
+          final maxHeight = layout.height * 0.72;
+          Get.dialog(
+            Dialog(
+              alignment: Alignment.center,
+              clipBehavior: Clip.antiAlias,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: SizedBox(
+                width: maxWidth,
+                height: maxHeight,
+                child: MultiviewRoomSearchPanel(
+                  cellIndex: 0,
+                  title: i18n('multiview_search_rooms'),
+                  embedded: true,
+                  onClose: () => Navigator.of(context).pop(),
+                  onPicked: (room) {
+                    Navigator.of(context).pop();
+                    controller.switchRoom(room);
+                  },
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Widget _buildRecordButton() {
