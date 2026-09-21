@@ -135,6 +135,7 @@ class _ChangesSummaryPageState extends State<ChangesSummaryPage> {
       body: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Expanded(child: _buildContent(theme, config)),
           ValueListenableBuilder<bool>(
             valueListenable: _tocExpanded,
             builder: (context, expanded, _) {
@@ -146,7 +147,7 @@ class _ChangesSummaryPageState extends State<ChangesSummaryPage> {
                 width: expanded ? _tocWidth : 0,
                 child: ClipRect(
                   child: OverflowBox(
-                    alignment: Alignment.centerLeft,
+                    alignment: Alignment.centerRight,
                     minWidth: 0,
                     maxWidth: _tocWidth,
                     child: _buildTocPanel(theme),
@@ -155,7 +156,6 @@ class _ChangesSummaryPageState extends State<ChangesSummaryPage> {
               );
             },
           ),
-          Expanded(child: _buildContent(theme, config)),
         ],
       ),
     );
@@ -216,7 +216,7 @@ class _ChangesSummaryPageState extends State<ChangesSummaryPage> {
       child: Container(
         decoration: BoxDecoration(
           color: theme.colorScheme.surface,
-          border: Border(right: Divider.createBorderSide(context)),
+          border: Border(left: Divider.createBorderSide(context)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
