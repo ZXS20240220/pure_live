@@ -189,9 +189,11 @@ class LiveSuperChatMessage {
   @override
   bool operator ==(Object other) {
     if (other is! LiveSuperChatMessage) return false;
-    if (messageId.isNotEmpty || other.messageId.isNotEmpty) {
-      return messageId.isNotEmpty && other.messageId.isNotEmpty && other.messageId == messageId;
-    }
+    final bothHaveId = messageId.isNotEmpty && other.messageId.isNotEmpty;
+    if (bothHaveId) return messageId == other.messageId;
+    // If either side lacks a protocol identity, fall back to content-based
+    // equality. This keeps HTTP (with messageId) and socket (without) paths
+    // from splitting the same SC into two visible items during refresh.
     return other.userName == userName && other.message == message && other.price == price;
   }
 

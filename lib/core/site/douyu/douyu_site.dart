@@ -686,9 +686,85 @@ class DouyuSite
     }
   }
 
+  /// Session-stable csrf token for the voice SC detail API. Douyu only checks
+  /// that the body `ctn` equals the Cookie header `acf_ccn`; the value itself
+  /// is never validated against an issued session, so a locally generated
+  /// random token (32 hex chars, same format as the browser cookie) is enough.
+  static final String _voiceScCtn = DouyuUtils.generateDeviceId();
+
   @override
-  Future<List<LiveSuperChatMessage>> getSuperChatMessage({required String roomId}) {
-    return Future.value([]);
+  Future<List<LiveSuperChatMessage>> getSuperChatMessage({required String roomId}) async {
+    final headers = DouyuUtils.requestHeaders(roomId);
+
+    // Step 1: GET queue — lightweight, works without any cookies.
+    final queueResp = await HttpClient.instance
+        .getJson(
+          'https://www.douyu.com/japi/revenuenc/web/voiceDanmu/play/queryQueue',
+          queryParameters: {'rid': roomId},
+          header: headers,
+        )
+        .timeout(const Duration(seconds: 8));
+    if (queueResp is! Map || queueResp['error'] != 0) return const <LiveSuperChatMessage>[];
+    final queue = queueResp['data'];
+    if (queue is! List || queue.isEmpty) return const <LiveSuperChatMessage>[];
+
+    final ids = <String>[];
+    for (final item in queue) {
+      if (item is! Map) continue;
+      final id = item['voiceRecordId']?.toString() ?? '';
+      if (id.isNotEmpty) ids.add(id);
+    }
+    if (ids.isEmpty) return const <LiveSuperChatMessage>[];
+
+    // Step 2: POST batch details. Douyu csrf requires the body `ctn` to match
+    // the `acf_ccn` cookie in the request Cookie header — both must be present
+    // and identical.
+    final detailHeaders = Map<String, dynamic>.from(headers);
+    final existingCookie = detailHeaders['cookie']?.toString() ?? '';
+    final separator = existingCookie.isEmpty ? '' : '; ';
+    detailHeaders['cookie'] = '$existingCookie${separator}acf_ccn=$_voiceScCtn';
+    final detailResp = await HttpClient.instance
+        .postJson(
+          'https://www.douyu.com/japi/revenuenc/web/voiceDanmu/play/batchVoiceDetail',
+          data: {'ctn': _voiceScCtn, 'rid': roomId, 'recordIdList': ids.join(',')},
+          formUrlEncoded: true,
+          header: detailHeaders,
+        )
+        .timeout(const Duration(seconds: 8));
+    if (detailResp is! Map || detailResp['error'] != 0) return const <LiveSuperChatMessage>[];
+    final recordList = detailResp['data'] is Map ? detailResp['data']['recordList'] : null;
+    if (recordList is! List) return const <LiveSuperChatMessage>[];
+
+    final messages = <LiveSuperChatMessage>[];
+    for (final item in recordList) {
+      if (item is! Map) continue;
+      final startAt = item['startAt'];
+      final expireAt = item['expireAt'];
+      final voiceRecordId = item['voiceRecordId']?.toString() ?? '';
+      final content = item['content']?.toString() ?? '';
+      final userNick = item['userNick']?.toString() ?? '';
+      final userIcon = item['userIcon']?.toString() ?? '';
+      final realPrice = item['realPrice'] ?? item['price'];
+      if (startAt is! num || expireAt is! num) continue;
+      if (content.isEmpty && userNick.isEmpty) continue;
+      final startTime = DateTime.fromMillisecondsSinceEpoch(startAt.toInt() * 1000);
+      final endTime = DateTime.fromMillisecondsSinceEpoch(expireAt.toInt() * 1000);
+      messages.add(
+        LiveSuperChatMessage(
+          messageId: voiceRecordId,
+          userName: userNick,
+          face: userIcon,
+          message: content,
+          price: (realPrice is num ? realPrice.toInt() : 0) ~/ 100,
+          startTime: startTime,
+          endTime: endTime,
+          // Voice SC styling (matches socket path _parseVoiceSuperChat).
+          backgroundColor: '#ffffff',
+          backgroundBottomColor: '#246488',
+        ),
+      );
+    }
+    return messages;
   }
 
   @override
