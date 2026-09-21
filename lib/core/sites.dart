@@ -10,6 +10,7 @@ import 'site/kick/kick_site.dart';
 import 'site/seventeenlive/seventeenlive_site.dart';
 import 'site/liveme/liveme_site.dart';
 import 'site/tiktok/tiktok_site.dart';
+import 'site/youtube/youtube_site.dart';
 import 'site/showroom/showroom_site.dart';
 import 'site/tting/tting_site.dart';
 import 'site/weibo/weibo_site.dart';
@@ -62,6 +63,7 @@ class Sites {
   static const String seventeenLiveSite = '17live';
   static const String liveMeSite = 'liveme';
   static const String tiktokSite = 'tiktok';
+  static const String youtubeSite = 'youtube';
 
   static const Set<String> supportedSiteIds = {
     weiboSite,
@@ -91,6 +93,7 @@ class Sites {
     seventeenLiveSite,
     liveMeSite,
     tiktokSite,
+    youtubeSite,
     iptvSite,
   };
 
@@ -225,6 +228,12 @@ class Sites {
       ),
       liveMeSite => Site(id: liveMeSite, name: i18n('site_liveme'), logo: logoOf(liveMeSite), liveSite: LiveMeSite()),
       tiktokSite => Site(id: tiktokSite, name: i18n('site_tiktok'), logo: logoOf(tiktokSite), liveSite: TikTokSite()),
+      youtubeSite => Site(
+        id: youtubeSite,
+        name: i18n('site_youtube'),
+        logo: logoOf(youtubeSite),
+        liveSite: YouTubeSite(),
+      ),
       iptvSite => Site(id: iptvSite, name: i18n('site_iptv'), logo: logoOf(iptvSite), liveSite: IptvSite()),
       _ => throw StateError('Unsupported live site: $normalizedId'),
     };
@@ -262,6 +271,7 @@ class Sites {
       seventeenLiveSite,
       liveMeSite,
       tiktokSite,
+      youtubeSite,
       niconicoSite,
       weiboSite,
       iptvSite,
