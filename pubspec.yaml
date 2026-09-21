@@ -183,10 +183,6 @@ dependencies:
 
 # 依赖覆盖（强制指定版本）
 dependency_overrides:
-  flutter_inappwebview_android:
-    path: plugins/built_in_kotlin/flutter_inappwebview_android # 上游网页内核Android子包ProGuard兼容补丁
-  share_handler_android:
-    path: plugins/built_in_kotlin/share_handler_android # share_handler Android本地兼容补丁
   hooks: ^2.2.0 # Native Assets 构建 hooks 兼容
   xml: ^7.0.1 # webdav_client xml7兼容
   wakelock_plus: ^1.4.0 # media_kit声明版本覆盖
@@ -195,31 +191,11 @@ dependency_overrides:
       url: https://github.com/liuchuancong/screen_retriever.git
       path: ./packages/screen_retriever
       ref: b246b3963738d6cc159c921764c194c73dbdf2ad
-  media_kit_libs_linux:
-    git:
-      url: https://github.com/Predidit/media-kit.git
-      ref: 994465d9bfca3f39d0b41199d16e7fd93fe97881
-      path: ./libs/linux/media_kit_libs_linux
-  media_kit_libs_ios_video:
-    git:
-      url: https://github.com/Predidit/media-kit.git
-      ref: 994465d9bfca3f39d0b41199d16e7fd93fe97881
-      path: ./libs/ios/media_kit_libs_ios_video
-  media_kit_libs_android_video:
-    git:
-      url: https://github.com/Predidit/media-kit.git
-      ref: 994465d9bfca3f39d0b41199d16e7fd93fe97881
-      path: ./libs/android/media_kit_libs_android_video
   media_kit_libs_windows_video:
     git:
       url: https://github.com/Predidit/media-kit.git
       ref: 994465d9bfca3f39d0b41199d16e7fd93fe97881
       path: ./libs/windows/media_kit_libs_windows_video
-  media_kit_libs_macos_video:
-    git:
-      url: https://github.com/Predidit/media-kit.git
-      ref: 994465d9bfca3f39d0b41199d16e7fd93fe97881
-      path: ./libs/macos/media_kit_libs_macos_video
 
 # 开发依赖
 dev_dependencies:
@@ -233,26 +209,16 @@ dev_dependencies:
   msix: ^3.16.12 # Windows安装包打包
   intl_utils: ^2.8.11 # 国际化工具
   flutter_lints: ^6.0.0 # 代码规范检查
-  dmg: ^0.1.7 # macOS安装包打包
   drift_dev: ^2.33.0
   enven: ^1.3.0
 
 # 应用图标配置
 flutter_icons:
-  android: "ic_launcher"
-  ios: true
-  remove_alpha_ios: true
   image_path: assets/icons/icon.png
-  adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: assets/icons/icon_foreground.png
-  min_sdk_android: 21
   windows:
     generate: true
     image_path: assets/icons/icon.png
     icon_size: 48
-  macos:
-    generate: true
-    image_path: assets/icons/icon.png
 
 # Flutter核心配置
 flutter:
