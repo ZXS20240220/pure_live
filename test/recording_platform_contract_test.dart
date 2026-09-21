@@ -36,6 +36,7 @@ void main() {
         Sites.youtubeSite,
         Sites.bigoSite,
         Sites.pandaLiveSite,
+        Sites.popkonSite,
         Sites.iptvSite,
       ]),
     );
