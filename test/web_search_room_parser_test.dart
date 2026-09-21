@@ -22,6 +22,7 @@ void main() {
       ),
       'https://www.flextv.co.kr/channels/123456/live': (Sites.ttingSite, '123456'),
       'https://live.shopee.co.id/share?from=live&session=225239358': (Sites.shopeeLiveSite, 'id:225239358'),
+      'https://live.vkvideo.ru/HighMySide': (Sites.vkVideoLiveSite, 'highmyside'),
     };
 
     for (final entry in cases.entries) {
@@ -70,5 +71,13 @@ void main() {
       'id:225239358',
       Sites.shopeeLiveSite,
     ]);
+  });
+
+  test('VK Video Live current and legacy hosts resolve to a stable channel slug', () async {
+    expect(await LiveUrlTool.parseLiveUrl('VK https://live.vkvideo.ru/HighMySide'), [
+      'highmyside',
+      Sites.vkVideoLiveSite,
+    ]);
+    expect(await LiveUrlTool.parseLiveUrl('https://vkplay.live/HighMySide'), ['highmyside', Sites.vkVideoLiveSite]);
   });
 }
