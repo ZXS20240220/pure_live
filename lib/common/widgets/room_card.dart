@@ -173,6 +173,13 @@ class RoomCard extends StatelessWidget {
     final TagManagementController tagController = Get.find<TagManagementController>();
     final theme = Theme.of(context);
     final bool isFollowed = SettingsService.to.fav.isFavorite(room);
+    // 观看时长与热度概览（弹窗信息行）。
+    final watchSeconds = room.identityKey.isNotEmpty ? WatchTimeService.secondsFor(room.identityKey) : 0;
+    final appSettings = SettingsService.to.app;
+    final audienceValue = room.audienceValue(
+      preferRealOnline: appSettings.preferRealOnlineCounts.v,
+      platformEnabled: appSettings.isRealOnlineEnabledFor(room.platform),
+    );
 
     Get.dialog(
       AlertDialog(
@@ -266,6 +273,32 @@ class RoomCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 14),
+              // 观看时长（行首）与热度（行尾）概览行，样式与房间号行一致。
+              Padding(
+                padding: const EdgeInsets.only(left: 4, right: 4),
+                child: Row(
+                  children: [
+                    Text(
+                      '${i18n('watch_time_total')}：${watchSeconds > 0 ? WatchTimeService.formatCompact(watchSeconds) : '-'}',
+                      style: AppTextStyles.t11.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '热度：${audienceValue.isEmpty ? '-' : readableCount(audienceValue)}',
+                      style: AppTextStyles.t11.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
               Padding(
                 padding: const EdgeInsets.only(left: 4),
                 child: Row(

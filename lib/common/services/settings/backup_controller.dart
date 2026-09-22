@@ -73,6 +73,7 @@ class BackupController extends GetxController {
         'enablePinned': favCtrl.enablePinned.v,
         'onlineSortMode': favCtrl.onlineSortMode.v.name,
         'onlineSortOrder': favCtrl.onlineSortAscending.v ? 'asc' : 'desc',
+        'cardLayoutMode': favCtrl.cardLayoutMode.v,
       };
     }
 
@@ -120,7 +121,7 @@ class BackupController extends GetxController {
     'refresh': RefreshConfigController.extractConfig(null).keys.toSet(),
     'page': PageSettingsController.extractConfig(null).keys.toSet(),
     'panelSize': {'panelWidth', 'immersiveOpacity'},
-    'favoriteCtrl': {'enablePinned', 'onlineSortMode', 'onlineSortOrder'},
+    'favoriteCtrl': {'enablePinned', 'onlineSortMode', 'onlineSortOrder', 'cardLayoutMode'},
     'tags': {'tags', 'roomTagsMap'},
   };
 
@@ -390,6 +391,13 @@ class BackupController extends GetxController {
         if (favData['onlineSortOrder'] is String) {
           favCtrl.onlineSortAscending.value = favData['onlineSortOrder'] == 'asc';
         }
+        // 布局模式：仅接受合法值。
+        if (favData['cardLayoutMode'] is String) {
+          final mode = favData['cardLayoutMode'] as String;
+          if (mode == 'compact' || mode == 'standard') {
+            favCtrl.cardLayoutMode.value = mode;
+          }
+        }
       } else {
         if (favData['enablePinned'] is bool) {
           HivePrefUtil.setBool(FavoriteController.pinnedPrefKey, favData['enablePinned'] as bool);
@@ -399,6 +407,12 @@ class BackupController extends GetxController {
         }
         if (favData['onlineSortOrder'] is String) {
           HivePrefUtil.setBool(FavoriteController.sortAscendingPrefKey, favData['onlineSortOrder'] == 'asc');
+        }
+        if (favData['cardLayoutMode'] is String) {
+          final mode = favData['cardLayoutMode'] as String;
+          if (mode == 'compact' || mode == 'standard') {
+            HivePrefUtil.setString(FavoriteController.layoutModePrefKey, mode);
+          }
         }
       }
     }
@@ -576,6 +590,13 @@ class BackupController extends GetxController {
         if (favData['onlineSortOrder'] is String) {
           favCtrl.onlineSortAscending.value = favData['onlineSortOrder'] == 'asc';
         }
+        // 布局模式：仅接受合法值。
+        if (favData['cardLayoutMode'] is String) {
+          final mode = favData['cardLayoutMode'] as String;
+          if (mode == 'compact' || mode == 'standard') {
+            favCtrl.cardLayoutMode.value = mode;
+          }
+        }
       } else {
         if (favData['enablePinned'] is bool) {
           HivePrefUtil.setBool(FavoriteController.pinnedPrefKey, favData['enablePinned'] as bool);
@@ -585,6 +606,12 @@ class BackupController extends GetxController {
         }
         if (favData['onlineSortOrder'] is String) {
           HivePrefUtil.setBool(FavoriteController.sortAscendingPrefKey, favData['onlineSortOrder'] == 'asc');
+        }
+        if (favData['cardLayoutMode'] is String) {
+          final mode = favData['cardLayoutMode'] as String;
+          if (mode == 'compact' || mode == 'standard') {
+            HivePrefUtil.setString(FavoriteController.layoutModePrefKey, mode);
+          }
         }
       }
     }

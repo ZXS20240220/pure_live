@@ -1,6 +1,7 @@
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/global/platform_utils.dart';
+import 'package:pure_live/common/widgets/room_card_compact.dart';
 import 'package:pure_live/modules/tags/tag_management_controller.dart';
 
 @visibleForTesting
@@ -42,10 +43,14 @@ class RoomGridView extends GetView<FavoriteController> {
               ? Get.find<TagManagementController>()
               : null;
           final pinTagId = tagController?.pinTagId;
-          var crossAxisCount = width > 1280 ? 4 : (width > 960 ? 3 : (width > 640 ? 2 : 1));
-          if (dense) {
-            crossAxisCount = width > 1280 ? 5 : (width > 960 ? 4 : (width > 640 ? 3 : 2));
-          }
+          // 紧凑布局：列表式（无封面），高度固定，可排更多列。
+          final isCompact = controller.cardLayoutMode.v == 'compact';
+          final crossAxisCount = switch ((isCompact, dense)) {
+            (true, true) => width > 1280 ? 5 : (width > 960 ? 4 : (width > 640 ? 3 : 2)),
+            (true, false) => width > 1280 ? 4 : (width > 960 ? 3 : (width > 640 ? 2 : 1)),
+            (false, true) => width > 1280 ? 5 : (width > 960 ? 4 : (width > 640 ? 3 : 2)),
+            (false, false) => width > 1280 ? 4 : (width > 960 ? 3 : (width > 640 ? 2 : 1)),
+          };
 
           Widget buildScrollable(ScrollPhysics physics) {
             if (displayList.isEmpty) {
@@ -70,6 +75,20 @@ class RoomGridView extends GetView<FavoriteController> {
             }
 
             final itemWidth = (width - 24 - spacing * (crossAxisCount - 1)) / crossAxisCount;
+            // 紧凑布局固定高度（头像 48px + padding 16px ≈ 64px + extra），
+            // 标准布局按 16:9 封面 + 信息栏高度计算。
+            const compactCardHeight = 76.0;
+            final mainAxisExtent = isCompact ? compactCardHeight : itemWidth * 9 / 16 + (dense ? 50 : 62);
+
+            // 紧凑布局动态分页：每页数量 = 视口可完整容纳的卡片数（行数×列数），
+            // 下限 10 由 applyCompactPageSize 内部保证；标准布局恢复设置值。
+            if (isCompact) {
+              final rowExtent = compactCardHeight + mainAxisSpacing;
+              final rows = ((constraint.maxHeight - 8 + mainAxisSpacing) / rowExtent).floor();
+              controller.applyCompactPageSize(rows.clamp(1, 999) * crossAxisCount);
+            } else {
+              controller.applyCompactPageSize(null);
+            }
             return GridView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
               controller: scrollController,
@@ -82,21 +101,32 @@ class RoomGridView extends GetView<FavoriteController> {
                 crossAxisCount: crossAxisCount,
                 crossAxisSpacing: spacing,
                 mainAxisSpacing: mainAxisSpacing,
-                mainAxisExtent: itemWidth * 9 / 16 + (dense ? 50 : 62),
+                mainAxisExtent: mainAxisExtent,
               ),
               itemCount: displayList.length,
               itemBuilder: (context, index) {
                 final room = displayList[index];
                 final isPinned =
                     enablePinned && pinTagId != null && tagController!.getTagsForRoom(room).contains(pinTagId);
+                final statusPending = isVerifyingFavorites || room.isLiveStatusPending;
+                final statusPendingLabel = isVerifyingFavorites
+                    ? i18n('favorite_status_verifying')
+                    : i18n('favorite_status_unknown');
+                if (isCompact) {
+                  return RoomCardCompact(
+                    key: ValueKey('${room.platform}:${room.roomId}'),
+                    room: room,
+                    statusPending: statusPending,
+                    statusPendingLabel: statusPendingLabel,
+                    isPinned: isPinned,
+                  );
+                }
                 return RoomCard(
                   key: ValueKey('${room.platform}:${room.roomId}'),
                   room: room,
                   dense: dense,
-                  statusPending: isVerifyingFavorites || room.isLiveStatusPending,
-                  statusPendingLabel: isVerifyingFavorites
-                      ? i18n('favorite_status_verifying')
-                      : i18n('favorite_status_unknown'),
+                  statusPending: statusPending,
+                  statusPendingLabel: statusPendingLabel,
                   isPinned: isPinned,
                 );
               },

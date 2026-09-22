@@ -84,11 +84,40 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
   /// 排序方向：false = 降序（热度高/开播新/时长多在前），true = 升序。
   final onlineSortAscending = false.obs;
 
+  /// 关注页卡片布局模式：'standard'（封面+信息栏）/ 'compact'（列表式，仅头像+信息栏）。
+  final cardLayoutMode = 'standard'.obs;
+
+  /// 紧凑布局是否正在覆盖每页数量（用于切回标准布局时恢复）。
+  bool _compactPageOverride = false;
+  Timer? _compactPageDebounce;
+
+  /// 紧凑布局的动态分页：每页数量 = 视口可容纳的完整卡片数，下限 10。
+  /// [capacity] 传 null 表示离开紧凑布局，恢复设置中的每页数量。
+  /// 房间总数不足一页时由分页切片自然显示全部。
+  void applyCompactPageSize(int? capacity) {
+    if (isClosed) return;
+    if (capacity != null) {
+      _compactPageOverride = true;
+      final target = capacity < 10 ? 10 : capacity;
+      _compactPageDebounce?.cancel();
+      // 防抖：窗口拖动过程中高度连续变化，避免频繁重切分页。
+      _compactPageDebounce = Timer(const Duration(milliseconds: 150), () {
+        if (isClosed) return;
+        setPageSize(target);
+      });
+    } else if (_compactPageOverride) {
+      _compactPageOverride = false;
+      _compactPageDebounce?.cancel();
+      setPageSize(SettingsService.to.page.defaultPageSize.v);
+    }
+  }
+
   // 这三个 Hive key 需要公开：备份导入 favoriteCtrl 段时若控制器尚未实例化
   // （lazyPut），直接写 key 等其创建时恢复，避免 Get.find 触发工厂副作用。
   static const String pinnedPrefKey = 'fav_enable_pinned';
   static const String sortModePrefKey = 'fav_online_sort_mode';
   static const String sortAscendingPrefKey = 'fav_online_sort_ascending';
+  static const String layoutModePrefKey = 'fav_card_layout_mode';
 
   final showRefreshShield = false.obs;
   final cancelRequested = false.obs;
@@ -125,6 +154,12 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
 
     final ascendingFromDisk = HivePrefUtil.getBool(sortAscendingPrefKey);
     if (ascendingFromDisk != null) onlineSortAscending.value = ascendingFromDisk;
+
+    // 布局模式：默认 standard，兼容值缺失时回退。
+    final layoutFromDisk = HivePrefUtil.getString(layoutModePrefKey);
+    if (layoutFromDisk == 'compact' || layoutFromDisk == 'standard') {
+      cardLayoutMode.value = layoutFromDisk!;
+    }
 
     // 5.3："全部"页签（0）+ 在线（1，默认）/ 录播（2）/ 离线（3）。
     tabController = TabController(
@@ -190,6 +225,11 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
       ever(onlineSortAscending, (value) {
         HivePrefUtil.setBool(sortAscendingPrefKey, value);
         applyLocalFilter();
+      }),
+    );
+    _workers.add(
+      ever(cardLayoutMode, (value) {
+        HivePrefUtil.setString(layoutModePrefKey, value);
       }),
     );
     _workers.add(

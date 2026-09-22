@@ -437,6 +437,24 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
                   );
                 }),
               ),
+              // 布局切换按钮：标准网格 ↔ 紧凑列表。
+              Obx(() {
+                final isCompact = controller.cardLayoutMode.v == 'compact';
+                return IconButton(
+                  iconSize: 20,
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                  tooltip: isCompact ? '切换为卡片布局' : '切换为列表布局',
+                  onPressed: () {
+                    controller.cardLayoutMode.value = isCompact ? 'standard' : 'compact';
+                  },
+                  icon: Icon(
+                    isCompact ? Icons.grid_view_rounded : Icons.view_list_rounded,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                );
+              }),
               Obx(() {
                 final hasActiveFilter =
                     controller.searchKeyword.value.isNotEmpty ||
