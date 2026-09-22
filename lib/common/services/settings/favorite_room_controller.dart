@@ -16,6 +16,10 @@ class FavoriteRoomController extends GetxController {
 
   final RxString preferPlatform = hiveString('preferPlatform', Sites.bilibiliSite);
 
+  /// 暂弃（下沉）直播间的 identityKey 集合。这些房间保留在 favoriteRooms 中
+  /// 但不参与任何刷新，由用户主动移入/移出。持久化为字符串列表以兼容 Hive。
+  final RxList<String> dormantRoomKeys = hiveStringList('dormantRoomKeys', <String>[]);
+
   final Rx<List<LiveRoom>> favoriteRooms = hiveObject(
     'favoriteRooms',
     <LiveRoom>[],
@@ -398,6 +402,7 @@ class FavoriteRoomController extends GetxController {
       'blockedDanmakuUsers': List<String>.from(blockedDanmakuUsers),
       'hotAreasList': List<String>.from(hotAreasList),
       'preferPlatform': preferPlatform.v,
+      'dormantRoomKeys': List<String>.from(dormantRoomKeys),
       'favoriteRooms': favoriteRooms.v.map((e) => e.toJson()).toList(),
       'favoriteAreas': favoriteAreas.v.map((e) => e.toJson()).toList(),
     };
@@ -411,6 +416,7 @@ class FavoriteRoomController extends GetxController {
       ),
       'hotAreasList': List<String>.from(json['hotAreasList'] ?? AppConsts.supportSites),
       'preferPlatform': json['preferPlatform']?.toString().trim().toLowerCase() ?? Sites.bilibiliSite,
+      'dormantRoomKeys': _normalizeDormantKeys(List<String>.from(json['dormantRoomKeys'] ?? const <String>[])),
       'favoriteRooms': BackupMigrationUtil.parseObjectList(json['favoriteRooms'], LiveRoom.fromJson, strict: true),
       'favoriteAreas': BackupMigrationUtil.parseObjectList(json['favoriteAreas'], LiveArea.fromJson, strict: true),
     };
@@ -455,10 +461,12 @@ class FavoriteRoomController extends GetxController {
     blockedDanmakuUsers.assignAll(parsed['blockedDanmakuUsers']);
     hotAreasList.assignAll(parsed['hotAreasList']);
     preferPlatform.v = parsed['preferPlatform'];
+    dormantRoomKeys.assignAll(parsed['dormantRoomKeys']);
     favoriteRooms.v = parsed['favoriteRooms'];
     favoriteAreas.v = parsed['favoriteAreas'];
     _normalizeSiteCatalogIds();
     _normalizeFavoriteRoomIdentities();
+    _normalizeDormantKeysAgainstFavorites();
   }
 
   static Map<String, dynamic> extractConfig(Map<String, dynamic>? rootConfig) {
@@ -471,6 +479,7 @@ class FavoriteRoomController extends GetxController {
       ),
       'hotAreasList': List<String>.from(favorite['hotAreasList'] ?? AppConsts.supportSites),
       'preferPlatform': favorite['preferPlatform'] ?? Sites.bilibiliSite,
+      'dormantRoomKeys': _normalizeDormantKeys(List<String>.from(favorite['dormantRoomKeys'] ?? const <String>[])),
       'favoriteRooms': BackupMigrationUtil.parseObjectList(
         favorite['favoriteRooms'],
         LiveRoom.fromJson,
@@ -518,6 +527,53 @@ class FavoriteRoomController extends GetxController {
       if (value.isNotEmpty && seen.add(value.toLowerCase())) normalized.add(value);
     }
     return normalized;
+  }
+
+  /// 清理暂弃 key 列表：去重、trim、去掉空值。
+  static List<String> _normalizeDormantKeys(Iterable<String> values) {
+    final seen = <String>{};
+    final normalized = <String>[];
+    for (final rawValue in values) {
+      final value = rawValue.trim();
+      if (value.isEmpty) continue;
+      if (!value.contains(':')) continue; // 必须是 platform:roomId 格式
+      if (seen.add(value)) normalized.add(value);
+    }
+    return normalized;
+  }
+
+  /// 从 dormantRoomKeys 中移除不在 favoriteRooms 里的脏 key。
+  void _normalizeDormantKeysAgainstFavorites() {
+    if (dormantRoomKeys.isEmpty) return;
+    final favoriteKeys = favoriteRooms.v.map((r) => r.identityKey).toSet();
+    final cleaned = dormantRoomKeys.where((k) => favoriteKeys.contains(k)).toList();
+    if (cleaned.length != dormantRoomKeys.length) {
+      dormantRoomKeys.assignAll(cleaned);
+    }
+  }
+
+  /// 判断指定房间是否为暂弃状态。
+  bool isRoomDormant(LiveRoom room) {
+    return dormantRoomKeys.contains(room.identityKey);
+  }
+
+  /// 移入暂弃：给房间标记 dormant。如果标记了但 favoriteRooms 中不存在则忽略。
+  bool markRoomDormant(LiveRoom room) {
+    final key = room.identityKey;
+    if (key.isEmpty || dormantRoomKeys.contains(key)) return false;
+    if (!favoriteRooms.v.any((r) => r.identityKey == key)) return false;
+    final updated = List<String>.from(dormantRoomKeys)..add(key);
+    dormantRoomKeys.assignAll(updated);
+    return true;
+  }
+
+  /// 移出暂弃：清除房间的 dormant 标记。
+  bool unmarkRoomDormant(LiveRoom room) {
+    final key = room.identityKey;
+    if (!dormantRoomKeys.contains(key)) return false;
+    final updated = List<String>.from(dormantRoomKeys)..remove(key);
+    dormantRoomKeys.assignAll(updated);
+    return true;
   }
 
   static Map<String, dynamic> mergeConfig(Map<String, dynamic> rootConfig, Map<String, dynamic> updateFields) {

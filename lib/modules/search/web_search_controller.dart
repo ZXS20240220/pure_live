@@ -121,6 +121,9 @@ class WebSearchController extends GetxController {
   final loadProgress = 0.obs;
   final isOpeningExternal = false.obs;
 
+  /// 当前页面网址（地址栏展示与编辑的数据源）。
+  final currentUrl = ''.obs;
+
   WebSearchBrowser? _browser;
   Timer? _creationWatchdog;
   InAppWebViewController? _nativeController;
@@ -158,6 +161,7 @@ class WebSearchController extends GetxController {
       return;
     }
     _logInfo('[WebSearch] Initialized for ${request.uri.scheme}://${request.uri.host} (${request.platform}).');
+    currentUrl.value = request.uri.toString();
     if (!usesExternalBrowser) _startCreationWatchdog();
   }
 
@@ -216,13 +220,112 @@ class WebSearchController extends GetxController {
     if (_closed || !identical(_browser, browser)) return;
 
     _beginMainFrameLoad();
+    await _loadWithBrowser(browser, request.uri);
+  }
+
+  Future<void> _loadWithBrowser(WebSearchBrowser browser, Uri uri) async {
+    final generation = _generation;
     try {
-      await browser.load(request.uri);
+      await browser.load(uri);
     } catch (error) {
-      if (!_closed && identical(_browser, browser)) {
-        debugPrint('[WebSearch] Initial page load threw (non-fatal): $error');
+      if (!_closed && identical(_browser, browser) && _isCurrent(generation)) {
+        debugPrint('[WebSearch] Page load threw (non-fatal): $error');
       }
     }
+  }
+
+  /// 渲染进程连续崩溃的自动恢复上限；超过后转为失败态让用户手动重试。
+  static const int _maxRenderRecoveries = 3;
+  int _renderRecoveries = 0;
+
+  /// 恢复请求去重窗口：同一次进程失败常经由多个事件重复上报（如
+  /// RENDER_PROCESS_EXITED 同时触发 onWebContentProcessDidTerminate 与
+  /// onProcessFailed），窗口内的重复请求直接忽略，避免连环 reload。
+  static const Duration _recoveryDebounce = Duration(seconds: 2);
+  DateTime? _lastRecoveryAt;
+
+  /// 渲染进程退出/崩溃后 WebView2 合成停止产帧，用户看到的就是“全黑”；
+  /// 必须监听该事件并自动 reload 恢复内容，而不是留在黑屏上。
+  void onRenderProcessGone(InAppWebViewController controller, RenderProcessGoneDetail detail) {
+    if (!_acceptNativeController(controller)) return;
+    _logWarning('[WebSearch] WebView render process gone (didCrash: ${detail.didCrash}).');
+    _recoverRenderProcess();
+  }
+
+  /// Windows 上渲染进程退出（RENDER_PROCESS_EXITED）经此事件上报。
+  void onWebContentProcessDidTerminate(InAppWebViewController controller) {
+    if (!_acceptNativeController(controller)) return;
+    _logWarning('[WebSearch] WebView content process terminated.');
+    _recoverRenderProcess();
+  }
+
+  Future<WebViewRenderProcessAction?> onRenderProcessUnresponsive(InAppWebViewController controller, Uri? url) async {
+    if (!_acceptNativeController(controller)) return null;
+    _logWarning('[WebSearch] WebView render process unresponsive (${url?.host ?? 'unknown host'}).');
+    return null;
+  }
+
+  /// Windows 专属进程失败总通道：渲染/帧渲染/GPU 进程失败均经此上报
+  /// （onRenderProcessGone 只覆盖渲染进程，GPU 进程失败只有这里能看到）。
+  ///
+  /// GPU 进程退出时 WebView2 会自动重建进程，但本插件的画面走
+  /// Windows.Graphics.Capture 捕获合成视觉，GPU 重启后捕获链可能不再产帧
+  /// （表现为内容区全黑而 Flutter 界面正常），因此对渲染进程退出与 GPU
+  /// 进程退出都尝试 reload 强制页面重新渲染；工具类进程退出不影响画面，
+  /// 仅记录日志。
+  void onProcessFailed(InAppWebViewController controller, ProcessFailedDetail detail) {
+    if (!_acceptNativeController(controller)) return;
+    _logWarning(
+      '[WebSearch] WebView process failed (kind: ${detail.kind}, '
+      'reason: ${detail.reason}, exitCode: ${detail.exitCode}, '
+      'process: ${detail.processDescription ?? ''}).',
+    );
+    final kind = detail.kind;
+    if (kind == ProcessFailedKind.RENDER_PROCESS_EXITED || kind == ProcessFailedKind.GPU_PROCESS_EXITED) {
+      _recoverRenderProcess();
+    }
+  }
+
+  void _recoverRenderProcess() {
+    final browser = _browser;
+    if (browser == null || _closed) return;
+    final now = DateTime.now();
+    final last = _lastRecoveryAt;
+    if (last != null && now.difference(last) < _recoveryDebounce) {
+      _logWarning('[WebSearch] Recovery request suppressed within debounce window.');
+      return;
+    }
+    _lastRecoveryAt = now;
+    if (_renderRecoveries >= _maxRenderRecoveries) {
+      _logWarning('[WebSearch] Render process keeps crashing; giving up after $_renderRecoveries recoveries.');
+      _setFailure('web_search_load_failed');
+      return;
+    }
+    _renderRecoveries++;
+    unawaited(_reloadAfterRecovery(browser));
+  }
+
+  Future<void> _reloadAfterRecovery(WebSearchBrowser browser) async {
+    try {
+      await browser.reload();
+    } catch (error) {
+      if (!_closed && identical(_browser, browser)) {
+        debugPrint('[WebSearch] Render recovery reload failed: $error');
+      }
+    }
+  }
+
+  /// 地址栏提交跳转：规范化后经当前浏览器加载；
+  /// WebView 尚未创建成功时忽略（失败态已有重试入口）。
+  Future<void> navigateTo(String rawUrl) {
+    if (_closed) return Future.value();
+    final browser = _browser;
+    if (browser == null) return Future.value();
+    final uri = _parseHttpUri(rawUrl.trim().replaceAll(RegExp(r'[\r\n\t]'), ''));
+    if (uri == null) return Future.value();
+    _beginMainFrameLoad();
+    currentUrl.value = uri.toString();
+    return _loadWithBrowser(browser, uri);
   }
 
   void onLoadStart(InAppWebViewController controller, WebUri? uri) {
@@ -230,11 +333,14 @@ class WebSearchController extends GetxController {
     final documentUri = _parseHttpUri(uri?.toString());
     if (documentUri == null) return;
     _beginMainFrameLoad();
+    currentUrl.value = documentUri.toString();
     unawaited(observeUrl(documentUri.toString()));
   }
 
   void onUpdateVisitedHistory(InAppWebViewController controller, WebUri? uri, bool? isReload) {
     if (!_acceptNativeController(controller) || uri == null) return;
+    final parsed = _parseHttpUri(uri.toString());
+    if (parsed != null) currentUrl.value = parsed.toString();
     unawaited(observeUrl(uri.toString()));
   }
 
@@ -246,6 +352,8 @@ class WebSearchController extends GetxController {
       viewStatus.value = WebSearchViewStatus.ready;
       loadProgress.value = 100;
     }
+    currentUrl.value = documentUri.toString();
+    _renderRecoveries = 0;
     unawaited(observeUrl(documentUri.toString()));
 
     final generation = _generation;
@@ -393,13 +501,30 @@ class WebSearchController extends GetxController {
     _creationWatchdog = null;
   }
 
-  Future<void> retry() async {
+  /// 重载页面；[force] 为 true 时销毁并重建整个 WebView 控件（而非仅 reload）。
+  ///
+  /// force 用于黑屏自救：插件原生渲染链（Windows.Graphics.Capture 捕获
+  /// WebView2 合成视觉）可能静默死亡——页面加载事件仍在持续（cookie 持久化
+  /// 正常），但捕获链不再产帧，画面全黑。此时 reload 无法恢复，只有重建
+  /// 控件（新纹理、新捕获链）才能恢复。重建后恢复即确诊该路径。
+  Future<void> retry({bool force = false}) async {
     final request = launchRequest;
     if (_closed || request == null) return;
     errorMessageKey.value = '';
     viewStatus.value = WebSearchViewStatus.loading;
     loadProgress.value = 0;
     final browser = _browser;
+    if (browser != null && force) {
+      _logWarning('[WebSearch] Rebuilding the WebView control (forced).');
+      await _disposeBrowser();
+      showWebView.value = false;
+      if (_closed) return;
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (_closed) return;
+      _startCreationWatchdog();
+      showWebView.value = true;
+      return;
+    }
     if (browser == null) {
       // 原生 WebView 创建失败时没有可 reload 的控制器；
       // 先把控件移出控件树再延时放回，强制重建 InAppWebView 重新走创建流程。
@@ -485,10 +610,23 @@ class WebSearchController extends GetxController {
   void _setFailure(String localizationKey) {
     errorMessageKey.value = localizationKey;
     viewStatus.value = WebSearchViewStatus.failed;
+    // 失败界面取代网页区域（页面结构不再用覆盖层盖住 WebView），必须同步
+    // 卸载浏览器：控件已移出控件树，旧 controller 已销毁，若保留 _browser
+    // 引用，retry 会 reload 到已 dispose 的实例并再次失败，形成失败循环。
+    showWebView.value = false;
+    unawaited(_disposeBrowser());
   }
 
+  /// 校验事件是否来自当前 WebView。
+  ///
+  /// 插件对 onWebViewCreated 与各事件回调分别调用 controllerFromPlatform
+  /// 工厂，每次都会新建一个 InAppWebViewController 包装实例，因此包装
+  /// 实例本身永不相等（会导致所有事件被静默丢弃：房间检测失效、进度条
+  /// 卡在加载中、地址栏不更新）；但它们包装的是同一个平台控制器，
+  /// 必须比较底层 platform 实例来判断同一 WebView。
   bool _acceptNativeController(InAppWebViewController controller) {
-    return !_closed && identical(_nativeController, controller);
+    final native = _nativeController;
+    return !_closed && native != null && identical(native.platform, controller.platform);
   }
 
   bool _isCurrent(int generation) => !_closed && generation == _generation;

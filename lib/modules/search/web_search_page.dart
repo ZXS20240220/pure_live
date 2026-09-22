@@ -39,6 +39,12 @@ class _WebSearchPageState extends State<WebSearchPage> {
               tooltip: i18n('close'),
               onPressed: () => unawaited(_handleClose()),
             ),
+            if (!controller.usesExternalBrowser)
+              IconButton(
+                icon: const Icon(Icons.refresh_rounded),
+                tooltip: i18n('web_search_rebuild'),
+                onPressed: () => unawaited(controller.retry(force: true)),
+              ),
             if (_showDeveloperTools && !controller.usesExternalBrowser)
               IconButton(
                 icon: const Icon(Icons.bug_report),
@@ -57,62 +63,67 @@ class _WebSearchPageState extends State<WebSearchPage> {
       return _buildFailure(context, retryable: false);
     }
     if (controller.usesExternalBrowser) return _buildExternalBrowser(context);
-    return Stack(
+    return Column(
       children: [
-        Positioned.fill(
-          child: Obx(
-            () => controller.showWebView.value
-                ? InAppWebView(
-                    webViewEnvironment: AppWebView2Environment.optional,
-                    onWebViewCreated: controller.onWebViewCreated,
-                    onLoadStart: controller.onLoadStart,
-                    onLoadStop: controller.onLoadStop,
-                    onProgressChanged: controller.onProgressChanged,
-                    onUpdateVisitedHistory: controller.onUpdateVisitedHistory,
-                    onReceivedHttpError: controller.onReceivedHttpError,
-                    onReceivedError: controller.onReceivedError,
-                    initialSettings: InAppWebViewSettings(
-                      userAgent: controller.getDynamicUserAgent(),
-                      javaScriptEnabled: true,
-                      useWideViewPort: true,
-                      loadWithOverviewMode: true,
-                      supportZoom: true,
-                      builtInZoomControls: true,
-                      displayZoomControls: false,
-                      useShouldOverrideUrlLoading: true,
-                      domStorageEnabled: true,
-                      databaseEnabled: true,
-                      thirdPartyCookiesEnabled: true,
-                      cacheEnabled: true,
-                      isInspectable: _showDeveloperTools,
-                    ),
-                    onReceivedServerTrustAuthRequest: controller.onReceivedServerTrustAuthRequest,
-                    shouldOverrideUrlLoading: controller.shouldOverrideUrlLoading,
-                    onConsoleMessage: controller.onConsoleMessage,
-                  )
-                : const SizedBox.shrink(),
+        Obx(
+          () => WebViewAddressBar(
+            currentUrl: controller.currentUrl.value,
+            onSubmit: (url) => unawaited(controller.navigateTo(url)),
           ),
         ),
+        // 加载进度：地址栏下方的独立窄条，不覆盖网页区域。
         Obx(() {
           if (controller.viewStatus.value != WebSearchViewStatus.loading) return const SizedBox.shrink();
           final progress = controller.loadProgress.value;
-          return Align(
-            alignment: Alignment.topCenter,
-            child: Semantics(
-              label: i18n('web_search_loading'),
-              child: LinearProgressIndicator(value: progress > 0 && progress < 100 ? progress / 100 : null),
-            ),
+          return Semantics(
+            label: i18n('web_search_loading'),
+            child: LinearProgressIndicator(value: progress > 0 && progress < 100 ? progress / 100 : null),
           );
         }),
-        Obx(() {
-          if (controller.viewStatus.value != WebSearchViewStatus.failed) return const SizedBox.shrink();
-          return Positioned.fill(
-            child: ColoredBox(
-              color: Theme.of(context).colorScheme.surface,
-              child: _buildFailure(context, retryable: true),
-            ),
-          );
-        }),
+        // 结构对齐 Cookie 抓取页：InAppWebView 直接挂在 Expanded 下，
+        // 不经过 Stack/Positioned.fill 嵌套。此前网页搜索黑屏而 Cookie 页
+        // 正常，两页渲染配置一致，仅此处结构不同；失败态改为移除 WebView
+        // 显示失败界面（配合 _setFailure 同步卸载浏览器）。
+        Expanded(
+          child: Obx(() {
+            if (controller.viewStatus.value == WebSearchViewStatus.failed) {
+              return _buildFailure(context, retryable: true);
+            }
+            if (!controller.showWebView.value) return const SizedBox.shrink();
+            return InAppWebView(
+              webViewEnvironment: AppWebView2Environment.optional,
+              onWebViewCreated: controller.onWebViewCreated,
+              onLoadStart: controller.onLoadStart,
+              onLoadStop: controller.onLoadStop,
+              onProgressChanged: controller.onProgressChanged,
+              onUpdateVisitedHistory: controller.onUpdateVisitedHistory,
+              onReceivedHttpError: controller.onReceivedHttpError,
+              onReceivedError: controller.onReceivedError,
+              initialSettings: InAppWebViewSettings(
+                userAgent: controller.getDynamicUserAgent(),
+                javaScriptEnabled: true,
+                useWideViewPort: true,
+                loadWithOverviewMode: true,
+                supportZoom: true,
+                builtInZoomControls: true,
+                displayZoomControls: false,
+                useShouldOverrideUrlLoading: true,
+                domStorageEnabled: true,
+                databaseEnabled: true,
+                thirdPartyCookiesEnabled: true,
+                cacheEnabled: true,
+                isInspectable: _showDeveloperTools,
+              ),
+              onReceivedServerTrustAuthRequest: controller.onReceivedServerTrustAuthRequest,
+              shouldOverrideUrlLoading: controller.shouldOverrideUrlLoading,
+              onConsoleMessage: controller.onConsoleMessage,
+              onRenderProcessGone: controller.onRenderProcessGone,
+              onRenderProcessUnresponsive: controller.onRenderProcessUnresponsive,
+              onWebContentProcessDidTerminate: controller.onWebContentProcessDidTerminate,
+              onProcessFailed: controller.onProcessFailed,
+            );
+          }),
+        ),
       ],
     );
   }

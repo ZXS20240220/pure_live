@@ -26,6 +26,7 @@ class RoomCard extends StatelessWidget {
     this.deleteTooltip,
     this.settingsViewport,
     this.isPinned = false,
+    this.isDormant = false,
   });
   final LiveRoom room;
   final bool dense;
@@ -38,6 +39,9 @@ class RoomCard extends StatelessWidget {
 
   /// 是否判定为置顶房间（由调用方按 enablePinned + pinTagId 计算，5.1/5.2）。
   final bool isPinned;
+
+  /// 是否为暂弃（下沉）房间：禁用左键，显示"已弃用"遮罩，强制显示删除按钮，隐藏置顶。
+  final bool isDormant;
   Widget _buildCover(BuildContext context, bool isDark) {
     final coverUrl = normalizeNetworkImageUrl(room.cover);
 
@@ -850,7 +854,8 @@ class RoomCard extends StatelessWidget {
           final textScale = MediaQuery.textScalerOf(context).scale(1);
           final showAutomaticPlatformBadge =
               config.automaticPlatformBadge && !dense && constraints.maxWidth >= 280 && textScale < 1.8;
-          final showPinBadge = config.showPinBadge && isPinned;
+          final showPinBadge = config.showPinBadge && isPinned && !isDormant;
+          final effectiveShowDelete = showDelete || isDormant;
           return Card(
             key: const ValueKey('room-card-surface'),
             margin: EdgeInsets.zero,
@@ -859,7 +864,8 @@ class RoomCard extends StatelessWidget {
             color: isDark ? Colors.grey[900] : Colors.white,
             child: InkWell(
               borderRadius: BorderRadius.circular(radius),
-              onTap: () => onTap(context),
+              // 暂弃房间禁用左键点击（不进入直播间），右键仍可触发弹窗
+              onTap: isDormant ? null : () => onTap(context),
               onLongPress: () => onLongPress(context),
               onSecondaryTap: () => onLongPress(context),
               child: Column(
@@ -877,7 +883,39 @@ class RoomCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      if (config.showLastLiveTime && !room.isLiveNow)
+                      // 暂弃房间优先显示"已弃用"遮罩，覆盖未开播遮罩
+                      if (isDormant)
+                        Positioned.fill(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(radius),
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(color: Colors.black.withValues(alpha: isDark ? 0.65 : 0.55)),
+                              child: Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Remix.archive_line, size: dense ? 20 : 28, color: Colors.white70),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '已弃用',
+                                      maxLines: 1,
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: dense ? 11 : 14,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.5,
+                                        shadows: const [
+                                          Shadow(color: Colors.black54, blurRadius: 4, offset: Offset(0, 1)),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        )
+                      else if (config.showLastLiveTime && !room.isLiveNow)
                         Positioned.fill(
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(radius),
@@ -926,7 +964,7 @@ class RoomCard extends StatelessWidget {
                         Positioned(
                           key: const ValueKey('room-card-replay-badge'),
                           // 置顶徽章固定占用右上角 24px 槽位，回放徽章随之左移。
-                          right: (showDelete ? (dense ? 44 : 48) : 8) + (showPinBadge ? 24 : 0),
+                          right: (effectiveShowDelete ? (dense ? 44 : 48) : 8) + (showPinBadge ? 24 : 0),
                           top: 8,
                           child: CountChip(
                             icon: Icons.videocam_rounded,
@@ -1031,13 +1069,13 @@ class RoomCard extends StatelessWidget {
                             );
                           }),
                         ),
-                      if (showDelete)
+                      if (effectiveShowDelete)
                         Positioned(
                           right: showPinBadge ? 32 : 0,
                           top: 0,
                           child: IconButton(
                             key: const ValueKey('room-card-delete'),
-                            tooltip: deleteTooltip ?? i18n('delete'),
+                            tooltip: deleteTooltip ?? (isDormant ? '移出暂时弃用' : i18n('delete')),
                             onPressed: onDelete,
                             padding: const EdgeInsets.all(10),
                             constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
@@ -1047,7 +1085,11 @@ class RoomCard extends StatelessWidget {
                                 color: Colors.black.withValues(alpha: 0.6),
                                 shape: BoxShape.circle,
                               ),
-                              child: Icon(RemixIcons.delete_bin_line, color: Colors.white, size: dense ? 16 : 18),
+                              child: Icon(
+                                isDormant ? RemixIcons.archive_line : RemixIcons.delete_bin_line,
+                                color: Colors.white,
+                                size: dense ? 16 : 18,
+                              ),
                             ),
                           ),
                         ),

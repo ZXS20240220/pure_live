@@ -73,6 +73,7 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
   final onlineRooms = <LiveRoom>[].obs;
   final offlineRooms = <LiveRoom>[].obs;
   final replayRooms = <LiveRoom>[].obs;
+  final dormantRooms = <LiveRoom>[].obs;
   final multiSelectMode = false.obs;
   final selectedTagIds = <String>{TagManagementController.allTagKey}.obs;
   final visibleTags = <LiveTag>[].obs;
@@ -161,9 +162,9 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
       cardLayoutMode.value = layoutFromDisk!;
     }
 
-    // 5.3："全部"页签（0）+ 在线（1，默认）/ 录播（2）/ 离线（3）。
+    // 新增暂弃Tab（index 4）：独立于正常关注的下沉房间，不参与任何刷新。
     tabController = TabController(
-      length: 4,
+      length: 5,
       initialIndex: 1,
       vsync: this,
       animationDuration: pureLiveTabTransitionDuration,
@@ -454,6 +455,8 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
         0 => <LiveRoom>[...onlineRooms, ...replayRooms, ...offlineRooms],
         1 => onlineRooms,
         2 => replayRooms,
+        3 => offlineRooms,
+        4 => dormantRooms,
         _ => offlineRooms,
       };
       final List<LiveRoom> candidateRooms;
@@ -487,6 +490,8 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
         0 => <LiveRoom>[...onlineRooms, ...replayRooms, ...offlineRooms],
         1 => onlineRooms,
         2 => replayRooms,
+        3 => offlineRooms,
+        4 => dormantRooms,
         _ => offlineRooms,
       };
       final List<LiveRoom> candidateRooms;
@@ -562,11 +567,15 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
   }
 
   List<LiveRoom> getAllRooms() {
-    return List<LiveRoom>.from(SettingsService.to.fav.favoriteRooms.v);
+    final dormantKeys = SettingsService.to.fav.dormantRoomKeys.toSet();
+    return SettingsService.to.fav.favoriteRooms.v.where((r) => !dormantKeys.contains(r.identityKey)).toList();
   }
 
   List<LiveRoom> getFilteredRoomsIgnoringLiveStatus() {
-    final List<LiveRoom> source = List<LiveRoom>.from(SettingsService.to.fav.favoriteRooms.v);
+    final dormantKeys = SettingsService.to.fav.dormantRoomKeys.toSet();
+    final List<LiveRoom> source = SettingsService.to.fav.favoriteRooms.v
+        .where((r) => !dormantKeys.contains(r.identityKey))
+        .toList();
 
     final currentAvailableSites = Sites().availableSites(containsAll: true);
     if (tabSiteIndex.value < 0 || tabSiteIndex.value >= currentAvailableSites.length) {
@@ -623,7 +632,7 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
 
     switch (tabOnlineIndex.value) {
       case 0:
-        // "全部"页签（5.3）：三个状态桶合并展示。
+        // "全部"页签（5.3）：三个状态桶合并展示。暂弃房间不包含在内。
         final merged = <LiveRoom>[...onlineRooms, ...replayRooms, ...offlineRooms];
         // 观看时长排序在"全部"页签跨状态统一排序，而不是按桶序拼接（5.2）。
         if (onlineSortMode.value == OnlineSortMode.watchTime) {
@@ -642,6 +651,11 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
 
       case 3:
         source = offlineRooms;
+        break;
+
+      case 4:
+        // 暂弃Tab：独立展示，显示所有被标记为 dormant 的房间。
+        source = dormantRooms;
         break;
 
       default:
@@ -676,13 +690,19 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
   }
 
   int favoriteCountForSite(String siteId, {int? statusIndex}) {
+    final dormantKeys = SettingsService.to.fav.dormantRoomKeys.toSet();
+    final base = SettingsService.to.fav.favoriteRooms.v;
+    // 正常关注（非暂弃）的总数量，用于 "全部"/"全部Tab" 的计数。
+    final nonDormantBase = base.where((r) => !dormantKeys.contains(r.identityKey));
+
     final Iterable<LiveRoom> source = statusIndex == null
-        ? SettingsService.to.fav.favoriteRooms.v
+        ? base
         : switch (statusIndex) {
-            0 => <LiveRoom>[...onlineRooms, ...replayRooms, ...offlineRooms],
+            0 => nonDormantBase, // 全部Tab只统计正常关注
             1 => onlineRooms,
             2 => replayRooms,
             3 => offlineRooms,
+            4 => dormantRooms,
             _ => const <LiveRoom>[],
           };
     if (siteId == Sites.allSite) return source.length;
@@ -697,15 +717,21 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
       roomSnapshot ?? preview?.rooms ?? SettingsService.to.fav.favoriteRooms.v,
     );
     _lastSyncedFavoriteSnapshot = _favoriteSnapshotSignature(roomsBase);
+
+    final dormantKeys = SettingsService.to.fav.dormantRoomKeys.toSet();
+    // 分离暂弃和正常关注：暂弃房间不参与 online/offline/replay 分类。
+    final nextDormant = roomsBase.where((r) => dormantKeys.contains(r.identityKey)).toList();
+    final nonDormantRooms = roomsBase.where((r) => !dormantKeys.contains(r.identityKey));
+
     final nextOnline = preview != null
         ? List<LiveRoom>.from(preview.onlineRooms)
-        : roomsBase.where((r) => r.isLiveNow && r.isRecord == false).toList();
+        : nonDormantRooms.where((r) => r.isLiveNow && r.isRecord == false).toList();
     final nextOffline = preview != null
         ? List<LiveRoom>.from(preview.offlineRooms)
-        : roomsBase.where((r) => !r.isPlayableNow).toList();
+        : nonDormantRooms.where((r) => !r.isPlayableNow).toList();
     final nextReplay = preview != null
         ? List<LiveRoom>.from(preview.replayRooms)
-        : roomsBase.where((r) => r.effectiveLiveStatus == LiveStatus.replay).toList();
+        : nonDormantRooms.where((r) => r.effectiveLiveStatus == LiveStatus.replay).toList();
 
     final currentAvailableSites = Sites().availableSites(containsAll: true);
     var nextVisibleTags = <LiveTag>[];
@@ -729,6 +755,10 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
 
         case 3:
           target = nextOffline;
+          break;
+
+        case 4:
+          target = nextDormant;
           break;
 
         default:
@@ -756,6 +786,8 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     } else {
       nextReplay.sort(_compareAudience);
     }
+    // 暂弃房间按 identityKey 稳定排序，保持顺序可预测。
+    nextDormant.sort((a, b) => a.identityKey.compareTo(b.identityKey));
 
     // Build and sort plain lists first, then publish each result once. The old
     // clear/addAll/sort sequence notified every Obx grid several times for one
@@ -763,6 +795,7 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     _assignIfSnapshotChanged(onlineRooms, nextOnline);
     _assignIfSnapshotChanged(offlineRooms, nextOffline);
     _assignIfSnapshotChanged(replayRooms, nextReplay);
+    _assignIfSnapshotChanged(dormantRooms, nextDormant);
     _assignIfSnapshotChanged(visibleTags, nextVisibleTags);
   }
 
@@ -804,6 +837,7 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
       1 => onlineRooms,
       2 => replayRooms,
       3 => offlineRooms,
+      4 => dormantRooms,
       _ => onlineRooms,
     };
     final siteId = sites[tabSiteIndex.value].id;
@@ -948,6 +982,7 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
       1 => onlineRooms,
       2 => replayRooms,
       3 => offlineRooms,
+      4 => dormantRooms,
       _ => onlineRooms,
     };
     final siteId = sites[tabSiteIndex.value].id;
@@ -1058,7 +1093,11 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
   }
 
   Future<void> _refreshPersistedRoomsOnStartupInternal() async {
-    final persisted = List<LiveRoom>.from(SettingsService.to.fav.favoriteRooms.v);
+    // 启动刷新只针对正常关注（排除暂弃房间，暂弃不参与任何刷新）。
+    final dormantKeys = SettingsService.to.fav.dormantRoomKeys.toSet();
+    final persisted = SettingsService.to.fav.favoriteRooms.v
+        .where((r) => !dormantKeys.contains(r.identityKey))
+        .toList();
     _verificationPreview = buildFavoriteVerificationPreview(persisted);
     isVerifyingFavorites.value = true;
     // 刷新屏蔽层（5.9-(3)）：启动核验文案由遮罩的 isVerifyingFavorites 分支显示。
@@ -1417,5 +1456,102 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
       skippedExistingTag: skippedExistingTag,
       createdTags: createdTags,
     );
+  }
+
+  // ===== 暂弃（下沉）直播间管理 =====
+
+  /// 移入暂弃：标记房间为 dormant，删除历史副本。
+  /// 如果房间信息为空（标题/昵称都空）则发起一次详情请求并保存（失败也不阻塞移入）。
+  Future<void> moveRoomsToDormant(List<LiveRoom> rooms) async {
+    if (isClosed || rooms.isEmpty) return;
+    final favCtrl = SettingsService.to.fav;
+    final historyCtrl = SettingsService.to.history;
+
+    // 1. 标记 dormant key
+    for (final room in rooms) {
+      favCtrl.markRoomDormant(room);
+    }
+
+    // 2. 删除历史副本
+    final movedKeys = rooms.map((r) => r.identityKey).toSet();
+    final currentHistory = List<LiveRoom>.from(historyCtrl.historyRooms.v);
+    final filteredHistory = currentHistory.where((r) => !movedKeys.contains(r.identityKey)).toList();
+    if (filteredHistory.length != currentHistory.length) {
+      historyCtrl.historyRooms.v = filteredHistory;
+    }
+
+    // 3. 一次性信息请求（仅对关键字段全空的房间）
+    final emptyInfoRooms = rooms.where((r) {
+      final titleEmpty = (r.title?.trim().isEmpty ?? true);
+      final nickEmpty = (r.nick?.trim().isEmpty ?? true);
+      return titleEmpty && nickEmpty;
+    }).toList();
+
+    if (emptyInfoRooms.isNotEmpty) {
+      final enabledPlatforms = Sites().availableSites().map((site) => site.id.trim().toLowerCase()).toSet();
+      final groups = <String, List<LiveRoom>>{};
+      for (final room in emptyInfoRooms) {
+        if (!enabledPlatforms.contains(room.normalizedPlatformId)) continue;
+        groups.putIfAbsent(room.normalizedPlatformId, () => []).add(room);
+      }
+
+      final siteCache = <String, LiveSite>{};
+      for (final entry in groups.entries) {
+        final platform = entry.key;
+        final site = siteCache.putIfAbsent(platform, () => createRoomRefreshSite(platform));
+        for (final room in entry.value) {
+          try {
+            final detail = site is LiveSiteRoomRefresher
+                ? (site as LiveSiteRoomRefresher).getRoomDetailForRefresh(
+                    roomId: room.normalizedRoomId,
+                    platform: platform,
+                  )
+                : site.getRoomDetail(roomId: room.normalizedRoomId, platform: platform);
+            final result = await detail.timeout(const Duration(seconds: 10));
+            if (isClosed) return;
+            // 合并到 favoriteRooms 中（保留 dormant 标记）
+            favCtrl.updateRoom(room.mergeFrom(result));
+          } catch (_) {
+            // 请求失败也不阻塞移入暂弃，保持现有数据即可
+          }
+        }
+      }
+    }
+
+    applyLocalFilter();
+  }
+
+  /// 移出暂弃：清除 dormant 标记，立即请求一次最新状态。
+  Future<void> restoreRoomsFromDormant(List<LiveRoom> rooms) async {
+    if (isClosed || rooms.isEmpty) return;
+    final favCtrl = SettingsService.to.fav;
+
+    // 1. 清除 dormant 标记
+    for (final room in rooms) {
+      favCtrl.unmarkRoomDormant(room);
+    }
+
+    applyLocalFilter(); // 立即从暂弃桶移回 online/offline/replay
+
+    // 2. 立即请求一次最新状态
+    final updates = await _refreshRoomDetails(rooms, refreshEpoch: _refreshEpoch, bypassFailureCooldown: true);
+    if (isClosed) return;
+
+    final latest = List<LiveRoom>.from(favCtrl.favoriteRooms.v);
+    final merged = mergeFavoriteRoomUpdates(latest, updates);
+    if (merged.changed) {
+      favCtrl.favoriteRooms.v = merged.rooms;
+    }
+    applyLocalFilter();
+  }
+
+  /// 移出单个暂弃房间（卡片删除按钮用）。
+  Future<void> restoreSingleFromDormant(LiveRoom room) async {
+    await restoreRoomsFromDormant([room]);
+  }
+
+  /// 暂弃房间是否有历史副本残留（用于移入时删除）。
+  bool hasHistoryForRoom(LiveRoom room) {
+    return SettingsService.to.history.historyRooms.v.any((r) => r.hasSameIdentity(room));
   }
 }

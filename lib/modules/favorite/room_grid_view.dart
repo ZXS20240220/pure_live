@@ -89,6 +89,10 @@ class RoomGridView extends GetView<FavoriteController> {
             } else {
               controller.applyCompactPageSize(null);
             }
+
+            // 暂弃 Tab 下卡片需要特殊处理：禁用左键、显示删除按钮。
+            final isDormantTab = controller.tabOnlineIndex.value == 4;
+
             return GridView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
               controller: scrollController,
@@ -119,6 +123,8 @@ class RoomGridView extends GetView<FavoriteController> {
                     statusPending: statusPending,
                     statusPendingLabel: statusPendingLabel,
                     isPinned: isPinned,
+                    isDormant: isDormantTab,
+                    onDelete: isDormantTab ? () => controller.restoreSingleFromDormant(room) : null,
                   );
                 }
                 return RoomCard(
@@ -128,6 +134,9 @@ class RoomGridView extends GetView<FavoriteController> {
                   statusPending: statusPending,
                   statusPendingLabel: statusPendingLabel,
                   isPinned: isPinned,
+                  isDormant: isDormantTab,
+                  showDelete: isDormantTab,
+                  onDelete: isDormantTab ? () => controller.restoreSingleFromDormant(room) : null,
                 );
               },
             );

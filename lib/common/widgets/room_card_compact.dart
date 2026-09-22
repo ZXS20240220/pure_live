@@ -15,6 +15,8 @@ class RoomCardCompact extends StatelessWidget {
     this.statusPending = false,
     this.statusPendingLabel,
     this.isPinned = false,
+    this.isDormant = false,
+    this.onDelete,
   });
 
   final LiveRoom room;
@@ -23,6 +25,12 @@ class RoomCardCompact extends StatelessWidget {
 
   /// 是否判定为置顶房间（由调用方按关注页置顶开关 + 置顶标签计算）。
   final bool isPinned;
+
+  /// 是否为暂弃（下沉）房间：禁用左键，右侧状态标志改为"已弃用"，隐藏置顶徽章，显示删除按钮。
+  final bool isDormant;
+
+  /// 删除按钮回调（暂弃房间用于移出暂弃）。
+  final VoidCallback? onDelete;
 
   void onTap(BuildContext context) => AppNavigator.toLiveRoomDetail(liveRoom: room);
 
@@ -41,7 +49,7 @@ class RoomCardCompact extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => onTap(context),
+        onTap: isDormant ? null : () => onTap(context),
         onLongPress: () => onLongPress(context),
         onSecondaryTap: () => onLongPress(context),
         child: SizedBox(
@@ -71,7 +79,9 @@ class RoomCardCompact extends StatelessWidget {
                               softWrap: false,
                               style: AppTextStyles.t14.copyWith(
                                 fontWeight: FontWeight.w600,
-                                color: isDark ? Colors.white : Colors.black87,
+                                color: isDormant
+                                    ? (isDark ? Colors.grey[500] : Colors.grey[500])
+                                    : (isDark ? Colors.white : Colors.black87),
                               ),
                             ),
                           ),
@@ -86,7 +96,9 @@ class RoomCardCompact extends StatelessWidget {
                               softWrap: false,
                               style: AppTextStyles.t12.copyWith(
                                 fontWeight: FontWeight.w500,
-                                color: isDark ? Colors.grey[400] : Colors.grey[600],
+                                color: isDormant
+                                    ? (isDark ? Colors.grey[600] : Colors.grey[500])
+                                    : (isDark ? Colors.grey[400] : Colors.grey[600]),
                               ),
                             ),
                           ),
@@ -94,13 +106,25 @@ class RoomCardCompact extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // 右侧状态标志。
+                    // 右侧状态标志（暂弃时改为"已弃用"标签）。
                     _buildStatusBadge(context, theme, isDark),
+                    if (isDormant && onDelete != null) ...[
+                      const SizedBox(width: 8),
+                      IconButton(
+                        iconSize: 18,
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        tooltip: '移出暂时弃用',
+                        onPressed: onDelete,
+                        icon: Icon(RemixIcons.archive_line, color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                    ],
                   ],
                 ),
               ),
-              // 右上角置顶徽章（受关注页置顶开关影响），小号适配 76 高卡片。
-              if (isPinned)
+              // 右上角置顶徽章（暂弃房间不显示）。
+              if (isPinned && !isDormant)
                 Positioned(
                   key: const ValueKey('room-card-compact-pin-badge'),
                   right: 6,
@@ -126,6 +150,11 @@ class RoomCardCompact extends StatelessWidget {
   }
 
   Widget _buildStatusBadge(BuildContext context, ThemeData theme, bool isDark) {
+    // 暂弃房间固定显示灰色"已弃用"标签
+    if (isDormant) {
+      return _StatusDot(color: Colors.grey.shade500, label: '已弃用');
+    }
+
     if (statusPending) {
       return _StatusDot(color: theme.colorScheme.surfaceContainerHighest, label: statusPendingLabel ?? '检测中');
     }

@@ -69,6 +69,13 @@ class _WebCookieCapturePageState extends State<WebCookieCapturePage> {
   bool _busy = false;
   bool _closing = false;
   bool _showWebView = true;
+  String _currentUrl = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _currentUrl = target.loginUrl;
+  }
 
   /// 当前页面的 WebView 控制器。Windows 上 CookieManager 未绑定控制器时
   /// 会创建并销毁一个临时 WebView2，该路径在 ICoreWebView2 内部有已知
@@ -134,6 +141,22 @@ class _WebCookieCapturePageState extends State<WebCookieCapturePage> {
     }
   }
 
+  /// 页面加载回调中同步地址栏展示的当前网址。
+  void _updateAddressBarUrl(WebUri? uri) {
+    final url = uri?.toString();
+    if (url == null || url.isEmpty || !mounted) return;
+    setState(() => _currentUrl = url);
+  }
+
+  /// 地址栏提交跳转。
+  Future<void> _navigateTo(String url) async {
+    final controller = _webViewController;
+    if (controller == null) return;
+    try {
+      await controller.loadUrl(urlRequest: URLRequest(url: WebUri(url)));
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -164,12 +187,16 @@ class _WebCookieCapturePageState extends State<WebCookieCapturePage> {
                 style: AppTextStyles.t12.copyWith(color: theme.colorScheme.onSurfaceVariant, height: 1.5),
               ),
             ),
+            WebViewAddressBar(currentUrl: _currentUrl, onSubmit: (url) => unawaited(_navigateTo(url))),
             Expanded(
               child: _showWebView
                   ? InAppWebView(
                       webViewEnvironment: AppWebView2Environment.optional,
                       initialUrlRequest: URLRequest(url: WebUri(target.loginUrl)),
                       onWebViewCreated: (controller) => setState(() => _webViewController = controller),
+                      onLoadStart: (_, uri) => _updateAddressBarUrl(uri),
+                      onLoadStop: (_, uri) => _updateAddressBarUrl(uri),
+                      onUpdateVisitedHistory: (_, uri, _) => _updateAddressBarUrl(uri),
                       initialSettings: InAppWebViewSettings(
                         userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
                         javaScriptEnabled: true,

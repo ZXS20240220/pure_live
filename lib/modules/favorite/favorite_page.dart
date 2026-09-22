@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:remixicon/remixicon.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/modules/tags/live_tag.dart';
 import 'package:pure_live/modules/favorite/room_grid_view.dart';
@@ -49,6 +50,7 @@ class FavoritePage extends GetView<FavoriteController> {
                       Tab(text: '${i18n('online_room_title')} (${controller.onlineRooms.length})'),
                       Tab(text: '${i18n('recording_room_title')} (${controller.replayRooms.length})'),
                       Tab(text: '${i18n('offline_room_title')} (${controller.offlineRooms.length})'),
+                      Tab(text: '暂时弃用 (${controller.dormantRooms.length})'),
                     ],
                   ),
                 );
@@ -294,6 +296,373 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
     });
   }
 
+  /// 暂弃编辑弹窗内统一的紧凑下拉框样式（与搜索框底色一致）。
+  Widget _buildPickerDropdown<T>({
+    required BuildContext context,
+    required T value,
+    required List<DropdownMenuItem<T>> items,
+    required ValueChanged<T?> onChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: DropdownButton<T>(
+        value: value,
+        items: items,
+        onChanged: onChanged,
+        isDense: true,
+        underline: const SizedBox.shrink(),
+        borderRadius: BorderRadius.circular(8),
+        icon: Icon(Remix.arrow_down_s_line, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
+        style: AppTextStyles.t12.copyWith(color: Theme.of(context).colorScheme.onSurface),
+      ),
+    );
+  }
+
+  /// 暂弃编辑弹窗中每个房间的状态行：
+  /// - 正在直播：绿点 + "直播中"
+  /// - 未开播且有 startTime：显示上次直播时间（与未开播卡片遮罩格式一致）
+  /// - 无可用信息：返回 null 不显示
+  Widget? _buildPickerRoomStatusLine(LiveRoom room) {
+    if (room.isLiveNow) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: const BoxDecoration(color: Colors.greenAccent, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 4),
+          Text(i18n('live'), maxLines: 1, style: AppTextStyles.t11Muted.copyWith(color: Colors.greenAccent)),
+        ],
+      );
+    }
+    final ts = room.startTime;
+    if (ts == null || ts <= 0) return null;
+    final dt = DateTime.fromMillisecondsSinceEpoch(ts * 1000);
+    final y = dt.year.toString();
+    final mo = dt.month.toString().padLeft(2, '0');
+    final d = dt.day.toString().padLeft(2, '0');
+    final h = dt.hour.toString().padLeft(2, '0');
+    final mi = dt.minute.toString().padLeft(2, '0');
+    return Text(
+      '${i18n('last_live_time_prefix')} $y-$mo-$d $h:$mi',
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: AppTextStyles.t11Muted,
+    );
+  }
+
+  /// 暂弃房间编辑弹窗：列出所有关注直播间，用户勾选/取消来移入/移出暂弃。
+  void _showDormantRoomPicker(BuildContext context) {
+    final favCtrl = SettingsService.to.fav;
+    final allRooms = List<LiveRoom>.from(favCtrl.favoriteRooms.v);
+    final dormantKeys = favCtrl.dormantRoomKeys.toSet();
+
+    // 初始勾选状态 = 当前 dormantKeys
+    final selectedKeys = <String>{...dormantKeys};
+
+    // 弹窗内筛选状态：0=全部 1=直播中 2=未直播 3=已弃用；platformFilter 为空表示全部平台
+    var statusFilter = 0;
+    var platformFilter = '';
+    var searchText = '';
+    final searchController = TextEditingController();
+
+    // 平台选项：从关注列表提取，去重排序
+    final platformOptions = allRooms.map((r) => r.normalizedPlatformId).toSet().toList()..sort();
+
+    // 按平台、状态与关键词过滤；三个状态互斥：已弃用优先于直播状态
+    List<LiveRoom> filteredRooms() {
+      final kw = searchText.trim().toLowerCase();
+      return allRooms.where((room) {
+        if (platformFilter.isNotEmpty && room.normalizedPlatformId != platformFilter) return false;
+        final isDormant = selectedKeys.contains(room.identityKey);
+        switch (statusFilter) {
+          case 1:
+            if (isDormant || !room.isLiveNow) return false;
+          case 2:
+            if (isDormant || room.isLiveNow) return false;
+          case 3:
+            if (!isDormant) return false;
+        }
+        if (kw.isNotEmpty) {
+          final nick = (room.nick ?? '').toLowerCase();
+          final title = (room.title ?? '').toLowerCase();
+          final roomId = (room.roomId ?? '').toLowerCase();
+          if (!nick.contains(kw) && !title.contains(kw) && !roomId.contains(kw)) return false;
+        }
+        return true;
+      }).toList();
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setState) {
+            final visibleRooms = filteredRooms();
+            return Dialog(
+              child: Container(
+                width: 560,
+                height: 600,
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Remix.archive_line, size: 20, color: Theme.of(context).colorScheme.primary),
+                        const SizedBox(width: 8),
+                        Text('编辑暂时弃用列表', style: Theme.of(context).textTheme.titleMedium),
+                        const Spacer(),
+                        Text('已选 ${selectedKeys.length} / ${allRooms.length}', style: AppTextStyles.t13Muted),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text('勾选的直播间将被移入暂时弃用分类，不再参与刷新；取消勾选则移出暂时弃用并立即刷新一次最新状态。', style: AppTextStyles.t12Muted),
+                    const SizedBox(height: 12),
+                    // 搜索栏 + 平台筛选下拉框 + 直播状态筛选下拉框
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: searchController,
+                            onChanged: (value) => setState(() => searchText = value),
+                            style: AppTextStyles.t12,
+                            decoration: InputDecoration(
+                              isDense: true,
+                              hintText: '搜索主播名 / 标题 / 房间号',
+                              hintStyle: AppTextStyles.t12.copyWith(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                              ),
+                              prefixIcon: Icon(
+                                Remix.search_line,
+                                size: 18,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                              suffixIcon: searchText.isNotEmpty
+                                  ? IconButton(
+                                      iconSize: 18,
+                                      visualDensity: VisualDensity.compact,
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                      icon: Icon(
+                                        Remix.close_circle_fill,
+                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                      ),
+                                      onPressed: () {
+                                        searchController.clear();
+                                        setState(() => searchText = '');
+                                      },
+                                    )
+                                  : null,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide.none,
+                              ),
+                              filled: true,
+                              fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _buildPickerDropdown<String>(
+                          context: context,
+                          value: platformFilter,
+                          items: [
+                            DropdownMenuItem(
+                              value: '',
+                              child: Text('全部平台', style: AppTextStyles.t12),
+                            ),
+                            ...platformOptions.map(
+                              (p) => DropdownMenuItem(
+                                value: p,
+                                child: Text(p.toUpperCase(), style: AppTextStyles.t12),
+                              ),
+                            ),
+                          ],
+                          onChanged: (v) => setState(() => platformFilter = v ?? ''),
+                        ),
+                        const SizedBox(width: 8),
+                        _buildPickerDropdown<int>(
+                          context: context,
+                          value: statusFilter,
+                          items: const [
+                            DropdownMenuItem(value: 0, child: Text('全部')),
+                            DropdownMenuItem(value: 1, child: Text('直播中')),
+                            DropdownMenuItem(value: 2, child: Text('未直播')),
+                            DropdownMenuItem(value: 3, child: Text('已弃用')),
+                          ],
+                          onChanged: (v) => setState(() => statusFilter = v ?? 0),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: visibleRooms.isEmpty
+                          ? Center(
+                              child: Text(
+                                statusFilter == 0 && platformFilter.isEmpty && searchText.isEmpty
+                                    ? '暂无关注直播间'
+                                    : '无匹配的直播间',
+                                style: AppTextStyles.t12Muted,
+                              ),
+                            )
+                          : ListView.separated(
+                              itemCount: visibleRooms.length,
+                              separatorBuilder: (_, _) => const Divider(height: 1, indent: 40),
+                              itemBuilder: (context, index) {
+                                final room = visibleRooms[index];
+                                final isSelected = selectedKeys.contains(room.identityKey);
+                                // 上次直播时间行：直播中显示绿点状态；未开播且有 startTime 时显示上次直播时间
+                                final Widget? liveStatusLine = _buildPickerRoomStatusLine(room);
+                                return Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(8),
+                                    onTap: () {
+                                      setState(() {
+                                        if (isSelected) {
+                                          selectedKeys.remove(room.identityKey);
+                                        } else {
+                                          selectedKeys.add(room.identityKey);
+                                        }
+                                      });
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                      child: Row(
+                                        children: [
+                                          Checkbox(
+                                            value: isSelected,
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                                            onChanged: (_) {
+                                              setState(() {
+                                                if (isSelected) {
+                                                  selectedKeys.remove(room.identityKey);
+                                                } else {
+                                                  selectedKeys.add(room.identityKey);
+                                                }
+                                              });
+                                            },
+                                          ),
+                                          const SizedBox(width: 4),
+                                          CircleAvatar(
+                                            radius: 16,
+                                            backgroundImage: (room.avatar?.isNotEmpty ?? false)
+                                                ? CachedNetworkImageProvider(room.avatar!)
+                                                : null,
+                                            child: (room.avatar?.isEmpty ?? true)
+                                                ? const Icon(Icons.live_tv_rounded, size: 16)
+                                                : null,
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text(
+                                                  room.nick?.trim().isNotEmpty == true
+                                                      ? room.nick!
+                                                      : (room.title?.trim().isNotEmpty == true ? room.title! : '未知主播'),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: AppTextStyles.t13.copyWith(fontWeight: FontWeight.w500),
+                                                ),
+                                                if (room.title?.trim().isNotEmpty == true &&
+                                                    room.nick?.trim().isNotEmpty == true)
+                                                  Text(
+                                                    room.title!,
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: AppTextStyles.t11Muted,
+                                                  ),
+                                                if (liveStatusLine != null) ...[
+                                                  const SizedBox(height: 1),
+                                                  liveStatusLine,
+                                                ],
+                                              ],
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: Theme.of(context).colorScheme.surfaceContainerHighest
+                                                  .withValues(alpha: 0.5),
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              room.normalizedPlatformId.toUpperCase(),
+                                              style: AppTextStyles.t11Muted,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(onPressed: () => Navigator.pop(ctx), child: Text(i18n('cancel'))),
+                        const SizedBox(width: 8),
+                        FilledButton(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _applyDormantChanges(allRooms, selectedKeys, dormantKeys);
+                          },
+                          child: const Text('应用'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    ).whenComplete(searchController.dispose);
+  }
+
+  /// 计算差异并执行移入/移出暂弃操作。
+  Future<void> _applyDormantChanges(
+    List<LiveRoom> allRooms,
+    Set<String> newDormantKeys,
+    Set<String> oldDormantKeys,
+  ) async {
+    final controller = widget.controller;
+
+    // 需要移入暂弃的（之前不在、现在在）
+    final toAdd = allRooms
+        .where((r) => !oldDormantKeys.contains(r.identityKey) && newDormantKeys.contains(r.identityKey))
+        .toList();
+    // 需要移出暂弃的（之前在、现在不在）
+    final toRemove = allRooms
+        .where((r) => oldDormantKeys.contains(r.identityKey) && !newDormantKeys.contains(r.identityKey))
+        .toList();
+
+    // 先执行移出（让这些房间立即参与刷新）
+    if (toRemove.isNotEmpty) {
+      await controller.restoreRoomsFromDormant(toRemove);
+    }
+    // 再执行移入
+    if (toAdd.isNotEmpty) {
+      await controller.moveRoomsToDormant(toAdd);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
@@ -335,7 +704,20 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
           padding: const EdgeInsets.fromLTRB(8, 2, 12, 6),
           child: Row(
             children: [
+              // 暂弃Tab下：显示"+"编辑按钮替代置顶/排序按钮组
               Obx(() {
+                final isDormantTab = controller.tabOnlineIndex.value == 4;
+                if (isDormantTab) {
+                  return IconButton(
+                    iconSize: 20,
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                    onPressed: () => _showDormantRoomPicker(context),
+                    tooltip: '编辑暂时弃用列表',
+                    icon: Icon(Remix.add_line, color: Theme.of(context).colorScheme.primary),
+                  );
+                }
                 // 观看时长排序对所有状态生效，排序按钮在所有页签下都可用。
                 return Row(
                   mainAxisSize: MainAxisSize.min,
@@ -723,6 +1105,16 @@ class _FavoriteEmptyState extends StatelessWidget {
           subtitle: i18n('empty_favorite_online_subtitle'),
           buttonText: i18n('retry'),
           onButtonPressed: controller.refreshData,
+        );
+      }
+
+      // 暂弃Tab空状态：提示用工具栏"+"按钮添加
+      if (statusIndex == 4) {
+        return AppStatusView(
+          type: AppStatusType.empty,
+          icon: Remix.archive_line,
+          title: '暂时弃用列表为空',
+          subtitle: '点击工具栏的"+"按钮，选择要移入暂时弃用的直播间',
         );
       }
 

@@ -37,6 +37,9 @@ class BiliBiliWebLoginController extends GetxController {
   final isSwitchingToQr = false.obs;
   final errorMessageKey = ''.obs;
 
+  /// 当前页面网址（地址栏展示与编辑的数据源）。
+  final currentUrl = bilibiliWebLoginUrl.obs;
+
   Future<void>? _activeLogin;
   Future<void>? _activeQrSwitch;
   int _loginRevision = 0;
@@ -63,6 +66,24 @@ class BiliBiliWebLoginController extends GetxController {
 
   void onLoadStop(InAppWebViewController _, WebUri? uri) {
     if (shouldCompleteLogin(uri)) unawaited(handleLoginRedirect(uri!));
+  }
+
+  void onLoadStart(InAppWebViewController _, WebUri? uri) {
+    if (uri != null && !_closed) currentUrl.value = uri.toString();
+  }
+
+  void onUpdateVisitedHistory(InAppWebViewController _, WebUri? uri, bool? isReload) {
+    if (uri != null && !_closed) currentUrl.value = uri.toString();
+  }
+
+  /// 地址栏提交跳转；完成后若落在登录完成域名会经 onLoadStop 自动触发校验。
+  Future<void> navigateTo(String rawUrl) async {
+    final controller = webViewController;
+    if (_closed || controller == null) return;
+    errorMessageKey.value = '';
+    try {
+      await controller.loadUrl(urlRequest: URLRequest(url: WebUri(rawUrl)));
+    } catch (_) {}
   }
 
   Future<void> handleLoginRedirect(WebUri uri) {
