@@ -488,44 +488,48 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
           ),
         ),
         Expanded(
-          child: BasePageView<FavoriteController, LiveRoom>(
-            controller: controller,
-            enableRefresh: true,
-            enableLoadMore: true,
-            wrapMobileRefresh: false,
-            preserveContentWhenEmpty: true,
-            keyboardPagingEnabled: false,
-            showScrollToTopBtn: SettingsService.to.page.showScrollToTopBtn.v,
-            showPageSizeSelector: SettingsService.to.page.showPageSizeSelector.v,
-            pageSizeOptions: SettingsService.to.page.pageSizeOptions,
-            leftPaginationWidget: _buildLastRefreshTime(context),
-            contentBuilder: (context, list, _) {
-              final activeSiteIndex = controller.tabSiteIndex.value;
-              return TabBarView(
-                controller: _tabController,
-                physics: const PureLiveBoundedScrollPhysics(),
-                children: availableSitesList.asMap().entries.map((entry) {
-                  final site = entry.value;
-                  return Builder(
-                    key: ValueKey('favorite_site_${site.id}'),
-                    builder: (context) {
-                      // PageView mounts only the active/nearby pages. Defer
-                      // platform filtering and ScrollController allocation to
-                      // that point rather than doing both for every platform
-                      // on each reactive rebuild.
-                      final isCurrentSite = entry.key == activeSiteIndex;
-                      final pageList = isCurrentSite ? list : controller.filteredSyncedRoomsForSite(site.id);
-                      return RoomGridView(
-                        siteId: site.id,
-                        scrollController: _scrollControllerFor(site.id),
-                        displayList: pageList,
-                        emptyBuilder: (context) => _FavoriteEmptyState(controller: controller, siteId: site.id),
-                      );
-                    },
-                  );
-                }).toList(),
-              );
-            },
+          // Obx：紧凑布局下隐藏"每页"选择器（每页数量已由视口自适应接管）。
+          child: Obx(
+            () => BasePageView<FavoriteController, LiveRoom>(
+              controller: controller,
+              enableRefresh: true,
+              enableLoadMore: true,
+              wrapMobileRefresh: false,
+              preserveContentWhenEmpty: true,
+              keyboardPagingEnabled: false,
+              showScrollToTopBtn: SettingsService.to.page.showScrollToTopBtn.v,
+              showPageSizeSelector:
+                  controller.cardLayoutMode.value != 'compact' && SettingsService.to.page.showPageSizeSelector.v,
+              pageSizeOptions: SettingsService.to.page.pageSizeOptions,
+              leftPaginationWidget: _buildLastRefreshTime(context),
+              contentBuilder: (context, list, _) {
+                final activeSiteIndex = controller.tabSiteIndex.value;
+                return TabBarView(
+                  controller: _tabController,
+                  physics: const PureLiveBoundedScrollPhysics(),
+                  children: availableSitesList.asMap().entries.map((entry) {
+                    final site = entry.value;
+                    return Builder(
+                      key: ValueKey('favorite_site_${site.id}'),
+                      builder: (context) {
+                        // PageView mounts only the active/nearby pages. Defer
+                        // platform filtering and ScrollController allocation to
+                        // that point rather than doing both for every platform
+                        // on each reactive rebuild.
+                        final isCurrentSite = entry.key == activeSiteIndex;
+                        final pageList = isCurrentSite ? list : controller.filteredSyncedRoomsForSite(site.id);
+                        return RoomGridView(
+                          siteId: site.id,
+                          scrollController: _scrollControllerFor(site.id),
+                          displayList: pageList,
+                          emptyBuilder: (context) => _FavoriteEmptyState(controller: controller, siteId: site.id),
+                        );
+                      },
+                    );
+                  }).toList(),
+                );
+              },
+            ),
           ),
         ),
       ],
