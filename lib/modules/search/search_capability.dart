@@ -1,6 +1,6 @@
 import 'package:pure_live/core/sites.dart';
 
-enum NativeSearchCoverage { liveOnly, liveAndOffline, channelLookup, roomLookup, localChannels, webOnly, unavailable }
+enum NativeSearchCoverage { liveOnly, liveAndOffline, channelLookup, roomLookup, showcaseSnapshot, localChannels, webOnly, unavailable }
 
 class LiveSearchCapability {
   const LiveSearchCapability({required this.coverage, required this.supportsPagination, this.supportsWebSearch = true});
@@ -63,7 +63,7 @@ class LiveSearchCapabilities {
       supportsWebSearch: false,
     ),
     Sites.bigoSite: LiveSearchCapability(
-      coverage: NativeSearchCoverage.roomLookup,
+      coverage: NativeSearchCoverage.showcaseSnapshot,
       supportsPagination: false,
       supportsWebSearch: false,
     ),
