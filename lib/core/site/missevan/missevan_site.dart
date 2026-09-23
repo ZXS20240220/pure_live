@@ -4,21 +4,23 @@ import 'package:pure_live/core/danmaku/empty_danmaku.dart';
 import 'package:pure_live/core/interface/live_danmaku.dart';
 import 'package:pure_live/core/interface/live_site.dart';
 import 'package:pure_live/core/interface/live_directory.dart';
+import 'package:pure_live/core/interface/live_search.dart';
 import 'package:dio/dio.dart';
 import 'package:pure_live/model/live_category.dart';
 import 'package:pure_live/model/live_play_quality.dart';
 
 import 'missevan_api.dart';
 
-/// Anonymous directory, official keyword/exact search, playback and recording.
-/// Remote danmaku remains absent until its contract is verified.
+/// Anonymous directory, exact room lookup, playback and recording adapter.
+/// Keyword search and danmaku remain absent until their contracts are verified.
 class MissevanSite extends LiveSite
     implements
         LiveSiteRoomRefresher,
         LiveSiteRecordRoomResolver,
         LivePlayRecoveryResolver,
         LivePlayLeaseMetadata,
-        LiveSiteDirectoryPager {
+        LiveSiteDirectoryPager,
+        LiveCancellableSearch {
   MissevanSite({MissevanApi? api}) : _api = api ?? MissevanApi();
   final MissevanApi _api;
   @override
@@ -54,9 +56,8 @@ class MissevanSite extends LiveSite
     int pageSize = 30,
     CancelToken? cancel,
   }) async {
-    if (pageSize < 1) return const [];
+    if (page != 1 || pageSize < 1) return const [];
     final input = keyword.trim();
-    if (input.isEmpty) return const [];
     String? id;
     try {
       id = MissevanApi.roomId(input);
@@ -64,18 +65,13 @@ class MissevanSite extends LiveSite
       final uri = Uri.tryParse(input);
       if (uri != null) id = MissevanApi.roomFromUri(uri);
     }
-    if (id != null) {
-      if (page != 1) return const [];
-      try {
-        return [await _api.detail(id, includeMedia: false, cancel: cancel)];
-      } on MissevanException catch (error) {
-        if (error.kind == MissevanFailure.notFound) return const [];
-        rethrow;
-      }
+    if (id == null) return const [];
+    try {
+      return [await _api.detail(id, includeMedia: false, cancel: cancel)];
+    } on MissevanException catch (error) {
+      if (error.kind == MissevanFailure.notFound) return const [];
+      rethrow;
     }
-    // A foreign/malformed share URL is not a nickname search request.
-    if (Uri.tryParse(input)?.hasScheme == true) return const [];
-    return _api.searchPage(input, page: page, pageSize: pageSize, cancel: cancel);
   }
 
   @override
