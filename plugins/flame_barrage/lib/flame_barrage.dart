@@ -41,6 +41,7 @@ export 'src/layout/layout_span.dart';
 export 'src/layout/mixed_layout.dart';
 export 'src/layout/rich_parser.dart';
 export 'src/layout/text_fragment.dart';
+export 'src/layout/seg_emoji_ranges.dart';
 export 'src/layout/sprite_layout_span.dart';
 export 'src/layout/sprite_fragment.dart';
 

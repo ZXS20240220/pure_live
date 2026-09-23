@@ -57,7 +57,7 @@ class RichParser {
     final regex = atlas.regex;
 
     if (regex == null || !regex.hasMatch(content)) {
-      return [TextFragment(content)];
+      return _splitPseudoEmoji(content);
     }
 
     final result = <Fragment>[];
@@ -65,7 +65,7 @@ class RichParser {
 
     for (final match in regex.allMatches(content)) {
       if (match.start > lastIndex) {
-        result.add(TextFragment(content.substring(lastIndex, match.start)));
+        result.addAll(_splitPseudoEmoji(content.substring(lastIndex, match.start)));
       }
 
       final key = match.group(0);
@@ -86,8 +86,46 @@ class RichParser {
     }
 
     if (lastIndex < content.length) {
-      result.add(TextFragment(content.substring(lastIndex)));
+      result.addAll(_splitPseudoEmoji(content.substring(lastIndex)));
     }
+
+    return result;
+  }
+
+  /// Splits [text] into alternating [TextFragment]s so that codepoints covered
+  /// by Segoe UI Emoji (arrows, geometric shapes, dingbats, misc symbols, …)
+  /// are isolated into their own fragments with `fontFamilyOverride` set to
+  /// `'Segoe UI Emoji'`. This prevents third-party CJK fonts from hijacking
+  /// these codepoints with monochrome vector glyphs.
+  ///
+  /// Returns `[TextFragment(text)]` when the text contains no pseudo-emoji.
+  List<Fragment> _splitPseudoEmoji(String text) {
+    if (text.isEmpty) return const [];
+
+    final runes = text.runes;
+    final result = <Fragment>[];
+    final buf = StringBuffer();
+    bool inEmoji = false;
+
+    void flush(bool emojiMode) {
+      if (buf.isEmpty) return;
+      if (emojiMode) {
+        result.add(TextFragment(buf.toString(), fontFamilyOverride: 'Segoe UI Emoji'));
+      } else {
+        result.add(TextFragment(buf.toString()));
+      }
+      buf.clear();
+    }
+
+    for (final cp in runes) {
+      final matches = isSegoeEmojiCodepoint(cp);
+      if (matches != inEmoji) {
+        flush(inEmoji);
+        inEmoji = matches;
+      }
+      buf.writeCharCode(cp);
+    }
+    flush(inEmoji);
 
     return result;
   }

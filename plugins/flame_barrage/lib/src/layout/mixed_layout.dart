@@ -120,17 +120,33 @@ class MixedLayout {
       final fragment = fragments[i];
 
       if (fragment is TextFragment) {
+        // Pseudo-emoji fragments carry fontFamilyOverride so that codepoints
+        // like U+2611 (☑) route to Segoe UI Emoji instead of being hijacked by
+        // the user-selected CJK font's monochrome glyphs.
+        final effectiveFontFamily = fragment.fontFamilyOverride ?? config.fontFamily;
         final textCacheKey =
             '${fragment.text}|${config.fontSize}|$colorValue|$showStroke|${config.fontWeight}|${config.fontStyle}|'
-            '${config.fontFamily}|${config.letterSpacing}|${config.showShadow}|${effectiveShadowColor.toARGB32()}|'
+            '$effectiveFontFamily|${config.letterSpacing}|${config.showShadow}|${effectiveShadowColor.toARGB32()}|'
             '${config.shadowBlur}|${config.shadowOffset.dx}|${config.shadowOffset.dy}';
         final strokeCacheKey =
             '${fragment.text}|$fontSize|${effectiveStrokeColor.toARGB32()}|${config.strokeWidth}|'
-            '${config.fontWeight}|${config.fontStyle}|${config.fontFamily}|${config.letterSpacing}';
+            '${config.fontWeight}|${config.fontStyle}|$effectiveFontFamily|${config.letterSpacing}';
 
-        final paragraph = _buildParagraph(fragment.text, config, textCacheKey, isStroke: false);
+        final paragraph = _buildParagraph(
+          fragment.text,
+          config,
+          textCacheKey,
+          isStroke: false,
+          fontFamilyOverride: fragment.fontFamilyOverride,
+        );
         final strokeParagraph = config.showStroke
-            ? _buildParagraph(fragment.text, config, strokeCacheKey, isStroke: true)
+            ? _buildParagraph(
+                fragment.text,
+                config,
+                strokeCacheKey,
+                isStroke: true,
+                fontFamilyOverride: fragment.fontFamilyOverride,
+              )
             : null;
 
         final width = paragraph.maxIntrinsicWidth;
@@ -268,7 +284,13 @@ class MixedLayout {
     return LayoutResult(width: currentX, height: maxHeight, spans: finalSpans, cacheKey: combinedHash.toString());
   }
 
-  ui.Paragraph _buildParagraph(String text, BarrageConfig config, String textCacheKey, {required bool isStroke}) {
+  ui.Paragraph _buildParagraph(
+    String text,
+    BarrageConfig config,
+    String textCacheKey, {
+    required bool isStroke,
+    String? fontFamilyOverride,
+  }) {
     final cached = _textCache.get(textCacheKey);
     if (cached != null) {
       return cached;
@@ -278,6 +300,8 @@ class MixedLayout {
     // leaves no room for the stroke at the top edge.  Keep a small symmetric
     // vertical allowance so glyphs remain complete at every configured size.
     final builder = ui.ParagraphBuilder(ui.ParagraphStyle(fontSize: config.fontSize, height: 1.15));
+
+    final resolvedFontFamily = fontFamilyOverride ?? config.fontFamily;
 
     if (isStroke) {
       final strokePaint = ui.Paint()
@@ -294,7 +318,7 @@ class MixedLayout {
           fontSize: config.fontSize,
           fontWeight: config.fontWeight,
           fontStyle: config.fontStyle,
-          fontFamily: config.fontFamily,
+          fontFamily: resolvedFontFamily,
           letterSpacing: config.letterSpacing,
         ),
       );
@@ -309,7 +333,7 @@ class MixedLayout {
           fontSize: config.fontSize,
           fontWeight: config.fontWeight,
           fontStyle: config.fontStyle,
-          fontFamily: config.fontFamily,
+          fontFamily: resolvedFontFamily,
           letterSpacing: config.letterSpacing,
           shadows: config.showShadow
               ? <ui.Shadow>[
@@ -361,6 +385,7 @@ class MixedLayout {
       final fragment = fragments[i];
       if (fragment is TextFragment) {
         hash = 37 * hash + fragment.text.hashCode;
+        hash = 37 * hash + (fragment.fontFamilyOverride?.hashCode ?? 0);
       } else if (fragment is SpriteFragment) {
         hash = 37 * hash + fragment.emojiId.hashCode;
       } else if (fragment is EmojiFragment) {
