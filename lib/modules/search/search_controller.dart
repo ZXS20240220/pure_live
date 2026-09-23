@@ -292,6 +292,7 @@ class SearchController extends GetxController {
       if (batch.failed) failures.add(batch.site.name);
       _hasMoreByPlatform[batch.site.id] = _canLoadAnotherPage(
         site: batch.site,
+        keyword: keyword,
         capability: capability,
         batch: batch,
         addedCount: addedCount,
@@ -319,11 +320,16 @@ class SearchController extends GetxController {
 
   bool _canLoadAnotherPage({
     required Site site,
+    required String keyword,
     required LiveSearchCapability capability,
     required _SiteSearchBatch batch,
     required int addedCount,
   }) {
-    if (!capability.supportsPagination || batch.failed || batch.rooms.isEmpty) {
+    if (!capability.supportsPagination ||
+        (site.liveSite is LiveSearchPaginationPolicy &&
+            !(site.liveSite as LiveSearchPaginationPolicy).supportsSearchPaginationFor(keyword)) ||
+        batch.failed ||
+        batch.rooms.isEmpty) {
       _stagnantPagesByPlatform.remove(site.id);
       return false;
     }

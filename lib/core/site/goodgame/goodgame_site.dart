@@ -18,6 +18,7 @@ final class GoodGameSite extends LiveSite
         LiveSiteDirectoryPager,
         LiveDirectoryNotice,
         LiveCancellableSearch,
+        LiveSearchPaginationPolicy,
         LiveSiteRoomRefresher,
         LiveSiteRecordRoomResolver,
         LivePlayUrlResolver,
@@ -119,6 +120,15 @@ final class GoodGameSite extends LiveSite
   Future<List<LiveRoom>> searchRooms(String keyword, {int page = 1, int pageSize = 30}) =>
       searchRoomsCancellable(keyword, page: page, pageSize: pageSize);
 
+  static bool _isExactOnly(String input) =>
+      GoodGameLink.parse(input) != null || GoodGameLink.parseReference(input)?.kind == GoodGameLinkKind.player;
+
+  @override
+  bool supportsSearchPaginationFor(String keyword) {
+    final input = keyword.trim();
+    return input.isNotEmpty && !_isExactOnly(input);
+  }
+
   Future<List<GoodGameRoom>> _searchDirectory(CancelToken? cancel) async {
     final snapshot = _searchDirectorySnapshot;
     final fetchedAt = _searchDirectoryFetchedAt;
@@ -150,14 +160,18 @@ final class GoodGameSite extends LiveSite
   }) async {
     final raw = keyword.trim();
     if (raw.isEmpty || page < 1 || pageSize < 1) return [];
+    final exactOnly = _isExactOnly(raw);
+    if (exactOnly && page != 1) return [];
     final reference = GoodGameLink.parseReference(raw);
     if (page == 1 && reference != null && (!raw.contains(' ') || raw.contains('://'))) {
       try {
         return [_room(await _api.room(reference.storageKey, cancel: cancel), includeMedia: false)];
       } on GoodGameException catch (error) {
         if (error.kind != GoodGameFailure.missing && error.kind != GoodGameFailure.schema) rethrow;
+        if (exactOnly) return [];
       }
     }
+    if (exactOnly) return [];
     final query = raw.toLowerCase();
     final rooms = await _searchDirectory(cancel);
     return rooms
