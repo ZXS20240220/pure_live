@@ -1,6 +1,15 @@
 import 'package:pure_live/core/sites.dart';
 
-enum NativeSearchCoverage { liveOnly, liveAndOffline, channelLookup, roomLookup, showcaseSnapshot, localChannels, webOnly, unavailable }
+enum NativeSearchCoverage {
+  liveOnly,
+  liveAndOffline,
+  channelLookup,
+  roomLookup,
+  showcaseSnapshot,
+  localChannels,
+  webOnly,
+  unavailable,
+}
 
 class LiveSearchCapability {
   const LiveSearchCapability({required this.coverage, required this.supportsPagination, this.supportsWebSearch = true});
@@ -125,6 +134,11 @@ class LiveSearchCapabilities {
     Sites.inkeSite: LiveSearchCapability(
       coverage: NativeSearchCoverage.roomLookup,
       supportsPagination: false,
+      supportsWebSearch: false,
+    ),
+    Sites.goodGameSite: LiveSearchCapability(
+      coverage: NativeSearchCoverage.liveAndOffline,
+      supportsPagination: true,
       supportsWebSearch: false,
     ),
     Sites.iptvSite: LiveSearchCapability(

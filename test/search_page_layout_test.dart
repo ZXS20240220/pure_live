@@ -258,6 +258,7 @@ void main() {
     Sites.twitcastingSite,
     Sites.huajiaoSite,
     Sites.openrecSite,
+    Sites.goodGameSite,
   ]) {
     testWidgets('$platform native search is actionable and keeps its web capability', (tester) async {
       final c = await _mount(tester, platform: platform);

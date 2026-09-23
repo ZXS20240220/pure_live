@@ -66,6 +66,72 @@ void main() {
     expect(Uri.parse(recovered.urls.single).queryParameters['generation'], '3');
   });
 
+  test('directory-backed search preserves matches past the UI page size', () async {
+    final template = Map<String, dynamic>.from((_directory()['streams'] as List).single as Map);
+    final rooms = List.generate(84, (index) {
+      final id = 20000 + index;
+      return {
+        ...template,
+        'id': id,
+        'key': 'match$index',
+        'title': 'match title $index',
+        'streamer': {'username': 'match$index'},
+        'sources': {'source': 'https://hls.goodgame.ru/hls/$id.m3u8?expires=1790064565&token=fixture'},
+      };
+    });
+    var directoryRequests = 0;
+    final site = GoodGameSite(
+      api: GoodGameApi(
+        request: (uri, _, _) async {
+          directoryRequests++;
+          final page = int.parse(uri.queryParameters['page']!);
+          return (
+            status: 200,
+            body: jsonEncode({
+              'queryInfo': {'qty': rooms.length, 'page': page, 'onPage': 50},
+              'streams': rooms.skip((page - 1) * 50).take(50).toList(),
+            }),
+          );
+        },
+      ),
+    );
+    final first = await site.searchRooms('match title', page: 1, pageSize: 30);
+    final second = await site.searchRooms('match title', page: 2, pageSize: 30);
+    final third = await site.searchRooms('match title', page: 3, pageSize: 30);
+    expect(await site.searchRooms('match title', page: 4, pageSize: 30), isEmpty);
+    expect(first, hasLength(30));
+    expect(second, hasLength(30));
+    expect(third, hasLength(24));
+    expect({
+      ...first.map((room) => room.roomId),
+      ...second.map((room) => room.roomId),
+      ...third.map((room) => room.roomId),
+    }, hasLength(84));
+    expect(directoryRequests, 2);
+  });
+
+  test('search continues after a native page with no visible live rooms', () async {
+    final template = Map<String, dynamic>.from((_directory()['streams'] as List).single as Map);
+    final site = GoodGameSite(
+      api: GoodGameApi(
+        request: (uri, _, _) async {
+          final page = int.parse(uri.queryParameters['page']!);
+          return (
+            status: 200,
+            body: jsonEncode({
+              'queryInfo': {'qty': 51, 'page': page, 'onPage': 50},
+              'streams': page == 1
+                  ? List.generate(50, (index) => {...template, 'id': 20000 + index, 'online': false})
+                  : [template],
+            }),
+          );
+        },
+      ),
+    );
+    final matches = await site.searchRooms('Neverwinter Night');
+    expect(matches.map((room) => room.roomId), ['verloin']);
+  });
+
   test('registry exposes one GoodGame adapter with recording recovery', () {
     expect(Sites.supportedSiteIds, contains(Sites.goodGameSite));
     expect(Sites.of(Sites.goodGameSite).liveSite, isA<GoodGameSite>());
