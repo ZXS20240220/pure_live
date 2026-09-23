@@ -1873,6 +1873,7 @@
     "danmaku_long_press_action": "长按画面弹幕打开屏蔽操作",
     "search_coverage_huajiao": "花椒仅支持精确花椒号或官方主播主页链接，可返回未开播主播；昵称与关键词搜索尚未接入。",
     "search_coverage_kilakila": "克拉克拉仅支持精确主播 UID 或官方主播主页链接；未公布当前场次时状态保持未知，昵称与关键词搜索尚未接入。",
+    "search_coverage_openrec": "mellow-fan 仅支持精确频道 ID 或官方频道根链接，可返回未开播频道；多场直播不自动选取，访问错误也不代表下播。昵称与关键词搜索尚未接入。",
     "history_changes_save_failed": "历史记录更改未保存，请重试。",
     "portrait_panel_resize": "弹幕面板高度",
     "portrait_panel_resize_hint": "上下滑动或使用无障碍调整操作改变面板高度",

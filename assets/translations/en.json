@@ -1873,6 +1873,7 @@
     "danmaku_long_press_action": "Long-press an on-screen danmaku for block actions",
     "search_coverage_huajiao": "Huajiao supports exact account IDs or official broadcaster profile links, including offline accounts; name and keyword search are not integrated.",
     "search_coverage_kilakila": "Kilakila supports exact anchor UIDs or official broadcaster profile links. When no current broadcast is advertised, live status stays unknown; name and keyword search are not integrated.",
+    "search_coverage_openrec": "mellow-fan supports exact channel IDs or official channel root links, including offline channels. Multiple broadcasts are not selected automatically, and access errors do not mean offline. Name and keyword search are not integrated.",
     "history_changes_save_failed": "The history changes were not saved. Try again.",
     "portrait_panel_resize": "Danmaku panel height",
     "portrait_panel_resize_hint": "Swipe vertically or use accessibility adjustment actions to resize the panel",
