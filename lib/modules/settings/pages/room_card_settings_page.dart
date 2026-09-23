@@ -1,6 +1,7 @@
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/services/settings/room_card_settings_controller.dart';
+import 'package:pure_live/common/widgets/room_card_compact.dart';
 
 class RoomCardSettingsPage extends StatefulWidget {
   const RoomCardSettingsPage({super.key});
@@ -10,14 +11,6 @@ class RoomCardSettingsPage extends StatefulWidget {
 }
 
 class _RoomCardSettingsPageState extends State<RoomCardSettingsPage> {
-  late RoomCardViewport _viewport;
-
-  @override
-  void initState() {
-    super.initState();
-    _viewport = SettingsService.to.roomCard.currentViewport;
-  }
-
   LiveRoom get _previewRoom => LiveRoom(
     roomId: 'room-card-preview',
     platform: 'bilibili',
@@ -27,6 +20,18 @@ class _RoomCardSettingsPageState extends State<RoomCardSettingsPage> {
     avatar: '',
     popularity: '12800',
     liveStatus: LiveStatus.live,
+  );
+
+  LiveRoom get _previewOfflineRoom => LiveRoom(
+    roomId: 'room-card-preview-offline',
+    platform: 'bilibili',
+    title: 'Pure Live · 未直播房间预览',
+    nick: i18n('room_card_preview_anchor'),
+    cover: '',
+    avatar: '',
+    popularity: '0',
+    liveStatus: LiveStatus.offline,
+    startTime: (DateTime.now().millisecondsSinceEpoch ~/ 1000) - 3600 * 5,
   );
 
   @override
@@ -39,62 +44,54 @@ class _RoomCardSettingsPageState extends State<RoomCardSettingsPage> {
           IconButton(
             key: const ValueKey('room-card-reset'),
             tooltip: i18n('room_card_reset_current'),
-            onPressed: () => controller.reset(_viewport),
+            onPressed: controller.reset,
             icon: const Icon(Remix.restart_line),
           ),
         ],
       ),
       body: Obx(() {
-        final config = controller.configFor(_viewport);
-        final preset = controller.presetFor(_viewport);
+        final config = controller.current;
         return ListView(
           key: const ValueKey('room-card-settings-scroll'),
           physics: const PureLiveScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
           children: [
-            context.buildGroupTitle(i18n('room_card_target')),
-            Semantics(
-              label: i18n('room_card_target'),
-              child: Wrap(
-                key: const ValueKey('room-card-target-selector'),
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _targetChip(RoomCardViewport.mobile, Remix.smartphone_line, i18n('room_card_mobile')),
-                  _targetChip(RoomCardViewport.desktop, Remix.computer_line, i18n('room_card_desktop')),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
+            // 实时预览：标准卡片 + 紧凑列表卡片（带 pin + offline 两版）
             context.buildGroupTitle(i18n('room_card_preview')),
             Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: RoomCard(
-                  key: ValueKey('room-card-preview-${_viewport.name}'),
-                  room: _previewRoom,
-                  dense: _viewport == RoomCardViewport.mobile,
-                  settingsViewport: _viewport,
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            context.buildGroupTitle(i18n('room_card_presets')),
-            Wrap(
-              key: const ValueKey('room-card-preset-selector'),
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _presetChip(controller, preset, RoomCardPreset.compact, i18n('room_card_preset_compact')),
-                _presetChip(controller, preset, RoomCardPreset.standard, i18n('room_card_preset_standard')),
-                _presetChip(controller, preset, RoomCardPreset.detailed, i18n('room_card_preset_detailed')),
-                if (preset == RoomCardPreset.custom)
-                  Chip(
-                    key: const ValueKey('room-card-custom-preset'),
-                    avatar: const Icon(Remix.edit_line, size: 18),
-                    label: Text(i18n('room_card_preset_custom')),
+              child: Column(
+                key: const ValueKey('room-card-preview-column'),
+                children: [
+                  // 标准卡片预览（关注页 / 切换页封面布局）
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    child: RoomCard(
+                      key: const ValueKey('room-card-preview-standard'),
+                      room: _previewRoom,
+                      isPinned: true,
+                    ),
                   ),
-              ],
+                  const SizedBox(height: 16),
+                  // 紧凑列表卡片预览（关注页列表布局 / 切换页列表布局）
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    child: Column(
+                      children: [
+                        RoomCardCompact(
+                          key: const ValueKey('room-card-preview-compact-live'),
+                          room: _previewRoom,
+                          isPinned: true,
+                        ),
+                        const SizedBox(height: 8),
+                        RoomCardCompact(
+                          key: const ValueKey('room-card-preview-compact-offline'),
+                          room: _previewOfflineRoom,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 20),
             context.buildGroupTitle(i18n('room_card_visible_content')),
@@ -104,50 +101,57 @@ class _RoomCardSettingsPageState extends State<RoomCardSettingsPage> {
                 title: i18n('room_card_show_avatar'),
                 subtitle: i18n('room_card_show_avatar_subtitle'),
                 value: config.showAvatar,
-                onChanged: (value) => controller.updateConfig(_viewport, config.copyWith(showAvatar: value)),
+                onChanged: (v) => controller.updateConfig(config.copyWith(showAvatar: v)),
               ),
               _toggle(
                 icon: Remix.account_circle_line,
                 title: i18n('room_card_show_anchor'),
                 subtitle: i18n('room_card_show_anchor_subtitle'),
                 value: config.showAnchorName,
-                onChanged: (value) => controller.updateConfig(_viewport, config.copyWith(showAnchorName: value)),
+                onChanged: (v) => controller.updateConfig(config.copyWith(showAnchorName: v)),
               ),
-              _platformBadgeMode(controller, config),
+              _toggle(
+                icon: Remix.layout_grid_line,
+                title: i18n('room_card_show_platform'),
+                // 旧 subtitle 描述"自动"模式，现在只有简单开关，更新提示
+                subtitle: '在卡片上始终显示直播平台徽章',
+                value: config.showPlatformBadge,
+                onChanged: (v) => controller.updateConfig(config.copyWith(showPlatformBadge: v)),
+              ),
               _toggle(
                 icon: Remix.group_line,
                 title: i18n('room_card_show_audience'),
                 subtitle: i18n('room_card_show_audience_subtitle'),
                 value: config.showAudience,
-                onChanged: (value) => controller.updateConfig(_viewport, config.copyWith(showAudience: value)),
+                onChanged: (v) => controller.updateConfig(config.copyWith(showAudience: v)),
               ),
               _toggle(
                 icon: Remix.video_line,
                 title: i18n('room_card_show_replay'),
                 subtitle: i18n('room_card_show_replay_subtitle'),
                 value: config.showReplayBadge,
-                onChanged: (value) => controller.updateConfig(_viewport, config.copyWith(showReplayBadge: value)),
+                onChanged: (v) => controller.updateConfig(config.copyWith(showReplayBadge: v)),
               ),
               _toggle(
                 icon: Remix.pushpin_line,
                 title: i18n('room_card_show_pin_badge'),
                 subtitle: i18n('room_card_show_pin_badge_subtitle'),
                 value: config.showPinBadge,
-                onChanged: (value) => controller.updateConfig(_viewport, config.copyWith(showPinBadge: value)),
+                onChanged: (v) => controller.updateConfig(config.copyWith(showPinBadge: v)),
               ),
               _toggle(
                 icon: Remix.time_line,
                 title: i18n('room_card_show_watch_time'),
                 subtitle: i18n('room_card_show_watch_time_subtitle'),
                 value: config.showWatchTimeBadge,
-                onChanged: (value) => controller.updateConfig(_viewport, config.copyWith(showWatchTimeBadge: value)),
+                onChanged: (v) => controller.updateConfig(config.copyWith(showWatchTimeBadge: v)),
               ),
               _toggle(
                 icon: Remix.history_line,
                 title: i18n('room_card_show_last_live'),
                 subtitle: i18n('room_card_show_last_live_subtitle'),
                 value: config.showLastLiveTime,
-                onChanged: (value) => controller.updateConfig(_viewport, config.copyWith(showLastLiveTime: value)),
+                onChanged: (v) => controller.updateConfig(config.copyWith(showLastLiveTime: v)),
               ),
             ]),
             const SizedBox(height: 20),
@@ -162,7 +166,7 @@ class _RoomCardSettingsPageState extends State<RoomCardSettingsPage> {
                 min: RoomCardAppearance.minCornerRadius,
                 max: RoomCardAppearance.maxCornerRadius,
                 displayValue: config.cornerRadius.toStringAsFixed(0),
-                onChanged: (value) => controller.updateConfig(_viewport, config.copyWith(cornerRadius: value)),
+                onChanged: (v) => controller.updateConfig(config.copyWith(cornerRadius: v)),
               ),
             ]),
             const SizedBox(height: 16),
@@ -174,30 +178,6 @@ class _RoomCardSettingsPageState extends State<RoomCardSettingsPage> {
           ],
         );
       }),
-    );
-  }
-
-  Widget _targetChip(RoomCardViewport viewport, IconData icon, String label) {
-    return ChoiceChip(
-      key: ValueKey('room-card-target-${viewport.name}'),
-      avatar: Icon(icon, size: 18),
-      label: Text(label),
-      selected: _viewport == viewport,
-      onSelected: (_) => setState(() => _viewport = viewport),
-    );
-  }
-
-  Widget _presetChip(
-    RoomCardSettingsController controller,
-    RoomCardPreset current,
-    RoomCardPreset preset,
-    String label,
-  ) {
-    return ChoiceChip(
-      key: ValueKey('room-card-preset-${preset.storageKey}'),
-      label: Text(label),
-      selected: current == preset,
-      onSelected: (_) => controller.applyPreset(_viewport, preset),
     );
   }
 
@@ -215,69 +195,6 @@ class _RoomCardSettingsPageState extends State<RoomCardSettingsPage> {
       value: value,
       onChanged: onChanged,
       contentPadding: const EdgeInsets.only(left: 16, top: 2, bottom: 2, right: 8),
-    );
-  }
-
-  Widget _platformBadgeMode(RoomCardSettingsController controller, RoomCardAppearance config) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(padding: EdgeInsets.only(top: 2), child: Icon(Remix.layout_grid_line)),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(i18n('room_card_show_platform'), style: AppTextStyles.t15.copyWith(fontWeight: FontWeight.w600)),
-                const SizedBox(height: 2),
-                Text(i18n('room_card_show_platform_subtitle'), style: AppTextStyles.t12),
-                const SizedBox(height: 10),
-                Wrap(
-                  key: const ValueKey('room-card-platform-mode'),
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _platformModeChip(
-                      controller,
-                      config,
-                      RoomCardPlatformBadgeMode.automatic,
-                      i18n('room_card_platform_automatic'),
-                    ),
-                    _platformModeChip(
-                      controller,
-                      config,
-                      RoomCardPlatformBadgeMode.always,
-                      i18n('room_card_platform_always'),
-                    ),
-                    _platformModeChip(
-                      controller,
-                      config,
-                      RoomCardPlatformBadgeMode.hidden,
-                      i18n('room_card_platform_hidden'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _platformModeChip(
-    RoomCardSettingsController controller,
-    RoomCardAppearance config,
-    RoomCardPlatformBadgeMode mode,
-    String label,
-  ) {
-    return ChoiceChip(
-      key: ValueKey('room-card-platform-${mode.name}'),
-      label: Text(label),
-      selected: config.platformBadgeMode == mode,
-      onSelected: (_) => controller.updateConfig(_viewport, config.withPlatformBadgeMode(mode)),
     );
   }
 }

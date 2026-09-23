@@ -1,31 +1,19 @@
 import 'dart:convert';
 
-import 'package:pure_live/common/global/platform_utils.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/utils/hive_pref_util.dart';
 
-enum RoomCardViewport { mobile, desktop }
-
-enum RoomCardPlatformBadgeMode { automatic, always, hidden }
-
-enum RoomCardPreset {
-  compact('compact'),
-  standard('normal'),
-  detailed('rich'),
-  custom('custom');
-
-  const RoomCardPreset(this.storageKey);
-
-  final String storageKey;
-}
-
+/// 房间卡片外观配置（单一配置，桌面端唯一）。
+///
+/// 基础版只有 Windows 桌面端，不再区分 mobile/desktop 两套，
+/// 也不再提供预设（compact/standard/detailed/custom）和"自动"平台徽章模式。
+/// 所有显示项都是独立开关 + 一个圆角滑块，结构扁平。
 @immutable
 class RoomCardAppearance {
   const RoomCardAppearance({
     required this.showAvatar,
     required this.showAnchorName,
     required this.showPlatformBadge,
-    required this.automaticPlatformBadge,
     required this.showAudience,
     required this.showReplayBadge,
     required this.showPinBadge,
@@ -38,37 +26,11 @@ class RoomCardAppearance {
   static const double minCornerRadius = 0;
   static const double maxCornerRadius = 32;
 
-  static const compact = RoomCardAppearance(
-    showAvatar: false,
-    showAnchorName: false,
-    showPlatformBadge: false,
-    automaticPlatformBadge: false,
-    showAudience: true,
-    showReplayBadge: true,
-    showPinBadge: true,
-    showWatchTimeBadge: true,
-    showLastLiveTime: true,
-    cornerRadius: 12,
-  );
-
-  static const standard = RoomCardAppearance(
+  /// 与旧"标准预设"视觉接近的默认值，也是 reset 按钮恢复的目标。
+  static const RoomCardAppearance standard = RoomCardAppearance(
     showAvatar: true,
     showAnchorName: true,
     showPlatformBadge: false,
-    automaticPlatformBadge: true,
-    showAudience: true,
-    showReplayBadge: true,
-    showPinBadge: true,
-    showWatchTimeBadge: true,
-    showLastLiveTime: true,
-    cornerRadius: defaultCornerRadius,
-  );
-
-  static const detailed = RoomCardAppearance(
-    showAvatar: true,
-    showAnchorName: true,
-    showPlatformBadge: true,
-    automaticPlatformBadge: false,
     showAudience: true,
     showReplayBadge: true,
     showPinBadge: true,
@@ -79,35 +41,27 @@ class RoomCardAppearance {
 
   final bool showAvatar;
   final bool showAnchorName;
+
+  /// 平台徽章（简单开关）：true → 始终显示；false → 隐藏。
+  /// 旧的"自动/始终/隐藏"三档已合并为单一开关。
   final bool showPlatformBadge;
-  final bool automaticPlatformBadge;
+
+  /// 观众热度 / 人气数值开关（紧凑列表和标准卡片共用）。
   final bool showAudience;
+
+  /// 回放徽章（录播房间）：仅标准卡片封面使用。
   final bool showReplayBadge;
 
-  /// 置顶徽章（开发版独有显示项，右上角）：仅当卡片被判定为置顶时渲染。
+  /// 置顶徽章（右上角 pin）：仅当卡片被判定为置顶时渲染（与是否开启此开关无关）。
   final bool showPinBadge;
 
-  /// 累计观看时长徽章（开发版独有显示项，封面左下角）：无记录时不占位。
+  /// 累计观看时长徽章（标准卡片封面左下角）。
   final bool showWatchTimeBadge;
 
-  /// 上次直播时间及遮罩（开发版独有显示项）：未开播且有 startTime 时
-  /// 全封面黑色半透明遮罩 + 居中两行文本。
+  /// 上次直播时间及遮罩（标准卡片封面未开播时）。
   final bool showLastLiveTime;
 
   final double cornerRadius;
-
-  RoomCardPlatformBadgeMode get platformBadgeMode {
-    if (automaticPlatformBadge) return RoomCardPlatformBadgeMode.automatic;
-    return showPlatformBadge ? RoomCardPlatformBadgeMode.always : RoomCardPlatformBadgeMode.hidden;
-  }
-
-  static RoomCardAppearance fromPreset(RoomCardPreset preset) {
-    return switch (preset) {
-      RoomCardPreset.compact => compact,
-      RoomCardPreset.detailed => detailed,
-      RoomCardPreset.standard || RoomCardPreset.custom => standard,
-    };
-  }
 
   static double normalizeCornerRadius(num value) {
     final converted = value.toDouble();
@@ -136,19 +90,19 @@ class RoomCardAppearance {
       return normalizeCornerRadius(value);
     }
 
+    // 旧格式会带 automaticPlatformBadge —— 既然已经删除自动模式，
+    // 旧的 automaticPlatformBadge=true 表示"自动显示"，现在统一降级为 showPlatformBadge=false（隐藏）。
     final hasExplicitPlatformValue = json.containsKey('showPlatformBadge') || json.containsKey('showPlatform');
     final showPlatformBadge = readBool('showPlatformBadge', 'showPlatform', fallback.showPlatformBadge);
-    final automaticPlatformBadge = json.containsKey('automaticPlatformBadge')
-        ? readBool('automaticPlatformBadge', 'automaticPlatformBadge', fallback.automaticPlatformBadge)
-        : hasExplicitPlatformValue
-        ? false
-        : fallback.automaticPlatformBadge;
+    final legacyAuto = json['automaticPlatformBadge'];
+    final migratedPlatformBadge = hasExplicitPlatformValue
+        ? showPlatformBadge
+        : (legacyAuto == true ? false : showPlatformBadge);
 
     return RoomCardAppearance(
       showAvatar: readBool('showAvatar', 'showAvatar', fallback.showAvatar),
       showAnchorName: readBool('showAnchorName', 'showSubtitle', fallback.showAnchorName),
-      showPlatformBadge: showPlatformBadge,
-      automaticPlatformBadge: showPlatformBadge ? false : automaticPlatformBadge,
+      showPlatformBadge: migratedPlatformBadge,
       showAudience: readBool('showAudience', 'showAudience', fallback.showAudience),
       showReplayBadge: readBool('showReplayBadge', 'showRecordBadge', fallback.showReplayBadge),
       showPinBadge: readBool('showPinBadge', 'showPinBadge', fallback.showPinBadge),
@@ -162,7 +116,6 @@ class RoomCardAppearance {
     bool? showAvatar,
     bool? showAnchorName,
     bool? showPlatformBadge,
-    bool? automaticPlatformBadge,
     bool? showAudience,
     bool? showReplayBadge,
     bool? showPinBadge,
@@ -174,7 +127,6 @@ class RoomCardAppearance {
       showAvatar: showAvatar ?? this.showAvatar,
       showAnchorName: showAnchorName ?? this.showAnchorName,
       showPlatformBadge: showPlatformBadge ?? this.showPlatformBadge,
-      automaticPlatformBadge: automaticPlatformBadge ?? this.automaticPlatformBadge,
       showAudience: showAudience ?? this.showAudience,
       showReplayBadge: showReplayBadge ?? this.showReplayBadge,
       showPinBadge: showPinBadge ?? this.showPinBadge,
@@ -184,19 +136,11 @@ class RoomCardAppearance {
     );
   }
 
-  RoomCardAppearance withPlatformBadgeMode(RoomCardPlatformBadgeMode mode) {
-    return copyWith(
-      showPlatformBadge: mode == RoomCardPlatformBadgeMode.always,
-      automaticPlatformBadge: mode == RoomCardPlatformBadgeMode.automatic,
-    );
-  }
-
   Map<String, dynamic> toJson() {
     return {
       'showAvatar': showAvatar,
       'showAnchorName': showAnchorName,
       'showPlatformBadge': showPlatformBadge,
-      'automaticPlatformBadge': automaticPlatformBadge,
       'showAudience': showAudience,
       'showReplayBadge': showReplayBadge,
       'showPinBadge': showPinBadge,
@@ -212,7 +156,6 @@ class RoomCardAppearance {
         other.showAvatar == showAvatar &&
         other.showAnchorName == showAnchorName &&
         other.showPlatformBadge == showPlatformBadge &&
-        other.automaticPlatformBadge == automaticPlatformBadge &&
         other.showAudience == showAudience &&
         other.showReplayBadge == showReplayBadge &&
         other.showPinBadge == showPinBadge &&
@@ -226,7 +169,6 @@ class RoomCardAppearance {
     showAvatar,
     showAnchorName,
     showPlatformBadge,
-    automaticPlatformBadge,
     showAudience,
     showReplayBadge,
     showPinBadge,
@@ -238,157 +180,85 @@ class RoomCardAppearance {
 
 class RoomCardSettingsController extends GetxController {
   RoomCardSettingsController()
-    : mobilePreset = hiveString('room_card_mobile_preset', RoomCardPreset.standard.storageKey),
-      desktopPreset = hiveString('room_card_desktop_preset', RoomCardPreset.standard.storageKey),
-      mobileConfig = hiveObject<RoomCardAppearance>(
-        'room_card_mobile_config',
-        _storedPresetFallback('room_card_mobile_preset'),
-        fromJson: (json) =>
-            RoomCardAppearance.fromJson(json, fallback: _storedPresetFallback('room_card_mobile_preset')),
-        toJson: (value) => value.toJson(),
-      ),
-      desktopConfig = hiveObject<RoomCardAppearance>(
+    : config = hiveObject<RoomCardAppearance>(
+        // 沿用旧 desktop 存储键，避免 Hive 里静默产生新键但旧配置未被发现；
+        // 如果旧键不存在，fallback 就是 standard。
         'room_card_desktop_config',
-        _storedPresetFallback('room_card_desktop_preset'),
-        fromJson: (json) =>
-            RoomCardAppearance.fromJson(json, fallback: _storedPresetFallback('room_card_desktop_preset')),
+        _legacyFallback(),
+        fromJson: (json) => RoomCardAppearance.fromJson(json, fallback: _legacyFallback()),
         toJson: (value) => value.toJson(),
       );
 
   static RoomCardSettingsController get to => Get.find<RoomCardSettingsController>();
 
-  final RxString mobilePreset;
-  final RxString desktopPreset;
-  final Rx<RoomCardAppearance> mobileConfig;
-  final Rx<RoomCardAppearance> desktopConfig;
-  final List<Worker> _workers = [];
-
-  static RoomCardPreset normalizePreset(String? value) {
-    final key = value?.trim().toLowerCase();
-    return RoomCardPreset.values.firstWhere(
-      (candidate) => candidate.storageKey == key,
-      orElse: () => RoomCardPreset.standard,
-    );
-  }
-
-  static RoomCardAppearance _storedPresetFallback(String key) {
-    return RoomCardAppearance.fromPreset(normalizePreset(HivePrefUtil.getString(key)));
-  }
-
-  @override
-  void onInit() {
-    super.onInit();
-    _repairTarget(RoomCardViewport.mobile);
-    _repairTarget(RoomCardViewport.desktop);
-    _workers.addAll([
-      ever<String>(mobilePreset, (_) => _repairPreset(RoomCardViewport.mobile)),
-      ever<String>(desktopPreset, (_) => _repairPreset(RoomCardViewport.desktop)),
-    ]);
-  }
-
-  @override
-  void onClose() {
-    for (final worker in _workers) {
-      worker.dispose();
+  /// 旧格式迁移：尝试从旧键读取 desktopConfig → mobileConfig，
+  /// 两个都没有就返回 standard。
+  static RoomCardAppearance _legacyFallback() {
+    for (final key in const ['room_card_desktop_config', 'room_card_mobile_config']) {
+      final raw = HivePrefUtil.getString(key);
+      if (raw != null && raw.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(raw);
+          if (decoded is Map<String, dynamic>) {
+            return RoomCardAppearance.fromJson(decoded, fallback: RoomCardAppearance.standard);
+          }
+        } catch (_) {
+          // 旧值损坏，跳过
+        }
+      }
     }
-    _workers.clear();
-    super.onClose();
+    return RoomCardAppearance.standard;
   }
 
-  RoomCardViewport get currentViewport => PlatformUtils.isMobile ? RoomCardViewport.mobile : RoomCardViewport.desktop;
+  final Rx<RoomCardAppearance> config;
 
-  Rx<RoomCardAppearance> configRxFor(RoomCardViewport viewport) {
-    return viewport == RoomCardViewport.mobile ? mobileConfig : desktopConfig;
+  /// 单一配置：RoomCard 及 RoomCardCompact 统一从这里取。
+  RoomCardAppearance get current => config.value;
+
+  void updateConfig(RoomCardAppearance value) {
+    final normalized = value.copyWith(cornerRadius: value.cornerRadius);
+    config.value = normalized;
   }
 
-  RxString presetRxFor(RoomCardViewport viewport) {
-    return viewport == RoomCardViewport.mobile ? mobilePreset : desktopPreset;
+  void reset() => updateConfig(RoomCardAppearance.standard);
+
+  // ---------- 序列化：新格式，toJson/extractConfig ----------
+
+  Map<String, dynamic> toJson() => config.value.toJson();
+
+  static Map<String, dynamic> extractConfig(Map<String, dynamic>? rootConfig) {
+    final parsed = parseConfig(rootConfig ?? const {});
+    return (parsed['config'] as RoomCardAppearance).toJson();
   }
 
-  RoomCardAppearance configFor(RoomCardViewport viewport) => configRxFor(viewport).value;
+  // ---------- 导入：支持旧格式（mobile/desktop 双配置 + preset）和新格式 ----------
 
-  RoomCardAppearance resolve({RoomCardViewport? viewport}) => configFor(viewport ?? currentViewport);
-
-  RoomCardPreset presetFor(RoomCardViewport viewport) => normalizePreset(presetRxFor(viewport).value);
-
-  void applyPreset(RoomCardViewport viewport, RoomCardPreset preset) {
-    if (preset == RoomCardPreset.custom) return;
-    configRxFor(viewport).value = RoomCardAppearance.fromPreset(preset);
-    presetRxFor(viewport).v = preset.storageKey;
-  }
-
-  void updateConfig(RoomCardViewport viewport, RoomCardAppearance value) {
-    var normalized = value.copyWith(cornerRadius: value.cornerRadius);
-    if (normalized.showPlatformBadge && normalized.automaticPlatformBadge) {
-      normalized = normalized.copyWith(automaticPlatformBadge: false);
-    }
-    configRxFor(viewport).value = normalized;
-    presetRxFor(viewport).v = _matchingPreset(normalized).storageKey;
-  }
-
-  void reset(RoomCardViewport viewport) => applyPreset(viewport, RoomCardPreset.standard);
-
-  static RoomCardPreset _matchingPreset(RoomCardAppearance config) {
-    if (config == RoomCardAppearance.compact) return RoomCardPreset.compact;
-    if (config == RoomCardAppearance.standard) return RoomCardPreset.standard;
-    if (config == RoomCardAppearance.detailed) return RoomCardPreset.detailed;
-    return RoomCardPreset.custom;
-  }
-
-  void _repairTarget(RoomCardViewport viewport) {
-    var config = configFor(viewport).copyWith(cornerRadius: configFor(viewport).cornerRadius);
-    if (config.showPlatformBadge && config.automaticPlatformBadge) {
-      config = config.copyWith(automaticPlatformBadge: false);
-    }
-    if (config != configFor(viewport)) configRxFor(viewport).value = config;
-    final canonical = _matchingPreset(config).storageKey;
-    if (presetRxFor(viewport).v != canonical) presetRxFor(viewport).v = canonical;
-  }
-
-  void _repairPreset(RoomCardViewport viewport) {
-    final canonical = _matchingPreset(configFor(viewport)).storageKey;
-    if (presetRxFor(viewport).v != canonical) presetRxFor(viewport).v = canonical;
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'mobilePreset': presetFor(RoomCardViewport.mobile).storageKey,
-      'desktopPreset': presetFor(RoomCardViewport.desktop).storageKey,
-      'mobileConfig': configFor(RoomCardViewport.mobile).toJson(),
-      'desktopConfig': configFor(RoomCardViewport.desktop).toJson(),
-    };
+  void fromJson(Map<String, dynamic> json) {
+    final parsed = parseConfig(json);
+    config.value = parsed['config'] as RoomCardAppearance;
   }
 
   static Map<String, dynamic> parseConfig(Map<String, dynamic> json) {
+    // 既可能是 {'roomCard': {...}} 也可能是内部 {...}
     final source = json['roomCard'] is Map ? Map<String, dynamic>.from(json['roomCard'] as Map) : json;
-    final mobilePreset = normalizePreset(_readString(source, 'mobilePreset', legacyKey: 'room_card_mobile_preset'));
-    final desktopPreset = normalizePreset(_readString(source, 'desktopPreset', legacyKey: 'room_card_desktop_preset'));
-    final mobileJson = _readConfigMap(source, 'mobileConfig', legacyKey: 'room_card_mobile_config');
+
+    // 新格式：直接 config 或 room_card_config
+    final directJson = _readConfigMap(source, 'config', legacyKey: 'room_card_config');
+    if (directJson != null) {
+      final appearance = RoomCardAppearance.fromJson(directJson, fallback: RoomCardAppearance.standard, strict: true);
+      return {'config': appearance};
+    }
+
+    // 旧格式：优先 desktopConfig，fallback mobileConfig → standard
     final desktopJson = _readConfigMap(source, 'desktopConfig', legacyKey: 'room_card_desktop_config');
-    final mobile = mobileJson == null
-        ? RoomCardAppearance.fromPreset(mobilePreset)
-        : RoomCardAppearance.fromJson(mobileJson, fallback: RoomCardAppearance.fromPreset(mobilePreset), strict: true);
-    final desktop = desktopJson == null
-        ? RoomCardAppearance.fromPreset(desktopPreset)
-        : RoomCardAppearance.fromJson(
-            desktopJson,
-            fallback: RoomCardAppearance.fromPreset(desktopPreset),
-            strict: true,
-          );
-    return {
-      'mobilePreset': _matchingPreset(mobile).storageKey,
-      'desktopPreset': _matchingPreset(desktop).storageKey,
-      'mobileConfig': mobile,
-      'desktopConfig': desktop,
-    };
+    final mobileJson = _readConfigMap(source, 'mobileConfig', legacyKey: 'room_card_mobile_config');
+    final appearance = (desktopJson ?? mobileJson) == null
+        ? RoomCardAppearance.standard
+        : RoomCardAppearance.fromJson(desktopJson ?? mobileJson!, fallback: RoomCardAppearance.standard, strict: true);
+    return {'config': appearance};
   }
 
-  static String? _readString(Map<String, dynamic> json, String key, {required String legacyKey}) {
-    final value = json.containsKey(key) ? json[key] : json[legacyKey];
-    if (value == null) return null;
-    if (value is! String) throw FormatException('$key must be a string');
-    return value;
-  }
+  // ---------- 辅助 ----------
 
   static Map<String, dynamic>? _readConfigMap(Map<String, dynamic> json, String key, {required String legacyKey}) {
     final value = json.containsKey(key) ? json[key] : json[legacyKey];
@@ -400,23 +270,5 @@ class RoomCardSettingsController extends GetxController {
     }
     if (value is Map) return Map<String, dynamic>.from(value);
     throw FormatException('$key must be an object');
-  }
-
-  void fromJson(Map<String, dynamic> json) {
-    final parsed = parseConfig(json);
-    mobileConfig.value = parsed['mobileConfig'] as RoomCardAppearance;
-    desktopConfig.value = parsed['desktopConfig'] as RoomCardAppearance;
-    mobilePreset.v = parsed['mobilePreset'] as String;
-    desktopPreset.v = parsed['desktopPreset'] as String;
-  }
-
-  static Map<String, dynamic> extractConfig(Map<String, dynamic>? rootConfig) {
-    final parsed = parseConfig(rootConfig ?? const {});
-    return {
-      'mobilePreset': parsed['mobilePreset'],
-      'desktopPreset': parsed['desktopPreset'],
-      'mobileConfig': (parsed['mobileConfig'] as RoomCardAppearance).toJson(),
-      'desktopConfig': (parsed['desktopConfig'] as RoomCardAppearance).toJson(),
-    };
   }
 }

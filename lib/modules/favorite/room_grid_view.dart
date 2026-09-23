@@ -75,9 +75,9 @@ class RoomGridView extends GetView<FavoriteController> {
             }
 
             final itemWidth = (width - 24 - spacing * (crossAxisCount - 1)) / crossAxisCount;
-            // 紧凑布局固定高度（头像 48px + padding 16px ≈ 64px + extra），
+            // 紧凑布局固定高度（52px 大头像 + 上下留白，与换台面板列表卡片一致），
             // 标准布局按 16:9 封面 + 信息栏高度计算。
-            const compactCardHeight = 76.0;
+            const compactCardHeight = 66.0;
             final mainAxisExtent = isCompact ? compactCardHeight : itemWidth * 9 / 16 + (dense ? 50 : 62);
 
             // 紧凑布局动态分页：每页数量 = 视口可完整容纳的卡片数（行数×列数），

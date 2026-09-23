@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/services/settings/history_controller.dart';
+import 'package:pure_live/common/services/settings/panel_size_controller.dart';
 import 'package:pure_live/common/services/settings/watch_time_service.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/plugins/event_bus.dart';
@@ -360,6 +361,18 @@ class _PlayOtherPanelState extends State<PlayOtherPanel> with SingleTickerProvid
                       },
                       icon: const Icon(Icons.restart_alt_rounded, size: 18),
                     ),
+                  // 布局切换按钮：封面卡片网格 ↔ 紧凑列表（与关注页一致，偏好持久化）。
+                  Obx(() {
+                    final isCompact = PanelSizeController.to.isRoomSwitchCompact;
+                    return IconButton(
+                      tooltip: isCompact ? '切换为卡片布局' : '切换为列表布局',
+                      visualDensity: VisualDensity.compact,
+                      constraints: const BoxConstraints.tightFor(width: 34, height: 34),
+                      padding: EdgeInsets.zero,
+                      onPressed: PanelSizeController.to.toggleRoomSwitchLayout,
+                      icon: Icon(isCompact ? Icons.grid_view_rounded : Icons.view_list_rounded, size: 18),
+                    );
+                  }),
                   Obx(
                     () => IconButton(
                       tooltip: i18n('refresh'),
@@ -496,6 +509,8 @@ class _PlayOtherPanelState extends State<PlayOtherPanel> with SingleTickerProvid
   Widget _buildRoomGrid(List<LiveRoom> rooms, {required bool history}) {
     final refreshController = history ? _historyRefreshController : _onlineRefreshController;
     final onRefresh = history ? _refreshHistory : _refreshOnline;
+    // 在外层 Obx 构建期读取布局模式：点击头部按钮时整个网格自动重建。
+    final isCompact = PanelSizeController.to.isRoomSwitchCompact;
     return EasyRefresh(
       controller: refreshController,
       onRefresh: onRefresh,
@@ -506,27 +521,32 @@ class _PlayOtherPanelState extends State<PlayOtherPanel> with SingleTickerProvid
             )
           : LayoutBuilder(
               builder: (context, constraints) {
-                const padding = 10.0;
-                const spacing = 8.0;
+                const padding = 6.0;
+                const spacing = 4.0;
                 final availableWidth = constraints.maxWidth - padding * 2;
-                final isLargeScreen = availableWidth >= 320;
-                final columns = isLargeScreen ? 2 : 1;
-                late final double cardHeight;
-                if (isLargeScreen) {
-                  final cardWidth = (availableWidth - spacing * (columns - 1)) / columns;
-                  final coverHeight = cardWidth * 7 / 16;
-                  const infoHeight = 48.0;
-                  cardHeight = coverHeight + infoHeight;
+                // 紧凑列表：宽度够时可多列（每列下限约 280px，与关注页一致）。
+                // 标准卡片：卡片最大宽度 280px，随侧栏宽度自动增加列数。
+                const maxStandardCardWidth = 160.0;
+                final columns = isCompact
+                    ? (availableWidth >= 1000 ? 4 : (availableWidth >= 700 ? 3 : (availableWidth >= 400 ? 2 : 1)))
+                    : (availableWidth + spacing) ~/ (maxStandardCardWidth + spacing).clamp(1, 1 << 31);
+                final effectiveColumns = columns.clamp(1, 5);
+                final double cardHeight;
+                if (isCompact) {
+                  cardHeight = _RoomSwitchCard.compactHeight;
                 } else {
-                  cardHeight = 72;
+                  final cardWidth = (availableWidth - spacing * (effectiveColumns - 1)) / effectiveColumns;
+                  cardHeight = (cardWidth * 7 / 16 + 48.0).clamp(118.0, 320.0);
                 }
                 // 鼠标拖拽滚动依赖全局 MyCustomScrollBehavior 的 dragDevices（已含 mouse），
                 // 与开发版一致不覆写 physics。
                 return GridView.builder(
-                  key: ValueKey(history ? 'watch-history-grid' : 'live-room-grid'),
+                  key: ValueKey(
+                    '${history ? 'watch-history' : 'live-room'}-grid-${isCompact ? 'compact' : 'standard'}',
+                  ),
                   padding: const EdgeInsets.all(padding),
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: columns,
+                    crossAxisCount: effectiveColumns,
                     mainAxisExtent: cardHeight,
                     mainAxisSpacing: spacing,
                     crossAxisSpacing: spacing,
@@ -537,7 +557,7 @@ class _PlayOtherPanelState extends State<PlayOtherPanel> with SingleTickerProvid
                     return _RoomSwitchCard(
                       room: room,
                       history: history,
-                      largeScreen: isLargeScreen,
+                      compact: isCompact,
                       onTap: () => widget.onSelectRoom(room),
                       onRemoveFromHistory: history
                           ? () {
@@ -804,13 +824,17 @@ class _RoomSwitchCard extends StatelessWidget {
   const _RoomSwitchCard({
     required this.room,
     required this.history,
-    required this.largeScreen,
+    required this.compact,
     required this.onTap,
     this.onRemoveFromHistory,
   });
+
+  /// 紧凑列表布局下的固定卡片高度（大头像 + 两行文字）。
+  static const double compactHeight = 54.0;
+
   final LiveRoom room;
   final bool history;
-  final bool largeScreen;
+  final bool compact;
   final VoidCallback onTap;
   final VoidCallback? onRemoveFromHistory;
 
@@ -861,6 +885,8 @@ class _RoomSwitchCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
+        onLongPress: () => RoomCard.showRoomInfoDialog(context, room),
+        onSecondaryTap: () => RoomCard.showRoomInfoDialog(context, room),
         borderRadius: BorderRadius.circular(12),
         child: Ink(
           decoration: BoxDecoration(
@@ -870,9 +896,9 @@ class _RoomSwitchCard extends StatelessWidget {
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: largeScreen
-                ? _buildLargeLayout(context, title, nick, meta)
-                : _buildMobileLayout(context, title, nick, meta),
+            child: compact
+                ? _buildCompactLayout(context, title, nick, meta)
+                : _buildLargeLayout(context, title, nick, meta),
           ),
         ),
       ),
@@ -901,11 +927,16 @@ class _RoomSwitchCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700, height: 1.15),
+                Tooltip(
+                  message: title,
+                  waitDuration: const Duration(milliseconds: 400),
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.fade,
+                    softWrap: false,
+                    style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700, height: 1.15),
+                  ),
                 ),
                 const SizedBox(height: 3),
                 Row(
@@ -913,11 +944,16 @@ class _RoomSwitchCard extends StatelessWidget {
                     Icon(Icons.person_outline_rounded, size: 12, color: colors.onSurfaceVariant),
                     const SizedBox(width: 3),
                     Expanded(
-                      child: Text(
-                        nick.isEmpty ? i18n('unknown') : nick,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelSmall?.copyWith(color: colors.onSurfaceVariant, height: 1.1),
+                      child: Tooltip(
+                        message: nick.isEmpty ? i18n('unknown') : nick,
+                        waitDuration: const Duration(milliseconds: 400),
+                        child: Text(
+                          nick.isEmpty ? i18n('unknown') : nick,
+                          maxLines: 1,
+                          overflow: TextOverflow.fade,
+                          softWrap: false,
+                          style: theme.textTheme.labelSmall?.copyWith(color: colors.onSurfaceVariant, height: 1.1),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 2),
@@ -932,45 +968,146 @@ class _RoomSwitchCard extends StatelessWidget {
     );
   }
 
-  Widget _buildMobileLayout(BuildContext context, String title, String nick, String meta) {
+  /// 紧凑列表行：左侧大头像，中间两行文字，右侧徽章列。
+  /// 在线 tab：中间主播名 + 直播间标题，右侧 pin 徽章 + 平台胶囊 / 橙色人气；
+  /// 历史 tab：中间主播名 + 观看时间（不显示标题），右侧平台徽章居上、
+  /// 删除按钮居下，两者靠右对齐。
+  /// 所有文本统一渐隐截断（TextOverflow.fade）。不受房间卡片设置控制，样式固定。
+  Widget _buildCompactLayout(BuildContext context, String title, String nick, String meta) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final nickText = nick.isEmpty ? i18n('unknown') : nick;
+    final showPin = _isPinned && !history;
+    final showPlatform = room.platform != null;
+
+    // 中间第二行：历史 tab 显示观看时间（替代标题），在线 tab 显示直播间标题。
+    final Widget secondLine = history
+        ? Tooltip(
+            message: meta,
+            waitDuration: const Duration(milliseconds: 400),
+            child: Text(
+              meta,
+              maxLines: 1,
+              overflow: TextOverflow.fade,
+              softWrap: false,
+              style: theme.textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant, height: 1.1),
+            ),
+          )
+        : Tooltip(
+            message: title,
+            waitDuration: const Duration(milliseconds: 400),
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.fade,
+              softWrap: false,
+              style: theme.textTheme.bodyMedium?.copyWith(fontSize: 10, color: colors.onSurfaceVariant, height: 1.1),
+            ),
+          );
+
+    // 在线 tab 右侧上行徽章：pin（仅在线可置顶）+ 平台胶囊。
+    final Widget badgesRow = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (showPin) ...[
+          Tooltip(
+            message: i18n('favorite_pinned_badge'),
+            child: Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(color: colors.primary, borderRadius: BorderRadius.circular(6)),
+              child: Icon(RemixIcons.pushpin_fill, color: colors.onPrimary, size: 12),
+            ),
+          ),
+          const SizedBox(width: 4),
+        ],
+        if (showPlatform) context.buildPlatformTag(room.platform!, mini: true),
+      ],
+    );
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
       child: Row(
         children: [
-          CommonAvatar(avatarUrl: room.avatar, fallbackName: nick, dense: true),
-          const SizedBox(width: 12),
+          CommonAvatar(avatarUrl: room.avatar, fallbackName: nick, radius: 22),
+          const SizedBox(width: 6),
+          // 中间两行：主播名 + （历史=观看时间 / 在线=直播间标题），截断时悬浮显示全文。
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+                Tooltip(
+                  message: nickText,
+                  waitDuration: const Duration(milliseconds: 400),
+                  child: Text(
+                    nickText,
+                    maxLines: 1,
+                    overflow: TextOverflow.fade,
+                    softWrap: false,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: colors.onSurface,
+                      height: 1.15,
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  nick.isEmpty ? i18n('unknown') : nick,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelSmall?.copyWith(color: colors.onSurfaceVariant),
-                ),
+                const SizedBox(height: 4),
+                secondLine,
               ],
             ),
           ),
           const SizedBox(width: 8),
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              context.buildPlatformTag(room.platform!, mini: true),
-              if (!history) Text(meta, style: TextStyle(fontSize: 12, color: Colors.orange.shade700)),
-            ],
-          ),
+          // 右侧：历史 tab 平台徽章居上、删除按钮居下（均靠右对齐）；
+          // 在线 tab 上行 pin/平台徽章 + 下行人气。
+          if (history)
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (showPlatform) context.buildPlatformTag(room.platform!, mini: true),
+                if (_effectiveShowDelete) ...[
+                  const SizedBox(height: 4),
+                  GestureDetector(
+                    onTap: onRemoveFromHistory,
+                    child: Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        color: colors.error.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Icon(RemixIcons.delete_bin_line, size: 14, color: colors.error),
+                    ),
+                  ),
+                ],
+              ],
+            )
+          else
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                badgesRow,
+                const SizedBox(height: 6),
+                Tooltip(
+                  message: meta,
+                  waitDuration: const Duration(milliseconds: 400),
+                  child: Text(
+                    meta,
+                    maxLines: 1,
+                    overflow: TextOverflow.fade,
+                    softWrap: false,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.orange.shade500,
+                      height: 1.1,
+                    ),
+                  ),
+                ),
+              ],
+            ),
         ],
       ),
     );
@@ -1087,14 +1224,19 @@ class _RoomSwitchCover extends StatelessWidget {
                 colors: [Colors.transparent, Colors.black87],
               ),
             ),
-            child: Text(
-              meta,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                height: 1.1,
+            child: Tooltip(
+              message: meta,
+              waitDuration: const Duration(milliseconds: 400),
+              child: Text(
+                meta,
+                maxLines: 1,
+                overflow: TextOverflow.fade,
+                softWrap: false,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  height: 1.1,
+                ),
               ),
             ),
           ),

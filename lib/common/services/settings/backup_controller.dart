@@ -100,10 +100,13 @@ class BackupController extends GetxController {
     'theme': ThemeSettingsController.extractConfig(null).keys.toSet()..add('languageName'),
     'roomCard': RoomCardSettingsController.extractConfig(null).keys.toSet()
       ..addAll({
-        'room_card_mobile_preset',
-        'room_card_desktop_preset',
-        'room_card_mobile_config',
-        'room_card_desktop_config',
+        // 旧备份格式顶层 key（双配置 + 预设），parseConfig 会迁移到单一 config。
+        'mobilePreset',
+        'desktopPreset',
+        'mobileConfig',
+        'desktopConfig',
+        'config',
+        'room_card_config',
       }),
     'font': FontSettingsController.extractConfig(null).keys.toSet(),
     'player': PlayerSettingsController.extractConfig(null).keys.toSet(),
@@ -120,7 +123,7 @@ class BackupController extends GetxController {
     'startup': StartupController.extractConfig(null).keys.toSet(),
     'refresh': RefreshConfigController.extractConfig(null).keys.toSet(),
     'page': PageSettingsController.extractConfig(null).keys.toSet(),
-    'panelSize': {'panelWidth', 'immersiveOpacity'},
+    'panelSize': {'panelWidth', 'immersiveOpacity', 'roomSwitchLayout'},
     'favoriteCtrl': {'enablePinned', 'onlineSortMode', 'onlineSortOrder', 'cardLayoutMode'},
     'tags': {'tags', 'roomTagsMap'},
   };

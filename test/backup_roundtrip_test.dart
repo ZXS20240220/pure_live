@@ -10,7 +10,6 @@ import 'package:pure_live/common/models/live_room.dart';
 import 'package:pure_live/common/services/settings_service.dart';
 import 'package:pure_live/common/services/settings/iptv_settings_controller.dart';
 import 'package:pure_live/common/services/settings/backup_controller.dart';
-import 'package:pure_live/common/services/settings/room_card_settings_controller.dart';
 
 Map<String, dynamic> detached(Map<String, dynamic> data) => jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
 
@@ -47,9 +46,11 @@ void main() {
       final source = detached(backup.exportAllSettings());
       source['backupVersion'] = version;
       source['app']['enableBackgroundPlay'] = true;
-      source['roomCard']['mobilePreset'] = 'custom';
-      source['roomCard']['mobileConfig'] = {
-        ...Map<String, dynamic>.from(source['roomCard']['mobileConfig']),
+      // 旧备份格式（含 mobilePreset/desktopConfig 等旧 key），parseConfig 会迁移到单一 config。
+      // 这里同时设置 desktopConfig（优先）和 mobileConfig（fallback），期望最终值来自 desktopConfig。
+      source['roomCard']['desktopPreset'] = 'custom';
+      source['roomCard']['desktopConfig'] = {
+        ...Map<String, dynamic>.from(source['roomCard']['desktopConfig'] ?? const {}),
         'showPlatformBadge': true,
         'cornerRadius': 24,
       };
@@ -82,8 +83,9 @@ void main() {
       await Hive.box('app_settings').flush();
       expect(HivePrefUtil.getBool('enableBackgroundPlay'), isTrue);
       expect(jsonDecode(HivePrefUtil.getString('roomVolumes')!), {'bilibili:123': 0.7});
-      expect(settings.roomCard.configFor(RoomCardViewport.mobile).showPlatformBadge, isTrue);
-      expect(settings.roomCard.configFor(RoomCardViewport.mobile).cornerRadius, 24);
+      // 新 API：单一 config
+      expect(settings.roomCard.current.showPlatformBadge, isTrue);
+      expect(settings.roomCard.current.cornerRadius, 24);
     });
   }
 

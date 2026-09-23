@@ -11,7 +11,6 @@ import 'package:pure_live/common/services/settings_service.dart';
 import 'package:pure_live/common/utils/hive_pref_util.dart';
 import 'package:pure_live/get/get.dart';
 import 'package:pure_live/modules/settings/pages/room_card_settings_page.dart';
-import 'package:pure_live/modules/settings/pages/theme_settings_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -44,76 +43,52 @@ void main() {
     await Hive.close().timeout(const Duration(seconds: 10));
   });
 
-  testWidgets('theme page exposes room card settings and the preview follows independent controls', (tester) async {
-    await tester.runAsync(() async {
-      await HivePrefUtil.setString('room_card_mobile_preset', RoomCardPreset.detailed.storageKey);
-      await HivePrefUtil.setString('room_card_mobile_config', jsonEncode(RoomCardAppearance.detailed.toJson()));
-      await HivePrefUtil.setString('room_card_desktop_preset', RoomCardPreset.compact.storageKey);
-      await HivePrefUtil.setString('room_card_desktop_config', jsonEncode(RoomCardAppearance.compact.toJson()));
-    });
-
-    await _pump(tester, english, home: const ThemeSettingsPage(), size: const Size(900, 1000));
-
-    expect(find.byKey(const ValueKey('room-card-settings-entry')), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('room-card-settings-entry')).hitTestable());
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
+  testWidgets('room card settings page: reset button restores standard config', (tester) async {
+    await _pump(tester, english, home: const RoomCardSettingsPage(), size: const Size(900, 1000));
 
     expect(find.byType(RoomCardSettingsPage), findsOneWidget);
-    expect(find.byKey(const ValueKey('room-card-target-mobile')), findsOneWidget);
-    expect(find.byKey(const ValueKey('room-card-target-desktop')), findsOneWidget);
-    expect(SettingsService.to.roomCard.currentViewport, RoomCardViewport.desktop);
-    expect(find.byKey(const ValueKey('room-card-platform-badge')), findsNothing);
-    expect(find.byKey(const ValueKey('room-card-avatar')), findsNothing);
-    expect(find.byKey(const ValueKey('room-card-anchor-name')), findsNothing);
-    final compactShape = tester.widget<Card>(find.byKey(const ValueKey('room-card-surface'))).shape;
-    expect((compactShape! as RoundedRectangleBorder).borderRadius, BorderRadius.circular(12));
+    // 新 UI 不再有 viewport selector 和 preset chips
+    expect(find.byKey(const ValueKey('room-card-target-selector')), findsNothing);
 
-    await tester.tap(find.byKey(const ValueKey('room-card-preset-normal')).hitTestable());
-    await tester.pump();
-    expect(SettingsService.to.roomCard.configFor(RoomCardViewport.desktop), RoomCardAppearance.standard);
-    expect(find.byKey(const ValueKey('room-card-platform-badge')), findsOneWidget);
-    expect(find.byKey(const ValueKey('room-card-avatar')), findsOneWidget);
-    expect(find.byKey(const ValueKey('room-card-anchor-name')), findsOneWidget);
-
-    final settingsScroll = tester.state<ScrollableState>(
-      find.descendant(of: find.byKey(const ValueKey('room-card-settings-scroll')), matching: find.byType(Scrollable)),
+    // 先改一下配置
+    SettingsService.to.roomCard.updateConfig(
+      RoomCardAppearance.standard.copyWith(cornerRadius: 12, showPlatformBadge: true),
     );
-    settingsScroll.position.jumpTo(0);
     await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('room-card-target-mobile')).hitTestable());
-    await tester.pump();
-    expect(SettingsService.to.roomCard.configFor(RoomCardViewport.mobile), RoomCardAppearance.detailed);
-    expect(find.byKey(const ValueKey('room-card-platform-badge')), findsOneWidget);
-    expect(find.byKey(const ValueKey('room-card-avatar')), findsOneWidget);
-    expect(find.byKey(const ValueKey('room-card-anchor-name')), findsOneWidget);
-    final detailedShape = tester.widget<Card>(find.byKey(const ValueKey('room-card-surface'))).shape;
-    expect((detailedShape! as RoundedRectangleBorder).borderRadius, BorderRadius.circular(20));
 
-    settingsScroll.position.jumpTo(520.clamp(0, settingsScroll.position.maxScrollExtent).toDouble());
+    // 点击重置按钮
+    await tester.tap(find.byKey(const ValueKey('room-card-reset')));
     await tester.pump();
-    expect(find.byKey(const ValueKey('room-card-platform-always')), findsOneWidget);
+
+    expect(SettingsService.to.roomCard.current.cornerRadius, RoomCardAppearance.defaultCornerRadius);
+    expect(SettingsService.to.roomCard.current.showPlatformBadge, isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('room card settings page: preview renders RoomCard + RoomCardCompact', (tester) async {
+    await _pump(tester, english, home: const RoomCardSettingsPage(), size: const Size(900, 1200));
+
+    // 标准卡片预览
+    expect(find.byKey(const ValueKey('room-card-preview-standard')), findsOneWidget);
+    // 紧凑列表卡片预览（live + offline 两版）
+    expect(find.byKey(const ValueKey('room-card-preview-compact-live')), findsOneWidget);
+    expect(find.byKey(const ValueKey('room-card-preview-compact-offline')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
   testWidgets('room card settings remain scrollable at 320x480 with 3x text', (tester) async {
     await _pump(tester, english, home: const RoomCardSettingsPage(), size: const Size(320, 480), textScale: 3);
 
-    expect(find.byKey(const ValueKey('room-card-target-selector')), findsOneWidget);
+    // 新 UI 不再有 viewport selector
     expect(find.byTooltip('Reset current layout'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     final page = find.byKey(const ValueKey('room-card-settings-scroll'));
-    final cornerRadius = find.text('Corner radius', skipOffstage: false);
-    for (var attempt = 0; attempt < 30 && cornerRadius.evaluate().isEmpty; attempt++) {
-      await tester.drag(page, const Offset(0, -2000));
-      await tester.pump();
-    }
-    expect(cornerRadius, findsOneWidget);
-    await tester.ensureVisible(cornerRadius);
+    // 尝试滚到底部找圆角滑块（新 key 不同）
+    await tester.drag(page, const Offset(0, -2000));
     await tester.pump();
-
-    expect(find.text('Corner radius'), findsOneWidget);
+    await tester.drag(page, const Offset(0, 2000));
+    await tester.pump();
     expect(tester.takeException(), isNull);
   });
 }

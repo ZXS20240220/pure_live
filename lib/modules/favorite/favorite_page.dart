@@ -879,7 +879,9 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
               wrapMobileRefresh: false,
               preserveContentWhenEmpty: true,
               keyboardPagingEnabled: false,
-              showScrollToTopBtn: SettingsService.to.page.showScrollToTopBtn.v,
+              // 列表（紧凑）布局下不显示悬浮按钮（回到顶部/底部）。
+              showScrollToTopBtn:
+                  controller.cardLayoutMode.value != 'compact' && SettingsService.to.page.showScrollToTopBtn.v,
               showPageSizeSelector:
                   controller.cardLayoutMode.value != 'compact' && SettingsService.to.page.showPageSizeSelector.v,
               pageSizeOptions: SettingsService.to.page.pageSizeOptions,
