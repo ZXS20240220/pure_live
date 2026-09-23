@@ -28,6 +28,7 @@ class TwitcastingApi {
   static const origin = 'https://twitcasting.tv';
   static const directoryOrigin = 'https://frontendapi.twitcasting.tv';
   static const directoryWindow = 60;
+  static const searchWindow = 50;
   static const responseLimit = 1024 * 1024;
   static const playHeaders = <String, String>{'Referer': '$origin/', 'Origin': origin, 'User-Agent': 'Mozilla/5.0'};
   final TwitcastingRequest _request;

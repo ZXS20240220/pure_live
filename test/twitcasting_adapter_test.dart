@@ -9,6 +9,7 @@ import 'package:pure_live/common/models/live_room.dart';
 import 'package:pure_live/common/utils/live_url_tool.dart';
 import 'package:pure_live/core/common/http_client.dart' as core;
 import 'package:pure_live/core/interface/live_site.dart';
+import 'package:pure_live/core/interface/live_search.dart';
 import 'package:pure_live/core/site/twitcasting/twitcasting_api.dart';
 import 'package:pure_live/core/site/twitcasting/twitcasting_site.dart';
 import 'package:pure_live/core/sites.dart';
