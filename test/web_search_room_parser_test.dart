@@ -16,6 +16,9 @@ void main() {
       'https://play.sooplive.co.kr/streamer_1/123': (Sites.soopSite, 'streamer_1'),
       'https://www.yy.com/1382731151': (Sites.yySite, '1382731151'),
       'https://live.acfun.cn/live/42?from=search': (Sites.acfunSite, '42'),
+      'https://www.xiaohongshu.com/livestream/1234567890123456789?source=share':
+          (Sites.xiaohongshuSite, '1234567890123456789'),
+      'https://www.flextv.co.kr/channels/123456/live': (Sites.ttingSite, '123456'),
     };
 
     for (final entry in cases.entries) {
@@ -41,6 +44,12 @@ void main() {
       'https://live.acfun.cn/live/42/extra',
       'https://live.acfun.cn.evil.example/live/42',
       'https://secret@live.acfun.cn/live/42',
+      'https://www.xiaohongshu.com/explore/1234567890123456789',
+      'https://www.xiaohongshu.com/livestream/1234567890123456789/extra',
+      'https://www.xiaohongshu.com.evil.example/livestream/1234567890123456789',
+      'https://www.flextv.co.kr/channels/123456',
+      'https://www.flextv.co.kr/channels/123456/live/extra',
+      'https://www.flextv.co.kr.evil.example/channels/123456/live',
     ];
 
     for (final url in urls) {
