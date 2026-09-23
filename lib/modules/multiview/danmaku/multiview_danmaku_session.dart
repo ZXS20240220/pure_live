@@ -63,6 +63,7 @@ class MultiviewDanmakuSession {
       Sites.soopSite,
       Sites.yySite,
       Sites.goodGameSite,
+      Sites.kickSite,
     };
     return supported.contains(platform?.trim().toLowerCase());
   }
