@@ -106,22 +106,36 @@ class _AreaCardState extends State<AreaCard> {
                 ),
               ),
             ),
-            ListTile(
-              dense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-              title: Text(
-                displayName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.t12.copyWith(fontWeight: FontWeight.w600),
+            // 不用 ListTile：其内部固定最小高度 + 垂直居中 + minVerticalPadding
+            // 会撑出不可控的图片-文字间距，contentPadding 无法消除。
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.t12.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          officialEntry ? i18n('open_in_system_browser') : displayTypeName,
+                          style: AppTextStyles.t11.copyWith(fontWeight: FontWeight.w500),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (officialEntry) const Icon(Icons.open_in_new_rounded, size: 16),
+                    ],
+                  ),
+                ],
               ),
-              subtitle: Text(
-                officialEntry ? i18n('open_in_system_browser') : displayTypeName,
-                style: AppTextStyles.t11.copyWith(fontWeight: FontWeight.w500),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              trailing: officialEntry ? const Icon(Icons.open_in_new_rounded, size: 16) : null,
             ),
           ],
         ),

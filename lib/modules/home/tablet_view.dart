@@ -1,9 +1,10 @@
+import 'package:flutter/gestures.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/routes/app_navigation.dart';
 import 'package:pure_live/common/consts/app_consts.dart';
 
-class HomeTabletView extends StatelessWidget {
+class HomeTabletView extends StatefulWidget {
   final Widget body;
   final int index;
   final List<String> activeMenuIds;
@@ -20,6 +21,33 @@ class HomeTabletView extends StatelessWidget {
   });
 
   @override
+  State<HomeTabletView> createState() => _HomeTabletViewState();
+}
+
+class _HomeTabletViewState extends State<HomeTabletView> {
+  /// 顶部工具按钮区（菜单/多视/工具箱/搜索/录制）的测量锚点。
+  /// 滚轮翻页只作用于下方的页面目的地：指针位于该区域内（或其上方）时不触发，
+  /// 避免影响侧栏上方的其他入口。
+  final GlobalKey _leadingKey = GlobalKey();
+
+  void _handleRailPointerSignal(PointerSignalEvent event, List<int> virtualToRealMap) {
+    if (event is! PointerScrollEvent) return;
+    if (virtualToRealMap.isEmpty) return;
+
+    final leadingBox = _leadingKey.currentContext?.findRenderObject() as RenderBox?;
+    if (leadingBox != null && leadingBox.hasSize) {
+      final local = leadingBox.globalToLocal(event.position);
+      if (local.dy >= 0 && local.dy <= leadingBox.size.height) return;
+    }
+
+    var pos = virtualToRealMap.indexOf(widget.index);
+    if (pos < 0) pos = 0;
+    final dir = event.scrollDelta.dy > 0 ? 1 : -1;
+    final next = (pos + dir) % virtualToRealMap.length;
+    widget.onDestinationSelected(virtualToRealMap[next]);
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
@@ -28,7 +56,7 @@ class HomeTabletView extends StatelessWidget {
             final List<NavigationRailDestination> destinations = [];
             final List<int> virtualToRealMap = [];
 
-            for (String id in activeMenuIds) {
+            for (String id in widget.activeMenuIds) {
               final menu = HomeMenu.fromId(id);
               if (menu != null) {
                 virtualToRealMap.add(menu.index);
@@ -75,7 +103,7 @@ class HomeTabletView extends StatelessWidget {
             }
 
             int? activeSelectedIndex;
-            final pos = virtualToRealMap.indexOf(index);
+            final pos = virtualToRealMap.indexOf(widget.index);
             if (pos >= 0 && pos < destinations.length) {
               activeSelectedIndex = pos;
             } else {
@@ -84,56 +112,60 @@ class HomeTabletView extends StatelessWidget {
 
             return Row(
               children: [
-                NavigationRail(
-                  groupAlignment: 0.9,
-                  labelType: NavigationRailLabelType.all,
-                  leading: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Padding(padding: EdgeInsets.all(12), child: MenuButton()),
-                      Obx(
-                        () => SettingsService.to.app.enableMultiView.v
-                            ? Padding(
-                                padding: const EdgeInsets.only(top: 0, bottom: 12, left: 12, right: 12),
-                                child: IconButton(
-                                  onPressed: AppNavigator.toMultiview,
-                                  tooltip: i18n('multiview_title'),
-                                  icon: const Icon(Remix.layout_grid_line),
-                                ),
-                              )
-                            : const SizedBox.shrink(),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(top: 0, bottom: 12, left: 12, right: 12),
-                        child: IconButton(
-                          onPressed: () => Get.toNamed(RoutePath.kToolbox),
-                          icon: const Icon(Remix.link),
+                Listener(
+                  onPointerSignal: (event) => _handleRailPointerSignal(event, virtualToRealMap),
+                  child: NavigationRail(
+                    groupAlignment: 0.9,
+                    labelType: NavigationRailLabelType.all,
+                    leading: Column(
+                      key: _leadingKey,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Padding(padding: EdgeInsets.all(12), child: MenuButton()),
+                        Obx(
+                          () => SettingsService.to.app.enableMultiView.v
+                              ? Padding(
+                                  padding: const EdgeInsets.only(top: 0, bottom: 12, left: 12, right: 12),
+                                  child: IconButton(
+                                    onPressed: AppNavigator.toMultiview,
+                                    tooltip: i18n('multiview_title'),
+                                    icon: const Icon(Remix.layout_grid_line),
+                                  ),
+                                )
+                              : const SizedBox.shrink(),
                         ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(top: 0, bottom: 12, left: 12, right: 12),
-                        child: IconButton(
-                          onPressed: () => Get.toNamed(RoutePath.kSearch),
-                          icon: const Icon(CustomIcons.search),
-                        ),
-                      ),
-                      if (showRecord)
                         Padding(
                           padding: const EdgeInsets.only(top: 0, bottom: 12, left: 12, right: 12),
                           child: IconButton(
-                            onPressed: () => Get.toNamed(RoutePath.kRecordPage),
-                            icon: const Icon(Remix.download_2_line),
+                            onPressed: () => Get.toNamed(RoutePath.kToolbox),
+                            icon: const Icon(Remix.link),
                           ),
                         ),
-                    ],
+                        Padding(
+                          padding: const EdgeInsets.only(top: 0, bottom: 12, left: 12, right: 12),
+                          child: IconButton(
+                            onPressed: () => Get.toNamed(RoutePath.kSearch),
+                            icon: const Icon(CustomIcons.search),
+                          ),
+                        ),
+                        if (widget.showRecord)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 0, bottom: 12, left: 12, right: 12),
+                            child: IconButton(
+                              onPressed: () => Get.toNamed(RoutePath.kRecordPage),
+                              icon: const Icon(Remix.download_2_line),
+                            ),
+                          ),
+                      ],
+                    ),
+                    destinations: destinations,
+                    selectedIndex: activeSelectedIndex,
+                    onDestinationSelected: (int virtualIndex) {
+                      if (virtualIndex >= 0 && virtualIndex < virtualToRealMap.length) {
+                        widget.onDestinationSelected(virtualToRealMap[virtualIndex]);
+                      }
+                    },
                   ),
-                  destinations: destinations,
-                  selectedIndex: activeSelectedIndex,
-                  onDestinationSelected: (int virtualIndex) {
-                    if (virtualIndex >= 0 && virtualIndex < virtualToRealMap.length) {
-                      onDestinationSelected(virtualToRealMap[virtualIndex]);
-                    }
-                  },
                 ),
                 const VerticalDivider(width: 1),
                 Expanded(
@@ -144,7 +176,7 @@ class HomeTabletView extends StatelessWidget {
                           title: i18n('no_menu_title'),
                           subtitle: i18n('no_menu_subtitle'),
                         )
-                      : body,
+                      : widget.body,
                 ),
               ],
             );

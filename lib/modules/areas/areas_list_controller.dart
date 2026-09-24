@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:pure_live/common/index.dart';
@@ -20,6 +21,22 @@ class AreasListController extends ServerAllPageController<LiveArea> {
 
   @override
   int get localItemCount => _getCurrentTabAllChildren().length;
+
+  Timer? _viewportPageDebounce;
+
+  /// 视口动态分页（对齐关注页列表布局）：每页数量 = 窗口可完整容纳的行数 ×
+  /// 每行列数，不再使用设置中的每页数量。[capacity] 下限 10 与关注页一致。
+  /// 防抖：窗口拖动过程中尺寸连续变化，避免频繁重切分页。
+  void applyViewportPageSize(int capacity) {
+    if (isClosed) return;
+    final target = capacity < 10 ? 10 : capacity;
+    if (pageSize.value == target) return;
+    _viewportPageDebounce?.cancel();
+    _viewportPageDebounce = Timer(const Duration(milliseconds: 150), () {
+      if (isClosed) return;
+      setPageSize(target);
+    });
+  }
 
   AreasListController(this.site);
 

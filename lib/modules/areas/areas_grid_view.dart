@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:pure_live/common/index.dart';
@@ -135,12 +136,13 @@ class _AreaGridViewState extends State<AreaGridView> with TickerProviderStateMix
     if (widget.isFlatten) {
       return BasePageView<AreasListController, LiveArea>(
         controller: widget.controller,
+        wrapMobileRefresh: false,
         enableRefresh: true,
         enableLoadMore: true,
         customMobileBottomPadding: 85,
         customDesktopBottomPadding: 135,
-        showScrollToTopBtn: SettingsService.to.page.showScrollToTopBtn.v,
-        showPageSizeSelector: SettingsService.to.page.showPageSizeSelector.v,
+        showScrollToTopBtn: false,
+        showPageSizeSelector: false,
         pageSizeOptions: SettingsService.to.page.pageSizeOptions,
         emptyBuilder: (context) => EmptyView(
           icon: Remix.apps_2_line,
@@ -148,7 +150,12 @@ class _AreaGridViewState extends State<AreaGridView> with TickerProviderStateMix
           subtitle: i18n("empty_areas_subtitle"),
         ),
         contentBuilder: (context, displayList, scrollController) {
-          return buildFlattenAreasView(displayList, scrollController);
+          // 对齐关注页：桌面/移动、任意宽度一律包裹 EasyRefresh 下拉刷新。
+          return buildCommonPullToRefresh(
+            refreshKey: 'area_flatten_${widget.tag}',
+            onRefresh: widget.controller.refreshData,
+            childBuilder: (_, physics) => buildFlattenAreasView(displayList, scrollController, physics: physics),
+          );
         },
       );
     }
@@ -178,27 +185,38 @@ class _AreaGridViewState extends State<AreaGridView> with TickerProviderStateMix
 
       return Column(
         children: [
-          TabBar(
-            key: const ValueKey('area-category-tabs'),
-            controller: _tabController,
-            // A tap is committed intent, unlike an unfinished horizontal drag.
-            // Publish it before a refresh response can remap category indices.
-            onTap: widget.controller.selectCategory,
-            isScrollable: true,
-            physics: const PureLiveBoundedScrollPhysics(),
-            tabs: categoriesList.map((e) => Tab(text: e.name)).toList(),
+          Listener(
+            onPointerSignal: (event) {
+              if (event is! PointerScrollEvent) return;
+              final ctrl = _tabController;
+              if (ctrl == null || ctrl.length == 0) return;
+              final dir = event.scrollDelta.dy > 0 ? 1 : -1;
+              final next = (ctrl.index + dir) % ctrl.length;
+              ctrl.animateTo(next);
+            },
+            child: TabBar(
+              key: const ValueKey('area-category-tabs'),
+              controller: _tabController,
+              // A tap is committed intent, unlike an unfinished horizontal drag.
+              // Publish it before a refresh response can remap category indices.
+              onTap: widget.controller.selectCategory,
+              isScrollable: true,
+              physics: const PureLiveBoundedScrollPhysics(),
+              tabs: categoriesList.map((e) => Tab(text: e.name)).toList(),
+            ),
           ),
           Expanded(
             child: BasePageView<AreasListController, LiveArea>(
               controller: widget.controller,
               // An empty category must not dispose the surrounding horizontal pages.
               preserveContentWhenEmpty: true,
+              wrapMobileRefresh: false,
               enableRefresh: true,
               enableLoadMore: true,
               customMobileBottomPadding: 85,
               customDesktopBottomPadding: 135,
-              showScrollToTopBtn: SettingsService.to.page.showScrollToTopBtn.v,
-              showPageSizeSelector: SettingsService.to.page.showPageSizeSelector.v,
+              showScrollToTopBtn: false,
+              showPageSizeSelector: false,
               pageSizeOptions: SettingsService.to.page.pageSizeOptions,
               emptyBuilder: (context) => EmptyView(
                 icon: Remix.apps_2_line,
@@ -221,27 +239,37 @@ class _AreaGridViewState extends State<AreaGridView> with TickerProviderStateMix
                             : category.children;
                         if (finalData.isEmpty) {
                           return LayoutBuilder(
-                            builder: (context, constraints) => SingleChildScrollView(
-                              key: PageStorageKey('area_empty_${widget.tag}_${category.id}'),
-                              controller: _scrollControllerFor(category.id),
-                              // Inherit EasyRefresh physics, like the populated grid.
-                              child: ConstrainedBox(
-                                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                                child: Center(
-                                  child: EmptyView(
-                                    icon: Remix.apps_2_line,
-                                    title: i18n("empty_areas_title"),
-                                    subtitle: i18n("empty_areas_subtitle"),
+                            builder: (context, constraints) => buildCommonPullToRefresh(
+                              refreshKey: 'area_empty_${widget.tag}_${category.id}',
+                              onRefresh: widget.controller.refreshData,
+                              childBuilder: (_, physics) => SingleChildScrollView(
+                                key: PageStorageKey('area_empty_${widget.tag}_${category.id}'),
+                                controller: _scrollControllerFor(category.id),
+                                // Inherit EasyRefresh physics, like the populated grid.
+                                physics: physics,
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                                  child: Center(
+                                    child: EmptyView(
+                                      icon: Remix.apps_2_line,
+                                      title: i18n("empty_areas_title"),
+                                      subtitle: i18n("empty_areas_subtitle"),
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
                           );
                         }
-                        return buildFlattenAreasView(
-                          finalData,
-                          _scrollControllerFor(category.id),
-                          scrollKey: PageStorageKey('area_grid_${widget.tag}_${category.id}'),
+                        return buildCommonPullToRefresh(
+                          refreshKey: 'area_grid_${widget.tag}_${category.id}',
+                          onRefresh: widget.controller.refreshData,
+                          childBuilder: (_, physics) => buildFlattenAreasView(
+                            finalData,
+                            _scrollControllerFor(category.id),
+                            scrollKey: PageStorageKey('area_grid_${widget.tag}_${category.id}'),
+                            physics: physics,
+                          ),
                         );
                       },
                     );
@@ -255,26 +283,46 @@ class _AreaGridViewState extends State<AreaGridView> with TickerProviderStateMix
     });
   }
 
-  Widget buildFlattenAreasView(List<LiveArea> childrenList, ScrollController scrollController, {Key? scrollKey}) {
+  Widget buildFlattenAreasView(
+    List<LiveArea> childrenList,
+    ScrollController scrollController, {
+    Key? scrollKey,
+    ScrollPhysics? physics,
+  }) {
     return LayoutBuilder(
       builder: (context, constraint) {
         final width = constraint.maxWidth;
-        final crossAxisCount = width > 1280 ? 9 : (width > 960 ? 7 : (width > 640 ? 5 : 3));
+        // TODO: 这里的宽度阈值需要根据实际效果调整
+        final crossAxisCount = width > 1360
+            ? 13
+            : (width > 1020 ? 11 : (width > 700 ? 9 : (width > 380 ? 7 : (width > 60 ? 5 : 3))));
         final spacing = SettingsService.to.theme.crossAxisSpacing.v;
+        final mainAxisSpacing = SettingsService.to.theme.mainAxisSpacing.v;
         final itemWidth = (width - 12 - spacing * (crossAxisCount - 1)) / crossAxisCount;
+        // 卡片高度 = 图片宽度（1:1）+ 信息区 40（与 area_card.dart 手动文字
+        // 布局的实际高度一致：Padding 上下 10 + 两行文字 + 行间距 2），可微调。
+        final mainAxisExtent = itemWidth + 40;
+
+        // 动态分页（对齐关注页列表布局）：每页数量 = 视口可完整容纳的行数 ×
+        // 每行列数，不再使用设置中的每页数量；下限 10 由 applyViewportPageSize
+        // 保证。24 = 网格纵向内边距（上 4 + 下 20）。
+        final rowExtent = mainAxisExtent + mainAxisSpacing;
+        final rows = ((constraint.maxHeight - 24 + mainAxisSpacing) / rowExtent).floor();
+        widget.controller.applyViewportPageSize(rows.clamp(1, 999) * crossAxisCount);
 
         return GridView.builder(
           key: scrollKey,
-          padding: const EdgeInsets.fromLTRB(6, 6, 6, 80),
+          padding: const EdgeInsets.fromLTRB(6, 6, 6, 40),
           controller: scrollController,
+          physics: physics,
           scrollCacheExtent: ScrollCacheExtent.pixels(width > 680 ? 480 : 320),
           addAutomaticKeepAlives: false,
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossAxisCount,
             crossAxisSpacing: spacing,
-            mainAxisSpacing: SettingsService.to.theme.mainAxisSpacing.v,
-            mainAxisExtent: itemWidth + 72,
+            mainAxisSpacing: mainAxisSpacing,
+            mainAxisExtent: mainAxisExtent,
           ),
           itemCount: childrenList.length,
           itemBuilder: (context, index) {

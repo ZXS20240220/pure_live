@@ -1,3 +1,5 @@
+import 'package:flutter/gestures.dart';
+
 import 'areas_grid_view.dart';
 
 import 'package:remixicon/remixicon.dart';
@@ -22,12 +24,22 @@ class AreasPage extends GetView<AreasController> {
               centerTitle: true,
               leading: showAction ? const MenuButton() : null,
               actions: showAction ? [CommonAppBarActions()] : null,
-              title: TabBar(
-                key: const ValueKey('areas-platform-tabs'),
-                controller: controller.tabController,
-                isScrollable: true,
-                physics: const PureLiveBoundedScrollPhysics(),
-                tabs: availableSitesList.map((e) => Tab(text: e.name)).toList(),
+              title: Listener(
+                onPointerSignal: (event) {
+                  if (event is! PointerScrollEvent) return;
+                  final ctrl = controller.tabController;
+                  if (ctrl.length == 0) return;
+                  final dir = event.scrollDelta.dy > 0 ? 1 : -1;
+                  final next = (ctrl.index + dir) % ctrl.length;
+                  ctrl.animateTo(next);
+                },
+                child: TabBar(
+                  key: const ValueKey('areas-platform-tabs'),
+                  controller: controller.tabController,
+                  isScrollable: true,
+                  physics: const PureLiveBoundedScrollPhysics(),
+                  tabs: availableSitesList.map((e) => Tab(text: e.name)).toList(),
+                ),
               ),
             ),
             body: TabBarView(

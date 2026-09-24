@@ -1,3 +1,5 @@
+import 'package:flutter/gestures.dart';
+
 import 'popular_grid_view.dart';
 
 import 'package:pure_live/common/index.dart';
@@ -24,12 +26,22 @@ class PopularPage extends GetView<PopularController> {
               centerTitle: true,
               leading: showAction ? const MenuButton() : null,
               actions: showAction ? [CommonAppBarActions()] : null,
-              title: TabBar(
-                key: const ValueKey('popular-platform-tabs'),
-                controller: controller.tabController,
-                isScrollable: true,
-                physics: const PureLiveBoundedScrollPhysics(),
-                tabs: sites.map((e) => Tab(text: e.name)).toList(),
+              title: Listener(
+                onPointerSignal: (event) {
+                  if (event is! PointerScrollEvent) return;
+                  final ctrl = controller.tabController;
+                  if (ctrl.length == 0) return;
+                  final dir = event.scrollDelta.dy > 0 ? 1 : -1;
+                  final next = (ctrl.index + dir) % ctrl.length;
+                  ctrl.animateTo(next);
+                },
+                child: TabBar(
+                  key: const ValueKey('popular-platform-tabs'),
+                  controller: controller.tabController,
+                  isScrollable: true,
+                  physics: const PureLiveBoundedScrollPhysics(),
+                  tabs: sites.map((e) => Tab(text: e.name)).toList(),
+                ),
               ),
             ),
             body: TabBarView(

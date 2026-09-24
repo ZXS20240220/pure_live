@@ -221,16 +221,5 @@ Widget buildFavoritePullToRefresh({
   required Future<void> Function() onRefresh,
   required ERChildBuilder childBuilder,
 }) {
-  return EasyRefresh.builder(
-    key: ValueKey('favorite_pull_to_refresh_$siteId'),
-    header: MaterialHeader(
-      key: ValueKey('favorite_pull_to_refresh_indicator_$siteId'),
-      triggerOffset: 72,
-      triggerWhenRelease: true,
-      clamping: true,
-    ),
-    triggerAxis: Axis.vertical,
-    onRefresh: onRefresh,
-    childBuilder: childBuilder,
-  );
+  return buildCommonPullToRefresh(refreshKey: 'favorite_$siteId', onRefresh: onRefresh, childBuilder: childBuilder);
 }
