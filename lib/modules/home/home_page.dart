@@ -308,9 +308,14 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin,
                                   Text(
                                     favoriteController.isVerifyingFavorites.value
                                         ? i18n('favorite_refreshing_startup')
-                                        : favoriteController.refreshShieldScope.value == FavoriteRefreshScope.all
-                                        ? i18n('favorite_refreshing_all')
-                                        : i18n('favorite_refreshing_filtered'),
+                                        : switch (favoriteController.refreshShieldScope.value) {
+                                            FavoriteRefreshScope.all => i18n('favorite_refreshing_all'),
+                                            FavoriteRefreshScope.filtered => i18n('favorite_refreshing_filtered'),
+                                            FavoriteRefreshScope.dormantAll => i18n('favorite_refreshing_dormant_all'),
+                                            FavoriteRefreshScope.dormantFiltered => i18n(
+                                              'favorite_refreshing_dormant_filtered',
+                                            ),
+                                          },
                                     textAlign: TextAlign.center,
                                     style: Theme.of(context).textTheme.bodyMedium,
                                   ),

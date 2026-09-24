@@ -1987,6 +1987,8 @@
   "watch_time_cleared": "Watch records cleared",
   "favorite_refreshing_all": "Refreshing all favorite rooms…",
   "favorite_refreshing_filtered": "Refreshing filtered favorite rooms…",
+  "favorite_refreshing_dormant_all": "Refreshing all dormant rooms…",
+  "favorite_refreshing_dormant_filtered": "Refreshing filtered dormant rooms…",
   "favorite_refreshing_startup": "Verifying all favorite & history rooms…",
   "favorite_refresh_cancel_tooltip": "Abort this refresh",
   "favorite_enable_pinned": "Pin top-tag rooms",

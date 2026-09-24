@@ -1986,6 +1986,8 @@
   "watch_time_cleared": "观看记录已清空",
   "favorite_refreshing_all": "正在刷新全部关注直播间…",
   "favorite_refreshing_filtered": "正在刷新当前筛选的关注直播间…",
+  "favorite_refreshing_dormant_all": "正在刷新全部弃用直播间…",
+  "favorite_refreshing_dormant_filtered": "正在刷新当前筛选的弃用直播间…",
   "favorite_refreshing_startup": "正在核验全部关注与历史直播间…",
   "favorite_refresh_cancel_tooltip": "中止本次刷新",
   "favorite_enable_pinned": "置顶首位标签的直播间",

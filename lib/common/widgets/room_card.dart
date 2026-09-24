@@ -25,6 +25,8 @@ class RoomCard extends StatelessWidget {
     this.deleteTooltip,
     this.isPinned = false,
     this.isDormant = false,
+    this.onTapOverride,
+    this.dormantRefreshing = false,
   });
   final LiveRoom room;
   final bool dense;
@@ -37,8 +39,15 @@ class RoomCard extends StatelessWidget {
   /// 是否判定为置顶房间（由调用方按 enablePinned + pinTagId 计算，5.1/5.2）。
   final bool isPinned;
 
-  /// 是否为暂弃（下沉）房间：禁用左键，显示"已弃用"遮罩，强制显示删除按钮，隐藏置顶。
+  /// 是否为暂弃（下沉）房间：显示"已弃用"遮罩，强制显示删除按钮，隐藏置顶；
+  /// 左键点击默认刷新该房间状态（行为由 [onTapOverride] 决定）。
   final bool isDormant;
+
+  /// 覆盖默认的左键打开行为（暂弃卡片点击时刷新状态而非直接进入直播间）。
+  final void Function(BuildContext context)? onTapOverride;
+
+  /// 暂弃卡片正在单次刷新：遮罩中央以转圈动画暂时替代"已弃用"标识。
+  final bool dormantRefreshing;
   Widget _buildCover(BuildContext context, bool isDark) {
     final coverUrl = normalizeNetworkImageUrl(room.cover);
 
@@ -856,8 +865,8 @@ class RoomCard extends StatelessWidget {
         color: isDark ? Colors.grey[900] : Colors.white,
         child: InkWell(
           borderRadius: BorderRadius.circular(radius),
-          // 暂弃房间禁用左键点击（不进入直播间），右键仍可触发弹窗
-          onTap: isDormant ? null : () => onTap(context),
+          // 暂弃房间左键由 onTapOverride 决定（刷新状态），右键仍可触发弹窗
+          onTap: () => (onTapOverride ?? onTap)(context),
           onLongPress: () => onLongPress(context),
           onSecondaryTap: () => onLongPress(context),
           child: Column(
@@ -883,24 +892,52 @@ class RoomCard extends StatelessWidget {
                         child: DecoratedBox(
                           decoration: BoxDecoration(color: Colors.black.withValues(alpha: isDark ? 0.65 : 0.55)),
                           child: Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Remix.archive_line, size: dense ? 20 : 28, color: Colors.white70),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '已弃用',
-                                  maxLines: 1,
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: dense ? 11 : 14,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 0.5,
-                                    shadows: const [Shadow(color: Colors.black54, blurRadius: 4, offset: Offset(0, 1))],
+                            // 单次刷新期间以转圈动画暂时替代"已弃用"标识。
+                            child: dormantRefreshing
+                                ? Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      SizedBox(
+                                        width: dense ? 20 : 28,
+                                        height: dense ? 20 : 28,
+                                        child: const CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        '刷新中…',
+                                        maxLines: 1,
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: dense ? 11 : 13,
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: 0.5,
+                                          shadows: const [
+                                            Shadow(color: Colors.black54, blurRadius: 4, offset: Offset(0, 1)),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Remix.archive_line, size: dense ? 20 : 28, color: Colors.white70),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '已弃用',
+                                        maxLines: 1,
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: dense ? 11 : 14,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 0.5,
+                                          shadows: const [
+                                            Shadow(color: Colors.black54, blurRadius: 4, offset: Offset(0, 1)),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                              ],
-                            ),
                           ),
                         ),
                       ),

@@ -18,8 +18,9 @@ import 'package:pure_live/routes/route_observer_controller.dart';
 /// 收藏页排序策略（5.2）：观众数 / 开播时间 / 累计观看时长。
 enum OnlineSortMode { audience, startTime, watchTime }
 
-/// 刷新遮罩展示的范围语义：全量（所有关注）或按当前筛选（平台/标签/搜索）。
-enum FavoriteRefreshScope { all, filtered }
+/// 刷新遮罩展示的范围语义：全量（所有关注）、按当前筛选（平台/标签/搜索）、
+/// 全部暂弃（暂弃页签下无筛选）或按当前筛选的暂弃房间。
+enum FavoriteRefreshScope { all, filtered, dormantAll, dormantFiltered }
 
 class FavoriteController extends LocalReactivePageController<LiveRoom>
     with GetTickerProviderStateMixin, WidgetsBindingObserver {
@@ -81,6 +82,12 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
   final searchKeyword = ''.obs;
   final enablePinned = true.obs;
   final onlineSortMode = OnlineSortMode.audience.obs;
+
+  /// 正在单次刷新的暂弃房间（identityKey 集合），卡片据此显示刷新动画。
+  final refreshingDormantKeys = <String>{}.obs;
+
+  /// 暂弃卡片刷新动画的最短展示时长：请求太快结束时补足，避免"点了没反应"。
+  static const _dormantCardTapMinFeedback = Duration(milliseconds: 600);
 
   /// 排序方向：false = 降序（热度高/开播新/时长多在前），true = 升序。
   final onlineSortAscending = false.obs;
@@ -576,7 +583,20 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     final List<LiveRoom> source = SettingsService.to.fav.favoriteRooms.v
         .where((r) => !dormantKeys.contains(r.identityKey))
         .toList();
+    return _filterRoomsBySiteTagSearch(source);
+  }
 
+  /// 暂弃页签下的手动刷新范围：只取暂弃房间，同样受平台/标签/搜索筛选。
+  List<LiveRoom> getDormantRoomsIgnoringLiveStatus() {
+    final dormantKeys = SettingsService.to.fav.dormantRoomKeys.toSet();
+    final List<LiveRoom> source = SettingsService.to.fav.favoriteRooms.v
+        .where((r) => dormantKeys.contains(r.identityKey))
+        .toList();
+    return _filterRoomsBySiteTagSearch(source);
+  }
+
+  /// 平台页签 + 房间标签多选 + 搜索关键词的公共筛选（忽略状态页签）。
+  List<LiveRoom> _filterRoomsBySiteTagSearch(List<LiveRoom> source) {
     final currentAvailableSites = Sites().availableSites(containsAll: true);
     if (tabSiteIndex.value < 0 || tabSiteIndex.value >= currentAvailableSites.length) {
       return [];
@@ -1028,6 +1048,26 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
 
   Future<void> _fullRefreshFilterRooms({required bool showLoading, bool bypassFailureCooldown = false}) async {
     if (isClosed) return;
+    // 暂弃页签（4）下的手动刷新：只刷新暂弃房间（仍受平台/标签/搜索筛选），
+    // 遮罩语义为"全部弃用 / 当前筛选弃用"。其余页签维持原有逻辑。
+    if (tabOnlineIndex.value == 4) {
+      final isUnfiltered =
+          tabSiteIndex.value >= 0 &&
+          tabSiteIndex.value < Sites().availableSites(containsAll: true).length &&
+          Sites().availableSites(containsAll: true)[tabSiteIndex.value].id == Sites.allSite &&
+          selectedTagIds.contains(TagManagementController.allTagKey) &&
+          searchKeyword.value.trim().isEmpty;
+      refreshShieldScope.value = isUnfiltered ? FavoriteRefreshScope.dormantAll : FavoriteRefreshScope.dormantFiltered;
+      final roomsToRefresh = getDormantRoomsIgnoringLiveStatus();
+      await _runRoomRefresh(
+        roomsToRefresh,
+        showLoading: showLoading,
+        markFullRefresh: true,
+        invalidateUnverified: true,
+        bypassFailureCooldown: bypassFailureCooldown,
+      );
+      return;
+    }
     // 全部平台 + 全部标签 + 无搜索 = 筛选是 no-op，刷新范围就是全部收藏，
     // 遮罩语义保持"全部"而不是误导性的"当前筛选"（对齐开发版）。
     final sites = Sites().availableSites(containsAll: true);
@@ -1521,8 +1561,9 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     applyLocalFilter();
   }
 
-  /// 移出暂弃：清除 dormant 标记，立即请求一次最新状态。
-  Future<void> restoreRoomsFromDormant(List<LiveRoom> rooms) async {
+  /// 移出暂弃：清除 dormant 标记。[refreshAfter] 为 false 时跳过移出后的
+  /// 立即刷新（用于点击暂弃卡片刚刷新过、数据仍新鲜的场景）。
+  Future<void> restoreRoomsFromDormant(List<LiveRoom> rooms, {bool refreshAfter = true}) async {
     if (isClosed || rooms.isEmpty) return;
     final favCtrl = SettingsService.to.fav;
 
@@ -1532,6 +1573,8 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     }
 
     applyLocalFilter(); // 立即从暂弃桶移回 online/offline/replay
+
+    if (!refreshAfter) return;
 
     // 2. 立即请求一次最新状态
     final updates = await _refreshRoomDetails(rooms, refreshEpoch: _refreshEpoch, bypassFailureCooldown: true);
@@ -1548,6 +1591,45 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
   /// 移出单个暂弃房间（卡片删除按钮用）。
   Future<void> restoreSingleFromDormant(LiveRoom room) async {
     await restoreRoomsFromDormant([room]);
+  }
+
+  /// 点击暂弃卡片：对该房间发起一次详情请求以获取最新状态（正常更新到
+  /// favoriteRooms，卡片与留存数据随之刷新），并返回刷新后的房间数据。
+  /// 返回 null 表示请求失败或已关闭——此时仍保持旧留存数据。
+  ///
+  /// 刷新期间将 identityKey 加入 [refreshingDormantKeys] 供卡片显示动画，
+  /// 并保证动画至少展示 [_dormantCardTapMinFeedback]。
+  Future<LiveRoom?> refreshDormantRoomOnce(LiveRoom room) async {
+    if (isClosed) return null;
+    final favCtrl = SettingsService.to.fav;
+    final sw = Stopwatch()..start();
+    refreshingDormantKeys.add(room.identityKey);
+    LiveRoom? refreshed;
+    try {
+      final updates = await _refreshRoomDetails([room], refreshEpoch: _refreshEpoch, bypassFailureCooldown: true);
+      if (isClosed) return null;
+
+      final latest = List<LiveRoom>.from(favCtrl.favoriteRooms.v);
+      final merged = mergeFavoriteRoomUpdates(latest, updates);
+      if (merged.changed) {
+        favCtrl.favoriteRooms.v = merged.rooms;
+        applyLocalFilter();
+      }
+      for (final r in favCtrl.favoriteRooms.v) {
+        if (r.identityKey == room.identityKey) {
+          refreshed = r;
+          break;
+        }
+      }
+      return refreshed;
+    } finally {
+      // 最短反馈时长：请求过快结束时补足，确保用户看到卡片动画变化。
+      final remaining = _dormantCardTapMinFeedback - sw.elapsed;
+      if (remaining > Duration.zero && !isClosed) {
+        await Future<void>.delayed(remaining);
+      }
+      refreshingDormantKeys.remove(room.identityKey);
+    }
   }
 
   /// 暂弃房间是否有历史副本残留（用于移入时删除）。

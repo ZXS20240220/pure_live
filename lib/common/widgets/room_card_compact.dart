@@ -19,6 +19,8 @@ class RoomCardCompact extends StatelessWidget {
     this.isPinned = false,
     this.isDormant = false,
     this.onDelete,
+    this.onTapOverride,
+    this.dormantRefreshing = false,
   });
 
   final LiveRoom room;
@@ -28,11 +30,18 @@ class RoomCardCompact extends StatelessWidget {
   /// 是否判定为置顶房间（由调用方按关注页置顶开关 + 置顶标签计算）。
   final bool isPinned;
 
-  /// 是否为暂弃（下沉）房间：禁用左键，显示"已弃用"状态文字，隐藏置顶徽章，强制显示删除按钮。
+  /// 是否为暂弃（下沉）房间：显示"已弃用"状态文字，隐藏置顶徽章，强制显示删除按钮；
+  /// 左键点击默认刷新该房间状态（行为由 [onTapOverride] 决定）。
   final bool isDormant;
 
   /// 删除按钮回调（暂弃房间用于移出暂弃）。
   final VoidCallback? onDelete;
+
+  /// 覆盖默认的左键打开行为（暂弃卡片点击时刷新状态而非直接进入直播间）。
+  final void Function(BuildContext context)? onTapOverride;
+
+  /// 暂弃卡片正在单次刷新：状态行以小转圈暂时替代"已弃用"文字。
+  final bool dormantRefreshing;
 
   void onTap(BuildContext context) => AppNavigator.toLiveRoomDetail(liveRoom: room);
 
@@ -57,7 +66,7 @@ class RoomCardCompact extends StatelessWidget {
       return Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: isDormant ? null : () => onTap(context),
+          onTap: () => (onTapOverride ?? onTap)(context),
           onLongPress: () => onLongPress(context),
           onSecondaryTap: () => onLongPress(context),
           borderRadius: BorderRadius.circular(radius),
@@ -187,6 +196,14 @@ class RoomCardCompact extends StatelessWidget {
   /// 再没有 → 状态文字（未直播/录播/已弃用）。
   Widget _buildTrailing(ThemeData theme, bool isDark, RoomCardAppearance config) {
     if (isDormant) {
+      // 单次刷新期间以小转圈暂时替代"已弃用"文字。
+      if (dormantRefreshing) {
+        return const SizedBox(
+          width: 14,
+          height: 14,
+          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.grey),
+        );
+      }
       return _StatusText(text: '已弃用', color: Colors.grey.shade500, theme: theme);
     }
     if (statusPending) {

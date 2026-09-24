@@ -3,6 +3,7 @@ import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/global/platform_utils.dart';
 import 'package:pure_live/common/widgets/room_card_compact.dart';
 import 'package:pure_live/modules/tags/tag_management_controller.dart';
+import 'package:pure_live/routes/app_navigation.dart';
 
 @visibleForTesting
 bool shouldWrapFavoritePullToRefresh({required double viewportWidth, required bool isMobilePlatform}) {
@@ -52,6 +53,13 @@ class RoomGridView extends GetView<FavoriteController> {
             (false, false) => width > 1280 ? 4 : (width > 960 ? 3 : (width > 640 ? 2 : 1)),
           };
 
+          // 暂弃卡片刷新动画状态快照：必须在 Obx builder 的同步作用域内读取
+          // （toSet() 经 value getter → reportRead() 注册依赖），add/remove 才能触发
+          // 重建。buildScrollable 经 EasyRefresh 的 childBuilder、itemBuilder 经
+          // GridView.builder 都是懒回调，在其中读取 Rx 不注册依赖——通知无人
+          // 接收，刷新动画将永久卡死。
+          final refreshingDormantKeysSnapshot = controller.refreshingDormantKeys.toSet();
+
           Widget buildScrollable(ScrollPhysics physics) {
             if (displayList.isEmpty) {
               return CustomScrollView(
@@ -90,7 +98,7 @@ class RoomGridView extends GetView<FavoriteController> {
               controller.applyCompactPageSize(null);
             }
 
-            // 暂弃 Tab 下卡片需要特殊处理：禁用左键、显示删除按钮。
+            // 暂弃 Tab 下卡片特殊处理：显示删除按钮；左键点击刷新该房间状态。
             final isDormantTab = controller.tabOnlineIndex.value == 4;
 
             return GridView.builder(
@@ -125,6 +133,8 @@ class RoomGridView extends GetView<FavoriteController> {
                     isPinned: isPinned,
                     isDormant: isDormantTab,
                     onDelete: isDormantTab ? () => controller.restoreSingleFromDormant(room) : null,
+                    onTapOverride: isDormantTab ? (ctx) => _handleDormantCardTap(ctx, room) : null,
+                    dormantRefreshing: refreshingDormantKeysSnapshot.contains(room.identityKey),
                   );
                 }
                 return RoomCard(
@@ -137,6 +147,8 @@ class RoomGridView extends GetView<FavoriteController> {
                   isDormant: isDormantTab,
                   showDelete: isDormantTab,
                   onDelete: isDormantTab ? () => controller.restoreSingleFromDormant(room) : null,
+                  onTapOverride: isDormantTab ? (ctx) => _handleDormantCardTap(ctx, room) : null,
+                  dormantRefreshing: refreshingDormantKeysSnapshot.contains(room.identityKey),
                 );
               },
             );
@@ -159,6 +171,47 @@ class RoomGridView extends GetView<FavoriteController> {
         });
       },
     );
+  }
+
+  /// 暂弃卡片左键点击：先对该房间发起一次详情请求获取最新状态（留存数据
+  /// 随之更新）；若刷新后正在直播，弹窗询问是否移出暂时弃用——确认后移出
+  /// 并打开直播间（跳过移出时的重复刷新），取消则保持在暂弃分类。
+  Future<void> _handleDormantCardTap(BuildContext context, LiveRoom room) async {
+    final refreshed = await controller.refreshDormantRoomOnce(room);
+    if (!context.mounted || refreshed == null || !refreshed.isLiveNow) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          scrollable: true,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          backgroundColor: Theme.of(dialogCtx).colorScheme.surface,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(
+            i18n('live'),
+            style: AppTextStyles.t16.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Theme.of(dialogCtx).colorScheme.onSurface,
+            ),
+          ),
+          content: Text(
+            '${(refreshed.nick?.trim().isNotEmpty ?? false) ? refreshed.nick! : '该主播'} '
+            '正在直播中，是否将其移出暂时弃用并打开直播间？',
+            style: AppTextStyles.t13.copyWith(color: Theme.of(dialogCtx).colorScheme.onSurfaceVariant),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogCtx, false), child: Text(i18n('cancel'))),
+            FilledButton(onPressed: () => Navigator.pop(dialogCtx, true), child: Text(i18n('confirm'))),
+          ],
+        );
+      },
+    );
+    if (confirmed != true) return;
+
+    await controller.restoreRoomsFromDormant([refreshed], refreshAfter: false);
+    AppNavigator.toLiveRoomDetail(liveRoom: refreshed);
   }
 }
 
