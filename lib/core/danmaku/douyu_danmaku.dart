@@ -51,12 +51,29 @@ class DouyuDanmaku implements LiveDanmaku {
   String _roomId = '';
   int _generation = 0;
 
+  // A price=0 SC is a real, displayable message (inherently free, or free
+  // via deduction — Douyu web shows both as free). For such an SC Douyu may
+  // push a redundant companion event right after it: same sender and
+  // content but carrying the pre-deduction price (>0). Displaying that
+  // companion makes the SC appear twice, so shown price=0 SCs are
+  // remembered for a short window and an identical price>0 packet within
+  // the window is suppressed. A price>0 packet without a remembered twin
+  // is a normal paid SC and is displayed as-is.
+  static const Duration _defaultSuperChatDedupWindow = Duration(seconds: 5);
+  Duration _superChatDedupWindow = _defaultSuperChatDedupWindow;
+  final List<_RecentFreeSuperChat> _recentFreeSuperChats = [];
+  Timer? _recentSuperChatTimer;
+
   @visibleForTesting
   void debugSetRoomId(String roomId) => _roomId = roomId;
+
+  @visibleForTesting
+  void debugSetSuperChatDedupWindow(Duration window) => _superChatDedupWindow = window;
 
   @override
   Future start(dynamic args) async {
     final generation = ++_generation;
+    _resetRecentFreeSuperChats();
     await webScoketUtils?.close();
     webScoketUtils = null;
     if (generation != _generation) return;
@@ -105,6 +122,7 @@ class DouyuDanmaku implements LiveDanmaku {
   @override
   Future stop() async {
     _generation++;
+    _resetRecentFreeSuperChats();
     markDisconnected();
     onMessage = null;
     onReconnect = null;
@@ -161,7 +179,12 @@ class DouyuDanmaku implements LiveDanmaku {
         } else if (type == "voice_trlt") {
           liveMsg = _parseVoiceSuperChat(jsonData);
         }
-        if (liveMsg != null) onMessage?.call(liveMsg);
+        if (liveMsg == null) continue;
+        if (liveMsg.type == LiveMessageType.superChat) {
+          _dispatchSuperChat(liveMsg);
+        } else {
+          onMessage?.call(liveMsg);
+        }
       } catch (e) {
         // One malformed packet must not discard the valid packets coalesced
         // after it in the same WebSocket frame.
@@ -176,6 +199,9 @@ class DouyuDanmaku implements LiveDanmaku {
     final duration = int.tryParse(jsonData["cet"]?.toString() ?? '');
     final rawPrice = int.tryParse(jsonData["cprice"]?.toString() ?? '');
     if (chat is! Map || now == null || duration == null || rawPrice == null) return null;
+    // price=0 is a real SC (inherently free or free via deduction) and is
+    // displayed immediately; the redundant price>0 companion of the same SC
+    // is suppressed by _dispatchSuperChat instead.
     final face = chat["ic"]?.toString() ?? '';
     final startTime = DateTime.fromMillisecondsSinceEpoch(now);
     final superChat = LiveSuperChatMessage(
@@ -222,6 +248,69 @@ class DouyuDanmaku implements LiveDanmaku {
       color: LiveMessageColor.white,
       data: data,
     );
+  }
+
+  void _dispatchSuperChat(LiveMessage msg) {
+    final sc = msg.data as LiveSuperChatMessage;
+    if (sc.price == 0) {
+      // Display immediately — a price=0 SC is the actual message (inherently
+      // free or free via deduction). Remember it so the redundant price>0
+      // companion of the same SC can be recognized and suppressed.
+      _recentFreeSuperChats.add(_RecentFreeSuperChat(msg, DateTime.now().add(_superChatDedupWindow)));
+      _scheduleRecentSuperChatExpiry();
+      onMessage?.call(msg);
+      return;
+    }
+    // A price>0 packet identical to a just-shown price=0 SC is that SC's
+    // redundant companion event (same sender and content, pre-deduction
+    // price), not a separate message — suppress it. The most recent twin is
+    // consumed (LIFO) so a later genuine paid SC with the same content is
+    // displayed instead of being swallowed. Without a twin it is a normal
+    // paid SC.
+    final index = _recentFreeSuperChats.lastIndexWhere((recent) => _isSameSuperChatContent(recent.message, msg));
+    if (index == -1) {
+      onMessage?.call(msg);
+      return;
+    }
+    _recentFreeSuperChats.removeAt(index);
+    if (_recentFreeSuperChats.isEmpty) {
+      _recentSuperChatTimer?.cancel();
+      _recentSuperChatTimer = null;
+    }
+  }
+
+  bool _isSameSuperChatContent(LiveMessage a, LiveMessage b) {
+    final pa = a.data as LiveSuperChatMessage;
+    final pb = b.data as LiveSuperChatMessage;
+    return pa.userName == pb.userName && pa.message == pb.message;
+  }
+
+  void _scheduleRecentSuperChatExpiry() {
+    if (_recentFreeSuperChats.isEmpty) {
+      _recentSuperChatTimer?.cancel();
+      _recentSuperChatTimer = null;
+      return;
+    }
+    // The timer always targets the earliest deadline. New deadlines are
+    // strictly later (now + window), so an existing timer stays correct.
+    if (_recentSuperChatTimer != null) return;
+    final now = DateTime.now();
+    final earliest = _recentFreeSuperChats.map((recent) => recent.deadline).reduce((a, b) => a.isBefore(b) ? a : b);
+    final delay = earliest.difference(now);
+    _recentSuperChatTimer = Timer(delay.isNegative ? Duration.zero : delay, _expireRecentFreeSuperChats);
+  }
+
+  void _expireRecentFreeSuperChats() {
+    _recentSuperChatTimer = null;
+    final now = DateTime.now();
+    _recentFreeSuperChats.removeWhere((recent) => !recent.deadline.isAfter(now));
+    _scheduleRecentSuperChatExpiry();
+  }
+
+  void _resetRecentFreeSuperChats() {
+    _recentSuperChatTimer?.cancel();
+    _recentSuperChatTimer = null;
+    _recentFreeSuperChats.clear();
   }
 
   List<int> serializeDouyu(String body) {
@@ -331,4 +420,13 @@ class DouyuDanmaku implements LiveDanmaku {
         return LiveMessageColor.white;
     }
   }
+}
+
+/// A displayed price=0 super chat remembered so the redundant price>0
+/// companion of the same SC can be suppressed, see [_dispatchSuperChat].
+class _RecentFreeSuperChat {
+  _RecentFreeSuperChat(this.message, this.deadline);
+
+  final LiveMessage message;
+  final DateTime deadline;
 }
