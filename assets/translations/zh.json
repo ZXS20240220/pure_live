@@ -1608,7 +1608,7 @@
   "collapse_repeated_danmaku_desc": "不同用户发送相同内容时只保留第一条；本地弹幕和系统消息不受影响。",
   "repeated_danmaku_window": "相同内容合并时间（秒）",
   "aggregate_repeated_danmaku": "聚合重复弹幕（内容 ×N）",
-  "aggregate_repeated_danmaku_desc": "时间窗口内的相同弹幕合并为一条「原文 ×N」，保留热度信息而不是直接丢弃；开启时优先于合并过滤。",
+  "aggregate_repeated_danmaku_desc": "首条弹幕立即显示（零延迟），时间窗口内的相同弹幕不再逐条刷屏，窗口结束时补发一条「原文 ×N」汇总保留热度信息；开启时优先于合并过滤。",
   "danmaku_density": "弹幕密度",
   "danmaku_density_normal": "正常",
   "danmaku_density_dense": "较多",

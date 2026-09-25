@@ -61,24 +61,25 @@ void main() {
     }
   }
 
-  test('holds the first message and releases it unchanged when no duplicate arrives', () {
+  test('first copy of a text key returns true for immediate emission with zero latency', () {
     final emitted = <LiveMessage>[];
     final (aggregator, timers) = build(onEmit: emitted.add);
 
-    expect(aggregator.offer(message('加油')), isFalse);
+    // The caller emits the first copy through the normal path; the aggregator
+    // only tracks it for potential duplicates.
+    expect(aggregator.offer(message('加油')), isTrue);
     expect(emitted, isEmpty);
 
     expireWindows(timers);
-    expect(emitted, hasLength(1));
-    expect(emitted.single.message, '加油');
-    expect(emitted.single.userName, 'u1');
+    // Singleton group: message already visible, no summary needed.
+    expect(emitted, isEmpty);
   });
 
-  test('merges duplicates into "原文 ×N" carrying the first sender metadata', () {
+  test('swallows duplicates inside the window and appends one "原文 ×N" summary', () {
     final emitted = <LiveMessage>[];
     final (aggregator, timers) = build(onEmit: emitted.add);
 
-    expect(aggregator.offer(message('666')), isFalse);
+    expect(aggregator.offer(message('666')), isTrue);
     expect(aggregator.offer(message('666', user: 'u2')), isFalse);
     expect(aggregator.offer(message('  666  ', user: 'u3')), isFalse);
 
@@ -89,18 +90,19 @@ void main() {
     expect(emitted.single.isLocal, isFalse);
   });
 
-  test('duplicate bursts after a flush start a new group', () {
+  test('duplicate bursts after a flush start a fresh group', () {
     final emitted = <LiveMessage>[];
     final (aggregator, timers) = build(onEmit: emitted.add);
 
-    expect(aggregator.offer(message('666')), isFalse);
+    expect(aggregator.offer(message('666')), isTrue);
     expireWindows(timers);
-    expect(aggregator.offer(message('666', user: 'u2')), isFalse);
+    // A copy after the flush is the first copy of a new group again.
+    expect(aggregator.offer(message('666', user: 'u2')), isTrue);
+    expect(aggregator.offer(message('666', user: 'u3')), isFalse);
     expireWindows(timers);
 
-    expect(emitted, hasLength(2));
-    expect(emitted[0].message, '666');
-    expect(emitted[1].message, '666 ×2');
+    expect(emitted, hasLength(1));
+    expect(emitted.single.message, '666 ×2');
   });
 
   test('local messages bypass aggregation and disabled state passes through', () {
@@ -117,19 +119,20 @@ void main() {
     expect(timers.where((timer) => timer.isActive), isEmpty);
   });
 
-  test('disabling via setConfig flushes held groups in arrival order', () {
+  test('disabling via setConfig flushes multi-copy summaries in arrival order', () {
     final emitted = <LiveMessage>[];
     final (aggregator, timers) = build(onEmit: emitted.add);
 
-    expect(aggregator.offer(message('a')), isFalse);
-    expect(aggregator.offer(message('b')), isFalse);
+    expect(aggregator.offer(message('a')), isTrue);
+    expect(aggregator.offer(message('b')), isTrue);
     expect(aggregator.offer(message('a')), isFalse);
 
     aggregator.setConfig(enabled: false, window: const Duration(seconds: 5));
 
-    expect(emitted, hasLength(2));
-    expect(emitted[0].message, 'a ×2');
-    expect(emitted[1].message, 'b');
+    // Only the group with real duplicates produces a summary; the singleton
+    // was already visible.
+    expect(emitted, hasLength(1));
+    expect(emitted.single.message, 'a ×2');
     expect(aggregator.pendingKeyCount, 0);
     expect(timers.where((timer) => timer.isActive), isEmpty);
   });
@@ -138,7 +141,7 @@ void main() {
     final emitted = <LiveMessage>[];
     final (aggregator, timers) = build(onEmit: emitted.add);
 
-    expect(aggregator.offer(message('a')), isFalse);
+    expect(aggregator.offer(message('a')), isTrue);
     aggregator.clear();
     expect(aggregator.pendingKeyCount, 0);
 
@@ -150,15 +153,16 @@ void main() {
     final emitted = <LiveMessage>[];
     final (aggregator, timers) = build(maxPendingKeys: 2, onEmit: emitted.add);
 
-    expect(aggregator.offer(message('a')), isFalse);
-    expect(aggregator.offer(message('b')), isFalse);
-    expect(aggregator.offer(message('c')), isFalse);
+    expect(aggregator.offer(message('a')), isTrue);
+    expect(aggregator.offer(message('b')), isTrue);
+    // 'c' evicts the oldest single-copy group without a summary.
+    expect(aggregator.offer(message('c')), isTrue);
 
     expect(aggregator.pendingKeyCount, 2);
-    expect(emitted, hasLength(1));
-    expect(emitted.single.message, 'a');
+    expect(emitted, isEmpty);
 
     expireWindows(timers);
-    expect(emitted, hasLength(3));
+    expect(aggregator.pendingKeyCount, 0);
+    expect(emitted, isEmpty);
   });
 }

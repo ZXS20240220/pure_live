@@ -3,17 +3,18 @@ import 'dart:collection';
 
 import 'package:pure_live/common/models/live_message.dart';
 
-/// Aggregates a burst of identical chat text into one "原文 ×N" message.
+/// Aggregates a burst of identical chat text into a "原文 ×N" summary.
 ///
-/// Unlike [RepeatedDanmakuFilter], which drops every duplicate, this optional
-/// upgrade keeps the information: the first message of a text key is held
-/// until the window closes. If more copies arrived meanwhile, a synthesized
-/// message carrying the first sender's metadata and the "×N" suffix is
-/// emitted; otherwise the original message is released unchanged.
+/// The first message of a text key is NEVER held: [offer] returns true so the
+/// caller emits it through the normal path with zero latency. Duplicates that
+/// arrive inside the window are swallowed and counted. When the window
+/// closes, groups with more than one copy emit one synthesized "原文 ×N"
+/// summary carrying the first sender's metadata; singleton groups emit
+/// nothing (their message is already visible).
 ///
-/// Local messages bypass aggregation. Because held messages belong to one
-/// room session, session switches must call [clear] (drop without emitting);
-/// user-facing toggles should call [setConfig], which flushes on disable.
+/// Local messages bypass aggregation. Because pending groups belong to one
+/// room session, session switches must call [clear]; user-facing toggles
+/// should call [setConfig], which flushes summaries on disable.
 class DanmakuAggregator {
   DanmakuAggregator({this.maxPendingKeys = 512, this.timerFactory = Timer.new});
 
@@ -22,8 +23,8 @@ class DanmakuAggregator {
   /// Injectable so tests can drive window expiry without real async time.
   final Timer Function(Duration duration, void Function() callback) timerFactory;
 
-  /// Called on the UI/release path for flushed groups. Window expiry and the
-  /// pending-cap overflow in [offer] may invoke it synchronously.
+  /// Called for "原文 ×N" summaries when a window closes. Window expiry and
+  /// the pending-cap overflow in [offer] may invoke it synchronously.
   void Function(LiveMessage message)? onEmit;
 
   bool _enabled = false;
@@ -42,8 +43,9 @@ class DanmakuAggregator {
   }
 
   /// Returns true when the caller should emit [message] itself (disabled,
-  /// local or empty-text messages pass through untouched). Returns false when
-  /// the aggregator consumed the message into a pending group.
+  /// local or empty-text messages pass through untouched, and the FIRST copy
+  /// of a new text key is emitted immediately). Returns false when the
+  /// aggregator swallowed the message as a duplicate inside a pending group.
   bool offer(LiveMessage message) {
     if (!_enabled) return true;
     if (message.type != LiveMessageType.chat || message.isLocal) return true;
@@ -66,10 +68,10 @@ class DanmakuAggregator {
     }
 
     _pending[normalized] = _PendingGroup(first: message, timer: timerFactory(_window, () => _flushGroup(normalized)));
-    return false;
+    return true;
   }
 
-  /// Emits every pending group now, in arrival order.
+  /// Emits a summary for every multi-copy pending group, in arrival order.
   void flushAll() {
     final keys = _pending.keys.toList(growable: false);
     for (final key in keys) {
@@ -77,7 +79,8 @@ class DanmakuAggregator {
     }
   }
 
-  /// Drops every pending group without emitting (room/session switches).
+  /// Drops every pending group without emitting (room/session switches). The
+  /// first copy of each group was already emitted, so nothing is lost.
   void clear() {
     for (final group in _pending.values) {
       group.timer.cancel();
@@ -91,7 +94,8 @@ class DanmakuAggregator {
     group.timer.cancel();
     final callback = onEmit;
     if (callback == null) return;
-    callback(group.count > 1 ? _synthesize(group.first, group.count) : group.first);
+    // Singleton groups are already on screen; only real bursts add a summary.
+    if (group.count > 1) callback(_synthesize(group.first, group.count));
   }
 
   LiveMessage _synthesize(LiveMessage first, int count) {

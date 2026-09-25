@@ -1608,7 +1608,7 @@
   "collapse_repeated_danmaku_desc": "Keep the first copy when different users send the same text. Local and system messages are unaffected.",
   "repeated_danmaku_window": "Identical-text window (seconds)",
   "aggregate_repeated_danmaku": "Aggregate repeated danmaku (text ×N)",
-  "aggregate_repeated_danmaku_desc": "Merges identical messages inside the time window into one \"text ×N\" item instead of dropping them; takes priority over collapse filtering when enabled.",
+  "aggregate_repeated_danmaku_desc": "The first copy is shown immediately (zero latency); duplicates inside the window are counted and one \"text ×N\" summary is appended when the window closes. Takes priority over collapse filtering when enabled.",
   "danmaku_density": "Danmaku density",
   "danmaku_density_normal": "Normal",
   "danmaku_density_dense": "Dense",
