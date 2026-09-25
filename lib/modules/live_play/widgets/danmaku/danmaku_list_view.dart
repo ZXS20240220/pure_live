@@ -403,6 +403,43 @@ class DanmakuListViewState extends State<DanmakuListView> {
                               icon: const Icon(Icons.cleaning_services_rounded, size: 18),
                             ),
                           ),
+                        // Transparency for engine-side drops: the flame
+                        // renderer discards over-age/overflow items the chat
+                        // list never sees, so surface the count here.
+                        Obx(() {
+                          final dropped = controller.state.value.player.videoController?.droppedDanmakuCount.value ?? 0;
+                          if (dropped <= 0) return const SizedBox.shrink();
+                          return Positioned(
+                            left: 10,
+                            top: 10,
+                            child: IgnorePointer(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.85),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.visibility_off_outlined,
+                                      size: 13,
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      i18n('danmaku_dropped_hidden', args: {'count': '$dropped'}),
+                                      style: theme.textTheme.labelSmall?.copyWith(
+                                        color: theme.colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
                         if (userScrolling)
                           Positioned(
                             right: 12,

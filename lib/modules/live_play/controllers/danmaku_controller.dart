@@ -6,6 +6,7 @@ import 'package:pure_live/core/interface/live_danmaku.dart';
 import 'package:pure_live/core/danmaku/empty_danmaku.dart';
 import 'package:pure_live/modules/live_play/states/live_play_state.dart';
 import 'package:pure_live/modules/live_play/controllers/danmaku_message_gate.dart';
+import 'package:pure_live/modules/live_play/controllers/danmaku_aggregator.dart';
 import 'package:pure_live/modules/live_play/controllers/danmaku_session_host.dart';
 import 'package:pure_live/modules/live_play/controllers/repeated_danmaku_filter.dart';
 import 'package:pure_live/modules/live_play/controllers/danmaku_similarity_filter.dart';
@@ -31,12 +32,14 @@ class DanmakuController extends GetxController {
   final DanmakuMessageGate _messageGate = DanmakuMessageGate();
   final RepeatedDanmakuFilter _repeatedMessageFilter = RepeatedDanmakuFilter();
   final DanmakuSimilarityFilter _similarityFilter = DanmakuSimilarityFilter();
+  final DanmakuAggregator _danmakuAggregator = DanmakuAggregator();
 
   LiveDanmaku? _liveDanmaku;
   Future<void> _operationTail = Future<void>.value();
   Worker? _settingsWorker;
   Worker? _filterWorker;
   Worker? _similarityFilterWorker;
+  Worker? _aggregatorWorker;
 
   int _requestEpoch = 0;
   int _sessionToken = 0;
@@ -70,7 +73,27 @@ class DanmakuController extends GetxController {
       dm.danmakuSimilarityMaxCacheSize,
     ], (_) => _updateSimilarityFilterConfig());
     _updateSimilarityFilterConfig();
+    _danmakuAggregator.onEmit = _emitAggregatedMessage;
+    _aggregatorWorker = everAll([dm.aggregateRepeatedDanmaku, dm.repeatedDanmakuWindowSeconds], (_) {
+      _updateAggregatorConfig();
+    });
+    _updateAggregatorConfig();
     _refreshFilters();
+  }
+
+  /// Aggregated output bypasses the gate (it is synthesized locally, not a
+  /// replayed packet) and re-enters the render/list pipeline directly.
+  void _emitAggregatedMessage(LiveMessage msg) {
+    _main.addDanmakuMessage(msg);
+    _state.player.videoController?.sendDanmaku(msg);
+  }
+
+  void _updateAggregatorConfig() {
+    final dm = SettingsService.to.danmaku;
+    _danmakuAggregator.setConfig(
+      enabled: dm.aggregateRepeatedDanmaku.v,
+      window: Duration(seconds: dm.repeatedDanmakuWindowSeconds.v.clamp(1, 30)),
+    );
   }
 
   /// Initial engine installation is synchronous so room initialization cannot
@@ -93,6 +116,7 @@ class DanmakuController extends GetxController {
       _messageGate.clear();
       _repeatedMessageFilter.clear();
       _similarityFilter.clear();
+      _danmakuAggregator.clear();
       _gateRoomKey = null;
     });
   }
@@ -139,6 +163,7 @@ class DanmakuController extends GetxController {
         _messageGate.clear();
         _repeatedMessageFilter.clear();
         _similarityFilter.clear();
+        _danmakuAggregator.clear();
         _gateRoomKey = key;
       }
 
@@ -194,9 +219,11 @@ class DanmakuController extends GetxController {
       if (msg.type == LiveMessageType.chat) {
         if (!_messageGate.accepts(msg) || _isBlocked(msg)) return;
         final danmakuSettings = SettingsService.to.danmaku;
+        // Aggregation takes priority over collapse: when enabled, collapse is
+        // bypassed so duplicates merge into "原文 ×N" instead of being dropped.
         if (!_repeatedMessageFilter.accepts(
           msg,
-          enabled: danmakuSettings.collapseRepeatedDanmaku.v,
+          enabled: danmakuSettings.collapseRepeatedDanmaku.v && !danmakuSettings.aggregateRepeatedDanmaku.v,
           window: Duration(seconds: danmakuSettings.repeatedDanmakuWindowSeconds.v.clamp(1, 30)),
         )) {
           return;
@@ -206,6 +233,7 @@ class DanmakuController extends GetxController {
             !_similarityFilter.shouldDisplay(msg.message)) {
           return;
         }
+        if (!_danmakuAggregator.offer(msg)) return;
         if (!_maskedNameNoticeShown &&
             room.platform == Sites.bilibiliSite &&
             RegExp(r'\*{2,}|＊{2,}').hasMatch(msg.userName)) {
@@ -372,9 +400,11 @@ class DanmakuController extends GetxController {
     _settingsWorker?.dispose();
     _filterWorker?.dispose();
     _similarityFilterWorker?.dispose();
+    _aggregatorWorker?.dispose();
     _messageGate.clear();
     _repeatedMessageFilter.clear();
     _similarityFilter.clear();
+    _danmakuAggregator.clear();
     _requestEpoch++;
     _sessionToken++;
     final engine = _liveDanmaku;

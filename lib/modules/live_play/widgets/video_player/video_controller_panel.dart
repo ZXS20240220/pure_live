@@ -22,6 +22,7 @@ import 'package:pure_live/modules/live_play/widgets/video_player/volume_control.
 import 'package:pure_live/modules/live_play/widgets/video_player/live_progress_bar.dart';
 import 'package:pure_live/modules/live_play/widgets/layout/control_hover_region.dart';
 import 'package:pure_live/modules/live_play/widgets/video_player/video_controller.dart';
+import 'package:pure_live/modules/live_play/widgets/danmaku/main_danmaku_metrics.dart';
 import 'package:pure_live/modules/live_play/widgets/layout/bottom_control_surface.dart';
 import 'package:pure_live/modules/live_play/widgets/danmaku/danmaku_settings_binding.dart';
 import 'package:pure_live/modules/live_play/widgets/video_player/iptv_schedule_dialog.dart';
@@ -570,37 +571,60 @@ class DanmakuViewer extends StatelessWidget {
         PortraitDanmakuMode.reduced => controller.danmakuArea.value.clamp(0.0, 0.50).toDouble(),
         _ => controller.danmakuArea.value,
       };
-      return FlameBarrageWidget(
-        controller: controller.danmakuController,
-        // Video gestures own the full surface and forward only hits on actual
-        // barrage bounds, so volume/brightness/double-tap remain responsive.
-        enablePointerEvents: false,
-        config: BarrageConfig(
-          emitInterval: 0.05,
-          fontSize: controller.danmakuFontSize.value,
-          topAreaDistance: controller.danmakuTopArea.value,
-          area: effectiveArea,
-          bottomAreaDistance: controller.danmakuBottomArea.value,
-          baseSpeed: controller.danmakuSpeed.value,
-          opacity: controller.danmakuOpacity.value,
-          fontWeight: FontWeight(controller.danmakuFontWeight.value),
-          strokeWidth: controller.danmakuFontBorder.value,
-          showStroke: controller.enableDanmakuStroke.value,
-          noEmojiMode: controller.noEmojiMode.value,
-          fps: settings.danmakuAutoFps.v
-              ? settings.resolvedDanmakuFps(refreshRateMode: SettingsService.to.app.refreshRateMode)
-              : controller.danmakuFps.value.clamp(30, 240).toInt(),
-          maxVisibleCount: 48,
-          maxPendingCount: 120,
-          maxPendingAge: const Duration(seconds: 5),
-          fontFamily: controller.danmakuFontFamilyName.value,
-          trackHeight: (controller.danmakuFontSize.value * 1.55).clamp(24.0, 64.0).toDouble(),
-          emojiSize: (controller.danmakuFontSize.value * 1.3).clamp(16.0, 48.0).toDouble(),
-          pictureCacheMaxSize: 96,
-          barragePoolMaxSize: 72,
-          textCacheMaxSize: 320,
-        ),
-        emojiAtlas: EmojiAtlas.instance,
+      // LayoutBuilder runs after the Obx collection window, so read every
+      // reactive value above and keep width-derived values purely local.
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final surfaceWidth = constraints.maxWidth.isFinite ? constraints.maxWidth : MainDanmakuMetrics.referenceWidth;
+          // updateDanmaku() re-pushes the config on settings changes without
+          // layout knowledge; publish the measured width for it.
+          controller.mainDanmakuSurfaceWidth = surfaceWidth;
+          final densityMode = settings.danmakuDensityMode.v;
+          final fontSize = controller.danmakuFontSize.value;
+          final speedScale = MainDanmakuMetrics.resolveSpeedScale(
+            width: surfaceWidth,
+            adaptive: settings.danmakuWidthAdaptiveSpeed.v,
+          );
+          final safeGap =
+              MainDanmakuMetrics.resolveOverlapSafeGap(fontSize) *
+              MainDanmakuMetrics.resolveSafeGapMultiplier(densityMode);
+          return FlameBarrageWidget(
+            controller: controller.danmakuController,
+            // Video gestures own the full surface and forward only hits on actual
+            // barrage bounds, so volume/brightness/double-tap remain responsive.
+            enablePointerEvents: false,
+            config: BarrageConfig(
+              emitInterval: 0.05,
+              fontSize: fontSize,
+              topAreaDistance: controller.danmakuTopArea.value,
+              area: effectiveArea,
+              bottomAreaDistance: controller.danmakuBottomArea.value,
+              baseSpeed: controller.danmakuSpeed.value * speedScale,
+              opacity: (controller.danmakuOpacity.value * MainDanmakuMetrics.resolveOpacityMultiplier(densityMode))
+                  .clamp(0.0, 1.0)
+                  .toDouble(),
+              fontWeight: FontWeight(controller.danmakuFontWeight.value),
+              strokeWidth: controller.danmakuFontBorder.value,
+              showStroke: controller.enableDanmakuStroke.value,
+              noEmojiMode: controller.noEmojiMode.value,
+              fps: settings.danmakuAutoFps.v
+                  ? settings.resolvedDanmakuFps(refreshRateMode: SettingsService.to.app.refreshRateMode)
+                  : controller.danmakuFps.value.clamp(30, 240).toInt(),
+              maxVisibleCount: settings.danmakuMaxVisibleCount.v,
+              maxPendingCount: 120,
+              maxPendingAge: const Duration(seconds: 5),
+              fontFamily: controller.danmakuFontFamilyName.value,
+              trackHeight: (fontSize * 1.55).clamp(24.0, 64.0).toDouble(),
+              emojiSize: (fontSize * 1.3).clamp(16.0, 48.0).toDouble(),
+              overlapSafeGap: safeGap,
+              allowOverlap: MainDanmakuMetrics.resolveAllowOverlap(densityMode),
+              pictureCacheMaxSize: 96,
+              barragePoolMaxSize: 72,
+              textCacheMaxSize: 320,
+            ),
+            emojiAtlas: EmojiAtlas.instance,
+          );
+        },
       );
     });
   }

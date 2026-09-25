@@ -24,6 +24,7 @@ import 'package:pure_live/modules/live_play/controllers/player_state.dart';
 import 'package:pure_live/modules/live_play/controllers/live_play_controller.dart';
 import 'package:pure_live/modules/live_play/widgets/danmaku/danmaku_message_actions.dart';
 import 'package:pure_live/modules/live_play/widgets/danmaku/danmaku_settings_binding.dart';
+import 'package:pure_live/modules/live_play/widgets/danmaku/main_danmaku_metrics.dart';
 
 typedef AudioOnlyCallback = Future<void> Function(bool value);
 
@@ -53,6 +54,7 @@ class DanmakuManager {
   bool _settingsDirty = false;
   bool _disposed = false;
   DateTime? _lastLongPressAction;
+  Timer? _droppedCountTimer;
 
   DanmakuManager({
     required this.controller,
@@ -120,6 +122,19 @@ class DanmakuManager {
         _scheduleConfigUpdate();
       }),
     );
+
+    // The engine only exposes a cumulative counter; poll it cheaply and
+    // publish changes so the chat list can show "hidden N".
+    _droppedCountTimer?.cancel();
+    _droppedCountTimer = Timer.periodic(const Duration(seconds: 1), (_) => _pollDroppedCount());
+  }
+
+  void _pollDroppedCount() {
+    if (_disposed) return;
+    final count = controller.droppedCount;
+    if (videoController.droppedDanmakuCount.value != count) {
+      videoController.droppedDanmakuCount.value = count;
+    }
   }
 
   void _openMessageActions(LiveMessage message, {required bool fromLongPress}) {
@@ -252,6 +267,8 @@ class DanmakuManager {
   void dispose() {
     _persistVisualSettings();
     _disposed = true;
+    _droppedCountTimer?.cancel();
+    _droppedCountTimer = null;
     for (final worker in workers) {
       worker.dispose();
     }
@@ -384,6 +401,15 @@ class VideoController with ChangeNotifier implements DanmakuSettingsBinding {
   @override
   final danmakuFps = 60.obs;
   final danmakuFontFamilyName = ''.obs;
+
+  /// Danmaku the flame engine discarded before display (queue overflow,
+  /// over-age pending items, allocation failures). Polled from the engine by
+  /// DanmakuManager and surfaced in the chat list as "hidden N".
+  final droppedDanmakuCount = 0.obs;
+
+  /// Last measured danmaku surface width, published by DanmakuViewer's
+  /// LayoutBuilder so updateDanmaku can width-scale speed without layout info.
+  double mainDanmakuSurfaceWidth = 0.0;
 
   // EPG相关
   final RxList<database.EpgProgramme> currentChannelSchedule = <database.EpgProgramme>[].obs;
@@ -914,6 +940,11 @@ class VideoController with ChangeNotifier implements DanmakuSettingsBinding {
     final resolvedFps = settings.danmakuAutoFps.v
         ? settings.resolvedDanmakuFps(refreshRateMode: SettingsService.to.app.refreshRateMode)
         : danmakuFps.value.clamp(30, 240).toInt();
+    final densityMode = settings.danmakuDensityMode.v;
+    final speedScale = MainDanmakuMetrics.resolveSpeedScale(
+      width: mainDanmakuSurfaceWidth,
+      adaptive: settings.danmakuWidthAdaptiveSpeed.v,
+    );
     danmakuController.updateConfig(
       BarrageConfig(
         // Dispatching at 16 ms allowed up to 60 new paragraphs per second on
@@ -924,14 +955,16 @@ class VideoController with ChangeNotifier implements DanmakuSettingsBinding {
         area: danmakuArea.value,
         topAreaDistance: danmakuTopArea.value,
         bottomAreaDistance: danmakuBottomArea.value,
-        baseSpeed: danmakuSpeed.value,
-        opacity: danmakuOpacity.value,
+        baseSpeed: danmakuSpeed.value * speedScale,
+        opacity: (danmakuOpacity.value * MainDanmakuMetrics.resolveOpacityMultiplier(densityMode))
+            .clamp(0.0, 1.0)
+            .toDouble(),
         fontWeight: FontWeight(danmakuFontWeight.value),
         strokeWidth: danmakuFontBorder.value,
         showStroke: enableDanmakuStroke.value,
         noEmojiMode: noEmojiMode.value,
         fps: resolvedFps,
-        maxVisibleCount: 48,
+        maxVisibleCount: settings.danmakuMaxVisibleCount.v,
         maxPendingCount: 120,
         maxPendingAge: const Duration(seconds: 5),
         barragePoolMaxSize: 72,
@@ -939,6 +972,10 @@ class VideoController with ChangeNotifier implements DanmakuSettingsBinding {
         textCacheMaxSize: 320,
         trackHeight: (danmakuFontSize.value * 1.55).clamp(24.0, 64.0).toDouble(),
         emojiSize: (danmakuFontSize.value * 1.3).clamp(16.0, 48.0).toDouble(),
+        overlapSafeGap:
+            MainDanmakuMetrics.resolveOverlapSafeGap(danmakuFontSize.value) *
+            MainDanmakuMetrics.resolveSafeGapMultiplier(densityMode),
+        allowOverlap: MainDanmakuMetrics.resolveAllowOverlap(densityMode),
       ),
     );
   }

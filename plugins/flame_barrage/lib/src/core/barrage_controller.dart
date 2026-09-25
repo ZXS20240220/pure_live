@@ -103,4 +103,14 @@ class BarrageController {
     }
     return 0;
   }
+
+  int get droppedCount {
+    final currentEngine = _engine;
+    if (currentEngine != null) {
+      try {
+        return currentEngine.droppedCount as int;
+      } catch (_) {}
+    }
+    return 0;
+  }
 }

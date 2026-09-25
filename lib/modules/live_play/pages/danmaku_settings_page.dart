@@ -369,6 +369,33 @@ class _DanmakuSettingsContentState extends State<DanmakuSettingsContent> {
                     style: TextStyle(color: digitColor, fontWeight: FontWeight.w600, fontSize: isEmbedded ? 13 : null),
                   ),
                 ),
+              _densitySelector(theme, labelColor: labelColor),
+              _switch(
+                theme,
+                title: i18n('danmaku_width_adaptive_speed'),
+                subtitle: i18n('danmaku_width_adaptive_speed_desc'),
+                value: SettingsService.to.danmaku.danmakuWidthAdaptiveSpeed.v,
+                onChanged: (v) => SettingsService.to.danmaku.danmakuWidthAdaptiveSpeed.v = v,
+                labelColor: labelColor,
+                subtitleColor: labelColor,
+              ),
+              _counter(
+                theme,
+                title: i18n('danmaku_max_visible_count'),
+                value: SettingsService.to.danmaku.danmakuMaxVisibleCount.v,
+                min: 10,
+                max: 200,
+                onChanged: (v) => SettingsService.to.danmaku.danmakuMaxVisibleCount.v = v,
+                labelColor: labelColor,
+                digitColor: digitColor,
+              ),
+              Padding(
+                padding: EdgeInsets.fromLTRB(isEmbedded ? 14 : 16, 0, isEmbedded ? 14 : 16, isEmbedded ? 10 : 12),
+                child: Text(
+                  i18n('danmaku_max_visible_count_desc'),
+                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ),
             ],
           ),
           SizedBox(height: widget.embedded ? 16 : 20),
@@ -378,6 +405,15 @@ class _DanmakuSettingsContentState extends State<DanmakuSettingsContent> {
             () => [
               _switch(
                 theme,
+                title: i18n('aggregate_repeated_danmaku'),
+                subtitle: i18n('aggregate_repeated_danmaku_desc'),
+                value: SettingsService.to.danmaku.aggregateRepeatedDanmaku.v,
+                onChanged: (v) => SettingsService.to.danmaku.aggregateRepeatedDanmaku.v = v,
+                labelColor: labelColor,
+                subtitleColor: labelColor,
+              ),
+              _switch(
+                theme,
                 title: i18n('collapse_repeated_danmaku'),
                 subtitle: i18n('collapse_repeated_danmaku_desc'),
                 value: SettingsService.to.danmaku.collapseRepeatedDanmaku.v,
@@ -385,7 +421,8 @@ class _DanmakuSettingsContentState extends State<DanmakuSettingsContent> {
                 labelColor: labelColor,
                 subtitleColor: labelColor,
               ),
-              if (SettingsService.to.danmaku.collapseRepeatedDanmaku.v)
+              if (SettingsService.to.danmaku.collapseRepeatedDanmaku.v ||
+                  SettingsService.to.danmaku.aggregateRepeatedDanmaku.v)
                 _counter(
                   theme,
                   title: i18n('repeated_danmaku_window'),
@@ -517,6 +554,56 @@ class _DanmakuSettingsContentState extends State<DanmakuSettingsContent> {
     controller.danmakuFps.v = template.fps;
     settings.danmakuAutoFps.v = template.autoFps;
     ToastUtil.show(i18n('danmaku_template_applied'));
+  }
+
+  static const List<(int, String)> _densityOptions = [
+    (0, 'danmaku_density_normal'),
+    (1, 'danmaku_density_dense'),
+    (2, 'danmaku_density_overlap'),
+  ];
+
+  Widget _densitySelector(ThemeData theme, {required Color labelColor}) {
+    final dm = SettingsService.to.danmaku;
+    final mode = dm.danmakuDensityMode.v;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            i18n('danmaku_density'),
+            style: AppTextStyles.t15.copyWith(fontWeight: FontWeight.w600, color: labelColor),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final (value, key) in _densityOptions)
+                ChoiceChip(
+                  selected: mode == value,
+                  showCheckmark: false,
+                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                  selectedColor: theme.colorScheme.primary,
+                  side: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.35)),
+                  labelStyle: TextStyle(
+                    color: mode == value ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  visualDensity: isEmbedded ? VisualDensity.compact : VisualDensity.standard,
+                  label: Text(i18n(key)),
+                  onSelected: (_) => dm.danmakuDensityMode.v = value,
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            i18n('danmaku_density_desc'),
+            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _slider(

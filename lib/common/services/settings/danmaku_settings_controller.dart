@@ -36,6 +36,13 @@ class DanmakuSettingsController extends GetxController {
   // fuzzy suppression. Enabling this by default can hide a large share of
   // short messages in busy rooms even though the transport received them.
   static const bool defaultEnableDanmakuSimilarityFilter = false;
+  static const int defaultDanmakuMaxVisibleCount = 48;
+
+  /// 0 = normal, 1 = dense (half safe gap), 2 = overlap (dense + allow
+  /// overlapping lanes + reduced opacity), mirroring bilibili's presets.
+  static const int defaultDanmakuDensityMode = 0;
+  static const bool defaultDanmakuWidthAdaptiveSpeed = true;
+  static const bool defaultAggregateRepeatedDanmaku = false;
 
   static int normalizeFontWeight(Object? value, {int fallback = 500}) {
     final raw = value is num ? value.toInt() : fallback;
@@ -72,6 +79,10 @@ class DanmakuSettingsController extends GetxController {
   final RxBool enableDanmakuLongPressInteraction = hiveBool('enableDanmakuLongPressInteraction', true);
   final RxBool collapseRepeatedDanmaku = hiveBool('collapseRepeatedDanmaku', false);
   final RxInt repeatedDanmakuWindowSeconds = hiveInt('repeatedDanmakuWindowSeconds', 5);
+  final RxBool aggregateRepeatedDanmaku = hiveBool('aggregateRepeatedDanmaku', defaultAggregateRepeatedDanmaku);
+  final RxInt danmakuMaxVisibleCount = hiveInt('danmakuMaxVisibleCount', defaultDanmakuMaxVisibleCount);
+  final RxInt danmakuDensityMode = hiveInt('danmakuDensityMode', defaultDanmakuDensityMode);
+  final RxBool danmakuWidthAdaptiveSpeed = hiveBool('danmakuWidthAdaptiveSpeed', defaultDanmakuWidthAdaptiveSpeed);
   final RxInt danmakuInteractionMigration = hiveInt('danmakuInteractionMigration', 0);
   final RxString savedDanmakuTemplate = hiveString('savedDanmakuTemplate', '');
   final RxString danmakuFontFamilyName = hiveString('danmakuFontFamilyName', 'Default');
@@ -126,6 +137,13 @@ class DanmakuSettingsController extends GetxController {
     danmakuFontBorder.v = _boundedDouble(danmakuFontBorder.v, fallback: defaultDanmakuFontBorder, min: 0, max: 4);
     danmakuOpacity.v = _boundedDouble(danmakuOpacity.v, fallback: defaultDanmakuOpacity, min: 0, max: 1);
     danmakuFps.v = _boundedInt(danmakuFps.v, fallback: defaultDanmakuFps, min: 30, max: 240);
+    danmakuMaxVisibleCount.v = _boundedInt(
+      danmakuMaxVisibleCount.v,
+      fallback: defaultDanmakuMaxVisibleCount,
+      min: 10,
+      max: 200,
+    );
+    danmakuDensityMode.v = _boundedInt(danmakuDensityMode.v, fallback: defaultDanmakuDensityMode, min: 0, max: 2);
     pipDanmakuFontWeight.v = normalizeFontWeight(pipDanmakuFontWeight.v);
     danmakuSimilarityThreshold.v = danmakuSimilarityThreshold.v.clamp(50, 100).toInt();
     danmakuSimilarityCacheDuration.v = danmakuSimilarityCacheDuration.v.clamp(1, 60).toInt();
@@ -204,6 +222,10 @@ class DanmakuSettingsController extends GetxController {
       'enableDanmakuLongPressInteraction': enableDanmakuLongPressInteraction.v,
       'collapseRepeatedDanmaku': collapseRepeatedDanmaku.v,
       'repeatedDanmakuWindowSeconds': repeatedDanmakuWindowSeconds.v,
+      'aggregateRepeatedDanmaku': aggregateRepeatedDanmaku.v,
+      'danmakuMaxVisibleCount': danmakuMaxVisibleCount.v,
+      'danmakuDensityMode': danmakuDensityMode.v,
+      'danmakuWidthAdaptiveSpeed': danmakuWidthAdaptiveSpeed.v,
       'savedDanmakuTemplate': savedDanmakuTemplate.v,
       'enablePipDanmaku': enablePipDanmaku.v,
       'pipDanmakuAutoScale': pipDanmakuAutoScale.v,
@@ -266,6 +288,14 @@ class DanmakuSettingsController extends GetxController {
       'repeatedDanmakuWindowSeconds': typed<int>(
         (json['repeatedDanmakuWindowSeconds'] ?? 5).toInt().clamp(1, 30).toInt(),
       ),
+      'aggregateRepeatedDanmaku': typed<bool>(json['aggregateRepeatedDanmaku'] ?? defaultAggregateRepeatedDanmaku),
+      'danmakuMaxVisibleCount': typed<int>(
+        _boundedInt(json['danmakuMaxVisibleCount'], fallback: defaultDanmakuMaxVisibleCount, min: 10, max: 200),
+      ),
+      'danmakuDensityMode': typed<int>(
+        _boundedInt(json['danmakuDensityMode'], fallback: defaultDanmakuDensityMode, min: 0, max: 2),
+      ),
+      'danmakuWidthAdaptiveSpeed': typed<bool>(json['danmakuWidthAdaptiveSpeed'] ?? defaultDanmakuWidthAdaptiveSpeed),
       'savedDanmakuTemplate': typed<String>(json['savedDanmakuTemplate']?.toString() ?? ''),
       'enablePipDanmaku': typed<bool>(json['enablePipDanmaku'] ?? defaultEnablePipDanmaku),
       'pipDanmakuAutoScale': typed<bool>(json['pipDanmakuAutoScale'] ?? defaultPipDanmakuAutoScale),
@@ -340,6 +370,10 @@ class DanmakuSettingsController extends GetxController {
     enableDanmakuLongPressInteraction.v = parsed['enableDanmakuLongPressInteraction'];
     collapseRepeatedDanmaku.v = parsed['collapseRepeatedDanmaku'];
     repeatedDanmakuWindowSeconds.v = parsed['repeatedDanmakuWindowSeconds'];
+    aggregateRepeatedDanmaku.v = parsed['aggregateRepeatedDanmaku'];
+    danmakuMaxVisibleCount.v = parsed['danmakuMaxVisibleCount'];
+    danmakuDensityMode.v = parsed['danmakuDensityMode'];
+    danmakuWidthAdaptiveSpeed.v = parsed['danmakuWidthAdaptiveSpeed'];
     savedDanmakuTemplate.v = parsed['savedDanmakuTemplate'];
     enablePipDanmaku.v = parsed['enablePipDanmaku'];
     pipDanmakuAutoScale.v = parsed['pipDanmakuAutoScale'];
@@ -396,6 +430,20 @@ class DanmakuSettingsController extends GetxController {
       'enableDanmakuLongPressInteraction': danmaku['enableDanmakuLongPressInteraction'] ?? true,
       'collapseRepeatedDanmaku': danmaku['collapseRepeatedDanmaku'] ?? false,
       'repeatedDanmakuWindowSeconds': (danmaku['repeatedDanmakuWindowSeconds'] ?? 5).toInt().clamp(1, 30).toInt(),
+      'aggregateRepeatedDanmaku': danmaku['aggregateRepeatedDanmaku'] ?? defaultAggregateRepeatedDanmaku,
+      'danmakuMaxVisibleCount': _boundedInt(
+        danmaku['danmakuMaxVisibleCount'],
+        fallback: defaultDanmakuMaxVisibleCount,
+        min: 10,
+        max: 200,
+      ),
+      'danmakuDensityMode': _boundedInt(
+        danmaku['danmakuDensityMode'],
+        fallback: defaultDanmakuDensityMode,
+        min: 0,
+        max: 2,
+      ),
+      'danmakuWidthAdaptiveSpeed': danmaku['danmakuWidthAdaptiveSpeed'] ?? defaultDanmakuWidthAdaptiveSpeed,
       'savedDanmakuTemplate': danmaku['savedDanmakuTemplate']?.toString() ?? '',
       'enablePipDanmaku': danmaku['enablePipDanmaku'] ?? defaultEnablePipDanmaku,
       'pipDanmakuAutoScale': danmaku['pipDanmakuAutoScale'] ?? defaultPipDanmakuAutoScale,

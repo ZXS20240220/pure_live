@@ -53,6 +53,11 @@ class BarrageEngine extends FlameGame with TapCallbacks {
 
   int _currentAliveCount = 0;
 
+  /// Cumulative count of items discarded before they could be displayed:
+  /// queue overflow (drop-oldest), over-age pending items and allocation
+  /// failures. Reset by [clear].
+  int _droppedCount = 0;
+
   double _emitTimer = 0.0;
   double _metricTimer = 0.0;
   double _cleanupTimer = 0.0;
@@ -194,6 +199,7 @@ class BarrageEngine extends FlameGame with TapCallbacks {
     while (_pausedBuffer.isNotEmpty) {
       while (_waiting.length >= maxPendingCount) {
         _waiting.removeFirst();
+        _droppedCount++;
       }
       _waiting.add(_pausedBuffer.removeFirst());
     }
@@ -327,6 +333,7 @@ class BarrageEngine extends FlameGame with TapCallbacks {
       } else {
         _pausedBuffer.removeFirst();
       }
+      _droppedCount++;
     }
     if (isPaused) {
       _pausedBuffer.add(pending);
@@ -410,6 +417,7 @@ class BarrageEngine extends FlameGame with TapCallbacks {
     final maxAgeMs = _config.maxPendingAge.inMilliseconds.clamp(0, 600000);
     while (_waiting.isNotEmpty && wallNow - _waiting.first.enqueuedAtMs > maxAgeMs) {
       _waiting.removeFirst();
+      _droppedCount++;
     }
     if (_waiting.isEmpty) return;
     if (_currentAliveCount >= _config.maxVisibleCount) return;
@@ -453,6 +461,7 @@ class BarrageEngine extends FlameGame with TapCallbacks {
     );
     if (trackIndex == -1) {
       _pool.recycle(mockEntry);
+      _droppedCount++;
       return;
     }
     _waiting.removeFirst();
@@ -563,6 +572,7 @@ class BarrageEngine extends FlameGame with TapCallbacks {
     _waiting.clear();
     // 清空暂停缓存
     _pausedBuffer.clear();
+    _droppedCount = 0;
     _pictureCache.clear();
     _parser.clearCache();
     _layout.clearCache();
@@ -635,6 +645,7 @@ class BarrageEngine extends FlameGame with TapCallbacks {
   int get activeCacheSize => _pictureCache.size;
   int get activePoolSize => _pool.currentSize;
   int get pendingMessageCount => _waiting.length + _pausedBuffer.length;
+  int get droppedCount => _droppedCount;
   int get parserCacheSize => _parser.cacheCount;
   int get layoutCacheSize => _layout.cacheCount;
   bool get framePulseActive => _frameTicker?.isActive == true;

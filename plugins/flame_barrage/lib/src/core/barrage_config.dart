@@ -33,6 +33,7 @@ class BarrageConfig {
     this.baseSpeed = 120.0,
     this.strokeWidth = 1.0,
     this.overlapSafeGap = 40.0,
+    this.allowOverlap = false,
     this.noEmojiMode = false,
     this.barragePoolMaxSize = 150,
     this.pictureCacheMaxSize = 200,
@@ -115,6 +116,11 @@ class BarrageConfig {
   /// The mandatory clearance width buffer required between tailgating elements to avoid overlap.
   final double overlapSafeGap;
 
+  /// When no unlocked lane can accept an item without violating the safe gap,
+  /// allow it to share the least-busy unlocked lane instead of dropping it.
+  /// Used by the "overlap" density preset.
+  final bool allowOverlap;
+
   /// Toggles pure text rendering by completely culling and bypassing emoji fragments.
   final bool noEmojiMode;
 
@@ -168,6 +174,7 @@ class BarrageConfig {
     double? emitInterval,
     double? baseSpeed,
     double? overlapSafeGap,
+    bool? allowOverlap,
     bool? noEmojiMode,
     int? barragePoolMaxSize,
     int? pictureCacheMaxSize,
@@ -203,6 +210,7 @@ class BarrageConfig {
       emitInterval: emitInterval ?? this.emitInterval,
       baseSpeed: baseSpeed ?? this.baseSpeed,
       overlapSafeGap: overlapSafeGap ?? this.overlapSafeGap,
+      allowOverlap: allowOverlap ?? this.allowOverlap,
       noEmojiMode: noEmojiMode ?? this.noEmojiMode,
       barragePoolMaxSize: barragePoolMaxSize ?? this.barragePoolMaxSize,
       pictureCacheMaxSize: pictureCacheMaxSize ?? this.pictureCacheMaxSize,
@@ -243,6 +251,7 @@ class BarrageConfig {
         other.emitInterval == emitInterval &&
         other.baseSpeed == baseSpeed &&
         other.overlapSafeGap == overlapSafeGap &&
+        other.allowOverlap == allowOverlap &&
         other.noEmojiMode == noEmojiMode &&
         other.barragePoolMaxSize == barragePoolMaxSize &&
         other.pictureCacheMaxSize == pictureCacheMaxSize &&
@@ -280,6 +289,7 @@ class BarrageConfig {
       emitInterval,
       baseSpeed,
       overlapSafeGap,
+      allowOverlap,
       noEmojiMode,
       barragePoolMaxSize,
       pictureCacheMaxSize,

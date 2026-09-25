@@ -16,6 +16,11 @@ class TrackAllocator {
     int bestTrack = -1;
     double minPenalty = double.infinity;
 
+    // Overlap preset fallback: when every unlocked lane violates the safe gap,
+    // share the least-busy lane instead of dropping the item.
+    int overlapTrack = -1;
+    double minOverlapPenalty = double.infinity;
+
     final int len = tracks.length;
     for (int i = 0; i < len; i++) {
       final track = tracks[i];
@@ -25,6 +30,12 @@ class TrackAllocator {
         return i;
       }
 
+      final double penalty = track.activeCount * 10.0 + track.avgSpeed * 0.1;
+      if (config.allowOverlap && penalty < minOverlapPenalty) {
+        minOverlapPenalty = penalty;
+        overlapTrack = i;
+      }
+
       final last = track.lastEntry;
       if (last != null) {
         if (last.x + last.width + config.overlapSafeGap > screenWidth) {
@@ -32,13 +43,13 @@ class TrackAllocator {
         }
       }
 
-      final double penalty = track.activeCount * 10.0 + track.avgSpeed * 0.1;
       if (penalty < minPenalty) {
         minPenalty = penalty;
         bestTrack = i;
       }
     }
 
-    return bestTrack;
+    if (bestTrack != -1) return bestTrack;
+    return overlapTrack;
   }
 }
