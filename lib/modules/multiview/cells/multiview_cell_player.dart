@@ -342,6 +342,8 @@ class MultiviewCellPlayer implements MultiviewCellPlayerHandle, MultiviewOwnedIn
             headers: immutableHeaders,
             policy: policy,
             nativeOpen: nativeOpen,
+            // Multiview cells always render through libmpv.
+            rewriteLegacyHevcFlv: true,
           );
         }
         _committedOwned = ownedSource;
