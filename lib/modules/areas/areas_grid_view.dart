@@ -292,10 +292,13 @@ class _AreaGridViewState extends State<AreaGridView> with TickerProviderStateMix
     return LayoutBuilder(
       builder: (context, constraint) {
         final width = constraint.maxWidth;
-        // TODO: 这里的宽度阈值需要根据实际效果调整
-        final crossAxisCount = width > 1360
+        final crossAxisCount =width > 1440
+            ? 17
+            :  (width > 1260
+            ? 15
+            :  (width > 1080
             ? 13
-            : (width > 1020 ? 11 : (width > 700 ? 9 : (width > 380 ? 7 : (width > 60 ? 5 : 3))));
+            : (width > 900 ? 11 : (width > 720 ? 9 : (width > 540 ? 7 : (width > 360 ? 5 : 3))))));
         final spacing = SettingsService.to.theme.crossAxisSpacing.v;
         final mainAxisSpacing = SettingsService.to.theme.mainAxisSpacing.v;
         final itemWidth = (width - 12 - spacing * (crossAxisCount - 1)) / crossAxisCount;
@@ -305,9 +308,9 @@ class _AreaGridViewState extends State<AreaGridView> with TickerProviderStateMix
 
         // 动态分页（对齐关注页列表布局）：每页数量 = 视口可完整容纳的行数 ×
         // 每行列数，不再使用设置中的每页数量；下限 10 由 applyViewportPageSize
-        // 保证。24 = 网格纵向内边距（上 4 + 下 20）。
+        // 保证。10 = 网格纵向内边距（上 4 + 下 6）。
         final rowExtent = mainAxisExtent + mainAxisSpacing;
-        final rows = ((constraint.maxHeight - 24 + mainAxisSpacing) / rowExtent).floor();
+        final rows = ((constraint.maxHeight - 10 + mainAxisSpacing) / rowExtent).floor();
         widget.controller.applyViewportPageSize(rows.clamp(1, 999) * crossAxisCount);
 
         return GridView.builder(
