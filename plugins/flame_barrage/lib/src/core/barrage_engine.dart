@@ -58,6 +58,12 @@ class BarrageEngine extends FlameGame with TapCallbacks {
   /// failures. Reset by [clear].
   int _droppedCount = 0;
 
+  /// Entry frozen by an interactive hit-test ([triggerItemAt] with
+  /// `holdOnHit`). Only this item stops moving; the rest of the engine and
+  /// all incoming messages keep running. Released by [resumeHeldItem] or
+  /// [clear].
+  BarrageEntry? _heldEntry;
+
   double _emitTimer = 0.0;
   double _metricTimer = 0.0;
   double _cleanupTimer = 0.0;
@@ -230,7 +236,11 @@ class BarrageEngine extends FlameGame with TapCallbacks {
   /// Dispatches a Flutter-layer pointer to the top-most visible barrage item.
   /// This lets the video gesture surface keep swipe/double-tap handling while
   /// still supporting precise danmaku actions.
-  bool triggerItemAt(double x, double y, {required bool longPress}) {
+  ///
+  /// With `holdOnHit`, the hit entry is additionally frozen in place so the
+  /// caller can anchor an interaction menu to it; call [resumeHeldItem] when
+  /// the interaction ends.
+  bool triggerItemAt(double x, double y, {required bool longPress, bool holdOnHit = false}) {
     for (var i = _activeEntries.length - 1; i >= 0; i--) {
       final entry = _activeEntries[i];
       if (!entry.active || x < entry.x || x > entry.x + entry.width || y < entry.y || y > entry.y + entry.height) {
@@ -238,10 +248,25 @@ class BarrageEngine extends FlameGame with TapCallbacks {
       }
       final callback = longPress ? entry.item.onLongTapDown : entry.item.onTapUp;
       if (callback == null) return false;
+      if (holdOnHit) {
+        entry.paused = true;
+        _heldEntry = entry;
+      }
       callback();
       return true;
     }
     return false;
+  }
+
+  /// Releases the entry frozen by [triggerItemAt] with `holdOnHit`. A no-op
+  /// when nothing is held or the entry was recycled in the meantime.
+  void resumeHeldItem() {
+    final entry = _heldEntry;
+    _heldEntry = null;
+    if (entry == null || !entry.active) return;
+    entry.paused = false;
+    // lastUpdateTime was kept fresh by the update loop while held, so the
+    // item continues from its current position without a time jump.
   }
 
   @override
@@ -369,13 +394,15 @@ class BarrageEngine extends FlameGame with TapCallbacks {
 
       if (entry.item.type == BarrageType.scroll) {
         final deltaMs = nowMs - entry.lastUpdateTime;
-        entry.x -= entry.speed * deltaMs / 1000.0;
-        entry.lastUpdateTime = nowMs;
-        if (entry.x + entry.width < 0) {
-          entry.active = false;
+        if (!entry.paused) {
+          entry.x -= entry.speed * deltaMs / 1000.0;
+          if (entry.x + entry.width < 0) {
+            entry.active = false;
+          }
         }
+        entry.lastUpdateTime = nowMs;
       } else {
-        if (nowMs >= entry.expireTime) {
+        if (!entry.paused && nowMs >= entry.expireTime) {
           entry.active = false;
         }
       }
@@ -573,6 +600,7 @@ class BarrageEngine extends FlameGame with TapCallbacks {
     // 清空暂停缓存
     _pausedBuffer.clear();
     _droppedCount = 0;
+    _heldEntry = null;
     _pictureCache.clear();
     _parser.clearCache();
     _layout.clearCache();

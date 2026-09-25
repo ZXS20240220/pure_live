@@ -24,6 +24,10 @@ class BarrageEntry {
   double speed = 0;
   bool active = true;
 
+  /// Temporarily frozen by an interactive hit-test: the item keeps rendering
+  /// but skips position updates while every other entry keeps moving.
+  bool paused = false;
+
   // =========================
   // 🧠 v2 时间系统（核心）
   // =========================
@@ -63,6 +67,7 @@ class BarrageEntry {
     track = -1;
     speed = 0;
     active = true;
+    paused = false;
 
     spawnTime = 0;
     expireTime = 0;

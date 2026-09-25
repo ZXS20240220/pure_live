@@ -45,7 +45,6 @@ void main() {
       expect(config['danmakuSpeed'], 120.0);
       expect(config['danmakuFontBorder'], 1.5);
       expect(config['enableDanmakuTapInteraction'], isTrue);
-      expect(config['enableDanmakuLongPressInteraction'], isTrue);
       expect(config['noEmojiMode'], isFalse);
       expect(config['pipDanmakuNoEmojiMode'], isFalse);
       expect(config['collapseRepeatedDanmaku'], isFalse);

@@ -447,13 +447,6 @@ class _DanmakuSettingsContentState extends State<DanmakuSettingsContent> {
                 onChanged: (v) => SettingsService.to.danmaku.enableDanmakuTapInteraction.v = v,
                 labelColor: labelColor,
               ),
-              _switch(
-                theme,
-                title: i18n('danmaku_long_press_action'),
-                value: SettingsService.to.danmaku.enableDanmakuLongPressInteraction.v,
-                onChanged: (v) => SettingsService.to.danmaku.enableDanmakuLongPressInteraction.v = v,
-                labelColor: labelColor,
-              ),
             ],
           ),
           const SizedBox(height: 20),

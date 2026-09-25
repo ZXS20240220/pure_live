@@ -62,14 +62,23 @@ class BarrageController {
     _onClear?.call();
   }
 
-  bool triggerItemAt(double x, double y, {required bool longPress}) {
+  bool triggerItemAt(double x, double y, {required bool longPress, bool holdOnHit = false}) {
     final currentEngine = _engine;
     if (currentEngine == null) return false;
     try {
-      return currentEngine.triggerItemAt(x, y, longPress: longPress) as bool;
+      return currentEngine.triggerItemAt(x, y, longPress: longPress, holdOnHit: holdOnHit) as bool;
     } catch (_) {
       return false;
     }
+  }
+
+  /// Releases the single item frozen by [triggerItemAt] with `holdOnHit: true`.
+  void resumeHeldItem() {
+    final currentEngine = _engine;
+    if (currentEngine == null) return;
+    try {
+      currentEngine.resumeHeldItem();
+    } catch (_) {}
   }
 
   int get totalEmitted => _totalEmittedCount;

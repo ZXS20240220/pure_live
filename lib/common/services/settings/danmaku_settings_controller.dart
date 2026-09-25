@@ -76,7 +76,6 @@ class DanmakuSettingsController extends GetxController {
   final RxInt danmakuFps = hiveInt('danmakuFps', defaultDanmakuFps);
   final RxBool danmakuAutoFps = hiveBool('danmakuAutoFps', defaultDanmakuAutoFps);
   final RxBool enableDanmakuTapInteraction = hiveBool('enableDanmakuTapInteraction', true);
-  final RxBool enableDanmakuLongPressInteraction = hiveBool('enableDanmakuLongPressInteraction', true);
   final RxBool collapseRepeatedDanmaku = hiveBool('collapseRepeatedDanmaku', false);
   final RxInt repeatedDanmakuWindowSeconds = hiveInt('repeatedDanmakuWindowSeconds', 5);
   final RxBool aggregateRepeatedDanmaku = hiveBool('aggregateRepeatedDanmaku', defaultAggregateRepeatedDanmaku);
@@ -150,7 +149,6 @@ class DanmakuSettingsController extends GetxController {
     danmakuSimilarityMaxCacheSize.v = danmakuSimilarityMaxCacheSize.v.clamp(20, 1000).toInt();
     if (danmakuInteractionMigration.v < 1) {
       enableDanmakuTapInteraction.v = true;
-      enableDanmakuLongPressInteraction.v = true;
       danmakuInteractionMigration.v = 1;
     }
   }
@@ -219,7 +217,6 @@ class DanmakuSettingsController extends GetxController {
       'danmakuFps': danmakuFps.v,
       'danmakuAutoFps': danmakuAutoFps.v,
       'enableDanmakuTapInteraction': enableDanmakuTapInteraction.v,
-      'enableDanmakuLongPressInteraction': enableDanmakuLongPressInteraction.v,
       'collapseRepeatedDanmaku': collapseRepeatedDanmaku.v,
       'repeatedDanmakuWindowSeconds': repeatedDanmakuWindowSeconds.v,
       'aggregateRepeatedDanmaku': aggregateRepeatedDanmaku.v,
@@ -283,7 +280,6 @@ class DanmakuSettingsController extends GetxController {
       'danmakuFps': typed<int>(_boundedInt(json['danmakuFps'], fallback: defaultDanmakuFps, min: 30, max: 240)),
       'danmakuAutoFps': typed<bool>(json['danmakuAutoFps'] ?? defaultDanmakuAutoFps),
       'enableDanmakuTapInteraction': typed<bool>(json['enableDanmakuTapInteraction'] ?? true),
-      'enableDanmakuLongPressInteraction': typed<bool>(json['enableDanmakuLongPressInteraction'] ?? true),
       'collapseRepeatedDanmaku': typed<bool>(json['collapseRepeatedDanmaku'] ?? false),
       'repeatedDanmakuWindowSeconds': typed<int>(
         (json['repeatedDanmakuWindowSeconds'] ?? 5).toInt().clamp(1, 30).toInt(),
@@ -367,7 +363,6 @@ class DanmakuSettingsController extends GetxController {
     danmakuFps.v = parsed['danmakuFps'];
     danmakuAutoFps.v = parsed['danmakuAutoFps'];
     enableDanmakuTapInteraction.v = parsed['enableDanmakuTapInteraction'];
-    enableDanmakuLongPressInteraction.v = parsed['enableDanmakuLongPressInteraction'];
     collapseRepeatedDanmaku.v = parsed['collapseRepeatedDanmaku'];
     repeatedDanmakuWindowSeconds.v = parsed['repeatedDanmakuWindowSeconds'];
     aggregateRepeatedDanmaku.v = parsed['aggregateRepeatedDanmaku'];
@@ -427,7 +422,6 @@ class DanmakuSettingsController extends GetxController {
       'danmakuFps': _boundedInt(danmaku['danmakuFps'], fallback: defaultDanmakuFps, min: 30, max: 240),
       'danmakuAutoFps': danmaku['danmakuAutoFps'] ?? defaultDanmakuAutoFps,
       'enableDanmakuTapInteraction': danmaku['enableDanmakuTapInteraction'] ?? true,
-      'enableDanmakuLongPressInteraction': danmaku['enableDanmakuLongPressInteraction'] ?? true,
       'collapseRepeatedDanmaku': danmaku['collapseRepeatedDanmaku'] ?? false,
       'repeatedDanmakuWindowSeconds': (danmaku['repeatedDanmakuWindowSeconds'] ?? 5).toInt().clamp(1, 30).toInt(),
       'aggregateRepeatedDanmaku': danmaku['aggregateRepeatedDanmaku'] ?? defaultAggregateRepeatedDanmaku,

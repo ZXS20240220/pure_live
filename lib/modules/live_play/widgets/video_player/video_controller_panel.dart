@@ -99,7 +99,6 @@ class VideoControllerPanel extends StatefulWidget {
 
 class _VideoControllerPanelState extends State<VideoControllerPanel> {
   static const barHeight = 56.0;
-  Offset? _lastTapGlobalPosition;
   Offset? _lastTapLocalPosition;
 
   VideoController get controller => widget.controller;
@@ -132,113 +131,117 @@ class _VideoControllerPanelState extends State<VideoControllerPanel> {
             onHover: (_) => controller.onMouseHoverPlayer(),
             onExit: (_) => controller.onMouseExitPlayer(),
             cursor: !controller.showController.value ? SystemMouseCursors.none : SystemMouseCursors.basic,
-            child: Stack(
-              children: [
-                Container(
-                  color: Colors.transparent,
-                  alignment: Alignment.center,
-                  child: AnimatedOpacity(
-                    opacity: controller.showVolume.value ? 0.8 : 0.0,
-                    duration: const Duration(milliseconds: 300),
-                    child: Card(
-                      color: Colors.black,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: <Widget>[
-                            Icon(iconData, color: Colors.white),
-                            Padding(
-                              padding: const EdgeInsets.only(left: 8, right: 8),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: SizedBox(
-                                  width: 100,
-                                  height: 20,
-                                  child: LinearProgressIndicator(
-                                    value: currentVolume,
-                                    backgroundColor: Colors.white38,
-                                    valueColor: const AlwaysStoppedAnimation(Colors.white),
+            // Right-click is the danmaku interaction trigger. A Listener at the
+            // stack root receives secondary presses even over the action bars
+            // (no control uses right-click), so danmaku beneath the controls
+            // stays interactive.
+            child: Listener(
+              behavior: HitTestBehavior.translucent,
+              onPointerDown: (event) {
+                if (event.buttons != kSecondaryMouseButton) return;
+                controller.handleDanmakuPointer(event.position);
+              },
+              child: Stack(
+                children: [
+                  Container(
+                    color: Colors.transparent,
+                    alignment: Alignment.center,
+                    child: AnimatedOpacity(
+                      opacity: controller.showVolume.value ? 0.8 : 0.0,
+                      duration: const Duration(milliseconds: 300),
+                      child: Card(
+                        color: Colors.black,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              Icon(iconData, color: Colors.white),
+                              Padding(
+                                padding: const EdgeInsets.only(left: 8, right: 8),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: SizedBox(
+                                    width: 100,
+                                    height: 20,
+                                    child: LinearProgressIndicator(
+                                      value: currentVolume,
+                                      backgroundColor: Colors.white38,
+                                      valueColor: const AlwaysStoppedAnimation(Colors.white),
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            Text(
-                              "$percentage%",
-                              style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
-                            ),
-                          ],
+                              Text(
+                                "$percentage%",
+                                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                Obx(() {
-                  final manager = GlobalPlayerService.instance.player;
-                  final hideForPortrait =
-                      manager.isVerticalVideo.value &&
-                      SettingsService.to.player.portraitDanmakuMode == PortraitDanmakuMode.hidden;
-                  return Offstage(
-                    offstage: controller.hideDanmaku.value || hideForPortrait,
-                    child: DanmakuViewer(key: controller.danmuKey, controller: controller),
-                  );
-                }),
-                GestureDetector(
-                  onTapDown: (details) {
-                    _lastTapGlobalPosition = details.globalPosition;
-                    _lastTapLocalPosition = details.localPosition;
-                  },
-                  onTap: () {
-                    final globalPosition = _lastTapGlobalPosition;
-                    final localPosition = _lastTapLocalPosition;
-                    if (localPosition != null &&
-                        !shouldHandleVideoSurfaceTap(
-                          localPosition: localPosition,
-                          surfaceSize: context.size ?? Size.zero,
-                          controlsVisible: controller.showController.value,
-                          controlBarHeight: barHeight,
-                        )) {
+                  Obx(() {
+                    final manager = GlobalPlayerService.instance.player;
+                    final hideForPortrait =
+                        manager.isVerticalVideo.value &&
+                        SettingsService.to.player.portraitDanmakuMode == PortraitDanmakuMode.hidden;
+                    return Offstage(
+                      offstage: controller.hideDanmaku.value || hideForPortrait,
+                      child: DanmakuViewer(key: controller.danmuKey, controller: controller),
+                    );
+                  }),
+                  GestureDetector(
+                    onTapDown: (details) {
+                      _lastTapLocalPosition = details.localPosition;
+                    },
+                    onTap: () {
+                      final localPosition = _lastTapLocalPosition;
+                      if (localPosition != null &&
+                          !shouldHandleVideoSurfaceTap(
+                            localPosition: localPosition,
+                            surfaceSize: context.size ?? Size.zero,
+                            controlsVisible: controller.showController.value,
+                            controlBarHeight: barHeight,
+                          )) {
+                        controller.enableController();
+                        return;
+                      }
+                      // A buffering/paused player must not swallow the only way
+                      // to reveal its controls. Always expose the action bar; a
+                      // tap on a paused surface keeps the historical resume
+                      // behavior as well.
                       controller.enableController();
-                      return;
-                    }
-                    if (globalPosition != null && controller.handleDanmakuPointer(globalPosition, longPress: false)) {
-                      return;
-                    }
-                    // A buffering/paused player must not swallow the only way
-                    // to reveal its controls. Always expose the action bar; a
-                    // tap on a paused surface keeps the historical resume
-                    // behavior as well.
-                    controller.enableController();
-                    if (!GlobalPlayerService.instance.player.isPlayingNow) {
-                      GlobalPlayerService.instance.player.togglePlayPause();
-                    }
-                  },
-                  onLongPressStart: (details) {
-                    if (!shouldHandleVideoSurfaceTap(
-                      localPosition: details.localPosition,
-                      surfaceSize: context.size ?? Size.zero,
-                      controlsVisible: controller.showController.value,
-                      controlBarHeight: barHeight,
-                    )) {
-                      controller.enableController();
-                      return;
-                    }
-                    controller.handleDanmakuPointer(details.globalPosition, longPress: true);
-                  },
-                  onDoubleTap: () {
-                    if (!controller.showLocked.value) {
-                      GlobalPlayerState.to.isWindowFullscreen.value
-                          ? controller.toggleWindowFullScreen()
-                          : controller.toggleFullScreen();
-                    }
-                  },
-                  child: BrightnessVolumnDargArea(controller: controller),
-                ),
-                LockButton(controller: controller),
-                ScreenshotButton(controller: controller),
-                TopActionBar(controller: controller, barHeight: barHeight),
-                BottomActionBar(controller: controller, barHeight: barHeight),
-              ],
+                      if (!GlobalPlayerService.instance.player.isPlayingNow) {
+                        GlobalPlayerService.instance.player.togglePlayPause();
+                      }
+                    },
+                    onLongPressStart: (details) {
+                      if (!shouldHandleVideoSurfaceTap(
+                        localPosition: details.localPosition,
+                        surfaceSize: context.size ?? Size.zero,
+                        controlsVisible: controller.showController.value,
+                        controlBarHeight: barHeight,
+                      )) {
+                        controller.enableController();
+                      }
+                    },
+                    onDoubleTap: () {
+                      if (!controller.showLocked.value) {
+                        GlobalPlayerState.to.isWindowFullscreen.value
+                            ? controller.toggleWindowFullScreen()
+                            : controller.toggleFullScreen();
+                      }
+                    },
+                    child: BrightnessVolumnDargArea(controller: controller),
+                  ),
+                  LockButton(controller: controller),
+                  ScreenshotButton(controller: controller),
+                  TopActionBar(controller: controller, barHeight: barHeight),
+                  BottomActionBar(controller: controller, barHeight: barHeight),
+                ],
+              ),
             ),
           );
         }),

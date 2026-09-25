@@ -392,7 +392,6 @@ class _TestAssetLoader extends AssetLoader {
     'danmaku_fps_policy_desc': 'Follow the global interface refresh policy',
     'pip_danmaku_fps_policy_desc': 'Follow the global interface refresh policy',
     'danmaku_tap_action': 'Tap action',
-    'danmaku_long_press_action': 'Long press action',
     'pip_danmaku': 'PiP danmaku',
     'pip_danmaku_enable': 'Enable PiP danmaku',
     'pip_danmaku_auto_scale': 'Auto scale',
