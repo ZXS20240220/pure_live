@@ -292,13 +292,11 @@ class _AreaGridViewState extends State<AreaGridView> with TickerProviderStateMix
     return LayoutBuilder(
       builder: (context, constraint) {
         final width = constraint.maxWidth;
-        final crossAxisCount =width > 1440
-            ? 17
-            :  (width > 1260
+        final crossAxisCount =width > 1365
             ? 15
-            :  (width > 1080
+            :  (width > 1170
             ? 13
-            : (width > 900 ? 11 : (width > 720 ? 9 : (width > 540 ? 7 : (width > 360 ? 5 : 3))))));
+            : (width > 975 ? 11 : (width > 780 ? 9 : (width > 585 ? 7 : (width > 390 ? 5 : 3)))));
         final spacing = SettingsService.to.theme.crossAxisSpacing.v;
         final mainAxisSpacing = SettingsService.to.theme.mainAxisSpacing.v;
         final itemWidth = (width - 12 - spacing * (crossAxisCount - 1)) / crossAxisCount;
