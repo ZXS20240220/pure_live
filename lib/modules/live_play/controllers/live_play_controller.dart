@@ -490,8 +490,6 @@ class LivePlayController extends GetxController
     final platform = detail?.platform;
     if (roomId == null || platform == null) return;
 
-    clearSuperChats();
-
     final loadEpoch = ++_roomLoadEpoch;
 
     try {
