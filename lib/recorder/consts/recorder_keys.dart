@@ -56,5 +56,8 @@ class RecorderKeys {
   /// 是否将中文的主播转为拼音
   static const folderNamingStrategy = 'recorder_folder_naming_strategy';
 
+  /// 录制时同步保存直播弹幕
+  static const recordDanmaku = 'recorder_record_danmaku';
+
   static const enableCacheLimit = 'enableCacheLimit';
 }

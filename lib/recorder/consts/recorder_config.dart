@@ -52,6 +52,9 @@ class RecorderConfig {
 
   static const defaultUsePinyinForFolder = false;
 
+  /// 是否在录制时同步保存直播弹幕
+  static const defaultRecordDanmaku = false;
+
   static const minSegmentTime = 60;
   static const maxSegmentTime = 3600;
   static const minMaxTaskCount = 1;
