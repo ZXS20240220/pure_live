@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer' as developer;
+
 import 'package:pure_live/common/index.dart';
 import 'package:flame_barrage/flame_barrage.dart';
 import 'package:pure_live/model/live_play_quality.dart';
@@ -13,7 +14,6 @@ import 'package:pure_live/modules/multiview/models/multiview_models.dart';
 import 'package:pure_live/modules/multiview/cells/multiview_cell_player.dart';
 import 'package:pure_live/modules/live_play/controllers/player_controller.dart';
 import 'package:pure_live/modules/multiview/danmaku/multiview_danmaku_session.dart';
-
 
 /// 房间对象 → 可播放源解析器。
 ///
@@ -66,7 +66,7 @@ class MultiviewController extends GetxController {
     if (this.maxCellCount < MultiviewLayout.focus.capacity || this.maxCellCount > maxCells) {
       throw ArgumentError.value(this.maxCellCount, 'maxCellCount', 'must be between 4 and $maxCells');
     }
-    _audioFocusTransitions = LatestAsyncValueQueue<int>(_applyAudioFocus);
+    _audioFocusTransitions = LatestAsyncValueQueue<_AudioFocusTarget>(_applyAudioFocus);
   }
 
   /// focus（一大多小）布局的格子数上限。
@@ -298,7 +298,10 @@ class MultiviewController extends GetxController {
 
   /// Serializes native mute calls and coalesces rapid focus taps to the latest
   /// cell, preventing out-of-order futures from leaving multiple cells audible.
-  late final LatestAsyncValueQueue<int> _audioFocusTransitions;
+  ///
+  /// 队列携带 (index, muted)：一键静音切换与焦点移动可区分，不会被
+  /// 进行中的同格子转移合并丢弃。
+  late final LatestAsyncValueQueue<_AudioFocusTarget> _audioFocusTransitions;
 
   /// 小格自动降质联动开关（仅 focus 布局生效）。
   ///
@@ -398,24 +401,13 @@ class MultiviewController extends GetxController {
   }
 
   Future<void> toggleMuteAll() => setAllMuted(!allMuted.value);
-  Future<void> setAllMuted(bool muted) async {
+
+  /// 一键静音/恢复：状态即时更新（新格守卫与 UI 同步读取），
+  /// 实际静音切换经 [_audioFocusTransitions] 串行化提交，
+  /// 避免与进行中的焦点切换原生调用竞争导致乱序。
+  Future<void> setAllMuted(bool muted) {
     allMuted.value = muted;
-
-    for (var index = 0; index < _players.length; index++) {
-      final handle = _players[index];
-      if (handle == null) continue;
-
-      try {
-        await handle.setMuted(muted || index != _audioFocusIndex.value);
-      } catch (error, stackTrace) {
-        developer.log(
-          'MultiviewController: failed to set mute for cell $index',
-          name: 'MultiviewController',
-          error: error,
-          stackTrace: stackTrace,
-        );
-      }
-    }
+    return _submitAudioFocus();
   }
 
   void _forwardChatMessage(LiveMessage message) {
@@ -966,7 +958,12 @@ class MultiviewController extends GetxController {
   Future<void> setAudioFocus(int cellIndex) {
     RangeError.checkValidIndex(cellIndex, cells, 'cellIndex');
     _audioFocusIndex.value = cellIndex;
-    return _audioFocusTransitions.submit(cellIndex).catchError((Object error, StackTrace stackTrace) {
+    return _submitAudioFocus();
+  }
+
+  Future<void> _submitAudioFocus() {
+    final target = (index: _audioFocusIndex.value, muted: allMuted.value);
+    return _audioFocusTransitions.submit(target).catchError((Object error, StackTrace stackTrace) {
       developer.log(
         'MultiviewController: audio focus transition failed',
         name: 'MultiviewController',
@@ -976,14 +973,15 @@ class MultiviewController extends GetxController {
     });
   }
 
-  Future<void> _applyAudioFocus(int targetIndex) async {
+  Future<void> _applyAudioFocus(_AudioFocusTarget focus) async {
+    final targetIndex = focus.index;
     // Mute every non-target handle, not just the previously remembered one:
     // this also repairs any inconsistent state left by a native call failure.
     for (var index = 0; index < _players.length; index++) {
       final handle = _players[index];
       if (handle == null) continue;
 
-      final muted = allMuted.value || index != targetIndex;
+      final muted = focus.muted || index != targetIndex;
 
       try {
         await handle.setMuted(muted);
@@ -1003,7 +1001,7 @@ class MultiviewController extends GetxController {
 
     final target = _players[targetIndex];
     if (target != null) {
-      await target.setMuted(allMuted.value);
+      await target.setMuted(focus.muted);
     }
   }
 
@@ -1194,3 +1192,9 @@ class MultiviewController extends GetxController {
     }
   }
 }
+
+/// 音频焦点队列目标：格子下标 + 一键静音状态。
+///
+/// 二元组使一键静音切换与同格焦点移动在 [LatestAsyncValueQueue] 的
+/// 合并判定中可区分，避免切换被进行中的转移吞掉。
+typedef _AudioFocusTarget = ({int index, bool muted});

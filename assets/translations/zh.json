@@ -2104,6 +2104,7 @@
   "preset_custom": "自定义",
   "preset_custom_description": "自定义布局，自由调整所有参数",
   "multiview_mute_all": "全部静音",
+  "multiview_unmute_all": "恢复声音",
   "watch_time_total": "累计观看时长",
   "watch_time_clear_all": "清空观看时长记录",
   "watch_time_clear_confirm_title": "清空所有累计观看时长记录",

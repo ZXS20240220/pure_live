@@ -2105,6 +2105,7 @@
   "preset_custom": "Custom",
   "preset_custom_description": "Custom layout, freely adjust all parameters",
   "multiview_mute_all": "Mute All",
+  "multiview_unmute_all": "Unmute",
   "watch_time_total": "Total watch time",
   "watch_time_clear_all": "Clear watch records",
   "watch_time_clear_confirm_title": "Clear Watch Records",

@@ -509,13 +509,18 @@ class _MultiviewPageState extends State<MultiviewPage> {
                 controller.cells[selectedIndex].status == MultiviewCellStatus.playing;
 
             final muted = controller.allMuted.value;
+            final theme = Theme.of(context);
 
             return Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
-                  tooltip: i18n('multiview_mute_all'),
-                  icon: Icon(muted ? Remix.volume_mute_line : Remix.volume_up_line, size: 22),
+                  tooltip: i18n(muted ? 'multiview_unmute_all' : 'multiview_mute_all'),
+                  icon: Icon(
+                    muted ? Remix.volume_mute_line : Remix.volume_up_line,
+                    size: 22,
+                    color: muted ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
+                  ),
                   onPressed: controller.toggleMuteAll,
                 ),
                 IconButton(
