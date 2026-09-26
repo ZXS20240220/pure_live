@@ -817,7 +817,10 @@ class LivePlayController extends GetxController
     if (requestedRoom == null || roomId == null || requestedPlatform == null) return LiveRoom();
     final loadEpoch = ++_roomLoadEpoch;
 
-    clearSuperChats();
+    // No clearSuperChats() here: a same-room reload (metadata retry, line or
+    // quality switch) is not a new paid-message session, so already delivered
+    // SCs stay until they expire or the room really changes (switchRoom /
+    // not-live outcome).
     updateRoom(isLoading: true, loadError: null);
 
     try {
@@ -827,7 +830,6 @@ class LivePlayController extends GetxController
       liveRoom = liveRoom.fillFromDetail(requestedRoom);
       if (!_isRoomLoadCurrent(loadEpoch, roomId, requestedPlatform)) return liveRoom;
       updateRoom(detail: liveRoom);
-      unawaited(getSuperChatMessage(roomId, platform: requestedPlatform, loadEpoch: loadEpoch));
       _scheduleAiHighlightRefresh();
 
       if (currentSite.id == Sites.iptvSite) {
@@ -845,6 +847,9 @@ class LivePlayController extends GetxController
       final liveStatus = liveRoom.isPlayableNow;
 
       if (liveStatus) {
+        // Only fetch the paid-message history for rooms that are actually
+        // live; addBatchSuperChat merges by messageId so retries are safe.
+        unawaited(getSuperChatMessage(roomId, platform: requestedPlatform, loadEpoch: loadEpoch));
         await _handleLiveRoom(liveRoom, loadEpoch: loadEpoch);
       } else {
         _handleNotLiveRoom(liveRoom);
@@ -904,6 +909,8 @@ class LivePlayController extends GetxController
 
   void _handleNotLiveRoom(LiveRoom liveRoom) {
     // 未开播/状态未知房间不再无条件断开弹幕连接：白名单外且开关开启时保持连接。
+    // 未开播意味着该房间的付费留言会话结束，清空已展示的 SC。
+    clearSuperChats();
     unawaited(_syncDanmakuConnection(liveRoom));
     updateRoom(success: false, isLiving: false);
     setNormalScreen();
@@ -976,7 +983,9 @@ class LivePlayController extends GetxController
         state.value.room.detail?.roomId == newRoom.roomId && state.value.room.detail?.platform == newRoom.platform;
 
     if (!sameRoom) {
+      // 真正切换房间才清空 SC：同房间重试/切线路/切画质必须保留未到期付费留言。
       clearDanmakuMessages();
+      clearSuperChats();
       await danmakuController.stopDanmaku();
     }
 
