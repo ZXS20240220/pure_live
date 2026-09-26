@@ -7,6 +7,31 @@ import 'package:pure_live/modules/account/web_cookie_capture.dart';
 
 export 'package:pure_live/common/services/settings/cookie_value.dart' show normalizeAccountCookie;
 
+/// Decoration every account-cookie input uses.
+///
+/// Exported because a platform with extra inputs (Douyu's renewal key and device
+/// id) must render them like the cookie box: two different field styles on one
+/// screen read as two different kinds of input, and the viewer cannot tell which
+/// one the paste belongs in.
+InputDecoration accountCookieFieldDecoration(ThemeData theme, {String? labelText, String? hintText}) {
+  OutlineInputBorder border(Color color, [double width = 1]) => OutlineInputBorder(
+    borderRadius: BorderRadius.circular(12),
+    borderSide: BorderSide(color: color, width: width),
+  );
+
+  return InputDecoration(
+    labelText: labelText,
+    hintText: hintText,
+    hintStyle: TextStyle(color: theme.hintColor.withValues(alpha: 0.5)),
+    contentPadding: const EdgeInsets.all(14),
+    filled: true,
+    fillColor: theme.colorScheme.surfaceContainerLowest,
+    border: border(theme.dividerColor.withValues(alpha: 0.1)),
+    enabledBorder: border(theme.dividerColor.withValues(alpha: 0.05)),
+    focusedBorder: border(theme.colorScheme.primary, 1.5),
+  );
+}
+
 class AccountCookieEditorPage extends StatefulWidget {
   const AccountCookieEditorPage({
     required this.controller,
@@ -15,6 +40,8 @@ class AccountCookieEditorPage extends StatefulWidget {
     required this.onSave,
     this.autoCaptureTarget,
     super.key,
+    this.extraFields = const <Widget>[],
+    this.tipBody,
   });
 
   final TextEditingController controller;
@@ -24,6 +51,19 @@ class AccountCookieEditorPage extends StatefulWidget {
 
   /// 平台网页抓取配置；非空时显示「自动获取」按钮，打开内置浏览器登录页。
   final CookieCaptureTarget? autoCaptureTarget;
+
+  /// Extra inputs a platform needs next to the cookie itself.
+  ///
+  /// Douyu's renewal key and device id come from a different request than the
+  /// page cookie, so they cannot be part of the pasted string and need fields of
+  /// their own.
+  final List<Widget> extraFields;
+
+  /// Rich replacement for [tipText] inside the same banner.
+  ///
+  /// A platform whose instructions include a link or a list needs more than one
+  /// string, and the banner is where a viewer looks for them.
+  final Widget? tipBody;
 
   @override
   State<AccountCookieEditorPage> createState() => _AccountCookieEditorPageState();
@@ -161,26 +201,12 @@ class _AccountCookieEditorPageState extends State<AccountCookieEditorPage> {
                             smartDashesType: SmartDashesType.disabled,
                             smartQuotesType: SmartQuotesType.disabled,
                             scrollPadding: const EdgeInsets.only(bottom: 120),
-                            decoration: InputDecoration(
-                              hintText: widget.hintText,
-                              hintStyle: TextStyle(color: theme.hintColor.withValues(alpha: 0.5)),
-                              contentPadding: const EdgeInsets.all(14),
-                              filled: true,
-                              fillColor: theme.colorScheme.surfaceContainerLowest,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: theme.dividerColor.withValues(alpha: 0.1)),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: theme.dividerColor.withValues(alpha: 0.05)),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: theme.colorScheme.primary, width: 1.5),
-                              ),
-                            ),
+                            decoration: accountCookieFieldDecoration(theme, hintText: widget.hintText),
                           ),
+                          for (final field in widget.extraFields) ...<Widget>[
+                            const SizedBox(height: 12),
+                            field,
+                          ],
                           const SizedBox(height: 16),
                           Row(
                             children: [
@@ -252,13 +278,15 @@ class _AccountCookieEditorPageState extends State<AccountCookieEditorPage> {
           Icon(Remix.information_line, size: 18, color: theme.colorScheme.primary.withValues(alpha: 0.8)),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              widget.tipText,
-              style: AppTextStyles.t13.copyWith(
-                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
-                height: 1.4,
-              ),
-            ),
+            child:
+                widget.tipBody ??
+                Text(
+                  widget.tipText,
+                  style: AppTextStyles.t13.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+                    height: 1.4,
+                  ),
+                ),
           ),
         ],
       ),
