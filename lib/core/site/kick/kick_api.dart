@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:pure_live/common/services/settings/proxy_settings_controller.dart';
 import 'package:pure_live/common/services/settings_service.dart';
+import 'package:pure_live/common/services/utils/hive_rx.dart';
 import 'package:pure_live/core/common/android_native_http.dart';
 import 'package:pure_live/core/common/http_client.dart';
 import 'package:pure_live/core/common/request_scope.dart';
