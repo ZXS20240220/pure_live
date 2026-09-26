@@ -184,10 +184,11 @@ class DanmakuManager {
     final originalColor = Color.fromARGB(255, msg.color.r, msg.color.g, msg.color.b);
     final localStyle = msg.isLocal ? msg.style : null;
     final settings = settingsService.danmaku;
+    final barrageContent = msg.repeatCount >= 2 ? '${msg.message} ×${msg.repeatCount}' : msg.message;
     if (settings.enableDanmakuDisplay.v && !videoController.hideDanmaku.value) {
       controller.send(
         BarrageItem(
-          content: msg.message,
+          content: barrageContent,
           type: switch (localStyle?.placement) {
             LiveMessagePlacement.top => BarrageType.topFixed,
             LiveMessagePlacement.bottom => BarrageType.bottomFixed,
@@ -224,7 +225,7 @@ class DanmakuManager {
           : Color(settings.pipDanmakuColor.v);
       pipController.send(
         BarrageItem(
-          content: msg.message,
+          content: barrageContent,
           type: switch (localStyle?.placement) {
             LiveMessagePlacement.top => BarrageType.topFixed,
             LiveMessagePlacement.bottom => BarrageType.bottomFixed,

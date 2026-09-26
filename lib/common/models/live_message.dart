@@ -104,6 +104,11 @@ class LiveMessage {
   final DateTime? sentAt;
   final LiveMessageStyle? style;
 
+  /// When the danmaku aggregator merges repeated identical lines, this field
+  /// holds the total count (≥2). Non-aggregated messages leave it at 0 so the
+  /// UI can render the "×N" badge without polluting [message] text itself.
+  final int repeatCount;
+
   LiveMessage({
     required this.type,
     required this.userName,
@@ -118,6 +123,7 @@ class LiveMessage {
     this.messageId = "",
     this.sentAt,
     this.style,
+    this.repeatCount = 0,
   });
 }
 

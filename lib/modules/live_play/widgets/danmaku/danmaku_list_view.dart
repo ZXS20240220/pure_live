@@ -572,9 +572,8 @@ class DanmakuItem extends StatelessWidget {
     final textColor = isDark ? Colors.white70 : Colors.black87;
 
     final showLevel = danmaku.userLevel.isNotEmpty && danmaku.userLevel != '0';
-    // A fan level is meaningful on its own: wearing the badge name is a
-    // per-user choice, so the level alone must still render the badge.
     final showFans = danmaku.fansLevel.isNotEmpty && danmaku.fansLevel != '0';
+    final showRepeat = danmaku.repeatCount >= 2;
 
     return RepaintBoundary(
       child: Padding(
@@ -617,6 +616,14 @@ class DanmakuItem extends StatelessWidget {
                       style: AppTextStyles.t14.copyWith(fontWeight: FontWeight.w700, color: textColor),
                     ),
                     TextSpan(children: parseEmojis(danmaku.message, AppTextStyles.t14.fontSize!, textColor)),
+                    if (showRepeat)
+                      WidgetSpan(
+                        alignment: PlaceholderAlignment.middle,
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 6),
+                          child: _RepeatBadge(count: danmaku.repeatCount, color: vibrantColor),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -664,6 +671,25 @@ class _FansBadge extends StatelessWidget {
       child: Text(
         [fansName, fansLevel].where((s) => s.isNotEmpty).join(' '),
         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white70, height: 1.2),
+      ),
+    );
+  }
+}
+
+class _RepeatBadge extends StatelessWidget {
+  final int count;
+  final Color color;
+  const _RepeatBadge({required this.count, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final textColor = color.computeLuminance() > 0.5 ? Colors.black : Colors.white;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.9), borderRadius: BorderRadius.circular(3)),
+      child: Text(
+        '×$count',
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: textColor, height: 1.1),
       ),
     );
   }

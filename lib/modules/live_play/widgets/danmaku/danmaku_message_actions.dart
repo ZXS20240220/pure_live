@@ -88,6 +88,7 @@ class _DanmakuInfoCard extends StatelessWidget {
     final showFans = showFansName || showFansLevel;
     final showUserId = message.userId.isNotEmpty;
     final showSentAt = message.sentAt != null;
+    final showRepeat = message.repeatCount >= 2;
     final colorSwatch = Color.fromARGB(255, message.color.r, message.color.g, message.color.b);
     final isWhite = message.color.r == 255 && message.color.g == 255 && message.color.b == 255;
 
@@ -180,6 +181,13 @@ class _DanmakuInfoCard extends StatelessWidget {
                   label: _formatSentAt(message.sentAt!),
                   color: theme.colorScheme.outline,
                 ),
+              if (showRepeat)
+                _InfoChip(
+                  icon: Icons.repeat_one_rounded,
+                  label: '聚合 ×${message.repeatCount}',
+                  color: theme.colorScheme.secondaryContainer,
+                  foregroundColor: theme.colorScheme.onSecondaryContainer,
+                ),
               if (message.type != LiveMessageType.chat)
                 _InfoChip(icon: Icons.label_outline, label: _typeLabel(message.type), color: theme.colorScheme.outline),
             ],
@@ -215,14 +223,15 @@ class _DanmakuInfoCard extends StatelessWidget {
 }
 
 class _InfoChip extends StatelessWidget {
-  const _InfoChip({required this.icon, required this.label, required this.color});
+  const _InfoChip({required this.icon, required this.label, required this.color, this.foregroundColor});
   final IconData icon;
   final String label;
   final Color color;
+  final Color? foregroundColor;
 
   @override
   Widget build(BuildContext context) {
-    final textColor = color.computeLuminance() > 0.55 ? Colors.black : Colors.white;
+    final textColor = foregroundColor ?? (color.computeLuminance() > 0.55 ? Colors.black : Colors.white);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(color: color.withValues(alpha: 0.85), borderRadius: BorderRadius.circular(6)),

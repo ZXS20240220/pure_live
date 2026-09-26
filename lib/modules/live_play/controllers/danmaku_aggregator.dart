@@ -103,10 +103,8 @@ class DanmakuAggregator {
       type: first.type,
       userName: first.userName,
       userId: first.userId,
-      // A fresh identity keeps replay suppression and list diffing from
-      // treating the aggregate as a duplicate of the original message.
       messageId: 'aggregate:${first.messageId.isEmpty ? first.message.hashCode : first.messageId}:$count',
-      message: '${first.message} ×$count',
+      message: first.message,
       color: first.color,
       userLevel: first.userLevel,
       fansLevel: first.fansLevel,
@@ -114,6 +112,7 @@ class DanmakuAggregator {
       isLocal: false,
       sentAt: first.sentAt,
       style: first.style,
+      repeatCount: count,
     );
   }
 
