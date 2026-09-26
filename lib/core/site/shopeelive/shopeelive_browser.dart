@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:pure_live/core/utils/web_view2_environment.dart';
 import 'package:pure_live/core/utils/webview_proxy_scope.dart';
 
 abstract interface class ShopeeLiveSessionResolver {
@@ -55,6 +56,7 @@ class ShopeeLiveBrowserSessionResolver implements ShopeeLiveSessionResolver {
     HeadlessInAppWebView? webView;
     try {
       webView = HeadlessInAppWebView(
+        webViewEnvironment: AppWebView2Environment.optional,
         initialUrlRequest: URLRequest(url: WebUri(pageUrl)),
         initialSettings: InAppWebViewSettings(javaScriptEnabled: true, cacheEnabled: true, transparentBackground: true),
         onWebViewCreated: (controller) {

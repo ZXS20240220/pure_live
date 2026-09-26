@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -30,6 +31,37 @@ class AppWebView2Environment {
   static WebViewEnvironment? _environment;
   static Future<void>? _initializing;
 
+  static Future<void> cleanupOnStartup() async {
+    if (kIsWeb || !Platform.isWindows) return;
+    final candidates = <String>[
+      p.join(AppPathManager().basePath, dirName),
+      p.join(
+        p.dirname(Platform.resolvedExecutable),
+        '${p.basenameWithoutExtension(Platform.resolvedExecutable)}.exe.WebView2',
+      ),
+    ];
+    for (final path in candidates) {
+      await _deleteDirectoryWithRetry(path);
+    }
+  }
+
+  static Future<void> _deleteDirectoryWithRetry(String path, {int attempts = 2}) async {
+    final directory = Directory(path);
+    if (!await directory.exists()) return;
+    for (var i = 0; i < attempts; i++) {
+      try {
+        await directory.delete(recursive: true);
+        return;
+      } on FileSystemException catch (error) {
+        if (i == attempts - 1) {
+          debugPrint('[WebView2] Startup cleanup failed for $path: $error');
+          return;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 800));
+      }
+    }
+  }
+
   /// 已就绪的共享环境；未初始化或初始化失败时为 null（回退插件默认行为）。
   static WebViewEnvironment? get optional => _environment;
 
@@ -56,9 +88,18 @@ class AppWebView2Environment {
         settings: WebViewEnvironmentSettings(userDataFolder: userDataFolder),
       );
     } catch (error) {
-      // 失败时不阻断启动：各网页入口回退到插件默认行为（每次自建环境）。
       _environment = null;
       debugPrint('[WebView2] Shared WebViewEnvironment creation failed: $error');
     }
+  }
+
+  static Future<void> dispose() async {
+    if (_environment == null) return;
+    try {
+      await _environment!.dispose();
+    } catch (error) {
+      debugPrint('[WebView2] Environment dispose failed: $error');
+    }
+    _environment = null;
   }
 }

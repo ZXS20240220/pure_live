@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:pure_live/core/utils/web_view2_environment.dart';
 import 'package:pure_live/core/utils/webview_proxy_scope.dart';
 
 import 'rumble_api.dart';
@@ -65,6 +66,7 @@ final class RumbleBrowserPageResolver implements RumblePageResolver {
     HeadlessInAppWebView? webView;
     try {
       webView = HeadlessInAppWebView(
+        webViewEnvironment: AppWebView2Environment.optional,
         initialUrlRequest: URLRequest(url: WebUri(RumbleLink.videoUrl(videoKey))),
         initialSettings: InAppWebViewSettings(
           javaScriptEnabled: true,

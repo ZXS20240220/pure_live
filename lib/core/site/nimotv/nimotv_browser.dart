@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:pure_live/core/utils/web_view2_environment.dart';
 import 'package:pure_live/core/utils/webview_proxy_scope.dart';
 
 import 'nimotv_api.dart';
@@ -67,6 +68,7 @@ class NimoTvBrowserDirectoryResolver implements NimoTvDirectoryResolver {
     HeadlessInAppWebView? webView;
     try {
       webView = HeadlessInAppWebView(
+        webViewEnvironment: AppWebView2Environment.optional,
         initialUrlRequest: URLRequest(url: WebUri(pageUrl)),
         // A mobile WebView UA is redirected to m.nimo.tv, which has none of
         // the homepage cards the directory script reads (Android only).

@@ -61,9 +61,7 @@ class AppInitializer {
     await _initWindowsSingleInstance(args, instanceId);
 
     await AppPathManager().initialize(instanceId: instanceId);
-    // Windows 共享 WebView2 环境需在数据目录就绪后、任何网页入口打开前创建，
-    // 避免每个页面各自新建 Environment 与浏览器进程退出过程竞争导致
-    // “Cannot create the InAppWebView instance!”（详见 AppWebView2Environment）。
+    await AppWebView2Environment.cleanupOnStartup();
     await AppWebView2Environment.ensureInitialized();
     await Future.wait([
       EasyLocalization.ensureInitialized(),

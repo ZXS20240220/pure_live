@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/global/app_path_manager.dart';
 import 'package:pure_live/common/services/settings/refresh_config_controller.dart';
+import 'package:pure_live/core/utils/web_view2_environment.dart';
 import 'package:pure_live/plugins/cache_manager.dart';
 
 typedef CacheDirectoryResolver = Future<List<Directory>> Function();
@@ -38,7 +39,11 @@ int _measureDirectoryBytes(List<String> paths) {
 /// Recordings, downloads (including fonts and update packages), and IPTV data
 /// are persistent user data and deliberately never enter this list.
 abstract final class CacheStoragePolicy {
-  static const localDirectoryNames = <String>[AppPathManager.dirImageCache, AppPathManager.dirEmojiCache];
+  static const localDirectoryNames = <String>[
+    AppPathManager.dirImageCache,
+    AppPathManager.dirEmojiCache,
+    AppWebView2Environment.dirName,
+  ];
 }
 
 class CacheClearResult {
@@ -213,6 +218,13 @@ class CacheController extends GetxController {
       debugPrint('Failed to clear the in-memory image cache: $error');
     }
 
+    try {
+      await AppWebView2Environment.dispose();
+      await Future<void>.delayed(const Duration(milliseconds: 1500));
+    } catch (error) {
+      debugPrint('[WebView2] dispose before cache clear failed: $error');
+    }
+
     List<Directory>? directories;
     try {
       directories = _uniqueDirectories(await _cacheDirectoryResolver());
@@ -231,6 +243,14 @@ class CacheController extends GetxController {
       if (!cleared) {
         failedOperations++;
         debugPrint('Failed to clear cache directory ${directory.path}');
+      }
+    }
+
+    if (!isClosed) {
+      try {
+        await AppWebView2Environment.ensureInitialized();
+      } catch (error) {
+        debugPrint('[WebView2] recreate after cache clear failed: $error');
       }
     }
 
