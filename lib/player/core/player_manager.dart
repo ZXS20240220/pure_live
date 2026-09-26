@@ -42,7 +42,6 @@ import 'package:pure_live/core/site/huya/huya_transport_policy.dart';
 import 'package:pure_live/player/utils/pip_window_widget.dart';
 import 'package:pure_live/player/core/live_audio_service.dart';
 import 'package:pure_live/common/utils/latest_async_value_queue.dart';
-import 'package:pure_live/player/adapters/media_kit_adapter.dart';
 import 'package:pure_live/player/adapters/player_adapter_factory.dart';
 import 'package:pure_live/player/adapters/media_kit_adapter.dart';
 import 'package:pure_live/player/interface/media_kit_player_accessor.dart';
