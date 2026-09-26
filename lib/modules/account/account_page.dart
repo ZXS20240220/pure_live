@@ -77,7 +77,7 @@ class AccountPage extends GetView<AccountController> {
               final isLogined = cookie.taobaoCookie.v.isNotEmpty;
               return _buildAccountTile(
                 context,
-                logo: 'assets/images/logo.png',
+                logo: 'assets/images/taobao.png',
                 title: i18n('site_taobaolive'),
                 subtitle: isLogined ? i18n('logined') : i18n('set_cookie'),
                 isLogined: isLogined,
