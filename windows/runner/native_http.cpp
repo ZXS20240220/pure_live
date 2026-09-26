@@ -58,7 +58,8 @@ bool NativeHttpIsAllowedKickUrl(const std::string& url) {
   if (!WinHttpCrackUrl(wide.c_str(), 0, 0, &parts)) return false;
   if (parts.nScheme != INTERNET_SCHEME_HTTPS) return false;
   std::wstring host(parts.lpszHostName, parts.dwHostNameLength);
-  std::transform(host.begin(), host.end(), host.begin(), ::towlower);
+  std::transform(host.begin(), host.end(), host.begin(),
+                 [](wchar_t c) { return static_cast<wchar_t>(::towlower(c)); });
   return host == L"kick.com";
 }
 
@@ -85,7 +86,8 @@ NativeHttpResponse NativeHttpGet(
   std::wstring user_agent = L"Mozilla/5.0";
   for (const auto& [name, value] : headers) {
     std::string lower = name;
-    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+    std::transform(lower.begin(), lower.end(), lower.begin(),
+                   [](unsigned char c) { return static_cast<char>(::tolower(c)); });
     if (lower == "user-agent") user_agent = Widen(value);
   }
 
@@ -125,7 +127,8 @@ NativeHttpResponse NativeHttpGet(
   std::wstring header_block;
   for (const auto& [name, value] : headers) {
     std::string lower = name;
-    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+    std::transform(lower.begin(), lower.end(), lower.begin(),
+                   [](unsigned char c) { return static_cast<char>(::tolower(c)); });
     if (lower == "user-agent" || lower == "host" || lower == "content-length" ||
         lower == "connection" || lower == "accept-encoding" ||
         ContainsLineBreak(name) || ContainsLineBreak(value)) {
