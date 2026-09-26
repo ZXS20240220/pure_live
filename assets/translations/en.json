@@ -2336,5 +2336,12 @@
   "langlive_directory_scope": "The first stage accepts an exact Lang Live account or an official main/room URL. The public directory contract is still being verified.",
   "langlive_chat_notice": "Remote Lang Live chat is pending. Concurrent viewers stay unknown when the platform does not provide an explicit count.",
   "langlive_quality_flv": "FLV Live",
-  "langlive_quality_hls": "HLS Live"
+  "langlive_quality_hls": "HLS Live",
+  "douyu_cookie_cleared": "Douyu cookie cleared",
+  "douyu_cookie_guest": "Saved, but there is no acf_jwt_token: this is a guest cookie, so HD/UHD are unavailable",
+  "douyu_cookie_valid": "Session valid until {time}",
+  "douyu_cookie_expired_refreshable": "Session expired at {time}; saved, and the next playback renews it with LTP0",
+  "douyu_cookie_expired": "Session expired at {time} and the cookie has no LTP0: paste a fresh one",
+  "douyu_session_renewable": "Session expired; renewed automatically on playback",
+  "douyu_session_needs_cookie": "Session is no longer valid; tap to paste a new cookie"
 }
