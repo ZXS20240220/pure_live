@@ -1029,8 +1029,8 @@ class _RoomSwitchCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       child: Row(
         children: [
-          CommonAvatar(avatarUrl: room.avatar, fallbackName: nick, radius: 20),
-          const SizedBox(width: 6),
+          CommonAvatar(avatarUrl: room.avatar, fallbackName: nick, radius: 18),
+          const SizedBox(width: 2),
           // 中间两行：主播名 + （历史=观看时间 / 在线=直播间标题），截断时悬浮显示全文。
           Expanded(
             child: Column(

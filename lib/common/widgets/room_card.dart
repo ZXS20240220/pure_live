@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 import 'package:remixicon/remixicon.dart';
-import 'package:pure_live/modules/live_play/services/room_external_opener.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/plugins/cache_manager.dart';
 import 'package:pure_live/routes/app_navigation.dart';
@@ -183,13 +182,65 @@ class RoomCard extends StatelessWidget {
     final TagManagementController tagController = Get.find<TagManagementController>();
     final theme = Theme.of(context);
     final bool isFollowed = SettingsService.to.fav.isFavorite(room);
-    // 观看时长与热度概览（弹窗信息行）。
+    // 观看时长与观众数据概览：全部读取内存/本地存储，不发网络请求。
     final watchSeconds = room.identityKey.isNotEmpty ? WatchTimeService.secondsFor(room.identityKey) : 0;
     final appSettings = SettingsService.to.app;
     final audienceValue = room.audienceValue(
       preferRealOnline: appSettings.preferRealOnlineCounts.v,
       platformEnabled: appSettings.isRealOnlineEnabledFor(room.platform),
     );
+    final title = room.title?.trim() ?? '';
+    final nick = room.nick?.trim() ?? '';
+    final link = room.link?.trim() ?? '';
+    final area = room.area?.trim() ?? '';
+    final followers = room.followers?.trim() ?? '';
+    final anchorLevel = room.anchorLevel?.trim() ?? '';
+    final unionName = room.unionName?.trim() ?? '';
+    final introduction = room.introduction?.trim() ?? '';
+    final notice = room.notice?.trim() ?? '';
+    final roomId = room.roomId?.trim() ?? '';
+    final startTime = room.startTime;
+    final lastWatchedAt = room.lastWatchedAt;
+
+    // 直播状态：文案 + 语义色。
+    final (statusText, statusColor) = switch (room.effectiveLiveStatus) {
+      LiveStatus.live => (i18n('live'), const Color(0xFF43A047)),
+      LiveStatus.replay => (i18n('replay'), const Color(0xFFF57C00)),
+      LiveStatus.banned => (i18n('live_status_banned'), const Color(0xFFE53935)),
+      LiveStatus.offline => (i18n('offline'), theme.colorScheme.onSurfaceVariant),
+      LiveStatus.unknown => (i18n('live_status_unknown'), theme.colorScheme.onSurfaceVariant),
+    };
+
+    // 信息网格：有什么显示什么；每个单元格点击即复制其值。
+    final cells = <Widget>[
+      _RoomInfoCell(label: i18n('live_status'), value: statusText, valueColor: statusColor),
+      if (audienceValue.isNotEmpty)
+        _RoomInfoCell(label: i18n(room.audienceMetricI18nKey), value: readableCount(audienceValue)),
+      if (LiveRoom.parseAudienceNumber(followers) > 0)
+        _RoomInfoCell(label: i18n('fans_count'), value: readableCount(followers)),
+      if (area.isNotEmpty) _RoomInfoCell(label: i18n('room_area'), value: area),
+      if (startTime != null && startTime > 0)
+        _RoomInfoCell(label: i18n('live_start_time'), value: _formatTimestamp(startTime * 1000)),
+      if (anchorLevel.isNotEmpty && anchorLevel != '0')
+        _RoomInfoCell(label: i18n('anchor_level'), value: 'Lv.$anchorLevel'),
+      if (unionName.isNotEmpty) _RoomInfoCell(label: i18n('union_name'), value: unionName),
+      if (lastWatchedAt != null && lastWatchedAt > 0)
+        _RoomInfoCell(label: i18n('last_watched'), value: _formatTimestamp(lastWatchedAt)),
+      if (watchSeconds > 0)
+        _RoomInfoCell(label: i18n('watch_time_total'), value: WatchTimeService.formatCompact(watchSeconds)),
+      if (roomId.isNotEmpty) _RoomInfoCell(label: i18n('room_id'), value: roomId),
+    ];
+    final infoRows = <Widget>[];
+    for (var i = 0; i < cells.length; i += 2) {
+      infoRows.add(
+        Row(
+          children: [
+            Expanded(child: cells[i]),
+            if (i + 1 < cells.length) Expanded(child: cells[i + 1]) else const Spacer(),
+          ],
+        ),
+      );
+    }
 
     Get.dialog(
       AlertDialog(
@@ -208,15 +259,30 @@ class RoomCard extends StatelessWidget {
                 color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
                 shape: BoxShape.circle,
               ),
-              child: Image.asset(Sites.of(room.platform!).logo, width: 28, height: 28),
+              child: Tooltip(
+                message: Sites.of(room.platform!).name,
+                waitDuration: const Duration(milliseconds: 400),
+                child: Image.asset(Sites.of(room.platform!).logo, width: 28, height: 28),
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                room.nick ?? '',
-                style: AppTextStyles.t16.copyWith(fontWeight: FontWeight.w700, letterSpacing: 0.3),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              child: Tooltip(
+                message: nick,
+                waitDuration: const Duration(milliseconds: 400),
+                child: InkWell(
+                  onTap: () => _copyText(context, nick),
+                  borderRadius: BorderRadius.circular(6),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Text(
+                      nick,
+                      style: AppTextStyles.t16.copyWith(fontWeight: FontWeight.w700, letterSpacing: 0.3),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
               ),
             ),
 
@@ -265,83 +331,60 @@ class RoomCard extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: theme.dividerColor.withValues(alpha: 0.04), width: 0.8),
-                ),
-                child: Text(
-                  room.title ?? '',
-                  style: AppTextStyles.t14.copyWith(
-                    color: theme.colorScheme.onSurface,
-                    fontWeight: FontWeight.w500,
-                    height: 1.45,
+              if (title.isNotEmpty) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: Material(
+                    color: theme.colorScheme.surfaceContainerLow,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.04), width: 0.8),
+                    ),
+                    child: InkWell(
+                      onTap: () => _copyText(context, title),
+                      borderRadius: BorderRadius.circular(16),
+                      child: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(
+                                text: '${i18n('title_label')}：',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              TextSpan(
+                                text: title,
+                                style: AppTextStyles.t14.copyWith(
+                                  color: theme.colorScheme.onSurface,
+                                  fontWeight: FontWeight.w500,
+                                  height: 1.45,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 14),
-              // 观看时长（行首）与热度（行尾）概览行，样式与房间号行一致。
-              Padding(
-                padding: const EdgeInsets.only(left: 4, right: 4),
-                child: Row(
-                  children: [
-                    Text(
-                      '${i18n('watch_time_total')}：${watchSeconds > 0 ? WatchTimeService.formatCompact(watchSeconds) : '-'}',
-                      style: AppTextStyles.t11.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      '热度：${audienceValue.isEmpty ? '-' : readableCount(audienceValue)}',
-                      style: AppTextStyles.t11.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ],
+                const SizedBox(height: 10),
+              ],
+              if (introduction.isNotEmpty) _RoomInfoParagraph(label: i18n('introduction'), text: introduction),
+              if (notice.isNotEmpty) _RoomInfoParagraph(label: i18n('notice'), text: notice),
+              if (introduction.isNotEmpty || notice.isNotEmpty) const SizedBox(height: 6),
+              // 信息网格：每行两列，单元格点击即复制。
+              ...infoRows,
+              if (link.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: _RoomInfoCell(label: i18n('web_link'), value: link),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.only(left: 4),
-                child: Row(
-                  children: [
-                    Text(
-                      i18n('room_id_label', args: {"id": ?room.roomId}),
-                      style: AppTextStyles.t11.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      tooltip: i18n('copy_link'),
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                      padding: EdgeInsets.zero,
-                      iconSize: 16,
-                      icon: Icon(
-                        Icons.content_copy_rounded,
-                        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                      ),
-                      onPressed: () async {
-                        final target = RoomExternalOpener.resolve(room.platform ?? '', room);
-                        final url = target?.web ?? room.link?.trim() ?? room.roomId?.trim() ?? '';
-                        if (url.isEmpty) return;
-                        await Clipboard.setData(ClipboardData(text: url));
-                        ToastUtil.show(i18n('copied_to_clipboard'));
-                      },
-                    ),
-                  ],
-                ),
-              ),
             ],
           ),
         ),
@@ -361,6 +404,19 @@ class RoomCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// 点哪复制哪：复制任意信息并提示，不关闭弹窗。
+  static Future<void> _copyText(BuildContext context, String text) async {
+    await Clipboard.setData(ClipboardData(text: text));
+    ToastUtil.show(i18n('copied_to_clipboard'));
+  }
+
+  /// 毫秒时间戳 → yyyy-MM-dd HH:mm（本地时区）。
+  static String _formatTimestamp(int millisecondsSinceEpoch) {
+    final dt = DateTime.fromMillisecondsSinceEpoch(millisecondsSinceEpoch).toLocal();
+    String two(int value) => value.toString().padLeft(2, '0');
+    return '${dt.year}-${two(dt.month)}-${two(dt.day)} ${two(dt.hour)}:${two(dt.minute)}';
   }
 
   /// 打开房间标签选择弹窗（开发版 3.2：进入时自动选中该房间已有标签）。
@@ -1331,6 +1387,100 @@ class CoverMetricBadge extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 房间信息弹窗的两列信息单元格：label：value，点击即复制 value。
+class _RoomInfoCell extends StatelessWidget {
+  const _RoomInfoCell({required this.label, required this.value, this.valueColor});
+
+  final String label;
+  final String value;
+  final Color? valueColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final labelStyle = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+      fontWeight: FontWeight.w600,
+    );
+    final valueStyle = theme.textTheme.bodySmall?.copyWith(
+      color: valueColor ?? theme.colorScheme.onSurface,
+      fontWeight: FontWeight.w700,
+    );
+    return InkWell(
+      onTap: () => RoomCard._copyText(context, value),
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
+        child: Tooltip(
+          message: value,
+          waitDuration: const Duration(milliseconds: 400),
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(text: '$label：', style: labelStyle),
+                TextSpan(text: value, style: valueStyle),
+              ],
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.fade,
+            softWrap: false,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 房间信息弹窗的介绍/公告段落：完整文本块，点击即复制全文。
+class _RoomInfoParagraph extends StatelessWidget {
+  const _RoomInfoParagraph({required this.label, required this.text});
+
+  final String label;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SizedBox(
+      width: double.infinity,
+      child: Material(
+        color: theme.colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: () => RoomCard._copyText(context, text),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Tooltip(
+              message: text,
+              waitDuration: const Duration(milliseconds: 400),
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: '$label：',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    TextSpan(
+                      text: text,
+                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface, height: 1.45),
+                    ),
+                  ],
+                ),
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ),
         ),
       ),
