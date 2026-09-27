@@ -6,6 +6,12 @@ import 'package:pure_live/modules/live_play/controllers/live_play_controller.dar
 class DanmakuMessageActions {
   DanmakuMessageActions._();
 
+  /// 复制弹幕信息并提示；不关闭弹窗，便于连续复制多项
+  static Future<void> copyText(BuildContext context, String text) async {
+    await Clipboard.setData(ClipboardData(text: text));
+    ToastUtil.show(i18n('copied_to_clipboard'));
+  }
+
   static Future<void> show(BuildContext context, LiveMessage message) async {
     await showModalBottomSheet<void>(
       context: context,
@@ -90,6 +96,10 @@ class _DanmakuInfoCard extends StatelessWidget {
     final showSentAt = message.sentAt != null;
     final showRepeat = message.repeatCount >= 2;
     final colorSwatch = Color.fromARGB(255, message.color.r, message.color.g, message.color.b);
+    final colorHex =
+        '#${message.color.r.toRadixString(16).padLeft(2, '0')}'
+        '${message.color.g.toRadixString(16).padLeft(2, '0')}'
+        '${message.color.b.toRadixString(16).padLeft(2, '0')}';
     final isWhite = message.color.r == 255 && message.color.g == 255 && message.color.b == 255;
 
     return Container(
@@ -106,14 +116,21 @@ class _DanmakuInfoCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(
-                  message.userName,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: theme.colorScheme.onPrimaryContainer,
+                child: InkWell(
+                  onTap: () => DanmakuMessageActions.copyText(context, message.userName),
+                  borderRadius: BorderRadius.circular(6),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Text(
+                      message.userName,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: theme.colorScheme.onPrimaryContainer,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (message.isLocal)
@@ -135,16 +152,22 @@ class _DanmakuInfoCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 6),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surface.withValues(alpha: 0.6),
+          Material(
+            color: theme.colorScheme.surface.withValues(alpha: 0.6),
+            borderRadius: BorderRadius.circular(8),
+            child: InkWell(
+              onTap: () => DanmakuMessageActions.copyText(context, message.message),
               borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              message.message,
-              style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface, height: 1.5),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: Text(
+                    message.message,
+                    style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface, height: 1.5),
+                  ),
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 8),
@@ -157,29 +180,38 @@ class _DanmakuInfoCard extends StatelessWidget {
                   icon: Icons.badge_outlined,
                   label: 'Lv.${message.userLevel}',
                   color: theme.colorScheme.primary,
+                  onTap: () => DanmakuMessageActions.copyText(context, 'Lv.${message.userLevel}'),
                 ),
               if (showFans)
                 _InfoChip(
                   icon: Icons.shield_outlined,
                   label: [if (showFansName) message.fansName, if (showFansLevel) 'Lv.${message.fansLevel}'].join(' '),
                   color: theme.colorScheme.tertiary,
+                  onTap: () => DanmakuMessageActions.copyText(
+                    context,
+                    [if (showFansName) message.fansName, if (showFansLevel) 'Lv.${message.fansLevel}'].join(' '),
+                  ),
                 ),
               if (showUserId)
-                _InfoChip(icon: Icons.person_outline, label: message.userId, color: theme.colorScheme.secondary),
+                _InfoChip(
+                  icon: Icons.person_outline,
+                  label: message.userId,
+                  color: theme.colorScheme.secondary,
+                  onTap: () => DanmakuMessageActions.copyText(context, message.userId),
+                ),
               if (!isWhite)
                 _InfoChip(
                   icon: Icons.palette_outlined,
-                  label:
-                      '#${message.color.r.toRadixString(16).padLeft(2, '0')}'
-                      '${message.color.g.toRadixString(16).padLeft(2, '0')}'
-                      '${message.color.b.toRadixString(16).padLeft(2, '0')}',
+                  label: colorHex,
                   color: colorSwatch,
+                  onTap: () => DanmakuMessageActions.copyText(context, colorHex),
                 ),
               if (showSentAt)
                 _InfoChip(
                   icon: Icons.schedule_outlined,
                   label: _formatSentAt(message.sentAt!),
                   color: theme.colorScheme.outline,
+                  onTap: () => DanmakuMessageActions.copyText(context, _formatSentAt(message.sentAt!)),
                 ),
               if (showRepeat)
                 _InfoChip(
@@ -187,9 +219,15 @@ class _DanmakuInfoCard extends StatelessWidget {
                   label: '聚合 ×${message.repeatCount}',
                   color: theme.colorScheme.secondaryContainer,
                   foregroundColor: theme.colorScheme.onSecondaryContainer,
+                  onTap: () => DanmakuMessageActions.copyText(context, '聚合 ×${message.repeatCount}'),
                 ),
               if (message.type != LiveMessageType.chat)
-                _InfoChip(icon: Icons.label_outline, label: _typeLabel(message.type), color: theme.colorScheme.outline),
+                _InfoChip(
+                  icon: Icons.label_outline,
+                  label: _typeLabel(message.type),
+                  color: theme.colorScheme.outline,
+                  onTap: () => DanmakuMessageActions.copyText(context, _typeLabel(message.type)),
+                ),
             ],
           ),
         ],
@@ -223,32 +261,41 @@ class _DanmakuInfoCard extends StatelessWidget {
 }
 
 class _InfoChip extends StatelessWidget {
-  const _InfoChip({required this.icon, required this.label, required this.color, this.foregroundColor});
+  const _InfoChip({required this.icon, required this.label, required this.color, this.foregroundColor, this.onTap});
   final IconData icon;
   final String label;
   final Color color;
   final Color? foregroundColor;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final textColor = foregroundColor ?? (color.computeLuminance() > 0.55 ? Colors.black : Colors.white);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.85), borderRadius: BorderRadius.circular(6)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 13, color: textColor),
-          const SizedBox(width: 4),
-          Flexible(
-            child: Text(
-              label,
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textColor, height: 1.2),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+    final borderRadius = BorderRadius.circular(6);
+    return Material(
+      color: color.withValues(alpha: 0.85),
+      borderRadius: borderRadius,
+      child: InkWell(
+        borderRadius: borderRadius,
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 13, color: textColor),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  label,
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textColor, height: 1.2),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
