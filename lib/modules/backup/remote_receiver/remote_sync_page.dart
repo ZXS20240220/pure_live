@@ -67,7 +67,9 @@ class _RemoteSyncPageState extends State<RemoteSyncPage> {
     final settings = service.pendingReceivedSettings.value;
     if (settings == null) return;
 
-    Get.to(() => RemoteSyncPreviewPage(ip: ip, port: port, settings: settings));
+    // 由对方主动推送进入：对方的配对码未知，若在预览页选择"返回配置给对方"
+    // 会在那时再弹窗索取。
+    Get.to(() => RemoteSyncPreviewPage(ip: ip, port: port, code: '', settings: settings));
   }
 
   @override
@@ -77,8 +79,40 @@ class _RemoteSyncPageState extends State<RemoteSyncPage> {
     super.dispose();
   }
 
-  Future<void> _sendToDevice(String ip, int port) async {
-    final success = await service.syncToAddress(ip, port);
+  /// 弹窗输入对方设备上显示的 6 位配对码，取消返回 null。
+  Future<String?> _askPairingCode() async {
+    final controller = TextEditingController();
+
+    final code = await Get.dialog<String>(
+      AlertDialog(
+        title: Text(i18n('remote_sync_pairing_code')),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          maxLength: RemoteSyncProtocol.pairingCodeLength,
+          decoration: InputDecoration(hintText: i18n('remote_sync_pairing_code_hint')),
+          onSubmitted: (value) => Navigator.of(context).pop(value),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(i18n('cancel'))),
+          FilledButton(onPressed: () => Navigator.of(context).pop(controller.text), child: Text(i18n('confirm'))),
+        ],
+      ),
+    );
+
+    final normalized = RemoteSyncProtocol.normalizePairingCode(code);
+
+    if (normalized.length != RemoteSyncProtocol.pairingCodeLength) {
+      ToastUtil.show(i18n('remote_sync_pairing_code_invalid'));
+      return null;
+    }
+
+    return normalized;
+  }
+
+  Future<void> _sendToDevice(String ip, int port, String code) async {
+    final success = await service.syncToAddress(ip, port, code);
 
     if (!mounted) {
       return;
@@ -87,17 +121,36 @@ class _RemoteSyncPageState extends State<RemoteSyncPage> {
     ToastUtil.show(success ? i18n('remote_sync_send_success') : i18n('remote_sync_send_failed'));
   }
 
-  /// 选择性同步入口：拉取对方完整配置并打开双模式预览页
+  /// 选择性同步入口：携带对方配对码拉取完整配置并打开双模式预览页
   /// （应用到本地 / 返回配置给对方）。
-  Future<void> _openSyncPreview(String ip, int port) async {
-    final settings = await service.getRemoteSettings(ip, port);
+  Future<void> _openSyncPreview(String ip, int port, String code) async {
+    final settings = await service.getRemoteSettings(ip, port, code);
 
     if (settings == null) {
       ToastUtil.show(i18n('remote_sync_receive_failed'));
       return;
     }
 
-    Get.to(() => RemoteSyncPreviewPage(ip: ip, port: port, settings: settings));
+    Get.to(() => RemoteSyncPreviewPage(ip: ip, port: port, code: code, settings: settings));
+  }
+
+  /// 连接前确认已持有对方配对码：二维码可能自带，否则弹窗索取。
+  /// 用户取消返回 false。
+  Future<bool> _ensureCodeThen(Future<void> Function(String code) action, {String? code}) async {
+    var pairing = RemoteSyncProtocol.normalizePairingCode(code);
+
+    if (pairing.length != RemoteSyncProtocol.pairingCodeLength) {
+      final entered = await _askPairingCode();
+
+      if (entered == null) {
+        return false;
+      }
+
+      pairing = entered;
+    }
+
+    await action(pairing);
+    return true;
   }
 
   Future<void> _sendManual() async {
@@ -108,29 +161,28 @@ class _RemoteSyncPageState extends State<RemoteSyncPage> {
       return;
     }
 
-    final parsed = RemoteSyncService.to;
+    final address = RemoteSyncProtocol.parseHttpAddress(value);
 
-    final success = await parsed.syncByAddress(value);
-
-    if (!mounted) {
-      return;
-    }
-
-    ToastUtil.show(success ? i18n('remote_sync_send_success') : i18n('remote_sync_send_failed'));
-  }
-
-  /// 手动地址的选择性同步：解析输入的 ip:port 后打开预览页。
-  Future<void> _selectiveSyncManual() async {
-    final value = addressController.text.trim();
-
-    final parsed = RemoteSyncProtocol.parseHttpAddress(value);
-
-    if (parsed == null) {
+    if (address == null) {
       ToastUtil.show(i18n('remote_sync_invalid_address'));
       return;
     }
 
-    await _openSyncPreview(parsed.ip, parsed.port);
+    await _ensureCodeThen((code) => _sendToDevice(address.ip, address.port, code));
+  }
+
+  /// 手动地址的选择性同步：解析输入的 ip:port，索取配对码后打开预览页。
+  Future<void> _selectiveSyncManual() async {
+    final value = addressController.text.trim();
+
+    final address = RemoteSyncProtocol.parseHttpAddress(value);
+
+    if (address == null) {
+      ToastUtil.show(i18n('remote_sync_invalid_address'));
+      return;
+    }
+
+    await _ensureCodeThen((code) => _openSyncPreview(address.ip, address.port, code));
   }
 
   Future<void> _scanQr() async {
@@ -163,9 +215,9 @@ class _RemoteSyncPageState extends State<RemoteSyncPage> {
     );
 
     if (action == 'send') {
-      await _sendToDevice(parsed.ip, parsed.port);
+      await _ensureCodeThen((code) => _sendToDevice(parsed.ip, parsed.port, code), code: parsed.code);
     } else if (action == 'receive') {
-      await _openSyncPreview(parsed.ip, parsed.port);
+      await _ensureCodeThen((code) => _openSyncPreview(parsed.ip, parsed.port, code), code: parsed.code);
     }
   }
 
@@ -225,7 +277,32 @@ class _RemoteSyncPageState extends State<RemoteSyncPage> {
             ),
             const SizedBox(height: 8),
             Text(i18n('remote_sync_scan_hint'), textAlign: TextAlign.center),
+            if (service.pairingCode.value.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Text(i18n('remote_sync_pairing_code'), style: const TextStyle(fontSize: 14)),
+              const SizedBox(height: 4),
+              SelectableText(
+                service.pairingCode.value,
+                style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 6),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  i18n('remote_sync_pairing_code_hint'),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
+            SwitchListTile(
+              value: service.includeAccounts.value,
+              onChanged: (value) => service.includeAccounts.value = value,
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              title: Text(i18n('remote_sync_include_accounts')),
+              subtitle: Text(i18n('remote_sync_include_accounts_hint')),
+            ),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -302,7 +379,9 @@ class _RemoteSyncPageState extends State<RemoteSyncPage> {
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: service.isSyncing.value ? null : () => _openSyncPreview(device.ip, device.port),
+                      onPressed: service.isSyncing.value
+                          ? null
+                          : () => _ensureCodeThen((code) => _openSyncPreview(device.ip, device.port, code)),
                       icon: const Icon(Icons.download),
                       label: Text(i18n('remote_sync_receive')),
                     ),
@@ -310,7 +389,9 @@ class _RemoteSyncPageState extends State<RemoteSyncPage> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: FilledButton.icon(
-                      onPressed: service.isSyncing.value ? null : () => _sendToDevice(device.ip, device.port),
+                      onPressed: service.isSyncing.value
+                          ? null
+                          : () => _ensureCodeThen((code) => _sendToDevice(device.ip, device.port, code)),
                       icon: const Icon(Icons.upload),
                       label: Text(i18n('remote_sync_send')),
                     ),
@@ -323,7 +404,9 @@ class _RemoteSyncPageState extends State<RemoteSyncPage> {
                 child: SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed: service.isSyncing.value ? null : () => _openSyncPreview(device.ip, device.port),
+                    onPressed: service.isSyncing.value
+                        ? null
+                        : () => _ensureCodeThen((code) => _openSyncPreview(device.ip, device.port, code)),
                     icon: const Icon(Icons.tune),
                     label: const Text('选择性同步'),
                   ),

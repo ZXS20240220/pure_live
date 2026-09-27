@@ -1,3 +1,5 @@
+import 'dart:math';
+
 class RemoteSyncProtocol {
   static const int defaultHttpPort = 39888;
   static const int discoveryPort = 39889;
@@ -8,8 +10,32 @@ class RemoteSyncProtocol {
   static const String apiStatus = '/api/remote-sync/status';
   static const String apiSettings = '/api/remote-sync/settings';
 
-  static Uri createQrUri({required String ip, required int port}) {
-    return Uri(scheme: 'purelive', host: ip, port: port, path: '/sync');
+  /// 每个设置请求必须携带对方屏幕上显示的配对码，否则目标设备返回 403。
+  /// 设置中可能包含登录 Cookie，因此"同处一个局域网"不能构成授权。
+  static const String pairingHeader = 'x-purelive-pairing';
+  static const int pairingCodeLength = 6;
+
+  static String newPairingCode([Random? random]) {
+    final generator = random ?? Random.secure();
+    return List.generate(pairingCodeLength, (_) => generator.nextInt(10)).join();
+  }
+
+  static String normalizePairingCode(String? value) => (value ?? '').replaceAll(RegExp(r'\s'), '');
+
+  /// 常量时间比较，避免响应耗时差异泄露配对码。
+  static bool pairingCodesMatch(String? expected, String? provided) {
+    final a = normalizePairingCode(expected);
+    final b = normalizePairingCode(provided);
+    if (a.length != pairingCodeLength || b.length != a.length) return false;
+    var diff = 0;
+    for (var i = 0; i < a.length; i++) {
+      diff |= a.codeUnitAt(i) ^ b.codeUnitAt(i);
+    }
+    return diff == 0;
+  }
+
+  static Uri createQrUri({required String ip, required int port, required String code}) {
+    return Uri(scheme: 'purelive', host: ip, port: port, path: '/sync', queryParameters: {'code': code});
   }
 
   static Map<String, dynamic> discoveryPacket({
@@ -35,59 +61,43 @@ class RemoteSyncProtocol {
     return {'type': syncType, 'version': 1, 'settings': settings};
   }
 
+  /// 解析手动输入的地址。裸 "host" / "host:port" 会补 http:// 前缀，
+  /// 仅接受 IPv4 地址或主机名，端口缺省时回落到同步服务默认端口而不是 80。
   static ({String ip, int port})? parseHttpAddress(String value) {
-    var text = value.trim();
-
-    if (text.isEmpty) {
-      return null;
-    }
-
+    final text = value.trim();
+    if (text.isEmpty) return null;
     if (!text.startsWith('http://') && !text.startsWith('https://')) {
-      text = 'http://$text';
+      final prefixed = 'http://$text';
+      return _parseUriAddress(prefixed);
     }
+    return _parseUriAddress(text);
+  }
 
+  static ({String ip, int port})? _parseUriAddress(String text) {
     try {
       final uri = Uri.parse(text);
-
       final host = uri.host.trim();
-
-      if (host.isEmpty) {
-        return null;
-      }
-
-      final port = uri.hasPort ? uri.port : 80;
-
-      if (port < 1 || port > 65535) {
-        return null;
-      }
-
+      // 仅允许 IPv4 地址与主机名，避免把任意文本当成地址。
+      if (!RegExp(r'^[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?$').hasMatch(host)) return null;
+      final port = uri.hasPort ? uri.port : defaultHttpPort;
+      if (port < 1 || port > 65535) return null;
       return (ip: host, port: port);
     } catch (_) {
       return null;
     }
   }
 
-  static ({String ip, int port})? parseQr(String value) {
+  /// 解析同步二维码。纯地址二维码的配对码为 null，需要另行向用户索取。
+  static ({String ip, int port, String? code})? parseQr(String value) {
     final text = value.trim();
-
-    if (text.isEmpty) {
-      return null;
+    if (text.isEmpty) return null;
+    if (text.startsWith('purelive:')) {
+      final uri = Uri.tryParse(text);
+      if (uri == null || uri.host.isEmpty || !uri.hasPort) return null;
+      final code = normalizePairingCode(uri.queryParameters['code']);
+      return (ip: uri.host, port: uri.port, code: code.length == pairingCodeLength ? code : null);
     }
-
-    try {
-      final uri = Uri.parse(text);
-
-      if (uri.scheme == 'purelive') {
-        if (uri.host.isEmpty || !uri.hasPort) {
-          return null;
-        }
-
-        return (ip: uri.host, port: uri.port);
-      }
-
-      return parseHttpAddress(text);
-    } catch (_) {
-      return null;
-    }
+    final address = parseHttpAddress(text);
+    return address == null ? null : (ip: address.ip, port: address.port, code: null);
   }
 }
