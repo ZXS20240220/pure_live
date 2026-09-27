@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:async';
+
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/plugins/file_utils.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -7,6 +8,7 @@ import 'package:pure_live/common/global/initialized.dart';
 import 'package:material_ui/material_ui.dart' as material;
 import 'package:pure_live/routes/navigation_observer.dart';
 import 'package:pure_live/player/models/player_engine.dart';
+import 'package:pure_live/player/utils/popup_route_tracker.dart';
 import 'package:pure_live/common/global/platform_utils.dart';
 import 'package:pure_live/routes/route_observer_controller.dart';
 import 'package:pure_live/common/utils/shared_media_intake.dart';
@@ -188,7 +190,7 @@ class _MyAppState extends State<MyApp> with DesktopWindowMixin {
               pageTransitionsTheme: appPageTransitionsTheme,
             ),
             locale: context.locale,
-            navigatorObservers: [FlutterSmartDialog.observer, LiveRouteObserver()],
+            navigatorObservers: [FlutterSmartDialog.observer, LiveRouteObserver(), PopupRouteTracker.instance],
             builder: FlutterSmartDialog.init(
               builder: (context, child) {
                 Widget resultWidget = child ?? const SizedBox.shrink();
