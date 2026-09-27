@@ -345,25 +345,31 @@ class RoomCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(16),
                       child: Padding(
                         padding: const EdgeInsets.all(14),
-                        child: Text.rich(
-                          TextSpan(
-                            children: [
-                              TextSpan(
-                                text: '${i18n('title_label')}：',
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-                                  fontWeight: FontWeight.w700,
+                        child: Tooltip(
+                          message: title,
+                          waitDuration: const Duration(milliseconds: 400),
+                          child: Text.rich(
+                            TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: '${i18n('title_label')}：',
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
-                              ),
-                              TextSpan(
-                                text: title,
-                                style: AppTextStyles.t14.copyWith(
-                                  color: theme.colorScheme.onSurface,
-                                  fontWeight: FontWeight.w500,
-                                  height: 1.45,
+                                TextSpan(
+                                  text: title,
+                                  style: AppTextStyles.t14.copyWith(
+                                    color: theme.colorScheme.onSurface,
+                                    fontWeight: FontWeight.w500,
+                                    height: 1.45,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ),

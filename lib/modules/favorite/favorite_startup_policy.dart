@@ -79,7 +79,10 @@ LiveRoom bindFavoriteRefreshResultToRequest(LiveRoom requested, LiveRoom refresh
         final updated = updates[favoriteRoomIdentity(previous)];
         if (updated == null) return previous;
         changed = true;
-        return updated.copyWith(tagIds: List<String>.from(previous.tagIds)).withAudienceFallbackFrom(previous);
+        return updated
+            .copyWith(tagIds: List<String>.from(previous.tagIds))
+            .withAudienceFallbackFrom(previous)
+            .withMetadataFallbackFrom(previous);
       })
       .toList(growable: false);
   return (rooms: rooms, changed: changed);
@@ -118,7 +121,10 @@ List<LiveRoom> buildVerifiedFavoriteSnapshot(Iterable<LiveRoom> currentRooms, Ma
         changed = true;
         final updated = successfulUpdates[key];
         if (updated != null) {
-          return updated.copyWith(tagIds: List<String>.from(previous.tagIds)).withAudienceFallbackFrom(previous);
+          return updated
+              .copyWith(tagIds: List<String>.from(previous.tagIds))
+              .withAudienceFallbackFrom(previous)
+              .withMetadataFallbackFrom(previous);
         }
         return previous.copyWith(status: false, liveStatus: LiveStatus.unknown);
       })

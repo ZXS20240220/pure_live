@@ -462,7 +462,11 @@ class LiveRoom {
       catchUpDays = _finiteDoubleFromJson(json['catchUpDays']),
       catchUpCorrectionHours = _finiteDoubleFromJson(json['catchUpCorrectionHours']),
       httpHeaders = HttpHeaderPolicy.normalize(json['httpHeaders'] is Map ? json['httpHeaders'] as Map : null),
-      lastWatchedAt = json['lastWatchedAt'] is num ? (json['lastWatchedAt'] as num).toInt() : null {
+      lastWatchedAt = json['lastWatchedAt'] is num ? (json['lastWatchedAt'] as num).toInt() : null,
+      anchorLevel = json['anchorLevel']?.toString(),
+      unionName = json['unionName']?.toString(),
+      startTime = json['startTime'] is num ? (json['startTime'] as num).toInt() : null,
+      location = json['location']?.toString() {
     // Earlier builds stored Huya's userCount/URI 8006 popularity in the
     // concurrent-viewer field. Current captures confirm both are popularity.
     if (normalizedPlatformId == 'huya' && _hasExplicitAudienceValue(onlineViewers)) {
@@ -641,6 +645,7 @@ class LiveRoom {
     return <String, dynamic>{
       'roomId': roomId,
       'userId': userId,
+      'link': link,
       'title': title,
       'nick': nick,
       'avatar': avatar,
@@ -850,6 +855,33 @@ class LiveRoom {
       onlineViewers: mergedOnlineViewers,
       totalViewers: mergedTotalViewers,
       audienceMetricType: mergedMetricType,
+    );
+  }
+
+  /// 权威刷新整体替换快照后的元数据回退：轻量响应未携带（空）的字段
+  /// 保留旧值，与 mergeFrom"空表示本次未知，不清空"的语义一致。
+  /// 观众数字段的回退由 [withAudienceFallbackFrom] 负责。
+  LiveRoom withMetadataFallbackFrom(LiveRoom fallback) {
+    if (!hasSameIdentity(fallback)) return this;
+
+    String? prefer(String? incoming, String? current) =>
+        incoming == null || incoming.trim().isEmpty ? current : incoming;
+
+    return copyWith(
+      userId: prefer(userId, fallback.userId),
+      link: prefer(link, fallback.link),
+      title: prefer(title, fallback.title),
+      nick: prefer(nick, fallback.nick),
+      avatar: prefer(avatar, fallback.avatar),
+      cover: prefer(cover, fallback.cover),
+      area: prefer(area, fallback.area),
+      followers: prefer(followers, fallback.followers),
+      introduction: prefer(introduction, fallback.introduction),
+      notice: prefer(notice, fallback.notice),
+      anchorLevel: prefer(anchorLevel, fallback.anchorLevel),
+      unionName: prefer(unionName, fallback.unionName),
+      startTime: startTime ?? fallback.startTime,
+      location: prefer(location, fallback.location),
     );
   }
 
