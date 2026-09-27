@@ -160,8 +160,8 @@ class RoomCardCompact extends StatelessWidget {
                         child: Tooltip(
                           message: i18n('favorite_pinned_badge'),
                           child: Container(
-                            width: 20,
-                            height: 20,
+                            width: 18,
+                            height: 18,
                             decoration: BoxDecoration(
                               color: Theme.of(context).colorScheme.primary,
                               borderRadius: BorderRadius.circular(6),
@@ -169,7 +169,7 @@ class RoomCardCompact extends StatelessWidget {
                             child: Icon(
                               RemixIcons.pushpin_fill,
                               color: Theme.of(context).colorScheme.onPrimary,
-                              size: 12,
+                              size: 10,
                             ),
                           ),
                         ),

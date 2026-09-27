@@ -526,9 +526,9 @@ class _PlayOtherPanelState extends State<PlayOtherPanel> with SingleTickerProvid
                 final availableWidth = constraints.maxWidth - padding * 2;
                 // 紧凑列表：宽度够时可多列（每列下限约 280px，与关注页一致）。
                 // 标准卡片：卡片最大宽度 280px，随侧栏宽度自动增加列数。
-                const maxStandardCardWidth = 160.0;
+                const maxStandardCardWidth = 170.0;
                 final columns = isCompact
-                    ? (availableWidth >= 1000 ? 4 : (availableWidth >= 700 ? 3 : (availableWidth >= 400 ? 2 : 1)))
+                    ? (availableWidth >= 944 ? 4 : (availableWidth >= 644 ? 3 : (availableWidth >= 344 ? 2 : 1)))
                     : (availableWidth + spacing) ~/ (maxStandardCardWidth + spacing).clamp(1, 1 << 31);
                 final effectiveColumns = columns.clamp(1, 5);
                 final double cardHeight;
@@ -830,7 +830,7 @@ class _RoomSwitchCard extends StatelessWidget {
   });
 
   /// 紧凑列表布局下的固定卡片高度（大头像 + 两行文字）。
-  static const double compactHeight = 54.0;
+  static const double compactHeight = 46.0;
 
   final LiveRoom room;
   final bool history;
@@ -990,7 +990,7 @@ class _RoomSwitchCard extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.fade,
               softWrap: false,
-              style: theme.textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant, height: 1.1),
+              style: theme.textTheme.bodySmall?.copyWith(fontSize: 11, color: colors.onSurfaceVariant, height: 1.1),
             ),
           )
         : Tooltip(
@@ -1013,10 +1013,10 @@ class _RoomSwitchCard extends StatelessWidget {
           Tooltip(
             message: i18n('favorite_pinned_badge'),
             child: Container(
-              width: 20,
-              height: 20,
+              width: 18,
+              height: 18,
               decoration: BoxDecoration(color: colors.primary, borderRadius: BorderRadius.circular(6)),
-              child: Icon(RemixIcons.pushpin_fill, color: colors.onPrimary, size: 12),
+              child: Icon(RemixIcons.pushpin_fill, color: colors.onPrimary, size: 10),
             ),
           ),
           const SizedBox(width: 4),
@@ -1026,10 +1026,10 @@ class _RoomSwitchCard extends StatelessWidget {
     );
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       child: Row(
         children: [
-          CommonAvatar(avatarUrl: room.avatar, fallbackName: nick, radius: 22),
+          CommonAvatar(avatarUrl: room.avatar, fallbackName: nick, radius: 20),
           const SizedBox(width: 6),
           // 中间两行：主播名 + （历史=观看时间 / 在线=直播间标题），截断时悬浮显示全文。
           Expanded(
@@ -1046,7 +1046,7 @@ class _RoomSwitchCard extends StatelessWidget {
                     overflow: TextOverflow.fade,
                     softWrap: false,
                     style: theme.textTheme.bodyLarge?.copyWith(
-                      fontSize: 13,
+                      fontSize: 11,
                       fontWeight: FontWeight.w700,
                       color: colors.onSurface,
                       height: 1.15,
@@ -1099,7 +1099,7 @@ class _RoomSwitchCard extends StatelessWidget {
                     overflow: TextOverflow.fade,
                     softWrap: false,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 11,
                       fontWeight: FontWeight.w700,
                       color: Colors.orange.shade500,
                       height: 1.1,
@@ -1181,8 +1181,8 @@ class _RoomSwitchCover extends StatelessWidget {
             child: Tooltip(
               message: i18n('favorite_pinned_badge'),
               child: Container(
-                width: 24,
-                height: 24,
+                width: 22,
+                height: 22,
                 decoration: BoxDecoration(
                   color: colors.primary,
                   borderRadius: BorderRadius.circular(6),
@@ -1190,7 +1190,7 @@ class _RoomSwitchCover extends StatelessWidget {
                     BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 4, offset: const Offset(0, 1)),
                   ],
                 ),
-                child: Icon(RemixIcons.pushpin_fill, color: colors.onPrimary, size: 16),
+                child: Icon(RemixIcons.pushpin_fill, color: colors.onPrimary, size: 14),
               ),
             ),
           ),

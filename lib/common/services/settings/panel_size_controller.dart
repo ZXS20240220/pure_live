@@ -6,7 +6,7 @@ class PanelSizeController extends GetxController {
 
   static const double kDefaultPanelWidth = 380.0;
   static const double kMinPanelWidth = 335.0;
-  static const double kMaxPanelRatio = 0.5;
+  static const double kMaxPanelRatio = 0.66;
 
   static const double kDefaultImmersiveOpacity = 0.92;
   static const double kMinImmersiveOpacity = 0.1;
