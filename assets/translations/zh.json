@@ -2369,13 +2369,12 @@
   "live_status": "直播状态",
   "live_status_banned": "封禁",
   "live_status_unknown": "未知",
-  "fans_count": "粉丝数",
+  "fans_count": "关注数",
   "introduction": "介绍",
   "notice": "公告",
   "live_start_time": "开播时间",
   "anchor_level": "主播等级",
   "union_name": "工会",
   "last_watched": "上次观看",
-  "room_id": "房间号",
   "title_label": "标题"
 }
