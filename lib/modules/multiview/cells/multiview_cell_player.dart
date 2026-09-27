@@ -8,6 +8,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 
 import 'package:pure_live/common/global/platform_utils.dart';
 import 'package:pure_live/common/index.dart';
+import 'package:pure_live/modules/multiview/models/multiview_models.dart';
 import 'package:pure_live/player/adapters/media_kit_adapter.dart';
 import 'package:pure_live/player/core/playback_source_transport.dart';
 import 'package:pure_live/player/core/playback_proxy_policy.dart';
@@ -262,9 +263,14 @@ abstract interface class MultiviewNativeInputRouting {
   void setPrivateInput(bool value);
 }
 
+/// Sets the FLV lease applied to the next URL open.
+abstract interface class MultiviewSourceLeaseHandle {
+  void setSourceLease(MultiviewSourceLease? lease);
+}
+
 /// Per-cell input ownership, shared with the main player's transport contract.
 /// The backend retains sole ownership of its video-controller release hook.
-class MultiviewCellPlayer implements MultiviewCellPlayerHandle, MultiviewOwnedInputHandle {
+class MultiviewCellPlayer implements MultiviewCellPlayerHandle, MultiviewOwnedInputHandle, MultiviewSourceLeaseHandle {
   MultiviewCellPlayer({
     required int renderWidth,
     required int renderHeight,
@@ -284,6 +290,7 @@ class MultiviewCellPlayer implements MultiviewCellPlayerHandle, MultiviewOwnedIn
   int _generation = 0;
   bool _pendingOwned = false;
   OwnedPlaybackSource? _committedOwned;
+  MultiviewSourceLease? _nextLease;
   Future<void>? _resuming;
 
   @override
@@ -306,6 +313,11 @@ class MultiviewCellPlayer implements MultiviewCellPlayerHandle, MultiviewOwnedIn
     if (start == _started) return Future.error(StateError('Invalid multiview start/open sequence'));
     if (start) _started = true;
     final generation = ++_generation;
+    // Consume a pending lease only for URL opens. Owned sources keep native
+    // input management; a lease left over from a superseded URL open would
+    // otherwise leak into a later URL open.
+    final lease = ownedSource == null ? _nextLease : null;
+    _nextLease = null;
     final immutableHeaders = Map<String, String>.unmodifiable(headers);
     // Superseding a session acquisition cancels it before entering the native
     // serialization queue. Its late lease/cleanup still belongs to transport.
@@ -344,6 +356,8 @@ class MultiviewCellPlayer implements MultiviewCellPlayerHandle, MultiviewOwnedIn
             nativeOpen: nativeOpen,
             // Multiview cells always render through libmpv.
             rewriteLegacyHevcFlv: true,
+            refreshAt: lease?.refreshAt,
+            renewFlv: lease?.renew,
           );
         }
         _committedOwned = ownedSource;
@@ -354,6 +368,9 @@ class MultiviewCellPlayer implements MultiviewCellPlayerHandle, MultiviewOwnedIn
     _tail = operation.then<void>((_) {}, onError: (Object _, StackTrace _) {});
     return operation;
   }
+
+  @override
+  void setSourceLease(MultiviewSourceLease? lease) => _nextLease = lease;
 
   @override
   Future<void> start({

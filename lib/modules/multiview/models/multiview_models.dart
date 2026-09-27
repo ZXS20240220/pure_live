@@ -1,4 +1,5 @@
 import 'package:pure_live/player/core/playback_source.dart';
+import 'package:pure_live/player/core/flv_splice_relay.dart';
 import 'package:pure_live/core/common/hls_source_query_policy.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
@@ -112,6 +113,18 @@ enum MultiviewCellErrorKind {
 /// 使换档无需重走 getRoomDetail/getPlayQualites；核心层可注入假实现测试。
 typedef MultiviewQualityLoader = Future<MultiviewStreamSource> Function(LivePlayQuality quality);
 
+/// 单格播放源的 FLV 租约；[refreshAt] 为链接停止服务的时间，
+/// [renew] 解析同线路同清晰度的下一链接。
+class MultiviewSourceLease {
+  const MultiviewSourceLease({required this.refreshAt, required this.renew});
+
+  final DateTime refreshAt;
+  final FlvSourceRenewer renew;
+}
+
+/// 按线路查找该格播放源的租约；null 表示该线路无租约。
+typedef MultiviewLeaseLookup = MultiviewSourceLease? Function(String line);
+
 /// 单格播放源解析结果。
 ///
 /// 直播流普遍需要平台鉴权头（Cookie/UA/Referer），因此除 URL 外
@@ -128,6 +141,7 @@ class MultiviewStreamSource {
     this.lines = const <String>[],
     this.lineIndex = 0,
     this.sourceQueryPolicies = const <String, HlsSourceQueryPolicy>{},
+    this.leaseFor = null,
   }) : ownedSource = null;
 
   const MultiviewStreamSource.owned({
@@ -140,7 +154,8 @@ class MultiviewStreamSource {
        headers = const {},
        lines = const [],
        lineIndex = 0,
-       sourceQueryPolicies = const {};
+       sourceQueryPolicies = const {},
+       leaseFor = null;
 
   /// A public factory; the private URI stays inside the per-cell transport.
   final OwnedPlaybackSource? ownedSource;
@@ -168,6 +183,9 @@ class MultiviewStreamSource {
   final int lineIndex;
 
   final Map<String, HlsSourceQueryPolicy> sourceQueryPolicies;
+
+  /// FLV 到期租约查找；非空时到期前由本地续流服务自动换源续播。
+  final MultiviewLeaseLookup? leaseFor;
 }
 
 /// multiview 单格的不可变状态快照。

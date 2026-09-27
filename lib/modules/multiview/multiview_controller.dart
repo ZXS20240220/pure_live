@@ -10,6 +10,7 @@ import 'package:pure_live/common/global/platform_utils.dart';
 import 'package:pure_live/core/interface/live_quality_discovery.dart';
 import 'package:pure_live/common/utils/latest_async_value_queue.dart';
 import 'package:pure_live/player/core/live_input_playback_binding.dart';
+import 'package:pure_live/player/core/flv_splice_relay.dart';
 import 'package:pure_live/modules/multiview/models/multiview_models.dart';
 import 'package:pure_live/modules/multiview/cells/multiview_cell_player.dart';
 import 'package:pure_live/modules/live_play/controllers/player_controller.dart';
@@ -166,6 +167,7 @@ class MultiviewController extends GetxController {
         qualities: choices,
         qualityIndex: appliedIndex < 0 ? qualityIndex : appliedIndex,
         sourceQueryPolicies: resolution.sourceQueryPolicies,
+        leaseFor: _leaseLookup(site, detail, applied, nextUrls),
       );
     }
 
@@ -207,9 +209,35 @@ class MultiviewController extends GetxController {
       return start ? consumer.startOwned(owned) : consumer.openOwned(owned);
     }
     final selected = url ?? source.url;
+    if (handle is MultiviewSourceLeaseHandle) {
+      (handle as MultiviewSourceLeaseHandle).setSourceLease(source.leaseFor?.call(selected));
+    }
     return start
         ? handle.start(url: selected, headers: source.headers, sourceQueryPolicy: source.sourceQueryPolicies[selected])
         : handle.open(url: selected, headers: source.headers, sourceQueryPolicy: source.sourceQueryPolicies[selected]);
+  }
+
+  /// Builds the per-line FLV lease lookup for a resolved source, or null when
+  /// the site exposes no lease metadata.
+  static MultiviewLeaseLookup? _leaseLookup(Site site, LiveRoom detail, LivePlayQuality quality, List<String> lines) {
+    final liveSite = site.liveSite;
+    if (liveSite is! LivePlayLeaseMetadata) return null;
+    final metadata = liveSite as LivePlayLeaseMetadata;
+    return (url) {
+      final refreshAt = metadata.getPlayUrlRefreshAt(url);
+      if (!FlvSpliceRelay.appliesTo(url, refreshAt: refreshAt)) return null;
+      final lineIndex = lines.indexOf(url);
+      return MultiviewSourceLease(
+        refreshAt: refreshAt!,
+        renew: (current) async {
+          final resolution = await liveSite.resolvePlayUrls(detail: detail, quality: quality);
+          final urls = resolution.urls;
+          if (urls.isEmpty) throw StateError('multiview: no renewed url for ${detail.platform}/${detail.roomId}');
+          final next = urls[(lineIndex < 0 ? 0 : lineIndex).clamp(0, urls.length - 1)];
+          return FlvLeasedSource(Uri.parse(next), refreshAt: metadata.getPlayUrlRefreshAt(next));
+        },
+      );
+    };
   }
 
   /// 生产环境弹幕引擎工厂：复用站点适配器的 getDanmaku()。
@@ -278,6 +306,14 @@ class MultiviewController extends GetxController {
 
   /// 每格播放状态流订阅；随句柄创建/释放同步管理，防泄漏。
   final List<StreamSubscription<bool>?> _playingSubs = List<StreamSubscription<bool>?>.generate(
+    MultiviewLayout.quad.capacity,
+    (_) => null,
+    growable: true,
+  );
+
+  /// 每格 FLV 到期租约查找（FLV 源非空）；随源解析同步更新，
+  /// 供续流服务到期前自动换源，避免格子断流。
+  final List<MultiviewLeaseLookup?> _leaseLookups = List<MultiviewLeaseLookup?>.generate(
     MultiviewLayout.quad.capacity,
     (_) => null,
     growable: true,
@@ -469,6 +505,7 @@ class MultiviewController extends GetxController {
       cells.removeLast();
       _players.removeLast();
       _cellEpochs.removeLast();
+      _leaseLookups.removeLast();
     }
     while (cells.length < capacity) {
       cells.add(MultiviewCellState.empty(cells.length));
@@ -476,6 +513,7 @@ class MultiviewController extends GetxController {
       _cellEpochs.add(0);
       playingFlags.add(false);
       _playingSubs.add(null);
+      _leaseLookups.add(null);
     }
 
     layout.value = newLayout;
@@ -516,6 +554,7 @@ class MultiviewController extends GetxController {
     _cellEpochs.add(0);
     playingFlags.add(false);
     _playingSubs.add(null);
+    _leaseLookups.add(null);
   }
 
   /// focus 布局下把 [cellIndex] 格晋升为大画面。
@@ -684,6 +723,7 @@ class MultiviewController extends GetxController {
     }
 
     _players[cellIndex] = handle;
+    _leaseLookups[cellIndex] = source.leaseFor;
     _playingSubs[cellIndex]?.cancel();
     _playingSubs[cellIndex] = handle.playingStream.listen((playing) {
       if (cellIndex < _players.length && identical(_players[cellIndex], handle) && cellIndex < playingFlags.length) {
@@ -798,6 +838,7 @@ class MultiviewController extends GetxController {
       return;
     }
     if (_isStale(cellIndex, epoch)) return;
+    _leaseLookups[cellIndex] = next.leaseFor;
 
     _updateCell(
       cellIndex,
@@ -842,6 +883,9 @@ class MultiviewController extends GetxController {
 
     final epoch = _advanceCellEpoch(cellIndex);
     try {
+      if (handle is MultiviewSourceLeaseHandle) {
+        (handle as MultiviewSourceLeaseHandle).setSourceLease(_leaseLookups[cellIndex]?.call(state.lines[lineIndex]));
+      }
       await handle.open(
         url: state.lines[lineIndex],
         headers: state.headers,
@@ -1107,6 +1151,7 @@ class MultiviewController extends GetxController {
     if (cellIndex < playingFlags.length) {
       playingFlags[cellIndex] = false;
     }
+    _leaseLookups[cellIndex] = null;
     _updateCell(cellIndex, MultiviewCellState.empty(cellIndex));
     return handle;
   }
