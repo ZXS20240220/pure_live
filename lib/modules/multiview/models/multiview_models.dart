@@ -141,7 +141,7 @@ class MultiviewStreamSource {
     this.lines = const <String>[],
     this.lineIndex = 0,
     this.sourceQueryPolicies = const <String, HlsSourceQueryPolicy>{},
-    this.leaseFor = null,
+    this.leaseFor,
   }) : ownedSource = null;
 
   const MultiviewStreamSource.owned({

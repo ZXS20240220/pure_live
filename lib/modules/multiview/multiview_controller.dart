@@ -319,6 +319,28 @@ class MultiviewController extends GetxController {
     growable: true,
   );
 
+  /// 每格源结束（服务器断开直播流）订阅；随句柄创建/释放同步管理。
+  final List<StreamSubscription<void>?> _sourceEndSubs = List<StreamSubscription<void>?>.generate(
+    MultiviewLayout.quad.capacity,
+    (_) => null,
+    growable: true,
+  );
+
+  /// Whether the user wants each cell playing. [playingFlags] follows the
+  /// player, which reports playing=false just before a source end, so it
+  /// cannot tell a pause from a server that closed the stream.
+  final List<bool> _playIntent = List<bool>.generate(MultiviewLayout.quad.capacity, (_) => false, growable: true);
+
+  /// 源结束自动恢复预算：每格在 [_recoveryWindow] 内最多
+  /// [_maxRecoveriesPerWindow] 次，防止对持续失败的房间反复重连。
+  static const Duration _recoveryWindow = Duration(minutes: 3);
+  static const int _maxRecoveriesPerWindow = 2;
+  final List<List<DateTime>> _sourceEndRecoveries = List<List<DateTime>>.generate(
+    MultiviewLayout.quad.capacity,
+    (_) => <DateTime>[],
+    growable: true,
+  );
+
   /// 音频焦点格下标，默认 0。
   ///
   /// 必须是响应式状态：非 focus 布局点击格子后，顶部音量入口、声音来源
@@ -506,6 +528,9 @@ class MultiviewController extends GetxController {
       _players.removeLast();
       _cellEpochs.removeLast();
       _leaseLookups.removeLast();
+      _sourceEndSubs.removeLast()?.cancel();
+      _playIntent.removeLast();
+      _sourceEndRecoveries.removeLast();
     }
     while (cells.length < capacity) {
       cells.add(MultiviewCellState.empty(cells.length));
@@ -514,6 +539,9 @@ class MultiviewController extends GetxController {
       playingFlags.add(false);
       _playingSubs.add(null);
       _leaseLookups.add(null);
+      _sourceEndSubs.add(null);
+      _playIntent.add(false);
+      _sourceEndRecoveries.add(<DateTime>[]);
     }
 
     layout.value = newLayout;
@@ -555,6 +583,9 @@ class MultiviewController extends GetxController {
     playingFlags.add(false);
     _playingSubs.add(null);
     _leaseLookups.add(null);
+    _sourceEndSubs.add(null);
+    _playIntent.add(false);
+    _sourceEndRecoveries.add(<DateTime>[]);
   }
 
   /// focus 布局下把 [cellIndex] 格晋升为大画面。
@@ -593,7 +624,7 @@ class MultiviewController extends GetxController {
   ///
   /// 若该格已被占用，先走统一释放路径再重新分配。
   /// 解析失败/起播失败置 status=error 并记录错误种类与原始详情，不吞异常。
-  Future<void> assignRoom(int cellIndex, LiveRoom room) async {
+  Future<void> assignRoom(int cellIndex, LiveRoom room, {bool fromSourceEndRecovery = false}) async {
     if (_closed || isClosed) return;
     RangeError.checkValidIndex(cellIndex, cells, 'cellIndex');
     if (room.platform == null || !Sites.isSupported(room.platform!)) {
@@ -606,6 +637,10 @@ class MultiviewController extends GetxController {
     // 先推进纪元使该格任何在途解析/起播失效，再释放旧句柄。
     // 旧句柄的销毁不再推进纪元：本此分配已独占该格。
     final epoch = _advanceCellEpoch(cellIndex);
+    // A manual assignment is user-observed evidence the room works again;
+    // only automatic recoveries must not reset their own budget.
+    if (!fromSourceEndRecovery) _sourceEndRecoveries[cellIndex].clear();
+    _stopSourceEndWatch(cellIndex);
     _cancelDiscovery(cellIndex);
     final previousHandle = _players[cellIndex];
     _players[cellIndex] = null;
@@ -730,7 +765,9 @@ class MultiviewController extends GetxController {
         playingFlags[cellIndex] = playing;
       }
     });
+    _playIntent[cellIndex] = true;
     playingFlags[cellIndex] = true;
+    _watchCellSourceEnd(cellIndex, epoch, handle);
     _updateCell(
       cellIndex,
       cells[cellIndex].copyWith(
@@ -748,8 +785,9 @@ class MultiviewController extends GetxController {
     );
     // focus 布局下向非大格分配房间时，新流保持静音起播、不抢声源，
     // 用户点击晋升（promoteCell）才出声；其余布局维持「新格即声源」。
+    // 自动源结束恢复不改变声源归属：除非恢复的格子本就持有音频焦点。
     final shouldTakeAudioFocus = layout.value != MultiviewLayout.focus || cellIndex == focusedCellIndex.value;
-    if (shouldTakeAudioFocus) {
+    if (shouldTakeAudioFocus && (!fromSourceEndRecovery || _audioFocusIndex.value == cellIndex)) {
       await setAudioFocus(cellIndex);
     }
     // 大画面房间可能已变化，同步弹幕会话（幂等）。
@@ -796,6 +834,7 @@ class MultiviewController extends GetxController {
     }
 
     final epoch = _advanceCellEpoch(cellIndex);
+    _stopSourceEndWatch(cellIndex);
     final MultiviewStreamSource next;
     try {
       next = await loader(state.qualities[qualityIndex]);
@@ -839,6 +878,7 @@ class MultiviewController extends GetxController {
     }
     if (_isStale(cellIndex, epoch)) return;
     _leaseLookups[cellIndex] = next.leaseFor;
+    _watchCellSourceEnd(cellIndex, epoch, handle);
 
     _updateCell(
       cellIndex,
@@ -882,6 +922,7 @@ class MultiviewController extends GetxController {
     }
 
     final epoch = _advanceCellEpoch(cellIndex);
+    _stopSourceEndWatch(cellIndex);
     try {
       if (handle is MultiviewSourceLeaseHandle) {
         (handle as MultiviewSourceLeaseHandle).setSourceLease(_leaseLookups[cellIndex]?.call(state.lines[lineIndex]));
@@ -902,6 +943,7 @@ class MultiviewController extends GetxController {
       return;
     }
     if (_isStale(cellIndex, epoch)) return;
+    _watchCellSourceEnd(cellIndex, epoch, handle);
 
     _updateCell(cellIndex, cells[cellIndex].copyWith(lineIndex: lineIndex));
   }
@@ -923,8 +965,10 @@ class MultiviewController extends GetxController {
     bool current() => !_isStale(cellIndex, epoch) && identical(_players[cellIndex], handle);
     try {
       if (handle.isPlaying) {
+        _playIntent[cellIndex] = false;
         await handle.pause();
       } else {
+        _playIntent[cellIndex] = true;
         // A closed owned session may require fresh network acquisition here.
         await handle.resume();
       }
@@ -1151,9 +1195,84 @@ class MultiviewController extends GetxController {
     if (cellIndex < playingFlags.length) {
       playingFlags[cellIndex] = false;
     }
+    _playIntent[cellIndex] = false;
+    _stopSourceEndWatch(cellIndex);
     _leaseLookups[cellIndex] = null;
     _updateCell(cellIndex, MultiviewCellState.empty(cellIndex));
     return handle;
+  }
+
+  /// 源结束订阅管理：换流/释放路径先停，成功路径重新挂接，
+  /// 防止旧订阅把自动恢复指向新句柄或已释放的格子。
+  void _stopSourceEndWatch(int cellIndex) {
+    _sourceEndSubs[cellIndex]?.cancel();
+    _sourceEndSubs[cellIndex] = null;
+  }
+
+  void _watchCellSourceEnd(int cellIndex, int epoch, MultiviewCellPlayerHandle handle) {
+    _stopSourceEndWatch(cellIndex);
+    if (handle is! MultiviewSourceEndHandle) return;
+    final sourceEnd = handle as MultiviewSourceEndHandle;
+    _sourceEndSubs[cellIndex] = sourceEnd.sourceEnded.listen((_) {
+      unawaited(
+        _recoverSourceEnd(cellIndex, epoch, handle).catchError((Object error, StackTrace stackTrace) {
+          developer.log(
+            'Multiview cell $cellIndex source-end recovery failed',
+            name: 'MultiviewController',
+            error: error,
+            stackTrace: stackTrace,
+          );
+        }),
+      );
+    });
+  }
+
+  /// Reloads a cell whose live source the server ended. The player is idle at
+  /// this point (not stalled), so the playing flag cannot be trusted; the
+  /// per-cell play intent distinguishes a user pause from a closed stream.
+  Future<void> _recoverSourceEnd(int cellIndex, int epoch, MultiviewCellPlayerHandle handle) async {
+    if (_isStale(cellIndex, epoch) || !identical(_players[cellIndex], handle)) return;
+    if (!_playIntent[cellIndex]) return;
+    final state = cells[cellIndex];
+    final room = state.room;
+    if (room == null || state.status != MultiviewCellStatus.playing) return;
+    final now = DateTime.now().toUtc();
+    final recent = _sourceEndRecoveries[cellIndex]..removeWhere((at) => now.difference(at) >= _recoveryWindow);
+    if (recent.length >= _maxRecoveriesPerWindow) {
+      developer.log('Multiview cell $cellIndex exhausted automatic recovery', name: 'MultiviewController');
+      return;
+    }
+    recent.add(now);
+    final selectedQualityId = state.qualities.isNotEmpty && state.qualityIndex < state.qualities.length
+        ? state.qualities[state.qualityIndex].selectionId
+        : null;
+    final selectedLine = state.lineIndex;
+    developer.log('Multiview cell $cellIndex live source ended; refreshing room', name: 'MultiviewController');
+    final refresh = assignRoom(cellIndex, room, fromSourceEndRecovery: true);
+    final refreshEpoch = _cellEpochs[cellIndex];
+    await refresh;
+    if (_isStale(cellIndex, refreshEpoch) || cells[cellIndex].status != MultiviewCellStatus.playing) return;
+    final refreshedHandle = _players[cellIndex];
+    if (refreshedHandle == null) return;
+    if (selectedQualityId != null) {
+      final qualityIndex = cells[cellIndex].qualities.indexWhere((quality) => quality.selectionId == selectedQualityId);
+      if (qualityIndex >= 0 && qualityIndex != cells[cellIndex].qualityIndex) {
+        final qualityRestore = setCellQuality(cellIndex, qualityIndex);
+        // setCellQuality advances the slot epoch before its first await. A
+        // later manual line/quality choice must supersede this recovery.
+        final qualityEpoch = _cellEpochs[cellIndex];
+        await qualityRestore;
+        if (_isStale(cellIndex, qualityEpoch)) return;
+      }
+    }
+    if (!identical(_players[cellIndex], refreshedHandle) || cells[cellIndex].status != MultiviewCellStatus.playing) {
+      return;
+    }
+    if (selectedLine > 0 &&
+        selectedLine < cells[cellIndex].lines.length &&
+        selectedLine != cells[cellIndex].lineIndex) {
+      await setCellLine(cellIndex, selectedLine);
+    }
   }
 
   final Map<MultiviewCellPlayerHandle, Future<void>> _retiringPlayers = Map.identity();

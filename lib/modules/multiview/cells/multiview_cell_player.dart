@@ -94,7 +94,7 @@ typedef MultiviewCellPlayerFactory = MultiviewCellPlayerHandle Function({
 /// PlayerManager/GlobalPlayerService/PlayerPool。每格在构造时使用控制器按
 /// 当前布局计算的初始分辨率，Windows 挂载后由视图按实际 cell viewport
 /// 继续协商，避免共享渲染线程下多实例争抢全分辨率输出或大格沿用小纹理。
-class _MediaKitCellPlayer implements MultiviewCellPlayerHandle, MultiviewNativeInputRouting {
+class _MediaKitCellPlayer implements MultiviewCellPlayerHandle, MultiviewNativeInputRouting, MultiviewSourceEndHandle {
   _MediaKitCellPlayer({required this.renderWidth, required this.renderHeight});
   bool _disposed = false;
   bool _privateInput = false;
@@ -148,6 +148,13 @@ class _MediaKitCellPlayer implements MultiviewCellPlayerHandle, MultiviewNativeI
     final player = _player;
     if (player == null) return const Stream.empty();
     return player.stream.playing;
+  }
+
+  @override
+  Stream<void> get sourceEnded {
+    final player = _player;
+    if (player == null) return const Stream.empty();
+    return player.stream.completed.where((completed) => completed);
   }
 
   @override
@@ -268,9 +275,21 @@ abstract interface class MultiviewSourceLeaseHandle {
   void setSourceLease(MultiviewSourceLease? lease);
 }
 
+/// Emits exactly once when the player reaches the end of its live source
+/// (the server closed the stream). Live sources do not "complete" on their
+/// own; a completed event means the connection was terminated upstream.
+abstract interface class MultiviewSourceEndHandle {
+  Stream<void> get sourceEnded;
+}
+
 /// Per-cell input ownership, shared with the main player's transport contract.
 /// The backend retains sole ownership of its video-controller release hook.
-class MultiviewCellPlayer implements MultiviewCellPlayerHandle, MultiviewOwnedInputHandle, MultiviewSourceLeaseHandle {
+class MultiviewCellPlayer
+    implements
+        MultiviewCellPlayerHandle,
+        MultiviewOwnedInputHandle,
+        MultiviewSourceLeaseHandle,
+        MultiviewSourceEndHandle {
   MultiviewCellPlayer({
     required int renderWidth,
     required int renderHeight,
@@ -301,6 +320,9 @@ class MultiviewCellPlayer implements MultiviewCellPlayerHandle, MultiviewOwnedIn
   double get volume => _backend.volume;
   @override
   Stream<bool> get playingStream => _backend.playingStream;
+  @override
+  Stream<void> get sourceEnded =>
+      _backend is MultiviewSourceEndHandle ? (_backend as MultiviewSourceEndHandle).sourceEnded : const Stream.empty();
 
   Future<void> _open({
     required bool start,
