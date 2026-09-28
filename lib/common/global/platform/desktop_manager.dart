@@ -75,6 +75,9 @@ class DesktopManager {
         await windowManager.show();
         await windowManager.focus();
 
+        // 同步初始最大化状态，确保标题栏还原图标正确显示
+        GlobalPlayerState.to.isWindowMaximized.value = await windowManager.isMaximized();
+
         if (Platform.isWindows) {
           await Window.setEffect(
             effect: WindowEffect.mica,
@@ -362,9 +365,7 @@ class CustomTitleBar extends StatelessWidget {
                   failureMessage: i18nOr('window_close_action_failed', 'The window action failed. Try again.'),
                   icon: Icons.remove,
                   iconColor: iconColor,
-                  hoverColor: isDark
-                      ? Colors.white.withValues(alpha: 0.08)
-                      : theme.colorScheme.primary.withValues(alpha: 0.08),
+                  hoverColor: isDark ? const Color(0xFF383838) : const Color(0xFFE5E5E5),
                   onPressed: () async {
                     await windowManager.minimize();
                   },
@@ -374,9 +375,11 @@ class CustomTitleBar extends StatelessWidget {
                   failureMessage: i18nOr('window_close_action_failed', 'The window action failed. Try again.'),
                   icon: Icons.crop_square,
                   iconColor: iconColor,
-                  hoverColor: isDark
-                      ? Colors.white.withValues(alpha: 0.08)
-                      : theme.colorScheme.primary.withValues(alpha: 0.08),
+                  hoverColor: isDark ? const Color(0xFF383838) : const Color(0xFFE5E5E5),
+                  iconWidget: WindowMaximizeIcon(
+                    isMaximized: GlobalPlayerState.to.isWindowMaximized.value,
+                    color: iconColor,
+                  ),
                   onPressed: () async {
                     if (await windowManager.isMaximized()) {
                       await windowManager.restore();
@@ -521,6 +524,70 @@ class _TitleBarProjectLinkState extends State<TitleBarProjectLink> {
   }
 }
 
+/// 自绘的最大化/还原图标，匹配 Windows 原生窗口按钮样式。
+///
+/// - 未最大化：单个方框（最大化）
+/// - 已最大化：两个重叠方框（还原）
+class WindowMaximizeIcon extends StatelessWidget {
+  final bool isMaximized;
+  final Color color;
+  final double size;
+
+  const WindowMaximizeIcon({super.key, required this.isMaximized, required this.color, this.size = 16});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(
+        painter: _WindowMaximizeIconPainter(isMaximized: isMaximized, color: color),
+      ),
+    );
+  }
+}
+
+class _WindowMaximizeIconPainter extends CustomPainter {
+  final bool isMaximized;
+  final Color color;
+
+  _WindowMaximizeIconPainter({required this.isMaximized, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final stroke = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+
+    if (isMaximized) {
+      // 还原图标：两个重叠方框，后方框偏右上，前方框偏左下
+      // 用线段直接绘制可见部分，无需背景色填充，避免 hover 变色时出现瑕疵
+      final sq = size.width * 0.58;
+      final back = Rect.fromLTWH(size.width * 0.31, size.height * 0.12, sq, sq);
+      final front = Rect.fromLTWH(size.width * 0.12, size.height * 0.31, sq, sq);
+
+      // 后方框：上边、右边完整；左边只画到前方框顶部；下边只画前方框右侧部分
+      canvas.drawLine(Offset(back.left, back.top), Offset(back.right, back.top), stroke);
+      canvas.drawLine(Offset(back.right, back.top), Offset(back.right, back.bottom), stroke);
+      canvas.drawLine(Offset(back.left, back.top), Offset(back.left, front.top), stroke);
+      canvas.drawLine(Offset(front.right, back.bottom), Offset(back.right, back.bottom), stroke);
+
+      // 前方框：完整方框
+      canvas.drawRect(front, stroke);
+    } else {
+      // 最大化图标：单个方框，四周留白
+      final margin = size.width * 0.22;
+      final rect = Rect.fromLTWH(margin, margin, size.width - margin * 2, size.height - margin * 2);
+      canvas.drawRect(rect, stroke);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _WindowMaximizeIconPainter oldDelegate) =>
+      isMaximized != oldDelegate.isMaximized || color != oldDelegate.color;
+}
+
 class WindowControlButton extends StatefulWidget {
   final Future<void> Function() onPressed;
   final String semanticLabel;
@@ -534,6 +601,9 @@ class WindowControlButton extends StatefulWidget {
 
   final bool isClose;
 
+  /// 自定义图标组件（优先级高于 [icon]），用于最大化/还原这类需要自绘的图标。
+  final Widget? iconWidget;
+
   const WindowControlButton({
     super.key,
     required this.onPressed,
@@ -544,6 +614,7 @@ class WindowControlButton extends StatefulWidget {
     required this.iconColor,
     this.hoverIconColor,
     this.isClose = false,
+    this.iconWidget,
   });
 
   @override
@@ -598,7 +669,7 @@ class _WindowControlButtonState extends State<WindowControlButton> {
               border: _focused ? Border.all(color: activeIconColor.withValues(alpha: 0.8)) : null,
             ),
             alignment: Alignment.center,
-            child: Icon(widget.icon, size: 16, color: active ? activeIconColor : widget.iconColor),
+            child: widget.iconWidget ?? Icon(widget.icon, size: 16, color: active ? activeIconColor : widget.iconColor),
           ),
         ),
       ),
@@ -721,10 +792,14 @@ mixin DesktopWindowMixin<T extends StatefulWidget> on State<T>
   void onWindowBlur() {}
 
   @override
-  void onWindowMaximize() {}
+  void onWindowMaximize() {
+    GlobalPlayerState.to.isWindowMaximized.value = true;
+  }
 
   @override
-  void onWindowUnmaximize() {}
+  void onWindowUnmaximize() {
+    GlobalPlayerState.to.isWindowMaximized.value = false;
+  }
 
   @override
   void onWindowMinimize() {}

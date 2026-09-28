@@ -6,6 +6,8 @@ class GlobalPlayerState extends GetxController {
   var isFullscreen = false.obs;
   // window 半屏
   var isWindowFullscreen = false.obs;
+  // 窗口是否已最大化
+  var isWindowMaximized = false.obs;
 
   // 是否画中画
   var isPipMode = false.obs;
@@ -13,6 +15,7 @@ class GlobalPlayerState extends GetxController {
   void reset() {
     isFullscreen.value = false;
     isWindowFullscreen.value = false;
+    isWindowMaximized.value = false;
     isPipMode.value = false;
   }
 }
