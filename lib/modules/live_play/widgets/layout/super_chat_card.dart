@@ -39,6 +39,13 @@ class _SuperChatCardState extends State<SuperChatCard> {
   void didUpdateWidget(covariant SuperChatCard oldWidget) {
     super.didUpdateWidget(oldWidget);
 
+    // 防御：即便外层未按 messageId 给 key（列表重排导致 State 被复用给另一条
+    // SC），锁定态也必须跟随新卡片，避免“锁定样式串到新 SC 上”。
+    if (oldWidget.message.messageId != widget.message.messageId) {
+      _locked = widget.initialLocked;
+      _expanded = false;
+    }
+
     if (oldWidget.message.startTime != widget.message.startTime ||
         oldWidget.message.endTime != widget.message.endTime) {
       _timer?.cancel();

@@ -2,6 +2,7 @@ import 'package:pure_live/player/core/playback_source.dart';
 
 import 'dart:io';
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:pure_live/core/common/hls_source_query_policy.dart';
 
@@ -403,18 +404,37 @@ class LivePlayController extends GetxController
     _mergeSuperChats(sc);
   }
 
-  /// 合并新到的 SC 报告：同身份条目就地替换（孪生价格报告/重连重放/HTTP
-  /// 回填都更新同一张卡），新条目追加；标价已有时不因新报告缺字段而丢失。
+  /// 合并新到的 SC 报告：同身份条目就地合并（孪生价格报告/重连重放/HTTP
+  /// 回填都更新同一张卡），新条目追加。
+  ///
+  /// 合并规则——
+  /// 外观（配色、头像、用户名、内容、起始时间）一律以“第一张已显示的卡”
+  /// 为准：comm_chatmsg 是紫/靛配色，voice_trlt 与 HTTP 回填是白/蓝配色，
+  /// 若用后到的报告整体替换，重连/刷新后卡片颜色就会变。
+  /// 价格按斗鱼语义合并：实付价永远 ≤ 标价，故 price 取各报告最小值，
+  /// listPrice 取各报告显式标价与价格的最大值；endTime 取较晚者。
   void _mergeSuperChats(List<LiveSuperChatMessage> incoming) {
     final merged = List<LiveSuperChatMessage>.of(superChats);
     for (final item in incoming) {
       final index = merged.indexWhere((existing) => existing == item);
       if (index == -1) {
         merged.add(item);
-      } else {
-        final existing = merged[index];
-        merged[index] = item.copyWith(listPrice: item.listPrice ?? existing.listPrice);
+        continue;
       }
+      final existing = merged[index];
+      final listCandidates = <int>[
+        existing.price,
+        item.price,
+        if (existing.listPrice != null) existing.listPrice!,
+        if (item.listPrice != null) item.listPrice!,
+      ];
+      final mergedListPrice = listCandidates.reduce(math.max);
+      merged[index] = existing.copyWith(
+        price: math.min(existing.price, item.price),
+        listPrice: mergedListPrice,
+        endTime: item.endTime.isAfter(existing.endTime) ? item.endTime : existing.endTime,
+        face: existing.face.isEmpty ? item.face : existing.face,
+      );
     }
     _sortSuperChatsByStartTimeDesc(merged);
     superChats.assignAll(merged);

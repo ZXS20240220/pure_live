@@ -65,8 +65,10 @@ class _SuperChatPageState extends State<SuperChatPage> {
                       final messageIndex = hasHighlight ? index - 1 : index;
                       final message = list[messageIndex];
                       return Padding(
+                        key: ValueKey('sc-pad-${message.messageId}'),
                         padding: const EdgeInsets.only(bottom: 8),
                         child: SuperChatCard(
+                          key: ValueKey('sc-card-${message.messageId}'),
                           message,
                           initialLocked: controller.lockedSuperChatIds.contains(message.messageId),
                           onToggleLock: () => controller.toggleSuperChatLock(message.messageId),

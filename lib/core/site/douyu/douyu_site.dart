@@ -750,18 +750,71 @@ class DouyuSite
   /// random token (32 hex chars, same format as the browser cookie) is enough.
   static final String _voiceScCtn = DouyuUtils.generateDeviceId();
 
+  /// 房间页暖机后服务端下发的风控 Cookie（域名级，进程内复用）。
+  /// 未登录直接打 japi 时网关会间歇性拒绝；带上房间页 Set-Cookie 后命中率
+  /// 与浏览器一致。key 小写，value 不含属性段。
+  static final Map<String, String> _scWarmupCookies = {};
+  static bool _scWarmupDone = false;
+
+  /// 暖机时忽略的 Cookie：身份/CSRF 由本应用自行管理，服务端下发的同名值
+  /// 反而可能造成 body ctn 与 acf_ccn 不匹配。
+  static const _scWarmupCookieBlocklist = {'dy_did', 'acf_did', 'acf_ccn', 'ltp0'};
+
+  static const _scRequestTimeout = Duration(seconds: 10);
+  static const _scRetryDelay = Duration(milliseconds: 1500);
+
+  /// GET 一次房间页，缓存其 Set-Cookie 风控字段。失败不影响后续请求
+  /// （退化为无暖机 Cookie 的旧行为）。[force] 用于重试前刷新会话。
+  Future<void> _warmupScCookies(String roomId, {bool force = false}) async {
+    if (_scWarmupDone && !force) return;
+    try {
+      final response = await HttpClient.instance
+          .get(
+            'https://www.douyu.com/$roomId',
+            header: {
+              ...DouyuUtils.requestHeaders(roomId),
+              'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            },
+          )
+          .timeout(_scRequestTimeout);
+      final setCookies = response.headers.map['set-cookie'] ?? const <String>[];
+      for (final raw in setCookies) {
+        final pair = raw.split(';').first.trim();
+        final eq = pair.indexOf('=');
+        if (eq <= 0) continue;
+        final name = pair.substring(0, eq).trim().toLowerCase();
+        final value = pair.substring(eq + 1).trim();
+        if (value.isEmpty || _scWarmupCookieBlocklist.contains(name)) continue;
+        _scWarmupCookies[name] = value;
+      }
+      _scWarmupDone = true;
+    } catch (e) {
+      CoreLog.d('Douyu SC cookie warm-up failed: $e');
+    }
+  }
+
+  /// 合并基础请求 Cookie 与暖机风控 Cookie，[extraCtn] 时追加自管 acf_ccn。
+  String _scCookieHeader(String roomId, {required bool extraCtn}) {
+    final merged = <String, String>{};
+    final base = DouyuUtils.requestHeaders(roomId)['cookie']?.toString() ?? '';
+    for (final piece in base.split(';')) {
+      final eq = piece.indexOf('=');
+      if (eq <= 0) continue;
+      final name = piece.substring(0, eq).trim();
+      if (name.isEmpty) continue;
+      merged[name.toLowerCase()] = piece.substring(eq + 1).trim();
+    }
+    _scWarmupCookies.forEach((name, value) => merged.putIfAbsent(name, () => value));
+    if (extraCtn) merged['acf_ccn'] = _voiceScCtn;
+    return merged.entries.map((e) => '${e.key}=${e.value}').join('; ');
+  }
+
   @override
   Future<List<LiveSuperChatMessage>> getSuperChatMessage({required String roomId}) async {
-    final headers = DouyuUtils.requestHeaders(roomId);
+    // Step 0: 暖机房间页风控 Cookie（进程首次，或重试时刷新）。
+    await _warmupScCookies(roomId);
 
-    // Step 1: GET queue — lightweight, works without any cookies.
-    final queueResp = await HttpClient.instance
-        .getJson(
-          'https://www.douyu.com/japi/revenuenc/web/voiceDanmu/play/queryQueue',
-          queryParameters: {'rid': roomId},
-          header: headers,
-        )
-        .timeout(const Duration(seconds: 8));
+    final queueResp = await _fetchScQueueWithRetry(roomId);
     if (queueResp is! Map || queueResp['error'] != 0) return const <LiveSuperChatMessage>[];
     final queue = queueResp['data'];
     if (queue is! List || queue.isEmpty) return const <LiveSuperChatMessage>[];
@@ -774,21 +827,8 @@ class DouyuSite
     }
     if (ids.isEmpty) return const <LiveSuperChatMessage>[];
 
-    // Step 2: POST batch details. Douyu csrf requires the body `ctn` to match
-    // the `acf_ccn` cookie in the request Cookie header — both must be present
-    // and identical.
-    final detailHeaders = Map<String, dynamic>.from(headers);
-    final existingCookie = detailHeaders['cookie']?.toString() ?? '';
-    final separator = existingCookie.isEmpty ? '' : '; ';
-    detailHeaders['cookie'] = '$existingCookie${separator}acf_ccn=$_voiceScCtn';
-    final detailResp = await HttpClient.instance
-        .postJson(
-          'https://www.douyu.com/japi/revenuenc/web/voiceDanmu/play/batchVoiceDetail',
-          data: {'ctn': _voiceScCtn, 'rid': roomId, 'recordIdList': ids.join(',')},
-          formUrlEncoded: true,
-          header: detailHeaders,
-        )
-        .timeout(const Duration(seconds: 8));
+    // Step 2: POST batch details，同样带暖机 Cookie 与重试。
+    final detailResp = await _fetchScDetailWithRetry(roomId, ids);
     if (detailResp is! Map || detailResp['error'] != 0) return const <LiveSuperChatMessage>[];
     final recordList = detailResp['data'] is Map ? detailResp['data']['recordList'] : null;
     if (recordList is! List) return const <LiveSuperChatMessage>[];
@@ -829,6 +869,58 @@ class DouyuSite
       );
     }
     return messages;
+  }
+
+  /// queryQueue 重试：仅对传输异常/超时/网关错误（error≠0）退避重试；
+  /// error==0 但队列为空是权威“无 SC”，不重试以免无 SC 房间产生额外流量。
+  Future<dynamic> _fetchScQueueWithRetry(String roomId) {
+    return _retryScRequest(() async {
+      final resp = await HttpClient.instance
+          .getJson(
+            'https://www.douyu.com/japi/revenuenc/web/voiceDanmu/play/queryQueue',
+            queryParameters: {'rid': roomId},
+            header: {...DouyuUtils.requestHeaders(roomId), 'cookie': _scCookieHeader(roomId, extraCtn: false)},
+          )
+          .timeout(_scRequestTimeout);
+      if (resp is! Map || resp['error'] != 0) {
+        throw HttpError('queryQueue rejected (anti-bot/edge)');
+      }
+      return resp;
+    }, roomId);
+  }
+
+  Future<dynamic> _fetchScDetailWithRetry(String roomId, List<String> ids) {
+    return _retryScRequest(() async {
+      final resp = await HttpClient.instance
+          .postJson(
+            'https://www.douyu.com/japi/revenuenc/web/voiceDanmu/play/batchVoiceDetail',
+            data: {'ctn': _voiceScCtn, 'rid': roomId, 'recordIdList': ids.join(',')},
+            formUrlEncoded: true,
+            header: {...DouyuUtils.requestHeaders(roomId), 'cookie': _scCookieHeader(roomId, extraCtn: true)},
+          )
+          .timeout(_scRequestTimeout);
+      if (resp is! Map || resp['error'] != 0) {
+        throw HttpError('batchVoiceDetail rejected (anti-bot/edge)');
+      }
+      return resp;
+    }, roomId);
+  }
+
+  /// SC 接口统一重试：最多 3 次尝试，间隔 1.5s 递增；第 2、3 次前重新暖机
+  /// 刷新风控 Cookie。全部失败返回 null，由上层按“无 SC”处理。
+  Future<dynamic> _retryScRequest(Future<dynamic> Function() request, String roomId) async {
+    const maxAttempts = 3;
+    for (var attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        return await request();
+      } catch (e) {
+        CoreLog.d('Douyu SC request failed (attempt ${attempt + 1}/$maxAttempts): $e');
+        if (attempt == maxAttempts - 1) return null;
+        await Future<void>.delayed(_scRetryDelay * (attempt + 1));
+        await _warmupScCookies(roomId, force: true);
+      }
+    }
+    return null;
   }
 
   @override
