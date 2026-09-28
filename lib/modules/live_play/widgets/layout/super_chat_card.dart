@@ -9,8 +9,10 @@ import 'package:pure_live/common/models/live_message.dart';
 
 class SuperChatCard extends StatefulWidget {
   final LiveSuperChatMessage message;
+  final bool isLocked;
+  final VoidCallback onToggleLock;
 
-  const SuperChatCard(this.message, {super.key});
+  const SuperChatCard(this.message, {super.key, required this.isLocked, required this.onToggleLock});
 
   @override
   State<SuperChatCard> createState() => _SuperChatCardState();
@@ -20,6 +22,7 @@ class _SuperChatCardState extends State<SuperChatCard> {
   Timer? _timer;
 
   int _remainSeconds = 0;
+  bool _expanded = false;
 
   @override
   void initState() {
@@ -38,6 +41,9 @@ class _SuperChatCardState extends State<SuperChatCard> {
       _timer = null;
 
       _initTimer();
+    }
+    if (oldWidget.isLocked != widget.isLocked) {
+      setState(() {});
     }
   }
 
@@ -76,6 +82,9 @@ class _SuperChatCardState extends State<SuperChatCard> {
         '${seconds.toString().padLeft(2, '0')}';
   }
 
+  /// 倒计时已结束但卡片被锁定时，状态位显示“已锁定”。
+  String get _statusText => widget.isLocked && _remainSeconds <= 0 ? '已锁定' : _remainText;
+
   Color _contrastText(Color background) {
     return background.computeLuminance() > 0.55 ? const Color(0xFF18181A) : Colors.white;
   }
@@ -109,32 +118,41 @@ class _SuperChatCardState extends State<SuperChatCard> {
     final headerSubText = _secondaryText(headerColor);
     final messageText = _contrastText(messageColor);
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.08), width: 0.8),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.10),
-            blurRadius: 10,
-            spreadRadius: 0,
-            offset: const Offset(0, 3),
+    // 整卡右键复制 SC 内容；左键仅正文区触发展开，避免与锁按钮冲突。
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onSecondaryTap: () => clipboard(message.message),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          // 锁定时用琥珀色边框给出明显视觉反馈。
+          border: Border.all(
+            color: widget.isLocked ? const Color(0xFFFFC107) : Colors.black.withValues(alpha: 0.08),
+            width: widget.isLocked ? 1.4 : 0.8,
           ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildHeader(
-            message: message,
-            backgroundColor: headerColor,
-            primaryText: headerText,
-            secondaryText: headerSubText,
-          ),
-          _buildMessageBody(message: message, backgroundColor: messageColor, textColor: messageText),
-        ],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.10),
+              blurRadius: 10,
+              spreadRadius: 0,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildHeader(
+              message: message,
+              backgroundColor: headerColor,
+              primaryText: headerText,
+              secondaryText: headerSubText,
+            ),
+            _buildMessageBody(message: message, backgroundColor: messageColor, textColor: messageText),
+          ],
+        ),
       ),
     );
   }
@@ -145,61 +163,92 @@ class _SuperChatCardState extends State<SuperChatCard> {
     required Color primaryText,
     required Color secondaryText,
   }) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
-      decoration: BoxDecoration(color: backgroundColor),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final stacked = constraints.maxWidth < 280 || MediaQuery.textScalerOf(context).scale(14) > 24;
-          final userName = Text(
-            message.userName,
-            maxLines: stacked ? 3 : 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: primaryText, fontSize: 14, height: 1.2, fontWeight: FontWeight.w600),
-          );
-          if (stacked) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    _buildAvatar(message.face, primaryText),
-                    const SizedBox(width: 10),
-                    Expanded(child: userName),
-                  ],
+    return Stack(
+      children: [
+        Container(
+          // 右侧预留锁按钮空间，防止信息区与按钮重叠。
+          padding: const EdgeInsets.fromLTRB(12, 9, 34, 9),
+          decoration: BoxDecoration(color: backgroundColor),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final stacked = constraints.maxWidth < 280 || MediaQuery.textScalerOf(context).scale(14) > 24;
+              // 用户名过长：单行渐隐截断，悬浮 tooltip 显示完整用户名。
+              final userName = Tooltip(
+                message: message.userName,
+                waitDuration: const Duration(milliseconds: 400),
+                child: Text(
+                  message.userName,
+                  maxLines: 1,
+                  overflow: TextOverflow.fade,
+                  softWrap: false,
+                  style: TextStyle(color: primaryText, fontSize: 14, height: 1.2, fontWeight: FontWeight.w600),
                 ),
-                const SizedBox(height: 10),
-                _buildPrice(message, primaryText),
-                const SizedBox(height: 10),
-                Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: _buildInfoArea(
+              );
+              if (stacked) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        _buildAvatar(message.face, primaryText),
+                        const SizedBox(width: 10),
+                        Expanded(child: userName),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    _buildPrice(message, primaryText),
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: _buildInfoArea(
+                        backgroundColor: backgroundColor,
+                        primaryText: primaryText,
+                        secondaryText: secondaryText,
+                      ),
+                    ),
+                  ],
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  _buildAvatar(message.face, primaryText),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [userName, const SizedBox(height: 5), _buildPrice(message, primaryText)],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildInfoArea(
                     backgroundColor: backgroundColor,
                     primaryText: primaryText,
                     secondaryText: secondaryText,
                   ),
-                ),
-              ],
-            );
-          }
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              _buildAvatar(message.face, primaryText),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [userName, const SizedBox(height: 5), _buildPrice(message, primaryText)],
-                ),
-              ),
-              const SizedBox(width: 8),
-              _buildInfoArea(backgroundColor: backgroundColor, primaryText: primaryText, secondaryText: secondaryText),
-            ],
-          );
-        },
+                ],
+              );
+            },
+          ),
+        ),
+        Positioned(top: 3, right: 3, child: _buildLockButton(primaryText)),
+      ],
+    );
+  }
+
+  Widget _buildLockButton(Color headerText) {
+    return IconButton(
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+      tooltip: widget.isLocked ? '解锁' : '锁定',
+      onPressed: widget.onToggleLock,
+      icon: Icon(
+        widget.isLocked ? Remix.lock_fill : Remix.lock_unlock_line,
+        size: 15,
+        color: widget.isLocked ? const Color(0xFFFFC107) : headerText.withValues(alpha: 0.75),
       ),
     );
   }
@@ -218,7 +267,11 @@ class _SuperChatCardState extends State<SuperChatCard> {
                 if (listPrice != null && listPrice != message.price)
                   TextSpan(
                     text: '(￥$listPrice)',
-                    style: TextStyle(fontSize: 11, color: textColor.withValues(alpha: 0.65), fontWeight: FontWeight.w500),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: textColor.withValues(alpha: 0.65),
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
               ],
             ),
@@ -295,7 +348,7 @@ class _SuperChatCardState extends State<SuperChatCard> {
             Icon(Remix.time_line, size: 13, color: secondaryText),
             const SizedBox(width: 3),
             Text(
-              _remainText,
+              _statusText,
               style: TextStyle(
                 color: primaryText,
                 fontSize: 12,
@@ -320,18 +373,29 @@ class _SuperChatCardState extends State<SuperChatCard> {
     required Color backgroundColor,
     required Color textColor,
   }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 13),
-      decoration: BoxDecoration(color: backgroundColor),
-      child: GestureDetector(
-        onDoubleTap: () => clipboard(message.message),
-        child: SelectableText(
-          message.message,
-          style: TextStyle(color: textColor, fontSize: 14, height: 1.5, fontWeight: FontWeight.w400),
+    const collapsedLines = 3;
+
+    // 普通 Text 不支持选择与拖拽；收起时截断 3 行，左键点击展开/收起完整内容。
+    final body = Material(
+      color: backgroundColor,
+      child: InkWell(
+        onTap: () => setState(() => _expanded = !_expanded),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 13),
+          child: Text(
+            message.message,
+            maxLines: _expanded ? null : collapsedLines,
+            overflow: _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
+            style: TextStyle(color: textColor, fontSize: 14, height: 1.5, fontWeight: FontWeight.w400),
+          ),
         ),
       ),
     );
+
+    // 收起时悬浮显示完整内容；展开后正文已完整显示，不再需要 tooltip。
+    if (_expanded) return body;
+    return Tooltip(message: message.message, waitDuration: const Duration(milliseconds: 400), child: body);
   }
 
   @override

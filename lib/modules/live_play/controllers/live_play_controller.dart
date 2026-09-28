@@ -68,6 +68,10 @@ class LivePlayController extends GetxController
   final RxInt danmakuPresentationRevision = 0.obs;
   final Rxn<LiveMessage> localGiftEffect = Rxn<LiveMessage>();
   final RxList<LiveSuperChatMessage> superChats = <LiveSuperChatMessage>[].obs;
+
+  /// 被用户单独锁定的 SC id。锁定的 SC 到期不移除，只有解锁或换房间
+  /// （clearSuperChats）才消失。
+  final RxSet<String> lockedSuperChatIds = <String>{}.obs;
   final RxInt immersivePanelToggleEpoch = 0.obs;
   late Site currentSite;
   late TabController tabController;
@@ -349,7 +353,9 @@ class LivePlayController extends GetxController
 
   void _removeExpiredSuperChats() {
     final now = DateTime.now().millisecondsSinceEpoch;
-    final filtered = superChats.where((x) => x.endTime.millisecondsSinceEpoch > now).toList(growable: false);
+    final filtered = superChats
+        .where((x) => lockedSuperChatIds.contains(x.messageId) || x.endTime.millisecondsSinceEpoch > now)
+        .toList(growable: false);
     if (filtered.length != superChats.length) {
       superChats.assignAll(filtered);
     }
@@ -360,7 +366,9 @@ class LivePlayController extends GetxController
     _superChatExpiryTimer?.cancel();
     _superChatExpiryTimer = null;
     if (isClosed || _ownerClosed) return;
-    final delay = nextSuperChatExpiryDelay(superChats, DateTime.now());
+    // 锁定的 SC 不参与到期计时，否则它们过去的 endTime 会造成 1ms 空转。
+    final removable = superChats.where((x) => !lockedSuperChatIds.contains(x.messageId));
+    final delay = nextSuperChatExpiryDelay(removable, DateTime.now());
     if (delay == null) return;
     _superChatExpiryTimer = Timer(delay, _removeExpiredSuperChats);
   }
@@ -417,6 +425,14 @@ class LivePlayController extends GetxController
     _superChatExpiryTimer = null;
     _cancelAiHighlightRefresh();
     if (superChats.isNotEmpty) superChats.clear();
+    if (lockedSuperChatIds.isNotEmpty) lockedSuperChatIds.clear();
+  }
+
+  /// 切换某条 SC 的锁定状态。
+  void toggleSuperChatLock(String messageId) {
+    if (!lockedSuperChatIds.remove(messageId)) lockedSuperChatIds.add(messageId);
+    // 锁定时重排到期计时（锁定项不参与）；解锁时若已到期则立即移除。
+    _removeExpiredSuperChats();
   }
 
   void _cancelAiHighlightRefresh() {
