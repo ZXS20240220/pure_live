@@ -326,26 +326,29 @@ class CustomTitleBar extends StatelessWidget {
                   padding: const EdgeInsets.only(left: 12),
                   child: isFullscreen
                       ? null
-                      : TitleBarProjectLink(
-                          semanticLabel: i18nOr('project_page', 'Project Homepage'),
-                          failureMessage: i18nOr(
-                            'external_browser_not_opened',
-                            'The system browser did not open. Check the default browser settings.',
-                          ),
-                          appName: i18nOr('app_name', 'PureLive'),
-                          appNameStyle: AppTextStyles.t13.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: iconColor,
-                            decoration: TextDecoration.none,
-                          ),
-                          sizeTextStyle: AppTextStyles.t12.copyWith(color: iconColor.withValues(alpha: 0.6)),
-                          projectUri: Uri.parse(VersionUtil.projectUrl),
-                          iconColor: iconColor,
-                          hoverColor: isDark
-                              ? Colors.white.withValues(alpha: 0.08)
-                              : theme.colorScheme.primary.withValues(alpha: 0.08),
-                          currentSize: currentSize,
-                          showSizeText: showSizeText,
+                      : Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Image.asset('assets/icons/icon.png', width: 16, height: 16),
+                            const SizedBox(width: 6),
+                            Text(
+                              i18nOr('app_name', 'PureLive'),
+                              maxLines: 1,
+                              style: AppTextStyles.t13.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: iconColor,
+                                decoration: TextDecoration.none,
+                              ),
+                            ),
+                            if (showSizeText) ...[
+                              const SizedBox(width: 6),
+                              Text(
+                                '[${currentSize.width.toInt()} × ${currentSize.height.toInt()}]',
+                                maxLines: 1,
+                                style: AppTextStyles.t12.copyWith(color: iconColor.withValues(alpha: 0.6)),
+                              ),
+                            ],
+                          ],
                         ),
                 ),
               ),
