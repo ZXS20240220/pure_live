@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/modules/live_play/widgets/local_interaction/local_interaction_controller.dart';
 import 'package:pure_live/modules/live_play/widgets/local_interaction/local_danmaku_style_editor.dart';
@@ -15,6 +16,9 @@ class LocalInteractionSheet extends StatefulWidget {
 
 class _LocalInteractionSheetState extends State<LocalInteractionSheet> {
   final TextEditingController _messageController = TextEditingController();
+  final TextEditingController _scMessageController = TextEditingController();
+  final TextEditingController _scPriceController = TextEditingController(text: '50');
+  final TextEditingController _scDurationController = TextEditingController(text: '60');
   late final TextEditingController _nameController;
 
   @override
@@ -26,6 +30,9 @@ class _LocalInteractionSheetState extends State<LocalInteractionSheet> {
   @override
   void dispose() {
     _messageController.dispose();
+    _scMessageController.dispose();
+    _scPriceController.dispose();
+    _scDurationController.dispose();
     _nameController.dispose();
     super.dispose();
   }
@@ -35,6 +42,18 @@ class _LocalInteractionSheetState extends State<LocalInteractionSheet> {
     if (text.isEmpty) return;
     widget.onMessage(widget.controller.createChat(text, platform: widget.platform), widget.controller.showAsDanmaku.v);
     _messageController.clear();
+  }
+
+  void _sendSuperChat() {
+    final text = _scMessageController.text.trim();
+    if (text.isEmpty) return;
+    final price = int.tryParse(_scPriceController.text.trim()) ?? 0;
+    final duration = int.tryParse(_scDurationController.text.trim()) ?? 60;
+    final message = widget.controller.sendSuperChat(content: text, price: price, durationSeconds: duration);
+    if (message == null) return;
+    // SC 卡片不走弹幕通道，showAsDanmaku 固定 false。
+    widget.onMessage(message, false);
+    _scMessageController.clear();
   }
 
   @override
@@ -130,6 +149,43 @@ class _LocalInteractionSheetState extends State<LocalInteractionSheet> {
                     ),
                   ),
                   IconButton.filled(onPressed: _sendChat, icon: const Icon(Icons.send_rounded)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(i18n('local_super_chat'), style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _scMessageController,
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => _sendSuperChat(),
+                      decoration: InputDecoration(hintText: i18n('local_super_chat_hint')),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 84,
+                    child: TextField(
+                      controller: _scPriceController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      decoration: const InputDecoration(hintText: '￥', labelText: '￥'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 84,
+                    child: TextField(
+                      controller: _scDurationController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      decoration: const InputDecoration(hintText: 's', labelText: 's', suffixText: 's'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton.filled(onPressed: _sendSuperChat, icon: const Icon(Icons.local_fire_department_rounded)),
                 ],
               ),
               const SizedBox(height: 16),

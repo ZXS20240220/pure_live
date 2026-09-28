@@ -998,6 +998,41 @@ class LocalInteractionController extends GetxController {
     );
   }
 
+  /// 发送一条本地 SC（仅本机显示，用于测试 SC 卡片展示/展开/锁定等交互）。
+  /// 内容为空或功能未启用时返回 null；价格与持续时间自动收敛到合法范围。
+  LiveMessage? sendSuperChat({required String content, required int price, required int durationSeconds}) {
+    if (!enabled.v) return null;
+    final text = content.trim();
+    if (text.isEmpty) return null;
+    final safePrice = price.clamp(0, 1000000);
+    final safeDuration = durationSeconds.clamp(1, 7200);
+    final start = DateTime.now();
+    final superChat = LiveSuperChatMessage(
+      // local-sc 前缀与平台合成 id 隔离，避免与真实 SC 的去重/合并逻辑互相干扰。
+      messageId: 'local-sc:${start.millisecondsSinceEpoch}',
+      backgroundBottomColor: '#292a60',
+      backgroundColor: '#c1c1ff',
+      endTime: start.add(Duration(seconds: safeDuration)),
+      face: '',
+      message: text,
+      price: safePrice,
+      startTime: start,
+      userName: userName.v,
+    );
+    _addHistory('${userName.v} ${i18n('local_sent_sc')} ￥$safePrice · $text');
+    return LiveMessage(
+      type: LiveMessageType.superChat,
+      userName: userName.v,
+      message: text,
+      data: superChat,
+      color: LiveMessageColor.numberToColor(danmakuColor.v),
+      userLevel: showLevelBadge.v ? level.toString() : '',
+      fansName: titleLabel,
+      isLocal: true,
+      style: currentDanmakuStyle,
+    );
+  }
+
   void _addHistory(String value) {
     history.insert(0, value);
     if (history.length > 30) history.removeRange(30, history.length);

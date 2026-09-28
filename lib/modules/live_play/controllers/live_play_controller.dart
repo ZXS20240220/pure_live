@@ -740,6 +740,11 @@ class LivePlayController extends GetxController
       return;
     }
     final msg = delivery.message;
+    // 本地 SC 只进 SC 卡片列表，与真实 socket SC 的展示路径保持一致。
+    if (msg.type == LiveMessageType.superChat) {
+      addAddSuperChat(msg);
+      return;
+    }
     addDanmakuMessage(msg, immediate: true);
     if (delivery.showAsDanmaku) state.value.player.videoController?.sendDanmaku(msg);
     if (msg.type == LiveMessageType.gift && localInteractionController.enableGiftEffects.v) {
