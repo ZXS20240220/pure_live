@@ -26,7 +26,7 @@ import 'package:pure_live/modules/live_play/widgets/danmaku/main_danmaku_metrics
 import 'package:pure_live/modules/live_play/widgets/layout/bottom_control_surface.dart';
 import 'package:pure_live/modules/live_play/widgets/danmaku/danmaku_settings_binding.dart';
 import 'package:pure_live/modules/live_play/widgets/video_player/iptv_schedule_dialog.dart';
-import 'package:pure_live/modules/live_play/widgets/local_interaction/local_danmaku_style_editor.dart';
+import 'package:pure_live/modules/live_play/widgets/local_interaction/local_interaction_sheet.dart';
 
 @visibleForTesting
 enum TopActionLeadingSlot { back, datetime, battery }
@@ -1915,25 +1915,35 @@ class _FullscreenLocalDanmakuComposerState extends State<FullscreenLocalDanmakuC
             hintText: i18n('local_message_hint'),
             hintStyle: const TextStyle(color: Colors.white60, fontSize: 13),
             prefixIcon: IconButton(
-              key: const ValueKey('fullscreen-local-danmaku-style'),
-              tooltip: i18n('local_danmaku_style'),
+              key: const ValueKey('fullscreen-local-interaction'),
+              tooltip: i18n('local_interaction_title'),
               visualDensity: VisualDensity.compact,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints.tightFor(width: 36, height: 36),
-              onPressed: () async {
+              onPressed: () {
+                final live = controller.livePlayController;
                 controller.isMenuOpen.value = true;
                 controller.stopHideController();
-                try {
-                  await showLocalDanmakuStyleEditor(
-                    context,
-                    controller: controller.livePlayController.localInteractionController,
-                  );
-                } finally {
+                showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  showDragHandle: true,
+                  builder: (sheetContext) {
+                    final detail = live.state.value.room.detail;
+                    return LocalInteractionSheet(
+                      controller: live.localInteractionController,
+                      platform: detail?.platform ?? live.site,
+                      onMessage: (message, showAsDanmaku) {
+                        live.emitLocalMessage(message, showAsDanmaku: showAsDanmaku);
+                      },
+                    );
+                  },
+                ).whenComplete(() {
                   if (controller.status != PlayerStatus.disposed) {
                     controller.isMenuOpen.value = false;
                     controller.enableController();
                   }
-                }
+                });
               },
               icon: Icon(Icons.auto_awesome_rounded, color: Color(local.danmakuColor.v), size: 18),
             ),

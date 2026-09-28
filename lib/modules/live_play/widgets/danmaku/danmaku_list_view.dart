@@ -13,7 +13,7 @@ import 'package:pure_live/modules/live_play/states/ui_state.dart';
 import 'package:pure_live/modules/live_play/controllers/player_state.dart';
 import 'package:pure_live/modules/live_play/controllers/live_play_controller.dart';
 import 'package:pure_live/modules/live_play/widgets/danmaku/danmaku_message_actions.dart';
-import 'package:pure_live/modules/live_play/widgets/local_interaction/local_danmaku_style_editor.dart';
+import 'package:pure_live/modules/live_play/widgets/local_interaction/local_interaction_sheet.dart';
 
 bool isDanmakuUserScrollStart(ScrollNotification notification, {bool acceptDirectionOnlyUserScroll = false}) {
   if (notification is ScrollStartNotification && notification.dragDetails != null) {
@@ -490,12 +490,23 @@ class DanmakuListViewState extends State<DanmakuListView> {
                                   isDense: true,
                                   hintText: i18n('local_message_hint'),
                                   prefixIcon: IconButton(
-                                    key: const ValueKey('portrait-local-danmaku-style'),
-                                    tooltip: i18n('local_danmaku_style'),
-                                    onPressed: () => showLocalDanmakuStyleEditor(
-                                      context,
-                                      controller: controller.localInteractionController,
-                                    ),
+                                    key: const ValueKey('portrait-local-interaction'),
+                                    tooltip: i18n('local_interaction_title'),
+                                    onPressed: () {
+                                      final detail = controller.state.value.room.detail;
+                                      showModalBottomSheet<void>(
+                                        context: context,
+                                        isScrollControlled: true,
+                                        showDragHandle: true,
+                                        builder: (sheetContext) => LocalInteractionSheet(
+                                          controller: controller.localInteractionController,
+                                          platform: detail?.platform ?? controller.site,
+                                          onMessage: (message, showAsDanmaku) {
+                                            controller.emitLocalMessage(message, showAsDanmaku: showAsDanmaku);
+                                          },
+                                        ),
+                                      );
+                                    },
                                     icon: Icon(
                                       Icons.auto_awesome_rounded,
                                       size: 19,

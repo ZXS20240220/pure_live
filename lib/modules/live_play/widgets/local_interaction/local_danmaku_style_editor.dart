@@ -380,6 +380,17 @@ class _StyleControls extends StatelessWidget {
       final theme = Theme.of(context);
       final compactUi = compact || dense;
       final sectionGap = compactUi ? 11.0 : 17.0;
+      // 滑条值必须在 Obx 的同步 build 阶段读取以注册依赖：LayoutBuilder
+      // 的 builder 在布局阶段执行，其中的 Rx 读取不会注册，导致值变化
+      // 不触发重建（表现为松手后滑块回弹到旧值）。
+      final fontSize = controller.danmakuFontSize.v;
+      final speed = controller.danmakuSpeed.v;
+      final opacity = controller.danmakuOpacity.v;
+      final letterSpacing = controller.danmakuLetterSpacing.v;
+      final strokeWidth = controller.danmakuStrokeWidth.v;
+      final shadowBlur = controller.danmakuShadowBlur.v;
+      final shadowOffset = controller.danmakuShadowOffset.v;
+      final fixedDuration = controller.danmakuFixedDurationMs.v.toDouble();
       void custom(VoidCallback update) {
         update();
         controller.markDanmakuStyleCustom();
@@ -471,8 +482,8 @@ class _StyleControls extends StatelessWidget {
               final primary = [
                 _StyleSlider(
                   label: i18n('local_danmaku_size'),
-                  valueLabel: '${controller.danmakuFontSize.v.toStringAsFixed(0)} px',
-                  value: controller.danmakuFontSize.v,
+                  valueLabel: '${fontSize.toStringAsFixed(0)} px',
+                  value: fontSize,
                   min: 14,
                   max: 32,
                   divisions: 18,
@@ -481,8 +492,8 @@ class _StyleControls extends StatelessWidget {
                 ),
                 _StyleSlider(
                   label: i18n('local_danmaku_speed'),
-                  valueLabel: '${controller.danmakuSpeed.v.toStringAsFixed(0)} px/s',
-                  value: controller.danmakuSpeed.v,
+                  valueLabel: '${speed.toStringAsFixed(0)} px/s',
+                  value: speed,
                   min: 60,
                   max: 260,
                   divisions: 20,
@@ -493,8 +504,8 @@ class _StyleControls extends StatelessWidget {
               final secondary = [
                 _StyleSlider(
                   label: i18n('local_danmaku_opacity'),
-                  valueLabel: '${(controller.danmakuOpacity.v * 100).round()}%',
-                  value: controller.danmakuOpacity.v,
+                  valueLabel: '${(opacity * 100).round()}%',
+                  value: opacity,
                   min: .35,
                   max: 1,
                   divisions: 13,
@@ -503,8 +514,8 @@ class _StyleControls extends StatelessWidget {
                 ),
                 _StyleSlider(
                   label: i18n('local_danmaku_letter_spacing'),
-                  valueLabel: controller.danmakuLetterSpacing.v.toStringAsFixed(1),
-                  value: controller.danmakuLetterSpacing.v,
+                  valueLabel: letterSpacing.toStringAsFixed(1),
+                  value: letterSpacing,
                   min: -.5,
                   max: 3,
                   divisions: 14,
@@ -575,8 +586,8 @@ class _StyleControls extends StatelessWidget {
             ),
             _StyleSlider(
               label: i18n('local_danmaku_stroke_width'),
-              valueLabel: controller.danmakuStrokeWidth.v.toStringAsFixed(1),
-              value: controller.danmakuStrokeWidth.v,
+              valueLabel: strokeWidth.toStringAsFixed(1),
+              value: strokeWidth,
               min: .5,
               max: 4,
               divisions: 7,
@@ -601,8 +612,8 @@ class _StyleControls extends StatelessWidget {
                 children: [
                   _StyleSlider(
                     label: i18n('local_danmaku_shadow_blur'),
-                    valueLabel: controller.danmakuShadowBlur.v.toStringAsFixed(1),
-                    value: controller.danmakuShadowBlur.v,
+                    valueLabel: shadowBlur.toStringAsFixed(1),
+                    value: shadowBlur,
                     min: 0,
                     max: 6,
                     divisions: 12,
@@ -611,8 +622,8 @@ class _StyleControls extends StatelessWidget {
                   ),
                   _StyleSlider(
                     label: i18n('local_danmaku_shadow_offset'),
-                    valueLabel: controller.danmakuShadowOffset.v.toStringAsFixed(1),
-                    value: controller.danmakuShadowOffset.v,
+                    valueLabel: shadowOffset.toStringAsFixed(1),
+                    value: shadowOffset,
                     min: 0,
                     max: 4,
                     divisions: 8,
@@ -627,8 +638,8 @@ class _StyleControls extends StatelessWidget {
             SizedBox(height: compactUi ? 7 : 11),
             _StyleSlider(
               label: i18n('local_danmaku_fixed_duration'),
-              valueLabel: '${(controller.danmakuFixedDurationMs.v / 1000).toStringAsFixed(1)} s',
-              value: controller.danmakuFixedDurationMs.v.toDouble(),
+              valueLabel: '${(fixedDuration / 1000).toStringAsFixed(1)} s',
+              value: fixedDuration,
               min: 2000,
               max: 10000,
               divisions: 16,
@@ -753,7 +764,7 @@ class _ResponsiveSliderRow extends StatelessWidget {
   }
 }
 
-class _StyleSlider extends StatelessWidget {
+class _StyleSlider extends StatefulWidget {
   const _StyleSlider({
     required this.label,
     required this.valueLabel,
@@ -775,6 +786,16 @@ class _StyleSlider extends StatelessWidget {
   final bool dense;
 
   @override
+  State<_StyleSlider> createState() => _StyleSliderState();
+}
+
+class _StyleSliderState extends State<_StyleSlider> {
+  // 拖动中的本地值。Obx 重建在帧末才发生且会打断 Slider 的拖动手势，
+  // 导致 thumb 视觉停在初始位置（数值文本却已更新）；改由本地 setState
+  // 驱动 thumb，拖动跟手，松手后与外部值重新对齐。
+  double? _dragValue;
+
+  @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -786,13 +807,13 @@ class _StyleSlider extends StatelessWidget {
             final scaler = MediaQuery.textScalerOf(context);
             final direction = Directionality.of(context);
             final labelPainter = TextPainter(
-              text: TextSpan(text: label, style: labelStyle),
+              text: TextSpan(text: widget.label, style: labelStyle),
               textDirection: direction,
               textScaler: scaler,
               maxLines: 1,
             )..layout();
             final valuePainter = TextPainter(
-              text: TextSpan(text: valueLabel, style: valueStyle),
+              text: TextSpan(text: widget.valueLabel, style: valueStyle),
               textDirection: direction,
               textScaler: scaler,
               maxLines: 1,
@@ -805,30 +826,34 @@ class _StyleSlider extends StatelessWidget {
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(child: Text(label, style: labelStyle)),
+                  Expanded(child: Text(widget.label, style: labelStyle)),
                   const SizedBox(width: 12),
-                  Text(valueLabel, style: valueStyle),
+                  Text(widget.valueLabel, style: valueStyle),
                 ],
               );
             }
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: labelStyle),
+                Text(widget.label, style: labelStyle),
                 const SizedBox(height: 2),
-                Text(valueLabel, style: valueStyle),
+                Text(widget.valueLabel, style: valueStyle),
               ],
             );
           },
         ),
         SizedBox(
-          height: dense ? 32 : 40,
+          height: widget.dense ? 32 : 40,
           child: Slider(
-            value: value.clamp(min, max).toDouble(),
-            min: min,
-            max: max,
-            divisions: divisions,
-            onChanged: onChanged,
+            value: (_dragValue ?? widget.value).clamp(widget.min, widget.max).toDouble(),
+            min: widget.min,
+            max: widget.max,
+            divisions: widget.divisions,
+            onChanged: (value) {
+              setState(() => _dragValue = value);
+              widget.onChanged(value);
+            },
+            onChangeEnd: (_) => setState(() => _dragValue = null),
           ),
         ),
       ],
