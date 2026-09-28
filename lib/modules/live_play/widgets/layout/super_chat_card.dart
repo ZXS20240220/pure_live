@@ -205,13 +205,23 @@ class _SuperChatCardState extends State<SuperChatCard> {
   }
 
   Widget _buildPrice(LiveSuperChatMessage message, Color textColor) {
+    final listPrice = message.listPrice;
     return Row(
       children: [
         const Icon(Remix.money_cny_circle_fill, size: 16, color: Color(0xFFFFC107)),
         const SizedBox(width: 3),
         Flexible(
-          child: Text(
-            '￥${message.price}',
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(text: '￥${message.price}'),
+                if (listPrice != null && listPrice != message.price)
+                  TextSpan(
+                    text: '(￥$listPrice)',
+                    style: TextStyle(fontSize: 11, color: textColor.withValues(alpha: 0.65), fontWeight: FontWeight.w500),
+                  ),
+              ],
+            ),
             style: TextStyle(
               color: textColor,
               fontSize: 15,

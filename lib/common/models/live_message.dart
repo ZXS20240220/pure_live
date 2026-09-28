@@ -175,6 +175,10 @@ class LiveSuperChatMessage {
   final String face;
   final String message;
   final int price;
+
+  /// 抵扣前的标价（鱼翅原价）。仅在平台同时推送标价与实付价且两者不同
+  /// 时有值，用于在卡片上显示“实付(标价)”；其他平台/单事件推送为 null。
+  final int? listPrice;
   final DateTime startTime;
   final DateTime endTime;
   final String backgroundColor;
@@ -186,11 +190,38 @@ class LiveSuperChatMessage {
     required this.backgroundColor,
     required this.endTime,
     required this.face,
+    this.listPrice,
     required this.message,
     required this.price,
     required this.startTime,
     required this.userName,
   });
+
+  LiveSuperChatMessage copyWith({
+    String? messageId,
+    String? userName,
+    String? face,
+    String? message,
+    int? price,
+    int? listPrice,
+    DateTime? startTime,
+    DateTime? endTime,
+    String? backgroundColor,
+    String? backgroundBottomColor,
+  }) {
+    return LiveSuperChatMessage(
+      messageId: messageId ?? this.messageId,
+      userName: userName ?? this.userName,
+      face: face ?? this.face,
+      message: message ?? this.message,
+      price: price ?? this.price,
+      listPrice: listPrice ?? this.listPrice,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+      backgroundColor: backgroundColor ?? this.backgroundColor,
+      backgroundBottomColor: backgroundBottomColor ?? this.backgroundBottomColor,
+    );
+  }
 
   @override
   bool operator ==(Object other) {

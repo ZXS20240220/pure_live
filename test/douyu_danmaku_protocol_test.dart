@@ -1,9 +1,19 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pure_live/common/models/live_message.dart';
 import 'package:pure_live/core/danmaku/douyu_danmaku.dart';
+import 'package:pure_live/core/site/douyu/douyu_utils.dart';
 
 void main() {
   group('Douyu danmaku protocol', () {
+    late DouyuDanmaku danmaku;
+    late List<LiveMessage> received;
+
+    setUp(() {
+      danmaku = DouyuDanmaku()..debugSetRoomId('100');
+      received = <LiveMessage>[];
+      danmaku.onMessage = received.add;
+    });
+
     test('decodes every packet coalesced in one websocket frame', () {
       final danmaku = DouyuDanmaku();
       danmaku.markConnected();
@@ -88,121 +98,106 @@ void main() {
       expect(data.price, 5);
     });
 
-    test('displays a price=0 super chat immediately', () async {
-      final danmaku = DouyuDanmaku()
-        ..debugSetRoomId('100')
-        ..debugSetSuperChatDedupWindow(const Duration(milliseconds: 30));
-      final received = <LiveMessage>[];
-      danmaku.onMessage = received.add;
-      final free = danmaku.serializeDouyu(
-        'type@=comm_chatmsg/now@=1700000000000/cet@=60/cprice@=0/'
-        'chatmsg@=nn@A=Supporter@Stxt@A=Great@Sic@A=avatar/',
+    LiveSuperChatMessage buildVoiceSc({
+      required String userName,
+      required String message,
+      required int price,
+      int startMs = 1700000000000,
+    }) {
+      final startTime = DateTime.fromMillisecondsSinceEpoch(startMs);
+      return LiveSuperChatMessage(
+        messageId: DouyuUtils.superChatCoalesceId(
+          roomId: '100',
+          userName: userName,
+          message: message,
+          startTime: startTime,
+        ),
+        backgroundColor: '#ffffff',
+        backgroundBottomColor: '#246488',
+        endTime: startTime.add(const Duration(seconds: 60)),
+        face: '',
+        message: message,
+        price: price,
+        startTime: startTime,
+        userName: userName,
+      );
+    }
+
+    List<int> listPricePacket({required int cprice, String nn = 'Supporter', String txt = 'Great'}) {
+      final builder = DouyuDanmaku()..debugSetRoomId('100');
+      return builder.serializeDouyu(
+        'type@=comm_chatmsg/now@=1700000000000/cet@=60/cprice@=$cprice/'
+        'chatmsg@=nn@A=$nn@Stxt@A=$txt@Sic@A=avatar/',
+      );
+    }
+
+    test('displays the list-price report immediately without waiting for a twin', () {
+      danmaku.decodeMessage(listPricePacket(cprice: 10000));
+      expect(received, hasLength(1));
+      final sc = received.single.data as LiveSuperChatMessage;
+      expect(sc.price, 100);
+      // 仅一份报告时不显示重复标价。
+      expect(sc.listPrice, 100);
+    });
+
+    test('updates the same card when the real-price report arrives after the list-price report', () {
+      danmaku.decodeMessage(listPricePacket(cprice: 10000));
+      danmaku.debugDispatchSuperChat(
+        buildVoiceSc(userName: 'Supporter', message: 'Great', price: 50),
+        isRealPriceEvent: true,
       );
 
-      danmaku.decodeMessage(free);
-      expect(received, hasLength(1));
+      expect(received, hasLength(2));
+      expect(received.first.messageId, received.last.messageId);
+      final updated = received.last.data as LiveSuperChatMessage;
+      expect(updated.price, 50);
+      expect(updated.listPrice, 100);
+    });
+
+    test('keeps price 0 and attaches list price when the free report arrives first', () {
+      danmaku.debugDispatchSuperChat(
+        buildVoiceSc(userName: 'Supporter', message: 'Great', price: 0),
+        isRealPriceEvent: true,
+      );
       expect((received.single.data as LiveSuperChatMessage).price, 0);
 
-      await Future<void>.delayed(const Duration(milliseconds: 80));
-      expect(received, hasLength(1));
+      danmaku.decodeMessage(listPricePacket(cprice: 10000));
+      expect(received, hasLength(2));
+      final updated = received.last.data as LiveSuperChatMessage;
+      expect(updated.price, 0);
+      expect(updated.listPrice, 100);
     });
 
-    test('suppresses the identical price>0 companion that follows a shown price=0 SC', () async {
-      final danmaku = DouyuDanmaku()
-        ..debugSetRoomId('100')
-        ..debugSetSuperChatDedupWindow(const Duration(milliseconds: 30));
-      final received = <LiveMessage>[];
-      danmaku.onMessage = received.add;
-      final free = danmaku.serializeDouyu(
-        'type@=comm_chatmsg/now@=1700000000000/cet@=60/cprice@=0/'
-        'chatmsg@=nn@A=Supporter@Stxt@A=Great@Sic@A=avatar/',
+    test('treats a real-price SC with different content as a separate message', () {
+      danmaku.debugDispatchSuperChat(
+        buildVoiceSc(userName: 'Supporter', message: 'Great', price: 0),
+        isRealPriceEvent: true,
       );
-      final companion = danmaku.serializeDouyu(
-        'type@=comm_chatmsg/now@=1700000000000/cet@=60/cprice@=500/'
-        'chatmsg@=nn@A=Supporter@Stxt@A=Great@Sic@A=avatar/',
+      danmaku.debugDispatchSuperChat(
+        buildVoiceSc(userName: 'Other', message: 'Different', price: 5),
+        isRealPriceEvent: true,
       );
 
-      danmaku.decodeMessage(free);
-      expect(received, hasLength(1));
-      expect((received.single.data as LiveSuperChatMessage).price, 0);
-
-      danmaku.decodeMessage(companion);
-      expect(received, hasLength(1));
-
-      await Future<void>.delayed(const Duration(milliseconds: 80));
-      expect(received, hasLength(1));
+      expect(received, hasLength(2));
+      expect(received.first.messageId == received.last.messageId, isFalse);
     });
 
-    test('a price>0 SC with different content is displayed as a normal paid SC', () async {
-      final danmaku = DouyuDanmaku()
-        ..debugSetRoomId('100')
-        ..debugSetSuperChatDedupWindow(const Duration(milliseconds: 30));
-      final received = <LiveMessage>[];
-      danmaku.onMessage = received.add;
-      final free = danmaku.serializeDouyu(
-        'type@=comm_chatmsg/now@=1700000000000/cet@=60/cprice@=0/'
-        'chatmsg@=nn@A=Supporter@Stxt@A=Great@Sic@A=avatar/',
+    test('a reconnect replay keeps updating the same card instead of creating a new identity', () {
+      danmaku.decodeMessage(listPricePacket(cprice: 10000));
+      danmaku.debugDispatchSuperChat(
+        buildVoiceSc(userName: 'Supporter', message: 'Great', price: 50),
+        isRealPriceEvent: true,
       );
-      final paid = danmaku.serializeDouyu(
-        'type@=comm_chatmsg/now@=1700000000000/cet@=60/cprice@=500/'
-        'chatmsg@=nn@A=Other@Stxt@A=Different@Sic@A=avatar/',
+      danmaku.debugDispatchSuperChat(
+        buildVoiceSc(userName: 'Supporter', message: 'Great', price: 50),
+        isRealPriceEvent: true,
       );
 
-      danmaku.decodeMessage(free);
-      danmaku.decodeMessage(paid);
-      expect(received, hasLength(2));
-      expect((received.last.data as LiveSuperChatMessage).price, 5);
-
-      await Future<void>.delayed(const Duration(milliseconds: 80));
-      expect(received, hasLength(2));
-    });
-
-    test('only one price>0 companion is suppressed per shown price=0 SC', () {
-      final danmaku = DouyuDanmaku()..debugSetRoomId('100');
-      final received = <LiveMessage>[];
-      danmaku.onMessage = received.add;
-      final free = danmaku.serializeDouyu(
-        'type@=comm_chatmsg/now@=1700000000000/cet@=60/cprice@=0/'
-        'chatmsg@=nn@A=Supporter@Stxt@A=Great@Sic@A=avatar/',
-      );
-      List<int> companion() => danmaku.serializeDouyu(
-        'type@=comm_chatmsg/now@=1700000000000/cet@=60/cprice@=500/'
-        'chatmsg@=nn@A=Supporter@Stxt@A=Great@Sic@A=avatar/',
-      );
-
-      danmaku.decodeMessage(free);
-      danmaku.decodeMessage(companion());
-      expect(received, hasLength(1));
-
-      // The twin was consumed, so a further identical packet is a genuine
-      // paid SC and must be displayed.
-      danmaku.decodeMessage(companion());
-      expect(received, hasLength(2));
-      expect((received.last.data as LiveSuperChatMessage).price, 5);
-    });
-
-    test('a price>0 packet arriving after the dedup window is displayed', () async {
-      final danmaku = DouyuDanmaku()
-        ..debugSetRoomId('100')
-        ..debugSetSuperChatDedupWindow(const Duration(milliseconds: 30));
-      final received = <LiveMessage>[];
-      danmaku.onMessage = received.add;
-      final free = danmaku.serializeDouyu(
-        'type@=comm_chatmsg/now@=1700000000000/cet@=60/cprice@=0/'
-        'chatmsg@=nn@A=Supporter@Stxt@A=Great@Sic@A=avatar/',
-      );
-      final lateCompanion = danmaku.serializeDouyu(
-        'type@=comm_chatmsg/now@=1700000000000/cet@=60/cprice@=500/'
-        'chatmsg@=nn@A=Supporter@Stxt@A=Great@Sic@A=avatar/',
-      );
-
-      danmaku.decodeMessage(free);
-      expect(received, hasLength(1));
-
-      await Future<void>.delayed(const Duration(milliseconds: 80));
-      danmaku.decodeMessage(lateCompanion);
-      expect(received, hasLength(2));
-      expect((received.last.data as LiveSuperChatMessage).price, 5);
+      expect(received, hasLength(3));
+      expect(received.map((m) => m.messageId).toSet(), hasLength(1));
+      final replayed = received.last.data as LiveSuperChatMessage;
+      expect(replayed.price, 50);
+      expect(replayed.listPrice, 100);
     });
   });
 }

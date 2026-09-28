@@ -798,7 +798,6 @@ class DouyuSite
       if (item is! Map) continue;
       final startAt = item['startAt'];
       final expireAt = item['expireAt'];
-      final voiceRecordId = item['voiceRecordId']?.toString() ?? '';
       final content = item['content']?.toString() ?? '';
       final userNick = item['userNick']?.toString() ?? '';
       final userIcon = item['userIcon']?.toString() ?? '';
@@ -809,7 +808,14 @@ class DouyuSite
       final endTime = DateTime.fromMillisecondsSinceEpoch(expireAt.toInt() * 1000);
       messages.add(
         LiveSuperChatMessage(
-          messageId: voiceRecordId,
+          // 使用与 socket 标价/实付事件相同的合成身份，使 HTTP 回填与
+          // 实时推送、重连重放合并为同一张卡。
+          messageId: DouyuUtils.superChatCoalesceId(
+            roomId: roomId,
+            userName: userNick,
+            message: content,
+            startTime: startTime,
+          ),
           userName: userNick,
           face: userIcon,
           message: content,

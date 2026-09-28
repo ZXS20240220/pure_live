@@ -43,6 +43,23 @@ class DouyuUtils {
       'AppleWebKit/537.36 (KHTML, like Gecko) '
       'Chrome/128.0.0.0 Safari/537.36';
 
+  /// 斗鱼 SC 跨通道统一身份。
+  ///
+  /// 同一条醒目留言会经过 HTTP 回填、socket `comm_chatmsg`（标价）、
+  /// `voice_trlt`（实付价）以及断线重连重放等多条路径，各路径时间戳
+  /// 相差可达秒级。这里按 2 分钟桶归一，使同一条 SC 的各份报告得到
+  /// 相同 id；同用户发送相同内容但相隔 2 分钟以上的另一条 SC 得到
+  /// 不同 id（2 分钟内重复购买相同内容属极端边界）。
+  static String superChatCoalesceId({
+    required String roomId,
+    required String userName,
+    required String message,
+    required DateTime startTime,
+  }) {
+    final bucket = startTime.millisecondsSinceEpoch ~/ 120000;
+    return 'douyu-sc:$roomId:${Uri.encodeComponent('$userName|$message')}:$bucket';
+  }
+
   /// Cookie names a Douyu login is spread across.
   ///
   /// Douyu hands out two flavours and a pasted cookie is one of them:

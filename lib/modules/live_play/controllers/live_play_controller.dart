@@ -386,17 +386,29 @@ class LivePlayController extends GetxController
   }
 
   void addSingleSuperChat(LiveSuperChatMessage item) {
-    final next = <LiveSuperChatMessage>{...superChats, item}.toList(growable: false);
-    _sortSuperChatsByStartTimeDesc(next);
-    superChats.assignAll(next);
-    _scheduleSuperChatExpiry();
+    _mergeSuperChats([item]);
   }
 
   void addBatchSuperChat(List<LiveSuperChatMessage> sc) {
     if (sc.isEmpty) return;
-    final next = <LiveSuperChatMessage>{...superChats, ...sc}.toList(growable: false);
-    _sortSuperChatsByStartTimeDesc(next);
-    superChats.assignAll(next);
+    _mergeSuperChats(sc);
+  }
+
+  /// 合并新到的 SC 报告：同身份条目就地替换（孪生价格报告/重连重放/HTTP
+  /// 回填都更新同一张卡），新条目追加；标价已有时不因新报告缺字段而丢失。
+  void _mergeSuperChats(List<LiveSuperChatMessage> incoming) {
+    final merged = List<LiveSuperChatMessage>.of(superChats);
+    for (final item in incoming) {
+      final index = merged.indexWhere((existing) => existing == item);
+      if (index == -1) {
+        merged.add(item);
+      } else {
+        final existing = merged[index];
+        merged[index] = item.copyWith(listPrice: item.listPrice ?? existing.listPrice);
+      }
+    }
+    _sortSuperChatsByStartTimeDesc(merged);
+    superChats.assignAll(merged);
     _scheduleSuperChatExpiry();
   }
 
