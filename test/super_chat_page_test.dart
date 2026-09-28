@@ -88,6 +88,8 @@ void main() {
           backgroundColor: 'not-a-colour',
           backgroundBottomColor: '#12',
         ),
+        isLocked: false,
+        onToggleLock: () {},
       ),
     );
 
@@ -106,6 +108,8 @@ void main() {
           text: longMessage,
           price: 2147483647,
         ),
+        isLocked: false,
+        onToggleLock: () {},
       ),
       size: const Size(320, 480),
       scale: 3,
