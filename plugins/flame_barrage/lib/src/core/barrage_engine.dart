@@ -420,6 +420,7 @@ class BarrageEngine extends FlameGame with TapCallbacks {
         if (entry.active) {
           _backbufferEntries.add(entry);
         } else {
+          _releaseEntryPicture(entry);
           _pool.recycle(entry);
           _currentAliveCount--;
         }
@@ -498,11 +499,10 @@ class BarrageEngine extends FlameGame with TapCallbacks {
     }
     track.lastLaunchTime = now;
     final cacheKey = buildCacheKey(item);
-    Picture? picture = _pictureCache.get(cacheKey);
-    if (picture == null) {
-      picture = _renderer.buildPicture(layoutResult);
-      _pictureCache.put(cacheKey, picture);
-    }
+    // Every hand-out increments the picture's ref count; it is balanced when
+    // the entry is recycled, dropped by render() or cleared with the engine.
+    final Picture picture =
+        _pictureCache.acquire(cacheKey) ?? _pictureCache.putAndAcquire(cacheKey, _renderer.buildPicture(layoutResult));
     double startX = size.x;
     double startY =
         _getTopOffset() +
@@ -573,7 +573,17 @@ class BarrageEngine extends FlameGame with TapCallbacks {
   }
 
   void recycleComponent(BarrageEntry entry) {
+    _releaseEntryPicture(entry);
     _pool.recycle(entry);
+  }
+
+  /// Balances the picture reference handed out in [_dispatchWaiting]. Safe to
+  /// call repeatedly: the reference is cleared on the first release.
+  void _releaseEntryPicture(BarrageEntry entry) {
+    final picture = entry.picture;
+    if (picture == null) return;
+    _pictureCache.release(picture);
+    entry.picture = null;
   }
 
   @override
@@ -586,11 +596,23 @@ class BarrageEngine extends FlameGame with TapCallbacks {
     // saveLayer per visible item, per display frame: up to 48 * 120 layers/s.
     for (int i = 0; i < len; i++) {
       final entry = _activeEntries[i];
-      if (!entry.active || entry.picture == null) continue;
+      final picture = entry.picture;
+      if (!entry.active || picture == null) continue;
       canvas.save();
-      canvas.translate(entry.x, entry.y);
-      canvas.drawPicture(entry.picture!);
-      canvas.restore();
+      try {
+        canvas.translate(entry.x, entry.y);
+        canvas.drawPicture(picture);
+      } catch (_) {
+        // One invalid picture must not abort the whole paint: that used to
+        // blank every on-screen barrage and flood the console every frame
+        // until the bad entry scrolled off. Drop just this entry and release
+        // its reference; the periodic cleanup then recycles it.
+        _pictureCache.release(picture);
+        entry.picture = null;
+        entry.active = false;
+      } finally {
+        canvas.restore();
+      }
     }
   }
 
@@ -601,14 +623,18 @@ class BarrageEngine extends FlameGame with TapCallbacks {
     _pausedBuffer.clear();
     _droppedCount = 0;
     _heldEntry = null;
-    _pictureCache.clear();
-    _parser.clearCache();
-    _layout.clearCache();
-    for (var e in _activeEntries) {
+    // Release entry references first, then drop the LRU. The cache defers
+    // disposal of any picture that is still referenced, so disposing the
+    // cache can never invalidate a picture an entry is about to draw.
+    for (final e in _activeEntries) {
+      _releaseEntryPicture(e);
       _pool.recycle(e);
     }
     _activeEntries.clear();
     _backbufferEntries.clear();
+    _pictureCache.clear();
+    _parser.clearCache();
+    _layout.clearCache();
     _pool.clear();
     _currentAliveCount = 0;
     _emitTimer = 0.0;
