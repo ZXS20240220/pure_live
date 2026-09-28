@@ -1,6 +1,6 @@
 import 'dart:io';
-import 'dart:math';
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter/gestures.dart';
@@ -10,6 +10,7 @@ import 'package:pure_live/plugins/event_bus.dart';
 import 'package:flame_barrage/flame_barrage.dart';
 import 'package:pure_live/common/utils/live_url_tool.dart';
 import 'package:pure_live/common/global/platform_utils.dart';
+import 'package:pure_live/common/consts/app_consts.dart';
 import 'package:pure_live/common/utils/play_quality_label.dart';
 import 'package:pure_live/modules/live_play/states/load_type.dart';
 import 'package:pure_live/player/core/portrait_stream_support.dart';
@@ -1279,178 +1280,280 @@ class ResolutionSelectorButton extends StatelessWidget {
 /// Compact fullscreen entry for quality and CDN-line selection. Both controls
 /// live in one landscape panel, avoiding two narrow menus competing for the
 /// bottom-right safe area.
-class FullscreenStreamSelectorButton extends StatelessWidget {
+class FullscreenStreamSelectorButton extends StatefulWidget {
   const FullscreenStreamSelectorButton({super.key, required this.controller});
 
   final VideoController controller;
 
-  Future<void> _showSelector(BuildContext context) async {
-    final size = MediaQuery.sizeOf(context);
-    final isDesktop = Get.width > 680;
+  @override
+  State<FullscreenStreamSelectorButton> createState() => _FullscreenStreamSelectorButtonState();
+}
 
-    controller.isMenuOpen.value = true;
-    controller.stopHideController();
+/// 单行文本测宽：用于悬浮面板按内容自适应尺寸。
+double _measureTextWidth(BuildContext context, String text, TextStyle? style) {
+  final painter = TextPainter(
+    text: TextSpan(text: text, style: style),
+    textDirection: TextDirection.ltr,
+    textScaler: MediaQuery.textScalerOf(context),
+    maxLines: 1,
+  )..layout();
+  final width = painter.width;
+  painter.dispose();
+  return width;
+}
 
-    try {
-      await showDialog<void>(
-        context: context,
-        barrierColor: Colors.black.withValues(alpha: 0.32),
-        builder: (dialogContext) {
-          return Obx(() {
-            final live = controller.livePlayController;
-            final state = live.state.value.player;
-            final switching = live.playerController.isStreamSwitching.value;
+/// 清晰度/线路面板的布局结果：整体尺寸与两个窗格的列数。
+class _StreamPanelLayout {
+  const _StreamPanelLayout({required this.size, required this.qualityColumns, required this.lineColumns});
 
-            final qualityCount = state.qualites.length;
-            final lineCount = state.playUrls.length;
+  final Size size;
+  final int qualityColumns;
+  final int lineColumns;
+}
 
-            final colorScheme = Theme.of(dialogContext).colorScheme;
-            final textTheme = Theme.of(dialogContext).textTheme;
+/// 清晰度/线路合并胶囊：对齐音量控件的悬浮交互——鼠标移入即在按钮上方
+/// 弹出选择面板（复用 [_StreamChoicePane] 双栏），移出后延迟收起。
+/// 面板尺寸按内容自适应：宽度由最长标签与标题行测量得出，高度由选项
+/// 行数得出；超出上限时收窄，再由网格滚动兜底。
+class _FullscreenStreamSelectorButtonState extends State<FullscreenStreamSelectorButton> {
+  /// 面板总宽度上限：两个窗格 + 中缝 8 + 外层左右内边距 16。
+  static const double _maxPanelWidth = 480.0;
 
-            final splitContent = isDesktop || size.width >= 560;
+  /// 单个窗格内容高度上限：超过后改双列，仍超出则由网格滚动兜底。
+  static const double _maxPaneHeight = 300.0;
 
-            final double dialogWidth = isDesktop
-                ? min(560.0, max(440.0, size.width * 0.36))
-                : min(size.width - 32, 500.0);
+  /// 与 [_StreamChoicePane] 的网格常量保持一致。
+  static const double _paneGridExtent = 38.0;
+  static const double _paneGridSpacing = 5.0;
 
-            final double dialogHeight = isDesktop
-                ? min(400.0, max(300.0, size.height * 0.55))
-                : min(520.0, size.height - 48);
+  VideoController get controller => widget.controller;
 
-            final qualityPane = _StreamChoicePane(
-              key: const ValueKey('stream-quality-pane'),
-              icon: Icons.high_quality_rounded,
-              title: i18n('select_quality'),
-              itemCount: qualityCount,
-              selectedIndex: state.currentQuality,
-              labelBuilder: (index) {
-                return state.qualites[index].quality;
+  OverlayEntry? _overlayEntry;
+  final LayerLink _layerLink = LayerLink();
+  bool _isMouseInButton = false;
+  bool _isMouseInPanel = false;
+  Timer? _hideTimer;
+
+  /// 面板展示期间绑定的控制器，移除面板时向其归还 isMenuOpen 状态。
+  VideoController? _panelOwner;
+
+  @override
+  void didUpdateWidget(covariant FullscreenStreamSelectorButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (identical(oldWidget.controller, controller)) return;
+    _hideTimer?.cancel();
+    _removeOverlay(owner: oldWidget.controller);
+    _isMouseInButton = false;
+  }
+
+  @override
+  void dispose() {
+    _hideTimer?.cancel();
+    _removeOverlay();
+    super.dispose();
+  }
+
+  void _showPanel() {
+    if (_overlayEntry != null || !mounted) return;
+    final owner = controller;
+    _panelOwner = owner;
+    owner.isMenuOpen.value = true;
+    owner.stopHideController();
+
+    _overlayEntry = OverlayEntry(
+      builder: (context) => Obx(() {
+        // 尺寸跟随房间数据（清晰度/线路数量与标签长度）实时自适应。
+        final layout = _computePanelLayout(context);
+        return Positioned(
+          width: layout.size.width,
+          height: layout.size.height + 6,
+          child: CompositedTransformFollower(
+            link: _layerLink,
+            showWhenUnlinked: false,
+            followerAnchor: Alignment.bottomCenter,
+            targetAnchor: Alignment.topCenter,
+            offset: const Offset(0, 6),
+            child: MouseRegion(
+              onEnter: (_) {
+                _isMouseInPanel = true;
+                owner.stopHideController();
               },
-              onSelected: switching
-                  ? null
-                  : (index) async {
-                      await live.setResolution(ReloadDataType.changeQuality, index, state.currentLineIndex);
-                    },
-            );
-
-            final linePane = _StreamChoicePane(
-              key: const ValueKey('stream-line-pane'),
-              icon: Icons.alt_route_rounded,
-              title: i18n('select_line'),
-              itemCount: lineCount,
-              selectedIndex: state.currentLineIndex,
-              labelBuilder: (index) {
-                return i18n('toolbox_line', args: {'index': (index + 1).toString()});
+              onExit: (_) {
+                _isMouseInPanel = false;
+                owner.enableController();
+                _startHideTimer();
               },
-              onSelected: switching
-                  ? null
-                  : (index) async {
-                      await live.setResolution(ReloadDataType.changeLine, state.currentQuality, index);
-                    },
-            );
+              child: _buildPanel(context, layout),
+            ),
+          ),
+        );
+      }),
+    );
 
-            return Dialog(
-              key: const ValueKey('fullscreen-stream-selector-panel'),
-              alignment: isDesktop ? Alignment.centerRight : Alignment.center,
-              insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-              backgroundColor: colorScheme.surface,
-              elevation: isDesktop ? 12 : 8,
-              clipBehavior: Clip.antiAlias,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(isDesktop ? 18 : 16)),
-              child: SizedBox(
-                width: dialogWidth,
-                height: dialogHeight,
-                child: Column(
-                  children: [
-                    SizedBox(
-                      height: 46,
-                      child: Padding(
-                        padding: const EdgeInsets.only(left: 14, right: 8),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 28,
-                              height: 28,
-                              decoration: BoxDecoration(
-                                color: colorScheme.primaryContainer,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Icon(Icons.tune_rounded, size: 16, color: colorScheme.onPrimaryContainer),
-                            ),
-                            const SizedBox(width: 9),
-                            Expanded(
-                              child: Text(
-                                i18n('fullscreen_stream_settings'),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-                              ),
-                            ),
-                            IconButton(
-                              tooltip: i18n('close'),
-                              visualDensity: VisualDensity.compact,
-                              constraints: const BoxConstraints.tightFor(width: 32, height: 32),
-                              padding: EdgeInsets.zero,
-                              onPressed: () {
-                                Navigator.pop(dialogContext);
-                              },
-                              icon: Icon(Icons.close_rounded, size: 18, color: colorScheme.onSurfaceVariant),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+    Overlay.of(context).insert(_overlayEntry!);
+  }
 
-                    Divider(height: 1, thickness: 1, color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+  /// 按内容计算面板尺寸：宽度由最长标签（含选中态让位）与标题行决定，
+  /// 高度由选项行数决定；两个窗格等宽并排。
+  _StreamPanelLayout _computePanelLayout(BuildContext context) {
+    final live = controller.livePlayController;
+    final state = live.state.value.player;
+    final textTheme = Theme.of(context).textTheme;
 
-                    Expanded(
-                      child: Padding(
-                        padding: EdgeInsets.all(isDesktop ? 10 : 8),
-                        child: splitContent
-                            ? Row(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Expanded(child: qualityPane),
-                                  const SizedBox(width: 8),
-                                  Expanded(child: linePane),
-                                ],
-                              )
-                            : Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Expanded(child: qualityPane),
-                                  const SizedBox(height: 8),
-                                  Expanded(child: linePane),
-                                ],
-                              ),
-                      ),
-                    ),
+    final panes = [
+      (
+        title: i18n('select_quality'),
+        count: state.qualites.length,
+        label: (int index) => state.qualites[index].quality,
+      ),
+      (
+        title: i18n('select_line'),
+        count: state.playUrls.length,
+        label: (int index) => i18n('toolbox_line', args: {'index': '${index + 1}'}),
+      ),
+    ];
 
-                    if (switching)
-                      Positioned(
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        child: LinearProgressIndicator(
-                          key: const ValueKey('fullscreen-stream-switch-progress'),
-                          minHeight: 2,
-                          backgroundColor: Colors.transparent,
-                          color: colorScheme.primary,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            );
-          });
-        },
-      );
-    } finally {
-      if (controller.status != PlayerStatus.disposed) {
-        controller.isMenuOpen.value = false;
-        controller.enableController();
+    var paneWidth = 0.0;
+    var paneHeight = 0.0;
+    for (final pane in panes) {
+      var maxLabelWidth = 0.0;
+      for (var i = 0; i < pane.count; i++) {
+        maxLabelWidth = math.max(
+          maxLabelWidth,
+          _measureTextWidth(context, pane.label(i), textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w800)),
+        );
       }
+      // 单元格宽 = 标签 + 左右内边距 12 + 选中态文本让位与勾选图标 33。
+      final cellWidth = maxLabelWidth + 45;
+      final columns = _paneColumns(pane.count);
+      final gridWidth = columns * cellWidth + (columns - 1) * _paneGridSpacing;
+      var width = gridWidth + 16; // 窗格左右内边距 14 + 边框 2
+
+      // 标题行（图标 16 + 间距 6 + 标题 + 计数）同样需要放得下。
+      final titleWidth = _measureTextWidth(
+        context,
+        pane.title,
+        textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+      );
+      final countWidth = pane.count > 0 ? _measureTextWidth(context, '${pane.count}', textTheme.labelSmall) : 0.0;
+      width = math.max(width, 16 + 16 + 6 + titleWidth + 4 + countWidth);
+
+      paneWidth = math.max(paneWidth, width);
+      paneHeight = math.max(paneHeight, _paneContentHeight(pane.count, columns));
     }
+
+    // 总宽上限平分到两个窗格；总高超出则由网格滚动兜底。
+    paneWidth = math.min(paneWidth, (_maxPanelWidth - 24) / 2);
+    paneHeight = math.min(paneHeight, _maxPaneHeight);
+    return _StreamPanelLayout(
+      size: Size(paneWidth * 2 + 24, paneHeight + 16), // + 外层 Padding 上下 16
+      qualityColumns: _paneColumns(panes[0].count),
+      lineColumns: _paneColumns(panes[1].count),
+    );
+  }
+
+  /// 单列高度超出上限时改用两列；仍超出则由网格滚动兜底。
+  int _paneColumns(int count) {
+    if (count <= 1) return 1;
+    if (_paneContentHeight(count, 1) > _maxPaneHeight) return 2;
+    return 1;
+  }
+
+  /// 窗格内容高度 = 标题行 25 + 分隔线 7 + 网格 + 上下内边距 12 + 边框 2。
+  double _paneContentHeight(int count, int columns) {
+    final rows = count <= 0 ? 1 : (count / columns).ceil();
+    final gridHeight = rows * _paneGridExtent + (rows - 1) * _paneGridSpacing;
+    return 25 + 7 + gridHeight + 12 + 2;
+  }
+
+  void _startHideTimer() {
+    _hideTimer?.cancel();
+    _hideTimer = Timer(const Duration(milliseconds: 150), () {
+      if (!_isMouseInButton && !_isMouseInPanel) {
+        _removeOverlay();
+      }
+    });
+  }
+
+  void _removeOverlay({VideoController? owner}) {
+    _hideTimer?.cancel();
+    _overlayEntry?.remove();
+    _overlayEntry?.dispose();
+    _overlayEntry = null;
+    _isMouseInPanel = false;
+    final target = owner ?? _panelOwner ?? controller;
+    if (target.status != PlayerStatus.disposed) {
+      target.isMenuOpen.value = false;
+      target.enableController();
+    }
+    _panelOwner = null;
+  }
+
+  Widget _buildPanel(BuildContext context, _StreamPanelLayout layout) {
+    final live = controller.livePlayController;
+    final state = live.state.value.player;
+    final switching = live.playerController.isStreamSwitching.value;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    final qualityPane = _StreamChoicePane(
+      key: const ValueKey('stream-quality-pane'),
+      icon: Icons.high_quality_rounded,
+      title: i18n('select_quality'),
+      itemCount: state.qualites.length,
+      columns: layout.qualityColumns,
+      selectedIndex: state.currentQuality,
+      labelBuilder: (index) {
+        return state.qualites[index].quality;
+      },
+      onSelected: switching
+          ? null
+          : (index) async {
+              await live.setResolution(ReloadDataType.changeQuality, index, state.currentLineIndex);
+            },
+    );
+
+    final linePane = _StreamChoicePane(
+      key: const ValueKey('stream-line-pane'),
+      icon: Icons.alt_route_rounded,
+      title: i18n('select_line'),
+      itemCount: state.playUrls.length,
+      columns: layout.lineColumns,
+      selectedIndex: state.currentLineIndex,
+      labelBuilder: (index) {
+        return i18n('toolbox_line', args: {'index': (index + 1).toString()});
+      },
+      onSelected: switching
+          ? null
+          : (index) async {
+              await live.setResolution(ReloadDataType.changeLine, state.currentQuality, index);
+            },
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Material(
+        color: colorScheme.surface,
+        elevation: 8,
+        shadowColor: Colors.black45,
+        borderRadius: BorderRadius.circular(14),
+        clipBehavior: Clip.antiAlias,
+        child: SizedBox(
+          width: layout.size.width,
+          height: layout.size.height,
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: qualityPane),
+                const SizedBox(width: 8),
+                Expanded(child: linePane),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -1466,36 +1569,45 @@ class FullscreenStreamSelectorButton extends StatelessWidget {
           '${state.qualitySafe.quality} · ${i18n('toolbox_line', args: {'index': '${state.currentLineIndex + 1}'})}';
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 3),
-        child: Material(
-          key: const ValueKey('fullscreen-stream-selector'),
-          color: Colors.white.withValues(alpha: .13),
-          borderRadius: BorderRadius.circular(18),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(18),
-            onTap: switching ? null : () => unawaited(_showSelector(context)),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  switching
-                      ? const SizedBox(
-                          width: 15,
-                          height: 15,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Icon(Icons.tune_rounded, size: 17, color: Colors.white),
-                  const SizedBox(width: 6),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 150),
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTextStyles.t13.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
+        child: CompositedTransformTarget(
+          link: _layerLink,
+          child: MouseRegion(
+            onEnter: (_) {
+              _isMouseInButton = true;
+              _showPanel();
+            },
+            onExit: (_) {
+              _isMouseInButton = false;
+              _startHideTimer();
+            },
+            child: Material(
+              key: const ValueKey('fullscreen-stream-selector'),
+              color: Colors.white.withValues(alpha: .13),
+              borderRadius: BorderRadius.circular(18),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    switching
+                        ? const SizedBox(
+                            width: 15,
+                            height: 15,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.tune_rounded, size: 17, color: Colors.white),
+                    const SizedBox(width: 6),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 150),
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.t13.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -1514,6 +1626,7 @@ class _StreamChoicePane extends StatelessWidget {
     required this.selectedIndex,
     required this.labelBuilder,
     required this.onSelected,
+    this.columns,
   });
 
   final IconData icon;
@@ -1522,6 +1635,10 @@ class _StreamChoicePane extends StatelessWidget {
   final int selectedIndex;
   final String Function(int index) labelBuilder;
   final Future<void> Function(int index)? onSelected;
+
+  /// 指定列数时跳过 [resolveStreamChoiceColumns] 的宽度阈值推断，
+  /// 供内容自适应面板按测量结果精确布局。
+  final int? columns;
 
   @override
   Widget build(BuildContext context) {
@@ -1571,14 +1688,15 @@ class _StreamChoicePane extends StatelessWidget {
                     )
                   : LayoutBuilder(
                       builder: (context, constraints) {
-                        final columns = resolveStreamChoiceColumns(constraints.maxWidth, itemCount: itemCount);
+                        final gridColumns =
+                            columns ?? resolveStreamChoiceColumns(constraints.maxWidth, itemCount: itemCount);
 
                         return GridView.builder(
                           primary: false,
                           padding: EdgeInsets.zero,
                           physics: const PureLiveScrollPhysics(),
                           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: columns,
+                            crossAxisCount: gridColumns,
                             mainAxisExtent: 38,
                             mainAxisSpacing: 5,
                             crossAxisSpacing: 5,
@@ -2290,30 +2408,207 @@ class VideoFitSetting extends StatefulWidget {
   State<VideoFitSetting> createState() => _VideoFitSettingState();
 }
 
+/// 视频比例：对齐音量控件的悬浮交互——鼠标移入即在按钮上方弹出
+/// 比例选项面板，点击选项生效，移出后延迟收起；不再点击循环切换。
 class _VideoFitSettingState extends State<VideoFitSetting> {
+  /// 宽度上下限：由最长选项文本测量得出，极端长文本在上限处省略。
+  static const double _minPanelWidth = 110.0;
+  static const double _maxPanelWidth = 200.0;
+  static const double _itemHeight = 32.0;
+
   VideoController get controller => widget.controller;
+
+  OverlayEntry? _overlayEntry;
+  final LayerLink _layerLink = LayerLink();
+  bool _isMouseInButton = false;
+  bool _isMouseInPanel = false;
+  Timer? _hideTimer;
+
+  /// 面板展示期间绑定的控制器，移除面板时向其归还 isMenuOpen 状态。
+  VideoController? _panelOwner;
+
+  @override
+  void didUpdateWidget(covariant VideoFitSetting oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (identical(oldWidget.controller, controller)) return;
+    _hideTimer?.cancel();
+    _removeOverlay(owner: oldWidget.controller);
+    _isMouseInButton = false;
+  }
+
+  @override
+  void dispose() {
+    _hideTimer?.cancel();
+    _removeOverlay();
+    super.dispose();
+  }
+
+  void _showPanel() {
+    if (_overlayEntry != null || !mounted) return;
+    final owner = controller;
+    _panelOwner = owner;
+    owner.isMenuOpen.value = true;
+    owner.stopHideController();
+
+    final options = AppConsts().videoFitType;
+    // 高度 = 选项数 × 行高 + 底部间隙 padding 6；宽度按最长选项标签测量。
+    final panelHeight = options.length * _itemHeight + 6;
+    final panelWidth = _computePanelWidth(context);
+
+    _overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        width: panelWidth,
+        height: panelHeight,
+        child: CompositedTransformFollower(
+          link: _layerLink,
+          showWhenUnlinked: false,
+          followerAnchor: Alignment.bottomCenter,
+          targetAnchor: Alignment.topCenter,
+          offset: const Offset(0, 6),
+          child: MouseRegion(
+            onEnter: (_) {
+              _isMouseInPanel = true;
+              owner.stopHideController();
+            },
+            onExit: (_) {
+              _isMouseInPanel = false;
+              owner.enableController();
+              _startHideTimer();
+            },
+            child: _buildPanel(context),
+          ),
+        ),
+      ),
+    );
+
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  void _startHideTimer() {
+    _hideTimer?.cancel();
+    _hideTimer = Timer(const Duration(milliseconds: 150), () {
+      if (!_isMouseInButton && !_isMouseInPanel) {
+        _removeOverlay();
+      }
+    });
+  }
+
+  void _removeOverlay({VideoController? owner}) {
+    _hideTimer?.cancel();
+    _overlayEntry?.remove();
+    _overlayEntry?.dispose();
+    _overlayEntry = null;
+    _isMouseInPanel = false;
+    final target = owner ?? _panelOwner ?? controller;
+    if (target.status != PlayerStatus.disposed) {
+      target.isMenuOpen.value = false;
+      target.enableController();
+    }
+    _panelOwner = null;
+  }
+
+  /// 按最长选项文本测量面板宽度：标签 + 横向内边距 24 + 勾选图标 16 + 间隙 4。
+  double _computePanelWidth(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    var maxLabelWidth = 0.0;
+    for (final option in AppConsts().videoFitType) {
+      maxLabelWidth = math.max(
+        maxLabelWidth,
+        _measureTextWidth(
+          context,
+          i18n(option['desc'] as String),
+          textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+        ),
+      );
+    }
+    return (maxLabelWidth + 44).clamp(_minPanelWidth, _maxPanelWidth).toDouble();
+  }
+
+  Widget _buildPanel(BuildContext context) {
+    final player = SettingsService.to.player;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Material(
+        color: colorScheme.surface,
+        elevation: 8,
+        shadowColor: Colors.black45,
+        borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.antiAlias,
+        child: Obx(() {
+          final options = AppConsts().videoFitType;
+          final current = player.resolvedVideoFitIndex;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var i = 0; i < options.length; i++)
+                InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: i == current
+                      ? null
+                      : () {
+                          player.videoFitIndex.v = i;
+                          controller.setVideoFit(i);
+                        },
+                  child: SizedBox(
+                    height: _itemHeight,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              i18n(options[i]['desc'] as String),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: textTheme.bodyMedium?.copyWith(
+                                fontWeight: i == current ? FontWeight.w700 : FontWeight.w500,
+                                color: i == current ? colorScheme.primary : colorScheme.onSurface,
+                              ),
+                            ),
+                          ),
+                          if (i == current) Icon(Icons.check_rounded, size: 16, color: colorScheme.primary),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        }),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final player = SettingsService.to.player;
 
-    return GestureDetector(
-      onTap: () {
-        controller.enableController();
-        final currentIndex = player.advanceVideoFitIndex();
-        if (currentIndex == null) return;
-        controller.setVideoFit(currentIndex);
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 2),
-        alignment: Alignment.center,
-        height: 25,
-        child: Obx(() {
-          final descriptionKey = player.resolvedVideoFitDescriptionKey;
-          return Text(
-            descriptionKey.isEmpty ? '' : i18n(descriptionKey),
-            style: AppTextStyles.t15.copyWith(color: Colors.white),
-          );
-        }),
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: MouseRegion(
+        onEnter: (_) {
+          _isMouseInButton = true;
+          _showPanel();
+        },
+        onExit: (_) {
+          _isMouseInButton = false;
+          _startHideTimer();
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 2),
+          alignment: Alignment.center,
+          height: 25,
+          child: Obx(() {
+            final descriptionKey = player.resolvedVideoFitDescriptionKey;
+            return Text(
+              descriptionKey.isEmpty ? '' : i18n(descriptionKey),
+              style: AppTextStyles.t15.copyWith(color: Colors.white),
+            );
+          }),
+        ),
       ),
     );
   }
