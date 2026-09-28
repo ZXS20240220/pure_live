@@ -194,15 +194,18 @@ class _AreaGridViewState extends State<AreaGridView> with TickerProviderStateMix
               final next = (ctrl.index + dir) % ctrl.length;
               ctrl.animateTo(next);
             },
-            child: TabBar(
-              key: const ValueKey('area-category-tabs'),
-              controller: _tabController,
-              // A tap is committed intent, unlike an unfinished horizontal drag.
-              // Publish it before a refresh response can remap category indices.
-              onTap: widget.controller.selectCategory,
-              isScrollable: true,
-              physics: const PureLiveBoundedScrollPhysics(),
-              tabs: categoriesList.map((e) => Tab(text: e.name)).toList(),
+            child: ScrollConfiguration(
+              behavior: const MouseDraggableScrollBehavior(),
+              child: TabBar(
+                key: const ValueKey('area-category-tabs'),
+                controller: _tabController,
+                // A tap is committed intent, unlike an unfinished horizontal drag.
+                // Publish it before a refresh response can remap category indices.
+                onTap: widget.controller.selectCategory,
+                isScrollable: true,
+                physics: const PureLiveBoundedScrollPhysics(),
+                tabs: categoriesList.map((e) => Tab(text: e.name)).toList(),
+              ),
             ),
           ),
           Expanded(

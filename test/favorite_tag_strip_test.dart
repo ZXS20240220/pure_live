@@ -38,6 +38,10 @@ void main() {
               // 模拟 FavoriteController.changeSelectedTag 的单选分支（L488-489）。
               if (!multiSelectMode.value) selectedTagIds.assignAll({tagId});
             },
+            onWheelSelect: (tagId) {
+              // 模拟 FavoriteController.selectTagExclusively：单选替换。
+              selectedTagIds.assignAll({tagId});
+            },
           ),
         ),
       ),

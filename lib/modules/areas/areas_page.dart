@@ -33,12 +33,15 @@ class AreasPage extends GetView<AreasController> {
                   final next = (ctrl.index + dir) % ctrl.length;
                   ctrl.animateTo(next);
                 },
-                child: TabBar(
-                  key: const ValueKey('areas-platform-tabs'),
-                  controller: controller.tabController,
-                  isScrollable: true,
-                  physics: const PureLiveBoundedScrollPhysics(),
-                  tabs: availableSitesList.map((e) => Tab(text: e.name)).toList(),
+                child: ScrollConfiguration(
+                  behavior: const MouseDraggableScrollBehavior(),
+                  child: TabBar(
+                    key: const ValueKey('areas-platform-tabs'),
+                    controller: controller.tabController,
+                    isScrollable: true,
+                    physics: const PureLiveBoundedScrollPhysics(),
+                    tabs: availableSitesList.map((e) => Tab(text: e.name)).toList(),
+                  ),
                 ),
               ),
             ),

@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show MaterialScrollBehavior;
 
 /// Uses the native touch model instead of forcing the iOS spring model on
 /// Android and desktop lists.
@@ -83,3 +84,36 @@ class _MouseScrollDirectionConverterState extends State<MouseScrollDirectionConv
 }
 
 const Duration pureLiveTabTransitionDuration = Duration(milliseconds: 220);
+
+/// 为有限横向选择器（页签栏、标签条等）开启鼠标左键拖拽平移。
+///
+/// 全局 [MyCustomScrollBehavior] 刻意把鼠标排除在 dragDevices 之外，以保证
+/// 内容列表在桌面端具备预期的边界回弹行为；而页签栏这类有限选择器使用的是
+/// [PureLiveBoundedScrollPhysics]（无回弹、硬边界），因此在此开启鼠标拖拽
+/// 既安全又符合直觉。用法：
+///
+/// ```dart
+/// ScrollConfiguration(
+///   behavior: const MouseDraggableScrollBehavior(),
+///   child: TabBar(isScrollable: true, ...),
+/// )
+/// ```
+class MouseDraggableScrollBehavior extends MaterialScrollBehavior {
+  const MouseDraggableScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => const {
+    PointerDeviceKind.touch,
+    PointerDeviceKind.stylus,
+    PointerDeviceKind.invertedStylus,
+    PointerDeviceKind.trackpad,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.unknown,
+  };
+
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) => const PureLiveBoundedScrollPhysics();
+
+  @override
+  Widget buildOverscrollIndicator(BuildContext context, Widget child, ScrollableDetails details) => child;
+}

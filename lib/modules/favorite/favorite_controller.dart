@@ -568,6 +568,17 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     }
   }
 
+  /// 滚轮翻页专用：无论当前是否多选，都把选中替换为单个标签并回到第 1 页。
+  ///
+  /// 与 [changeSelectedTag] 不同，多选模式下不会叠加选中，而是直接切换到
+  /// 目标标签，保证滚轮能连续翻页。
+  void selectTagExclusively(String tagId) {
+    if (isClosed) return;
+    currentPage = 1;
+    if (selectedTagIds.length == 1 && selectedTagIds.first == tagId) return;
+    selectedTagIds.assignAll({tagId});
+  }
+
   void resetFilters() {
     if (isClosed) return;
     final availableSites = Sites().availableSites(containsAll: true);

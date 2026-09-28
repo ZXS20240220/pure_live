@@ -35,12 +35,15 @@ class PopularPage extends GetView<PopularController> {
                   final next = (ctrl.index + dir) % ctrl.length;
                   ctrl.animateTo(next);
                 },
-                child: TabBar(
-                  key: const ValueKey('popular-platform-tabs'),
-                  controller: controller.tabController,
-                  isScrollable: true,
-                  physics: const PureLiveBoundedScrollPhysics(),
-                  tabs: sites.map((e) => Tab(text: e.name)).toList(),
+                child: ScrollConfiguration(
+                  behavior: const MouseDraggableScrollBehavior(),
+                  child: TabBar(
+                    key: const ValueKey('popular-platform-tabs'),
+                    controller: controller.tabController,
+                    isScrollable: true,
+                    physics: const PureLiveBoundedScrollPhysics(),
+                    tabs: sites.map((e) => Tab(text: e.name)).toList(),
+                  ),
                 ),
               ),
             ),

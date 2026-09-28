@@ -93,13 +93,16 @@ class _FavoriteAreaSiteTabsState extends State<_FavoriteAreaSiteTabs> with Singl
   Widget build(BuildContext context) {
     return Column(
       children: [
-        TabBar(
-          key: const ValueKey('favorite-areas-platform-tabs'),
-          controller: _tabController,
-          onTap: (index) => widget.controller.selectSite(index, widget.sites[index].id),
-          isScrollable: true,
-          physics: const PureLiveBoundedScrollPhysics(),
-          tabs: widget.sites.map<Widget>((site) => Tab(text: site.name)).toList(growable: false),
+        ScrollConfiguration(
+          behavior: const MouseDraggableScrollBehavior(),
+          child: TabBar(
+            key: const ValueKey('favorite-areas-platform-tabs'),
+            controller: _tabController,
+            onTap: (index) => widget.controller.selectSite(index, widget.sites[index].id),
+            isScrollable: true,
+            physics: const PureLiveBoundedScrollPhysics(),
+            tabs: widget.sites.map<Widget>((site) => Tab(text: site.name)).toList(growable: false),
+          ),
         ),
         Expanded(
           child: TabBarView(

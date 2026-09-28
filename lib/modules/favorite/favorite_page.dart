@@ -36,22 +36,25 @@ class FavoritePage extends GetView<FavoriteController> {
                     final next = (ctrl.index + dir) % ctrl.length;
                     ctrl.animateTo(next);
                   },
-                  child: TabBar(
-                    key: const ValueKey('favorite-status-tabs'),
-                    controller: controller.tabController,
-                    isScrollable: false,
-                    tabAlignment: TabAlignment.center,
-                    physics: const PureLiveBoundedScrollPhysics(),
-                    tabs: [
-                      Tab(
-                        text:
-                            '${i18n('recorder_tab_all')} (${controller.onlineRooms.length + controller.replayRooms.length + controller.offlineRooms.length})',
-                      ),
-                      Tab(text: '${i18n('online_room_title')} (${controller.onlineRooms.length})'),
-                      Tab(text: '${i18n('recording_room_title')} (${controller.replayRooms.length})'),
-                      Tab(text: '${i18n('offline_room_title')} (${controller.offlineRooms.length})'),
-                      Tab(text: '暂时弃用 (${controller.dormantRooms.length})'),
-                    ],
+                  child: ScrollConfiguration(
+                    behavior: const MouseDraggableScrollBehavior(),
+                    child: TabBar(
+                      key: const ValueKey('favorite-status-tabs'),
+                      controller: controller.tabController,
+                      isScrollable: true,
+                      tabAlignment: TabAlignment.center,
+                      physics: const PureLiveBoundedScrollPhysics(),
+                      tabs: [
+                        Tab(
+                          text:
+                              '${i18n('recorder_tab_all')} (${controller.onlineRooms.length + controller.replayRooms.length + controller.offlineRooms.length})',
+                        ),
+                        Tab(text: '${i18n('online_room_title')} (${controller.onlineRooms.length})'),
+                        Tab(text: '${i18n('recording_room_title')} (${controller.replayRooms.length})'),
+                        Tab(text: '${i18n('offline_room_title')} (${controller.offlineRooms.length})'),
+                        Tab(text: '暂时弃用 (${controller.dormantRooms.length})'),
+                      ],
+                    ),
                   ),
                 );
               }),
@@ -679,15 +682,18 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
               final next = (_tabController.index + dir) % _tabController.length;
               _tabController.animateTo(next);
             },
-            child: TabBar(
-              key: const ValueKey('favorite-platform-tabs'),
-              controller: _tabController,
-              isScrollable: true,
-              physics: const NeverScrollableScrollPhysics(),
-              tabs: availableSitesList.map((e) {
-                final count = controller.favoriteCountForSite(e.id, statusIndex: statusIndex);
-                return Tab(text: '${e.name} ($count)');
-              }).toList(),
+            child: ScrollConfiguration(
+              behavior: const MouseDraggableScrollBehavior(),
+              child: TabBar(
+                key: const ValueKey('favorite-platform-tabs'),
+                controller: _tabController,
+                isScrollable: true,
+                physics: const PureLiveBoundedScrollPhysics(),
+                tabs: availableSitesList.map((e) {
+                  final count = controller.favoriteCountForSite(e.id, statusIndex: statusIndex);
+                  return Tab(text: '${e.name} ($count)');
+                }).toList(),
+              ),
             ),
           );
         }),
@@ -699,6 +705,7 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
           onMultiSelectChanged: (v) => controller.multiSelectMode.value = v,
           allLabel: i18n('recorder_tab_all'),
           onSelected: controller.changeSelectedTag,
+          onWheelSelect: controller.selectTagExclusively,
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(8, 2, 12, 6),
@@ -931,6 +938,7 @@ class FavoriteTagStrip extends StatefulWidget {
     required this.onMultiSelectChanged,
     required this.allLabel,
     required this.onSelected,
+    required this.onWheelSelect,
     this.labelStyle,
   });
 
@@ -941,6 +949,9 @@ class FavoriteTagStrip extends StatefulWidget {
   final ValueChanged<bool> onMultiSelectChanged;
   final String allLabel;
   final ValueChanged<String> onSelected;
+
+  /// 滚轮翻页回调：单选替换为目标标签（与点击不同，多选下不叠加）。
+  final ValueChanged<String> onWheelSelect;
   final TextStyle? labelStyle;
 
   @override
@@ -950,10 +961,53 @@ class FavoriteTagStrip extends StatefulWidget {
 class _FavoriteTagStripState extends State<FavoriteTagStrip> {
   final ScrollController _scrollController = ScrollController();
 
+  /// 每个标签项的 GlobalKey，用于滚轮切换后把目标标签滚动到可视区域。
+  final Map<String, GlobalKey> _tagItemKeys = {};
+
   @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  /// 滚轮切换标签（与其他页签栏一致的翻页行为）。
+  ///
+  /// 仅在恰好选中一个标签时生效；多选模式下选中了多个标签时不响应。
+  /// 切换后会把目标标签滚动到可视区域中央。
+  void _handleTagWheel(PointerSignalEvent event, List<LiveTag> visibleTags, bool showUntagged) {
+    if (event is! PointerScrollEvent) return;
+
+    final activeIds = widget.selectedTagIds.toSet();
+    if (activeIds.length != 1) return;
+
+    // 与 itemBuilder 保持一致的顺序：全部 → 真实标签 → 无标签。
+    final orderedIds = <String>[TagManagementController.allTagKey];
+    orderedIds.addAll(visibleTags.map((t) => t.id));
+    if (showUntagged) orderedIds.add(TagManagementController.untaggedTagKey);
+    if (orderedIds.length <= 1) return;
+
+    final currentId = activeIds.first;
+    final currentIndex = orderedIds.indexOf(currentId);
+    if (currentIndex < 0) return;
+
+    final dir = event.scrollDelta.dy > 0 ? 1 : -1;
+    final nextIndex = (currentIndex + dir) % orderedIds.length;
+    final nextId = orderedIds[nextIndex];
+    if (nextId == currentId) return;
+
+    widget.onWheelSelect(nextId);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final ctx = _tagItemKeys[nextId]?.currentContext;
+      if (ctx == null) return;
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        alignment: 0.5,
+      );
+    });
   }
 
   @override
@@ -986,95 +1040,101 @@ class _FavoriteTagStripState extends State<FavoriteTagStrip> {
               ),
             ),
             Expanded(
-              child: MouseScrollDirectionConverter(
-                targetAxis: Axis.horizontal,
-                controller: _scrollController,
-                child: ListView.builder(
-                  controller: _scrollController,
-                  scrollDirection: Axis.horizontal,
-                  physics: const PureLiveBoundedScrollPhysics(),
-                  clipBehavior: Clip.hardEdge,
-                  padding: const EdgeInsets.only(right: 16, top: 6, bottom: 6),
-                  itemCount: itemCount,
-                  itemBuilder: (context, index) {
-                    final isAll = index == 0;
-                    final isUntagged = showUntagged && index == itemCount - 1 && !isAll;
-                    final tag = (!isAll && !isUntagged) ? visibleTags[index - 1] : null;
-                    final tagId = isAll
-                        ? TagManagementController.allTagKey
-                        : isUntagged
-                        ? TagManagementController.untaggedTagKey
-                        : tag!.id;
-                    final label = isAll
-                        ? widget.allLabel
-                        : isUntagged
-                        ? '${TagManagementController.untaggedTagLabel} ($untaggedCount)'
-                        : tag!.name;
-                    final isSelected = activeIds.contains(tagId);
-                    final colorScheme = theme.colorScheme;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: isUntagged
-                          ? ChoiceChip(
-                              key: const ValueKey('favorite_tag_untagged'),
-                              showCheckmark: false,
-                              label: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Remix.price_tag_line,
-                                    size: 13,
-                                    color: isSelected
-                                        ? colorScheme.onPrimary
-                                        : colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-                                  ),
-                                  const SizedBox(width: 3),
-                                  Text(
-                                    label,
-                                    style: (widget.labelStyle ?? AppTextStyles.t12).copyWith(
-                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                      fontStyle: FontStyle.italic,
-                                      color: isSelected ? colorScheme.onPrimary : colorScheme.onSurfaceVariant,
+              child: ScrollConfiguration(
+                behavior: const MouseDraggableScrollBehavior(),
+                child: Listener(
+                  onPointerSignal: (event) => _handleTagWheel(event, visibleTags, showUntagged),
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    scrollDirection: Axis.horizontal,
+                    physics: const PureLiveBoundedScrollPhysics(),
+                    clipBehavior: Clip.hardEdge,
+                    padding: const EdgeInsets.only(right: 16, top: 6, bottom: 6),
+                    itemCount: itemCount,
+                    itemBuilder: (context, index) {
+                      final isAll = index == 0;
+                      final isUntagged = showUntagged && index == itemCount - 1 && !isAll;
+                      final tag = (!isAll && !isUntagged) ? visibleTags[index - 1] : null;
+                      final tagId = isAll
+                          ? TagManagementController.allTagKey
+                          : isUntagged
+                          ? TagManagementController.untaggedTagKey
+                          : tag!.id;
+                      final itemKey = _tagItemKeys.putIfAbsent(tagId, () => GlobalKey());
+                      final label = isAll
+                          ? widget.allLabel
+                          : isUntagged
+                          ? '${TagManagementController.untaggedTagLabel} ($untaggedCount)'
+                          : tag!.name;
+                      final isSelected = activeIds.contains(tagId);
+                      final colorScheme = theme.colorScheme;
+                      return Padding(
+                        key: itemKey,
+                        padding: const EdgeInsets.only(right: 6),
+                        child: isUntagged
+                            ? ChoiceChip(
+                                key: const ValueKey('favorite_tag_untagged'),
+                                showCheckmark: false,
+                                label: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Remix.price_tag_line,
+                                      size: 13,
+                                      color: isSelected
+                                          ? colorScheme.onPrimary
+                                          : colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                                     ),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      label,
+                                      style: (widget.labelStyle ?? AppTextStyles.t12).copyWith(
+                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                        fontStyle: FontStyle.italic,
+                                        color: isSelected ? colorScheme.onPrimary : colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                selected: isSelected,
+                                selectedColor: colorScheme.tertiary,
+                                backgroundColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.08),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  side: BorderSide(
+                                    color: isSelected
+                                        ? Colors.transparent
+                                        : colorScheme.outline.withValues(alpha: 0.35),
+                                    width: 0.8,
                                   ),
-                                ],
-                              ),
-                              selected: isSelected,
-                              selectedColor: colorScheme.tertiary,
-                              backgroundColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.08),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                side: BorderSide(
-                                  color: isSelected ? Colors.transparent : colorScheme.outline.withValues(alpha: 0.35),
-                                  width: 0.8,
                                 ),
-                              ),
-                              onSelected: (_) => widget.onSelected(tagId),
-                            )
-                          : ChoiceChip(
-                              key: ValueKey('favorite_tag_$tagId'),
-                              showCheckmark: false,
-                              label: Text(
-                                label,
-                                style: (widget.labelStyle ?? AppTextStyles.t12).copyWith(
-                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                  color: isSelected ? colorScheme.onPrimary : colorScheme.onSurfaceVariant,
+                                onSelected: (_) => widget.onSelected(tagId),
+                              )
+                            : ChoiceChip(
+                                key: ValueKey('favorite_tag_$tagId'),
+                                showCheckmark: false,
+                                label: Text(
+                                  label,
+                                  style: (widget.labelStyle ?? AppTextStyles.t12).copyWith(
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                    color: isSelected ? colorScheme.onPrimary : colorScheme.onSurfaceVariant,
+                                  ),
                                 ),
-                              ),
-                              selected: isSelected,
-                              selectedColor: colorScheme.primary,
-                              backgroundColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.15),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                side: BorderSide(
-                                  color: isSelected ? Colors.transparent : theme.dividerColor.withValues(alpha: 0.04),
-                                  width: 0.5,
+                                selected: isSelected,
+                                selectedColor: colorScheme.primary,
+                                backgroundColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.15),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  side: BorderSide(
+                                    color: isSelected ? Colors.transparent : theme.dividerColor.withValues(alpha: 0.04),
+                                    width: 0.5,
+                                  ),
                                 ),
+                                onSelected: (_) => widget.onSelected(tagId),
                               ),
-                              onSelected: (_) => widget.onSelected(tagId),
-                            ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
