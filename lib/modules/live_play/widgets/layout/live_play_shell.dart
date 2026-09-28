@@ -17,19 +17,12 @@ import 'package:win32/win32.dart' as win32;
 /// 展开，移出后自动收起。侧栏宽度可拖拽（PanelResizeDivider），并可锁定
 /// 常驻、调节面板透明度。
 ///
-/// 与普通模式（[LivePlayNormalLayout]）共用基础版的组合约定：清晰度选择行
-/// 与弹幕区由外部传入，避免在 shell 内重复播放页的状态守卫逻辑。
+/// 与普通模式（[LivePlayNormalLayout]）共用基础版的组合约定：弹幕区由
+/// 外部传入，避免在 shell 内重复播放页的状态守卫逻辑。
 class LivePlayShell extends StatefulWidget {
-  const LivePlayShell({
-    super.key,
-    required this.controller,
-    required this.resolution,
-    required this.danmaku,
-    this.showPanel = true,
-  });
+  const LivePlayShell({super.key, required this.controller, required this.danmaku, this.showPanel = true});
 
   final LivePlayController controller;
-  final Widget resolution;
   final Widget danmaku;
   final bool showPanel;
 
@@ -423,16 +416,7 @@ class _LivePlayShellState extends State<LivePlayShell> with SingleTickerProvider
       child: PanelPopupScope(
         onPopupOpened: _handlePanelPopupOpened,
         onPopupClosed: _handlePanelPopupClosed,
-        child: SafeArea(
-          left: false,
-          child: Column(
-            children: [
-              widget.resolution,
-              const Divider(height: 1),
-              Expanded(child: widget.danmaku),
-            ],
-          ),
-        ),
+        child: SafeArea(left: false, child: widget.danmaku),
       ),
     );
   }

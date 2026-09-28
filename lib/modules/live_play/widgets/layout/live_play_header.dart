@@ -11,6 +11,7 @@ import 'package:pure_live/modules/live_play/widgets/button/record_action_button.
 import 'package:pure_live/modules/live_play/widgets/button/live_play_menu_button.dart';
 import 'package:pure_live/modules/live_play/widgets/button/favorite_floating_button.dart';
 import 'package:pure_live/modules/multiview/widgets/multiview_room_search_panel.dart';
+import 'package:pure_live/modules/live_play/widgets/resolution_selector/audience_info.dart';
 import 'package:pure_live/modules/tags/tag_management_controller.dart';
 
 class LivePlayHeader extends StatelessWidget implements PreferredSizeWidget {
@@ -36,6 +37,7 @@ class LivePlayHeader extends StatelessWidget implements PreferredSizeWidget {
         titleSpacing: 0,
         title: _buildTitle(context),
         actions: [
+          _buildAudienceInfo(),
           _buildFavoriteButton(),
           _buildRecordButton(),
           _buildQuickActions(context),
@@ -202,6 +204,16 @@ class LivePlayHeader extends StatelessWidget implements PreferredSizeWidget {
         const Spacer(),
       ],
     );
+  }
+
+  /// 沉浸模式下侧栏顶部不再展示热度区域，改在顶栏关注按钮左侧显示。
+  Widget _buildAudienceInfo() {
+    return Obx(() {
+      if (!SettingsService.to.player.enableImmersiveLayout.v) {
+        return const SizedBox.shrink();
+      }
+      return const Padding(padding: EdgeInsets.only(right: 6), child: AudienceInfo());
+    });
   }
 
   Widget _buildFavoriteButton() {

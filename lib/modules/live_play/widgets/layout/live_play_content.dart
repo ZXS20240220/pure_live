@@ -170,7 +170,6 @@ class LivePlayContent extends StatelessWidget {
           if (SettingsService.to.player.enableImmersiveLayout.v) {
             return LivePlayShell(
               controller: controller,
-              resolution: const ResolutionsRow(),
               danmaku: _buildDanmaku(),
               showPanel: controller.site != Sites.iptvSite,
             );

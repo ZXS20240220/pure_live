@@ -1711,14 +1711,21 @@ class BottomActionBar extends StatelessWidget {
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         final fullscreen = GlobalPlayerState.to.fullscreenUI;
+                        // 沉浸模式：非全屏时底栏复用全屏分支布局
+                        // （居中发送框 + 清晰度/线路合并胶囊），与宽屏全屏底栏一致。
+                        final immersive =
+                            !fullscreen &&
+                            !GlobalPlayerState.to.isPipMode.value &&
+                            SettingsService.to.player.enableImmersiveLayout.v;
+                        final fullscreenStyle = fullscreen || immersive;
                         final localInteraction = controller.livePlayController.localInteractionController;
                         final compact = constraints.maxWidth < 760;
                         final left = _buildLeftActions(
-                          compact: fullscreen && compact && localInteraction.enabled.value,
+                          compact: fullscreenStyle && compact && localInteraction.enabled.value,
                         );
-                        final right = _buildRightActions(compact: fullscreen && compact);
+                        final right = _buildRightActions(compact: fullscreenStyle && compact);
 
-                        if (fullscreen) {
+                        if (fullscreenStyle) {
                           return Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 8),
                             child: Row(
@@ -1785,8 +1792,10 @@ class BottomActionBar extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (GlobalPlayerState.to.isWindowFullscreen.value && !compact ||
-            GlobalPlayerState.to.isFullscreen.value && !compact) ...[
+        // 清晰度/线路合并胶囊：全屏或沉浸模式（非紧凑布局）显示。
+        if (!compact &&
+            (GlobalPlayerState.to.fullscreenUI ||
+                (!GlobalPlayerState.to.isPipMode.value && SettingsService.to.player.enableImmersiveLayout.v))) ...[
           FullscreenStreamSelectorButton(controller: controller),
         ],
         VideoFitSetting(controller: controller),
