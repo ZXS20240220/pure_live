@@ -70,8 +70,9 @@ class LivePlayController extends GetxController
   final RxList<LiveSuperChatMessage> superChats = <LiveSuperChatMessage>[].obs;
 
   /// 被用户单独锁定的 SC id。锁定的 SC 到期不移除，只有解锁或换房间
-  /// （clearSuperChats）才消失。
-  final RxSet<String> lockedSuperChatIds = <String>{}.obs;
+  /// （clearSuperChats）才消失。使用 RxList（而非 RxSet）：RxSet 的
+  /// contains 不注册 Obx 依赖，会导致锁定点击无视觉反馈。
+  final RxList<String> lockedSuperChatIds = <String>[].obs;
   final RxInt immersivePanelToggleEpoch = 0.obs;
   late Site currentSite;
   late TabController tabController;

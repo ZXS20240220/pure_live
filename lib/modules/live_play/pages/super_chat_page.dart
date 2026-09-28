@@ -68,7 +68,7 @@ class _SuperChatPageState extends State<SuperChatPage> {
                         padding: const EdgeInsets.only(bottom: 8),
                         child: SuperChatCard(
                           message,
-                          isLocked: controller.lockedSuperChatIds.contains(message.messageId),
+                          initialLocked: controller.lockedSuperChatIds.contains(message.messageId),
                           onToggleLock: () => controller.toggleSuperChatLock(message.messageId),
                         ),
                       );

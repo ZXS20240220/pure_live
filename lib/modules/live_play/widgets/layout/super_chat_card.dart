@@ -9,10 +9,13 @@ import 'package:pure_live/common/models/live_message.dart';
 
 class SuperChatCard extends StatefulWidget {
   final LiveSuperChatMessage message;
-  final bool isLocked;
+
+  /// 初始锁定状态（来自控制器）。点击后的状态由卡片内部自持并立即刷新，
+  /// 控制器集合仅用于到期清理过滤，不反向驱动 UI。
+  final bool initialLocked;
   final VoidCallback onToggleLock;
 
-  const SuperChatCard(this.message, {super.key, required this.isLocked, required this.onToggleLock});
+  const SuperChatCard(this.message, {super.key, required this.initialLocked, required this.onToggleLock});
 
   @override
   State<SuperChatCard> createState() => _SuperChatCardState();
@@ -23,6 +26,7 @@ class _SuperChatCardState extends State<SuperChatCard> {
 
   int _remainSeconds = 0;
   bool _expanded = false;
+  late bool _locked = widget.initialLocked;
 
   @override
   void initState() {
@@ -42,9 +46,11 @@ class _SuperChatCardState extends State<SuperChatCard> {
 
       _initTimer();
     }
-    if (oldWidget.isLocked != widget.isLocked) {
-      setState(() {});
-    }
+  }
+
+  void _toggleLock() {
+    setState(() => _locked = !_locked);
+    widget.onToggleLock();
   }
 
   void _initTimer() {
@@ -83,7 +89,7 @@ class _SuperChatCardState extends State<SuperChatCard> {
   }
 
   /// 倒计时已结束但卡片被锁定时，状态位显示“已锁定”。
-  String get _statusText => widget.isLocked && _remainSeconds <= 0 ? '已锁定' : _remainText;
+  String get _statusText => _locked && _remainSeconds <= 0 ? '已锁定' : _remainText;
 
   Color _contrastText(Color background) {
     return background.computeLuminance() > 0.55 ? const Color(0xFF18181A) : Colors.white;
@@ -129,8 +135,8 @@ class _SuperChatCardState extends State<SuperChatCard> {
           borderRadius: BorderRadius.circular(12),
           // 锁定时用琥珀色边框给出明显视觉反馈。
           border: Border.all(
-            color: widget.isLocked ? const Color(0xFFFFC107) : Colors.black.withValues(alpha: 0.08),
-            width: widget.isLocked ? 1.4 : 0.8,
+            color: _locked ? const Color(0xFFFFC107) : Colors.black.withValues(alpha: 0.08),
+            width: _locked ? 1.4 : 0.8,
           ),
           boxShadow: [
             BoxShadow(
@@ -163,92 +169,96 @@ class _SuperChatCardState extends State<SuperChatCard> {
     required Color primaryText,
     required Color secondaryText,
   }) {
-    return Stack(
-      children: [
-        Container(
-          // 右侧预留锁按钮空间，防止信息区与按钮重叠。
-          padding: const EdgeInsets.fromLTRB(12, 9, 34, 9),
-          decoration: BoxDecoration(color: backgroundColor),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final stacked = constraints.maxWidth < 280 || MediaQuery.textScalerOf(context).scale(14) > 24;
-              // 用户名过长：单行渐隐截断，悬浮 tooltip 显示完整用户名。
-              final userName = Tooltip(
-                message: message.userName,
-                waitDuration: const Duration(milliseconds: 400),
-                child: Text(
-                  message.userName,
-                  maxLines: 1,
-                  overflow: TextOverflow.fade,
-                  softWrap: false,
-                  style: TextStyle(color: primaryText, fontSize: 14, height: 1.2, fontWeight: FontWeight.w600),
-                ),
-              );
-              if (stacked) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
+      decoration: BoxDecoration(color: backgroundColor),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final stacked = constraints.maxWidth < 280 || MediaQuery.textScalerOf(context).scale(14) > 24;
+          // 用户名过长：单行渐隐截断，悬浮 tooltip 显示完整用户名。
+          final userName = Tooltip(
+            message: message.userName,
+            waitDuration: const Duration(milliseconds: 400),
+            child: Text(
+              message.userName,
+              maxLines: 1,
+              overflow: TextOverflow.fade,
+              softWrap: false,
+              style: TextStyle(color: primaryText, fontSize: 14, height: 1.2, fontWeight: FontWeight.w600),
+            ),
+          );
+          if (stacked) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        _buildAvatar(message.face, primaryText),
-                        const SizedBox(width: 10),
-                        Expanded(child: userName),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    _buildPrice(message, primaryText),
-                    const SizedBox(height: 10),
-                    Align(
-                      alignment: AlignmentDirectional.centerStart,
-                      child: _buildInfoArea(
-                        backgroundColor: backgroundColor,
-                        primaryText: primaryText,
-                        secondaryText: secondaryText,
-                      ),
-                    ),
+                    _buildAvatar(message.face, primaryText),
+                    const SizedBox(width: 10),
+                    Expanded(child: userName),
                   ],
-                );
-              }
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  _buildAvatar(message.face, primaryText),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [userName, const SizedBox(height: 5), _buildPrice(message, primaryText)],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  _buildInfoArea(
+                ),
+                const SizedBox(height: 10),
+                _buildPrice(message, primaryText),
+                const SizedBox(height: 10),
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: _buildInfoArea(
                     backgroundColor: backgroundColor,
                     primaryText: primaryText,
                     secondaryText: secondaryText,
                   ),
-                ],
-              );
-            },
-          ),
-        ),
-        Positioned(top: 3, right: 3, child: _buildLockButton(primaryText)),
-      ],
+                ),
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              _buildAvatar(message.face, primaryText),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [userName, const SizedBox(height: 5), _buildPrice(message, primaryText)],
+                ),
+              ),
+              const SizedBox(width: 8),
+              _buildInfoArea(backgroundColor: backgroundColor, primaryText: primaryText, secondaryText: secondaryText),
+            ],
+          );
+        },
+      ),
     );
   }
 
-  Widget _buildLockButton(Color headerText) {
-    return IconButton(
-      visualDensity: VisualDensity.compact,
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-      tooltip: widget.isLocked ? '解锁' : '锁定',
-      onPressed: widget.onToggleLock,
-      icon: Icon(
-        widget.isLocked ? Remix.lock_fill : Remix.lock_unlock_line,
-        size: 15,
-        color: widget.isLocked ? const Color(0xFFFFC107) : headerText.withValues(alpha: 0.75),
+  /// 锁定按钮：紧凑的圆角边框小方块，内联在倒计时右侧。
+  Widget _buildLockButton(Color primaryText) {
+    final locked = _locked;
+    final accent = const Color(0xFFFFC107);
+    return Tooltip(
+      message: locked ? '解锁' : '锁定',
+      waitDuration: const Duration(milliseconds: 400),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(6),
+          onTap: _toggleLock,
+          child: Container(
+            padding: const EdgeInsets.all(2.5),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: locked ? accent : primaryText.withValues(alpha: 0.45), width: 1),
+            ),
+            child: Icon(
+              locked ? Remix.lock_fill : Remix.lock_unlock_line,
+              size: 12,
+              color: locked ? accent : primaryText.withValues(alpha: 0.85),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -357,6 +367,8 @@ class _SuperChatCardState extends State<SuperChatCard> {
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
+            const SizedBox(width: 6),
+            _buildLockButton(primaryText),
           ],
         ),
       ],
