@@ -75,6 +75,7 @@
   "clear_all_cache_desc": "Delete recordings only inside the Pure Live managed folder shown above",
   "clear_all_cache_meida_desc": "Clear all local cache",
   "confirm_clear_meida_desc": "Are you sure you want to clear all local cache?",
+  "click_to_edit_value": "Click to edit value",
   "click_to_remove_suffix": " (tap to remove)",
   "close": "Close",
   "confirm": "Confirm",

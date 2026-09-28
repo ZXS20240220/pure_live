@@ -73,6 +73,7 @@
   "clear_all_cache_desc": "仅删除上方 Pure Live 专用目录内的录制文件",
   "clear_all_cache_meida_desc": "清空本地所有缓存",
   "confirm_clear_meida_desc": "确认清空本地所有缓存吗？",
+  "click_to_edit_value": "点击编辑数值",
   "click_to_remove_suffix": "（点击移除）",
   "click_to_remove": "点击移除",
   "close": "关闭",

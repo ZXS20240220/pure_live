@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:pure_live/plugins/locale_helper.dart';
 import 'package:pure_live/common/style/app_text_styles.dart';
 
 class CountButton extends StatefulWidget {
@@ -57,8 +59,28 @@ class _CountButtonState extends State<CountButton> {
   Timer? incrementTimer;
   Timer? decrementTimer;
 
+  // 点击编辑状态：数值框可临时变为输入框，失焦/回车提交，Esc 取消。
+  bool _editing = false;
+  TextEditingController? _editController;
+  FocusNode? _editFocusNode;
+
+  @override
+  void didUpdateWidget(covariant CountButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 编辑期间 +/- 被点击或外部值变化（如套用模板）时同步文本框。
+    if (_editing && widget.selectedValue != oldWidget.selectedValue) {
+      final controller = _editController;
+      if (controller != null) {
+        controller.text = widget.selectedValue.toString();
+        controller.selection = TextSelection.collapsed(offset: controller.text.length);
+      }
+    }
+  }
+
   @override
   void dispose() {
+    _editController?.dispose();
+    _editFocusNode?.dispose();
     incrementTimer?.cancel();
     decrementTimer?.cancel();
     super.dispose();
@@ -108,17 +130,7 @@ class _CountButtonState extends State<CountButton> {
           Semantics(
             label: widget.semanticLabel == null ? null : '${widget.semanticLabel}, ${widget.selectedValue}',
             excludeSemantics: widget.semanticLabel != null,
-            child: Container(
-              height: widget.buttonSize.height,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                border: Border.symmetric(horizontal: BorderSide(color: backgroundColor, width: 2)),
-              ),
-              child: widget.valueBuilder != null
-                  ? widget.valueBuilder!(widget.selectedValue)
-                  : Text(widget.selectedValue.toString(), style: effectiveTextStyle),
-            ),
+            child: _buildValueBox(backgroundColor, effectiveTextStyle),
           ),
 
           SizedBox(
@@ -153,6 +165,115 @@ class _CountButtonState extends State<CountButton> {
         ],
       ),
     );
+  }
+
+  /// 中间数值框：未编辑时显示数值并支持点击进入编辑；编辑时为整数输入框。
+  Widget _buildValueBox(Color backgroundColor, TextStyle effectiveTextStyle) {
+    final editable = widget.valueBuilder == null;
+    Widget box = MouseRegion(
+      cursor: editable ? SystemMouseCursors.text : MouseCursor.defer,
+      child: GestureDetector(
+        onTap: editable ? _startEditing : null,
+        child: Container(
+          height: widget.buttonSize.height,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            border: Border.symmetric(horizontal: BorderSide(color: backgroundColor, width: 2)),
+          ),
+          child: _editing
+              ? SizedBox(
+                  width: 48,
+                  child: TextField(
+                    controller: _editController,
+                    focusNode: _editFocusNode,
+                    textAlign: TextAlign.center,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      // 仅允许整数；负号仅在该区间本身包含负值时放行。
+                      FilteringTextInputFormatter.allow(RegExp(widget.minValue < 0 ? r'-?\d*' : r'\d*')),
+                    ],
+                    style: effectiveTextStyle,
+                    cursorWidth: 1.2,
+                    decoration: const InputDecoration(
+                      isCollapsed: true,
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                )
+              : widget.valueBuilder != null
+              ? widget.valueBuilder!(widget.selectedValue)
+              : Text(widget.selectedValue.toString(), style: effectiveTextStyle),
+        ),
+      ),
+    );
+    if (editable && !_editing) {
+      box = Tooltip(message: i18n('click_to_edit_value'), waitDuration: const Duration(milliseconds: 500), child: box);
+    }
+    return box;
+  }
+
+  void _startEditing() {
+    if (_editing) return;
+    final controller = TextEditingController(text: widget.selectedValue.toString());
+    controller.selection = TextSelection(baseOffset: 0, extentOffset: controller.text.length);
+    final focusNode = FocusNode(onKeyEvent: _handleEditKeyEvent)..addListener(_handleEditFocusChanged);
+    setState(() {
+      _editing = true;
+      _editController = controller;
+      _editFocusNode = focusNode;
+    });
+    focusNode.requestFocus();
+  }
+
+  KeyEventResult _handleEditKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is KeyDownEvent || event is KeyRepeatEvent) {
+      if (event.logicalKey == LogicalKeyboardKey.escape) {
+        _endEditing(save: false);
+        return KeyEventResult.handled;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.enter || event.logicalKey == LogicalKeyboardKey.numpadEnter) {
+        _endEditing(save: true);
+        return KeyEventResult.handled;
+      }
+    }
+    return KeyEventResult.ignored;
+  }
+
+  void _handleEditFocusChanged() {
+    final node = _editFocusNode;
+    if (node != null && !node.hasFocus) _endEditing(save: true);
+  }
+
+  void _endEditing({required bool save}) {
+    if (!_editing) return;
+    final text = _editController?.text ?? '';
+    final controller = _editController;
+    final focusNode = _editFocusNode;
+    _editController = null;
+    _editFocusNode = null;
+    _editing = false;
+    if (mounted) setState(() {});
+    focusNode
+      ?..removeListener(_handleEditFocusChanged)
+      ..unfocus();
+    // 延迟到帧末释放，避免 TextField 仍在树中时释放其依赖。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      focusNode?.dispose();
+      controller?.dispose();
+    });
+    if (save) _applyText(text);
+  }
+
+  /// 将输入解析为合法值：非法输入直接回显原值；合法值先对齐步长，
+  /// 再夹取到 [CountButton.minValue, CountButton.maxValue]，避免越界值破坏父级状态。
+  void _applyText(String raw) {
+    final parsed = int.tryParse(raw.trim());
+    if (parsed == null) return;
+    final stepped = widget.minValue + ((parsed - widget.minValue) / widget.step).round() * widget.step;
+    final clamped = stepped.clamp(widget.minValue, widget.maxValue).toInt();
+    if (clamped != widget.selectedValue) widget.onChanged(clamped);
   }
 
   Widget _buildSemanticIcon(Widget icon, String? label) {
