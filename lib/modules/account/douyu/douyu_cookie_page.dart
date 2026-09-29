@@ -1,5 +1,6 @@
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/modules/account/douyu/douyu_cookie_controller.dart';
+import 'package:pure_live/modules/account/web_cookie_capture.dart';
 import 'package:pure_live/modules/account/widgets/account_cookie_editor.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -26,6 +27,10 @@ class DouyuCookiePage extends GetView<DouyuCookieController> {
       tipText: i18n('douyu_cookie_tip'),
       onSave: controller.setCookie,
       tipBody: _DouyuCookieTip(theme: theme),
+      // 内置浏览器抓取 www.douyu.com 的登录 Cookie（Web 版 dy_auth）；
+      // 捕获结果自动填入并走 setCookie，其中若带 LTP0/dy_did 会被
+      // 控制器的监听器吸收到下方两个输入框。
+      autoCaptureTarget: kCookieCaptureTargets['douyu'],
       extraFields: <Widget>[
         TextField(
           key: const ValueKey('douyu-ltp0-input'),
@@ -83,7 +88,17 @@ class _DouyuCookieTip extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
+        // 自动获取是首选路径：排它地写在前面的强调行里，手动步骤跟在其后。
+        Text(
+          i18n('douyu_cookie_tip_auto_capture'),
+          style: body.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 8),
         Text(i18n('douyu_cookie_tip_step1'), style: body),
+        const SizedBox(height: 8),
+        // 手动粘贴的字段排除清单：passport 会话字段进入播放请求会被 403，
+        // 而「自动获取」在组装时已剔除，只有手动路径需要读者自己动手。
+        Text(i18n('douyu_cookie_tip_exclude'), style: body),
         const SizedBox(height: 8),
         Text(i18n('douyu_cookie_tip_step2'), style: body),
         const SizedBox(height: 6),

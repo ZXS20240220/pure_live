@@ -43,7 +43,37 @@ class AccountPage extends GetView<AccountController> {
                     : controller.bilibiliTap(),
               );
             }),
+            Obx(() {
+              // A stored cookie is not the same as a working login: an expired
+              // one is a guest request whatever its length, so the tile follows
+              // the session the cookie actually carries. An expired cookie whose
+              // renewal key is present stays "signed in" because playback
+              // renews it on its own.
+              final session = DouyuUtils.sessionState(cookie.douyuCookie.v);
+              final isLogined = session == DouyuSessionState.valid || session == DouyuSessionState.expiredRefreshable;
 
+              return _buildAccountTile(
+                context,
+                logo: 'assets/images/douyu.png',
+                title: i18n('site_douyu'),
+                subtitle: switch (session) {
+                  DouyuSessionState.none => i18n('set_cookie'),
+                  DouyuSessionState.valid => i18n('cookie_saved_local'),
+                  DouyuSessionState.expiredRefreshable => i18n('douyu_session_renewable'),
+                  DouyuSessionState.guest || DouyuSessionState.expired => i18n('douyu_session_needs_cookie'),
+                },
+                isLogined: isLogined,
+                onTap: () => isLogined
+                    ? _showLogoutDialog(
+                        context,
+                        accountName: i18n('site_douyu'),
+                        onConfirm: () => cookie.douyuCookie.v = '',
+                      )
+                    // A cookie that no longer holds a session is replaced, not
+                    // signed out of: the editor is where the viewer fixes it.
+                    : Get.toNamed(RoutePath.kDouyuAccountCookie),
+              );
+            }),
             Obx(() {
               final isLogined = cookie.huyaCookie.v.isNotEmpty;
               return _buildAccountTile(
@@ -59,6 +89,27 @@ class AccountPage extends GetView<AccountController> {
                         onConfirm: () => cookie.huyaCookie.v = "",
                       )
                     : Get.toNamed(RoutePath.kHuyaCookie),
+              );
+            }),
+            Obx(() {
+              final isLogined = cookie.douyinCookie.v.isNotEmpty;
+              return _buildAccountTile(
+                context,
+                logo: 'assets/images/douyin.png',
+                title: i18n("site_douyin"),
+                subtitle: isLogined
+                    ? controller.douyinNickName.value.isNotEmpty
+                          ? controller.douyinNickName.value
+                          : i18n("logined")
+                    : i18n("set_cookie"),
+                isLogined: isLogined,
+                onTap: () => isLogined
+                    ? _showLogoutDialog(
+                        context,
+                        accountName: i18n('site_douyin'),
+                        onConfirm: () => cookie.douyinCookie.v = "",
+                      )
+                    : Get.toNamed(RoutePath.kDouyinCookie),
               );
             }),
             Obx(() {
@@ -89,27 +140,6 @@ class AccountPage extends GetView<AccountController> {
                         onConfirm: () => cookie.taobaoCookie.v = '',
                       )
                     : Get.toNamed(RoutePath.kTaobaoCookie),
-              );
-            }),
-            Obx(() {
-              final isLogined = cookie.douyinCookie.v.isNotEmpty;
-              return _buildAccountTile(
-                context,
-                logo: 'assets/images/douyin.png',
-                title: i18n("site_douyin"),
-                subtitle: isLogined
-                    ? controller.douyinNickName.value.isNotEmpty
-                          ? controller.douyinNickName.value
-                          : i18n("logined")
-                    : i18n("set_cookie"),
-                isLogined: isLogined,
-                onTap: () => isLogined
-                    ? _showLogoutDialog(
-                        context,
-                        accountName: i18n('site_douyin'),
-                        onConfirm: () => cookie.douyinCookie.v = "",
-                      )
-                    : Get.toNamed(RoutePath.kDouyinCookie),
               );
             }),
 
@@ -162,37 +192,6 @@ class AccountPage extends GetView<AccountController> {
                         onConfirm: () => cookie.soopCookie.v = "",
                       )
                     : Get.toNamed(RoutePath.kSoop),
-              );
-            }),
-            Obx(() {
-              // A stored cookie is not the same as a working login: an expired
-              // one is a guest request whatever its length, so the tile follows
-              // the session the cookie actually carries. An expired cookie whose
-              // renewal key is present stays "signed in" because playback
-              // renews it on its own.
-              final session = DouyuUtils.sessionState(cookie.douyuCookie.v);
-              final isLogined = session == DouyuSessionState.valid || session == DouyuSessionState.expiredRefreshable;
-
-              return _buildAccountTile(
-                context,
-                logo: 'assets/images/douyu.png',
-                title: i18n('site_douyu'),
-                subtitle: switch (session) {
-                  DouyuSessionState.none => i18n('set_cookie'),
-                  DouyuSessionState.valid => i18n('cookie_saved_local'),
-                  DouyuSessionState.expiredRefreshable => i18n('douyu_session_renewable'),
-                  DouyuSessionState.guest || DouyuSessionState.expired => i18n('douyu_session_needs_cookie'),
-                },
-                isLogined: isLogined,
-                onTap: () => isLogined
-                    ? _showLogoutDialog(
-                        context,
-                        accountName: i18n('site_douyu'),
-                        onConfirm: () => cookie.douyuCookie.v = '',
-                      )
-                    // A cookie that no longer holds a session is replaced, not
-                    // signed out of: the editor is where the viewer fixes it.
-                    : Get.toNamed(RoutePath.kDouyuAccountCookie),
               );
             }),
           ]),

@@ -8,7 +8,13 @@ import 'package:pure_live/modules/account/cookie_validator.dart';
 
 /// 平台抓取配置：登录页地址与 Cookie 归属域名。
 class CookieCaptureTarget {
-  const CookieCaptureTarget({required this.platform, required this.loginUrl, required this.domains});
+  const CookieCaptureTarget({
+    required this.platform,
+    required this.loginUrl,
+    required this.domains,
+    this.excludeCookieNames = const <String>{},
+    this.extraCookieUrls = const <String>[],
+  });
 
   /// 平台标识（与账户模块一致），用于抓取后经平台接口校验登录态。
   final String platform;
@@ -18,6 +24,21 @@ class CookieCaptureTarget {
 
   /// Cookie 归属域名（后缀匹配，如 'twitch.tv' 匹配 '.twitch.tv'）。
   final List<String> domains;
+
+  /// 抓取结果中剔除的 Cookie 名。
+  ///
+  /// 按域名后缀过滤会连登录流程顺带下发的其他子域 Cookie 一起收进来；
+  /// 有的平台（如斗鱼）passport 会话字段混进请求头会直接被边缘节点
+  /// 拒绝（裸 403），因此这些字段在组装时就要丢掉。
+  final Set<String> excludeCookieNames;
+
+  /// 额外查询 Cookie 的 URL（登录页之外）。
+  ///
+  /// `getCookies` 只返回"浏览器访问该 URL 时会带上"的 Cookie，host-only
+  /// 的凭证域 Cookie（如斗鱼 `LTP0`，Domain 限定在 passport.douyu.com）
+  /// 不会出现在登录页的结果里；对凭证域再查一次才能捞全。这些域名也
+  /// 必须落在 [domains] 的后缀范围内，否则组装时仍会被过滤掉。
+  final List<String> extraCookieUrls;
 }
 
 /// 各平台抓取配置（key 与账户模块的平台标识一致）。
@@ -31,13 +52,29 @@ const Map<String, CookieCaptureTarget> kCookieCaptureTargets = {
   ),
   'soop': CookieCaptureTarget(platform: 'soop', loginUrl: 'https://www.sooplive.co.kr/', domains: ['sooplive.co.kr']),
   'twitch': CookieCaptureTarget(platform: 'twitch', loginUrl: 'https://www.twitch.tv/login', domains: ['twitch.tv']),
+  // 斗鱼 Web 版：会话令牌是 dy_auth（不透明、七天），没有 LTP0 可续期，
+  // 抓到什么就用什么。passport 会话字段（acf_stk 等）不属于登录态，混进
+  // Cookie 头会被播放接口的边缘节点裸 403，按域名后缀抓取时必须剔除；
+  // LTP0/dy_did 若登录流程有下发则保留——它们正是续期需要的凭证。
+  // LTP0 是 passport.douyu.com 的 host-only Cookie，查登录页拿不到，
+  // 需要对 passport 域再查一次（Web 登录页本身就在该域，cookie 一定存在）。
+  'douyu': CookieCaptureTarget(
+    platform: 'douyu',
+    loginUrl: 'https://www.douyu.com/',
+    domains: ['douyu.com'],
+    excludeCookieNames: {'acf_stk', 'acf_ccn', 'acf_ltkid', 'acf_ssid'},
+    extraCookieUrls: ['https://passport.douyu.com/'],
+  ),
 };
 
 /// 按 [domains] 过滤并组装 `name=value; ...`；同名 Cookie 后值覆盖前值。
-String? assembleCookieString(List<Cookie> cookies, List<String> domains) {
+/// [excludeNames] 中的 Cookie 名（不区分大小写）不进入结果。
+String? assembleCookieString(List<Cookie> cookies, List<String> domains, {Set<String>? excludeNames}) {
+  final excluded = excludeNames?.map((name) => name.toLowerCase());
   final byName = <String, String>{};
   for (final cookie in cookies) {
     if (cookie.name.isEmpty) continue;
+    if (excluded != null && excluded.contains(cookie.name.toLowerCase())) continue;
     if (!cookieDomainMatches(cookie.domain ?? '', domains)) continue;
     byName[cookie.name] = cookie.value?.toString() ?? '';
   }
@@ -114,11 +151,14 @@ class _WebCookieCapturePageState extends State<WebCookieCapturePage> {
     if (_busy || controller == null) return;
     setState(() => _busy = true);
     try {
-      final cookies = await CookieManager.instance().getCookies(
-        url: WebUri(target.loginUrl),
-        webViewController: controller,
-      );
-      final cookie = assembleCookieString(cookies, target.domains);
+      // 查询 URL 按 [CookieCaptureTarget.extraCookieUrls] 扩展：凭证域的
+      // host-only Cookie 不在登录页的查询结果里，必须对它单独查一次。
+      final captureUrls = <WebUri>[WebUri(target.loginUrl), ...target.extraCookieUrls.map(WebUri.new)];
+      final cookies = <Cookie>[];
+      for (final url in captureUrls) {
+        cookies.addAll(await CookieManager.instance().getCookies(url: url, webViewController: controller));
+      }
+      final cookie = assembleCookieString(cookies, target.domains, excludeNames: target.excludeCookieNames);
       if (!mounted) return;
       if (cookie == null || cookie.isEmpty) {
         ToastUtil.show(i18n('cookie_capture_empty_hint'));
