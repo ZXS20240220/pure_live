@@ -106,7 +106,9 @@ class _WebCookieCapturePageState extends State<WebCookieCapturePage> {
   bool _busy = false;
   bool _closing = false;
   bool _showWebView = true;
+  bool _isLoading = false;
   String _currentUrl = '';
+  int _loadProgress = 0;
 
   @override
   void initState() {
@@ -197,6 +199,25 @@ class _WebCookieCapturePageState extends State<WebCookieCapturePage> {
     } catch (_) {}
   }
 
+  /// 重建页面：重新加载当前地址栏的网址。画面异常或站点行为奇怪时，
+  /// 观看者可以不退出抓取页直接重来。
+  Future<void> _reloadPage() async {
+    final controller = _webViewController;
+    if (controller == null) return;
+    try {
+      await controller.loadUrl(urlRequest: URLRequest(url: WebUri(_currentUrl)));
+    } catch (_) {}
+  }
+
+  /// 打开 WebView2 开发者工具；要求 WebView 以 isInspectable 创建。
+  Future<void> _openDevTools() async {
+    final controller = _webViewController;
+    if (controller == null) return;
+    try {
+      await controller.openDevTools();
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -209,6 +230,16 @@ class _WebCookieCapturePageState extends State<WebCookieCapturePage> {
         appBar: AppBar(
           title: Text(i18n('cookie_capture_title')),
           actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh_rounded),
+              tooltip: i18n('web_search_rebuild'),
+              onPressed: _webViewController == null ? null : () => unawaited(_reloadPage()),
+            ),
+            IconButton(
+              icon: const Icon(Icons.bug_report),
+              tooltip: i18n('web_search_devtools'),
+              onPressed: _webViewController == null ? null : () => unawaited(_openDevTools()),
+            ),
             TextButton(
               onPressed: _busy || _webViewController == null ? null : _completeLogin,
               child: Text(i18n('cookie_capture_done_button')),
@@ -228,14 +259,47 @@ class _WebCookieCapturePageState extends State<WebCookieCapturePage> {
               ),
             ),
             WebViewAddressBar(currentUrl: _currentUrl, onSubmit: (url) => unawaited(_navigateTo(url))),
+            // 加载进度：地址栏下方的独立窄条，不覆盖网页区域。开始加载但
+            // 还没收到首个进度回调时保持 indeterminate 滚动（与网页搜索页
+            // 一致），收到进度后转为确定进度，加载结束消失。
+            if (_showWebView && _isLoading)
+              LinearProgressIndicator(value: _loadProgress > 0 && _loadProgress < 100 ? _loadProgress / 100 : null),
             Expanded(
               child: _showWebView
                   ? InAppWebView(
                       webViewEnvironment: AppWebView2Environment.optional,
                       initialUrlRequest: URLRequest(url: WebUri(target.loginUrl)),
                       onWebViewCreated: (controller) => setState(() => _webViewController = controller),
-                      onLoadStart: (_, uri) => _updateAddressBarUrl(uri),
-                      onLoadStop: (_, uri) => _updateAddressBarUrl(uri),
+                      onLoadStart: (_, uri) {
+                        _updateAddressBarUrl(uri);
+                        if (mounted) {
+                          setState(() {
+                            _isLoading = true;
+                            _loadProgress = 0;
+                          });
+                        }
+                      },
+                      onLoadStop: (_, uri) {
+                        _updateAddressBarUrl(uri);
+                        if (mounted) {
+                          setState(() {
+                            _isLoading = false;
+                            _loadProgress = 0;
+                          });
+                        }
+                      },
+                      onReceivedError: (controller, request, error) {
+                        // 主框架加载失败时结束进度显示，避免进度条挂住。
+                        if (!mounted || request.isForMainFrame == false) return;
+                        setState(() {
+                          _isLoading = false;
+                          _loadProgress = 0;
+                        });
+                      },
+                      onProgressChanged: (_, progress) {
+                        if (!mounted) return;
+                        setState(() => _loadProgress = progress.clamp(0, 100));
+                      },
                       onUpdateVisitedHistory: (_, uri, _) => _updateAddressBarUrl(uri),
                       initialSettings: InAppWebViewSettings(
                         userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
@@ -249,6 +313,9 @@ class _WebCookieCapturePageState extends State<WebCookieCapturePage> {
                         databaseEnabled: true,
                         thirdPartyCookiesEnabled: true,
                         cacheEnabled: true,
+                        // AppBar 的调试按钮经 openDevTools 打开开发者工具，
+                        // WebView2 只有可检视的 WebView 才允许附加。
+                        isInspectable: true,
                       ),
                     )
                   : const SizedBox.shrink(),
