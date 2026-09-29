@@ -1,4 +1,4 @@
-# main 仓库专用请勿修改此文件
+# Fork 仓库构建工作流 – 仅便携版
 name: PureLive Windows Release
 on:
   workflow_dispatch:
@@ -14,7 +14,7 @@ on:
         type: boolean
         default: false
       release_tag:
-        description: Release tag (e.g. v1.0.0) – required if create_release is true
+        description: Release tag (e.g. v3.1.4) – required if create_release is true
         required: true
         type: string
         default: 'v3.1.4'
@@ -56,7 +56,7 @@ jobs:
         run: python tool/interface_probe.py
 
   windows:
-    name: Windows EXE + MSIX + Portable
+    name: Windows Portable
     if: >-
       ${{
         always() &&
@@ -68,38 +68,6 @@ jobs:
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Decode MSIX Certificate
-        shell: pwsh
-        env:
-          CERTIFICATE: ${{ secrets.CERTIFICATE }}
-        run: |
-          $ErrorActionPreference = "Stop"
-          $certBase64 = "$env:CERTIFICATE".Trim() -replace '\s+', ''
-          if ([string]::IsNullOrEmpty($certBase64)) {
-            Write-Error "CERTIFICATE secret is empty!"
-          }
-          $certBytes = [System.Convert]::FromBase64String($certBase64)
-          $certPath = Join-Path (Get-Location) "certificate.pfx"
-          [IO.File]::WriteAllBytes($certPath, $certBytes)
-          "FINAL_CERT_PATH=$certPath" >> $env:GITHUB_ENV
-      - name: Update MSIX make_config.yaml
-        shell: pwsh
-        env:
-          CERT_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
-        run: |
-          $ErrorActionPreference = "Stop"
-          $configPath = "windows/packaging/msix/make_config.yaml"
-          if (!(Test-Path $configPath)) {
-            Write-Error "Config file not found: $configPath"
-          }
-          if ([string]::IsNullOrEmpty($env:CERT_PASSWORD)) {
-            Write-Error "CERTIFICATE_PASSWORD secret is empty!"
-          }
-          $absolutePath = $env:FINAL_CERT_PATH -replace '\\', '/'
-          $content = Get-Content $configPath -Raw
-          $content = $content -replace 'certificate_path:\s*.*', "certificate_path: $absolutePath"
-          $content = $content -replace '(?m)^(\s*certificate_password:\s*).*$', "`${1}'$($env:CERT_PASSWORD)'"
-          Set-Content -Path $configPath -Value $content
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: ${{ env.FLUTTER_CHANNEL }}
@@ -113,21 +81,6 @@ jobs:
           dart run enven `
             --env-files .env,.env.prod `
             --class-name AppConfig
-      - name: Install pinned Windows packagers
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          choco install innosetup --version=6.7.1 -y --no-progress
-          dart pub global activate fastforge 0.6.0
-      - name: Copy Chinese language pack
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          $source = "windows\packaging\exe\ChineseSimplified.isl"
-          $target = "C:\Program Files (x86)\Inno Setup 6\Languages\ChineseSimplified.isl"
-          if (Test-Path $source) {
-            Copy-Item $source $target -Force
-          }
       - name: Get version
         id: version
         shell: pwsh
@@ -144,13 +97,11 @@ jobs:
             }
           }
           Write-Error "Version not found"
-      - name: Package Windows EXE and MSIX
+      - name: Build Windows portable
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          fastforge package `
-            --platform windows `
-            --targets exe,msix
+          flutter build windows --release --no-pub
       - name: Locate Windows release bundle
         id: bundle
         shell: pwsh
@@ -203,31 +154,11 @@ jobs:
           if ($entries | Where-Object { $_ -match '(^|/)(AppData|IPTV_CACHE)(/|$)' }) {
             Write-Error "Runtime state was found in the Windows portable package."
           }
-      - name: Rename Windows installers
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          $version = "${{ steps.version.outputs.artifact_version }}"
-          $distDir = "dist"
-
-          $exeFile = Get-ChildItem $distDir -Recurse -Filter "*.exe" | Select-Object -First 1
-          if (!$exeFile) {
-            Write-Error "Windows EXE package not found."
-          }
-          Copy-Item $exeFile.FullName "PureLive-$version-windows-x64-setup.exe" -Force
-
-          $msixFile = Get-ChildItem $distDir -Recurse -Filter "*.msix" | Select-Object -First 1
-          if (!$msixFile) {
-            Write-Error "Windows MSIX package not found."
-          }
-          Copy-Item $msixFile.FullName "PureLive-$version-windows-x64.msix" -Force
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: pure-live-windows
           path: |
-            PureLive-*-windows-x64-setup.exe
-            PureLive-*-windows-x64.msix
             PureLive-*-windows-x64-portable.zip
           if-no-files-found: error
           retention-days: 3
@@ -258,7 +189,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: master
+          ref: dev_from_v3.1.4
           fetch-depth: 0
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
@@ -334,6 +265,7 @@ jobs:
         shell: bash
         env:
           RELEASE_TAG: ${{ inputs.release_tag }}
+          REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
           
@@ -343,6 +275,7 @@ jobs:
           from pathlib import Path
 
           tag = os.environ["RELEASE_TAG"]
+          repo = os.environ["REPOSITORY"]
           version_file = Path("assets/version.json")
 
           if not version_file.is_file():
@@ -363,20 +296,14 @@ jobs:
 
           body = f"""# 纯粹直播 {tag}
 
-          |版本|下载地址|
-          |---|---|
-          |Windows版|[pure_live](https://github.com/liuchuancong/pure_live/releases/latest)|
-
           ### 🖥️ Windows 版
 
           - **Portable ZIP**：解压即用，无需安装
-          - **EXE 安装包**：适合所有用户
-          - **MSIX 包**：现代应用格式，支持干净卸载
           - 适配：Windows 10/11 x64
 
           ### 🔧 Build Metadata
 
-          [**BUILD_METADATA.json**](https://github.com/liuchuancong/pure_live/releases/download/{tag}/BUILD_METADATA.json)
+          [**BUILD_METADATA.json**](https://github.com/{repo}/releases/download/{tag}/BUILD_METADATA.json)
 
           ### 📝 本次更新
 
@@ -418,7 +345,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: master
+          ref: dev_from_v3.1.4
           fetch-depth: 0
       - name: Setup Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v6.1.0
@@ -489,5 +416,5 @@ jobs:
           fi
           git add assets/releases.json
           git commit -m "chore: update releases.json for ${{ inputs.release_tag }} [skip ci]"
-          git pull --rebase origin master
-          git push origin master
+          git pull --rebase origin dev_from_v3.1.4
+          git push origin dev_from_v3.1.4

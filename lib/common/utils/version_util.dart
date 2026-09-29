@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:pure_live/gen/env.g.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/plugins/race_http.dart';
@@ -7,21 +8,19 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:pure_live/common/utils/githup_mirror.dart';
 import 'package:pure_live/common/global/platform_utils.dart';
 
-
 class VersionUtil {
   static PackageInfo? _packageInfo;
 
   /// Release/update repository for this maintained distribution.
   ///
   /// Keeping the owner configurable lets downstream builders select their own
-  /// release feed without editing runtime code. This repository defaults to
-  /// the liuchuancong maintenance release channel so its bundled version.json and generated asset
-  /// URLs always describe the same published artifacts.
+  /// release feed without editing runtime code. The owner is supplied by the
+  /// generated AppConfig (.env / .env.prod).
   static final String updateOwner = AppConfig.pureliveUpdateOwner;
   static final String updateRepository = AppConfig.pureliveUpdateRepository;
   static final String projectUrl = 'https://github.com/$updateOwner/$updateRepository';
   static final String issuesUrl = '$projectUrl/issues';
-  static const String githubUrl = 'https://github.com/liuchuancong';
+  static final String githubUrl = 'https://github.com/$updateOwner';
 
   static const String email = '17792321552@163.com';
   static const String emailUrl = 'mailto:17792321552@163.com?subject=PureLive Feedback';
@@ -31,7 +30,12 @@ class VersionUtil {
 
   static final String releaseUrl = 'https://api.github.com/repos/$updateOwner/$updateRepository/releases?per_page=30';
 
-  static final GitHubMirror mirror = GitHubMirror(owner: updateOwner, repo: updateRepository, branch: 'master');
+  // 独立分支：version.json 跟随 dev_from_v3.1.4 分支发布。
+  static final GitHubMirror mirror = GitHubMirror(
+    owner: updateOwner,
+    repo: updateRepository,
+    branch: 'dev_from_v3.1.4',
+  );
 
   static List<String> get _versionUrls => SettingsService.to.app.useGitHubOriginForUpdates.v
       ? [mirror.rawUrl('assets/version.json')]
@@ -67,6 +71,9 @@ class VersionUtil {
     if (_packageInfo == null) return 0;
     return int.tryParse(_packageInfo!.buildNumber) ?? 0;
   }
+
+  /// 完整版本标识，例如 3.1.4+4200；无 build 号时回退为 3.1.4。
+  static String get fullVersion => buildNumber > 0 ? '$version+$buildNumber' : version;
 
   Future<bool> checkUpdate() async {
     if (_cachedVersionJson != null) {
@@ -156,8 +163,18 @@ class VersionUtil {
   }
 
   static bool hasNewVersion() {
-    return isNewerVersion(latestVersion, version);
+    if (isNewerVersion(latestVersion, version)) return true;
+    // 语义版本相同（独立分支在同一语义版本上按 build 号迭代，如
+    // 3.1.4+4103 → 3.1.4+4200）时，回退比较构建号。
+    final latestBuild = latestBuildNumber;
+    if (latestBuild != null && buildNumber > 0 && _normalizeVersion(latestVersion) == _normalizeVersion(version)) {
+      return latestBuild > buildNumber;
+    }
+    return false;
   }
+
+  static String _normalizeVersion(String value) =>
+      value.split(RegExp(r'[-+]')).first.replaceFirst(RegExp('^[vV]'), '').trim();
 
   static bool isNewerVersion(String latest, String current) {
     try {

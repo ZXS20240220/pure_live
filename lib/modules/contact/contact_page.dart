@@ -34,7 +34,7 @@ class _ContactPageState extends State<ContactPage> {
           ListTile(
             leading: const Icon(CustomIcons.github_circled, size: 32),
             title: Text(i18n("github")),
-            subtitle: const Text(VersionUtil.githubUrl),
+            subtitle: Text(VersionUtil.githubUrl),
             onTap: () {
               launchUrl(Uri.parse(VersionUtil.githubUrl), mode: LaunchMode.externalApplication);
             },

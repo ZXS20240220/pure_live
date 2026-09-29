@@ -1,23 +1,23 @@
 {
   "version": "3.1.4",
-  "build_number": 4103,
-  "version_num": 301034103,
+  "build_number": 4200,
+  "version_num": 301034200,
   "android_abis": [
     "armeabi-v7a",
     "arm64-v8a",
     "x86_64"
   ],
-  "version_desc": "version: 3.1.4\n版本更新：\n- 修复windows亮度。\n\n",
-  "prerelease": false,
-  "download_url": "https://github.com/liuchuancong/pure_live/releases/tag/v3.1.4",
+  "version_desc": "version: 3.1.4 (build 4200)\n独立分支内部测试版：\n- 基于上游 3.1.4 fork 的独立迭代版本，更新通道已切换至本仓库。\n\n",
+  "prerelease": true,
+  "download_url": "https://github.com/ZXS20240220/pure_live/releases",
   "platforms": {
     "android": {
       "version": "3.1.4",
-      "build_number": 4103,
-      "version_num": 301034103,
-      "version_desc": "version: 3.1.4\n版本更新：\n- 修复windows亮度。\n\n",
-      "prerelease": false,
-      "download_url": "https://github.com/liuchuancong/pure_live/releases/tag/v3.1.4",
+      "build_number": 4200,
+      "version_num": 301034200,
+      "version_desc": "version: 3.1.4 (build 4200)\n独立分支内部测试版：\n- 基于上游 3.1.4 fork 的独立迭代版本，更新通道已切换至本仓库。\n\n",
+      "prerelease": true,
+      "download_url": "https://github.com/ZXS20240220/pure_live/releases",
       "android_abis": [
         "armeabi-v7a",
         "arm64-v8a",
@@ -26,36 +26,36 @@
     },
     "windows": {
       "version": "3.1.4",
-      "build_number": 4103,
-      "version_num": 301034103,
-      "version_desc": "version: 3.1.4\n版本更新：\n- 修复windows亮度。\n\n",
+      "build_number": 4200,
+      "version_num": 301034200,
+      "version_desc": "version: 3.1.4 (build 4200)\n独立分支内部测试版：\n- 基于上游 3.1.4 fork 的独立迭代版本，更新通道已切换至本仓库。\n\n",
       "prerelease": false,
-      "download_url": "https://github.com/liuchuancong/pure_live/releases/tag/v3.1.4",
-      "windows_msix_available": true
+      "download_url": "https://github.com/ZXS20240220/pure_live/releases",
+      "windows_msix_available": false
     },
     "linux": {
       "version": "3.1.4",
-      "build_number": 4103,
-      "version_num": 301034103,
-      "version_desc": "version: 3.1.4\n版本更新：\n- 修复windows亮度。\n\n",
+      "build_number": 4200,
+      "version_num": 301034200,
+      "version_desc": "version: 3.1.4 (build 4200)\n独立分支内部测试版：\n- 基于上游 3.1.4 fork 的独立迭代版本，更新通道已切换至本仓库。\n\n",
       "prerelease": false,
-      "download_url": "https://github.com/liuchuancong/pure_live/releases/tag/v3.1.4"
+      "download_url": "https://github.com/ZXS20240220/pure_live/releases"
     },
     "macos": {
       "version": "3.1.4",
-      "build_number": 4103,
-      "version_num": 301034103,
-      "version_desc": "version: 3.1.4\n版本更新：\n- 修复windows亮度。\n\n",
+      "build_number": 4200,
+      "version_num": 301034200,
+      "version_desc": "version: 3.1.4 (build 4200)\n独立分支内部测试版：\n- 基于上游 3.1.4 fork 的独立迭代版本，更新通道已切换至本仓库。\n\n",
       "prerelease": false,
-      "download_url": "https://github.com/liuchuancong/pure_live/releases/tag/v3.1.4"
+      "download_url": "https://github.com/ZXS20240220/pure_live/releases"
     },
     "ios": {
       "version": "3.1.4",
-      "build_number": 4103,
-      "version_num": 301034103,
-      "version_desc": "version: 3.1.4\n版本更新：\n- 修复windows亮度。\n\n",
+      "build_number": 4200,
+      "version_num": 301034200,
+      "version_desc": "version: 3.1.4 (build 4200)\n独立分支内部测试版：\n- 基于上游 3.1.4 fork 的独立迭代版本，更新通道已切换至本仓库。\n\n",
       "prerelease": false,
-      "download_url": "https://github.com/liuchuancong/pure_live/releases/tag/v3.1.4"
+      "download_url": "https://github.com/ZXS20240220/pure_live/releases"
     }
   }
 }

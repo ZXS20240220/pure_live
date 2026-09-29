@@ -68,7 +68,7 @@ class _AboutPageState extends State<AboutPage> {
                     border: Border.all(color: theme.dividerColor.withValues(alpha: 0.05), width: 0.5),
                   ),
                   child: Text(
-                    'v${VersionUtil.version}',
+                    'v${VersionUtil.fullVersion}',
                     style: AppTextStyles.t11.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w500,
@@ -92,7 +92,7 @@ class _AboutPageState extends State<AboutPage> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  'v${VersionUtil.version}',
+                  'v${VersionUtil.fullVersion}',
                   style: AppTextStyles.t11.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.w600),
                 ),
               ),
@@ -164,7 +164,7 @@ class _AboutPageState extends State<AboutPage> {
       context: Get.context!,
       applicationName: i18n("app_name"),
       applicationLegalese: i18n("app_legalese"),
-      applicationVersion: VersionUtil.version,
+      applicationVersion: 'v${VersionUtil.fullVersion}',
       useRootNavigator: true,
       applicationIcon: Padding(
         padding: const EdgeInsets.all(12),
