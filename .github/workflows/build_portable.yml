@@ -15,10 +15,10 @@ on:
         type: boolean
         default: false
       release_tag:
-        description: Release tag (e.g. v3.1.4) – required if create_release is true
+        description: Release tag (e.g. v1.0.0) – required if create_release is true
         required: true
         type: string
-        default: 'v3.1.4'
+        default: 'v1.0.0'
       prerelease:
         description: Mark as pre-release
         required: true
@@ -182,8 +182,8 @@ jobs:
             echo "release_tag is required when create_release=true."
             exit 1
           fi
-          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Invalid release tag: $TAG (expected: v1.2.3)"
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+            echo "Invalid release tag: $TAG (expected: v1.2.3 or v1.2.3.4)"
             exit 1
           fi
       - name: Checkout fork branch
