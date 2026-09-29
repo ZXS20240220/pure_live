@@ -41,8 +41,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
-      - uses: actions/checkout@v6
-      - uses: subosito/flutter-action@v2
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v3
         with:
           channel: ${{ env.FLUTTER_CHANNEL }}
           cache: true
@@ -72,8 +72,8 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 35
     steps:
-      - uses: actions/checkout@v6
-      - uses: subosito/flutter-action@v2
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v3
         with:
           channel: ${{ env.FLUTTER_CHANNEL }}
           cache: true
@@ -156,7 +156,7 @@ jobs:
             Write-Error "Runtime state was found in the Windows portable package."
           }
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pure-live-portable
           path: |
@@ -187,12 +187,12 @@ jobs:
             exit 1
           fi
       - name: Checkout fork branch
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ env.FORK_BRANCH }}
           fetch-depth: 0
       - name: Download build artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           path: artifacts
       - name: Show release artifacts
@@ -310,12 +310,12 @@ jobs:
       contents: write
     steps:
       - name: Checkout fork branch
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ env.FORK_BRANCH }}
           fetch-depth: 0
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.10"
       - name: Update assets/releases.json
