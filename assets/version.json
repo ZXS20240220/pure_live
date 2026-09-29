@@ -1,21 +1,21 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
   "build_number": 314,
-  "version_num": 10000314,
+  "version_num": 10001314,
   "android_abis": [
     "armeabi-v7a",
     "arm64-v8a",
     "x86_64"
   ],
-  "version_desc": "version: 1.0.0 (build 314)\n独立分支内部测试版：\n- 基于上游 pure_live 3.1.4 fork 的独立迭代版本，更新通道已切换至本仓库。\n\n",
+  "version_desc": "version: 1.0.1 (build 314)\n修复了自定义驱动/硬件加速在 Windows 上导致画面无法显示、弹出独立窗口和无声等问题\n\n",
   "prerelease": false,
   "download_url": "https://github.com/ZXS20240220/pure_live/releases",
   "platforms": {
     "windows": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "build_number": 314,
-      "version_num": 10000314,
-      "version_desc": "version: 1.0.0 (build 314)\n独立分支内部测试版：\n- 基于上游 pure_live 3.1.4 fork 的独立迭代版本，更新通道已切换至本仓库。\n\n",
+      "version_num": 10001314,
+      "version_desc": "version: 1.0.1 (build 314)\n修复了自定义驱动/硬件加速在 Windows 上导致画面无法显示、弹出独立窗口和无声等问题\n\n",
       "prerelease": false,
       "download_url": "https://github.com/ZXS20240220/pure_live/releases",
       "windows_setup_available": false,
