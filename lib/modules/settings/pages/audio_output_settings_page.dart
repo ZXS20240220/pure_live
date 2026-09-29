@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:pure_live/common/index.dart';
+import 'package:pure_live/player/utils/mpv_platform_profile.dart';
 import 'package:pure_live/player/utils/player_consts.dart';
 
 class AudioOutputSettingsPage extends GetView<SettingsService> {
@@ -6,6 +8,10 @@ class AudioOutputSettingsPage extends GetView<SettingsService> {
 
   @override
   Widget build(BuildContext context) {
+    final supportedDrivers = mpvAudioOutputDriversForPlatform(defaultTargetPlatform);
+    final drivers = PlayerConsts.audioOutputDriversList
+        .where((item) => item['key'] == 'auto' || supportedDrivers.containsKey(item['key']))
+        .toList(growable: false);
     return Scaffold(
       appBar: AppBar(title: Text(i18n('audio_output_driver'))),
       body: ListView(
@@ -16,7 +22,7 @@ class AudioOutputSettingsPage extends GetView<SettingsService> {
           context.buildModernCard([
             Obx(
               () => Column(
-                children: PlayerConsts.audioOutputDriversList.map((item) {
+                children: drivers.map((item) {
                   final key = item['key']!;
                   final selected = controller.player.audioOutputDriver.v == key;
 

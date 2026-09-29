@@ -160,6 +160,9 @@ class PlayerConsts {
   /// 可选视频渲染器
   static const List<Map<String, String>> videoRenderersList = [
     {'key': 'auto', 'nameEn': 'Auto', 'nameZh': '自动选择'},
+    // media_kit 在桌面/iOS 通过 libmpv render API 把帧绘制到 Flutter 纹理，
+    // 这是内嵌播放唯一可用的 VO；gpu/gpu-next 等会自建原生窗口导致画面跳出。
+    {'key': 'libmpv', 'nameEn': 'libmpv (Embedded Render API)', 'nameZh': 'libmpv（内嵌渲染）'},
     {'key': 'gpu', 'nameEn': 'GPU', 'nameZh': 'GPU'},
     {'key': 'gpu-next', 'nameEn': 'GPU Next', 'nameZh': 'GPU Next'},
     {'key': 'sdl', 'nameEn': 'SDL', 'nameZh': 'SDL'},

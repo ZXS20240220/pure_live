@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:pure_live/common/index.dart';
+import 'package:pure_live/player/utils/mpv_platform_profile.dart';
 import 'package:pure_live/player/utils/player_consts.dart';
 
 class RendererSettingsPage extends GetView<SettingsService> {
@@ -6,6 +8,10 @@ class RendererSettingsPage extends GetView<SettingsService> {
 
   @override
   Widget build(BuildContext context) {
+    final supportedDrivers = mpvVideoOutputDriversForPlatform(defaultTargetPlatform);
+    final renderers = PlayerConsts.videoRenderersList
+        .where((item) => item['key'] == 'auto' || supportedDrivers.containsKey(item['key']))
+        .toList(growable: false);
     return Scaffold(
       appBar: AppBar(title: Text(i18n('video_output_driver'))),
       body: ListView(
@@ -16,7 +22,7 @@ class RendererSettingsPage extends GetView<SettingsService> {
           context.buildModernCard([
             Obx(
               () => Column(
-                children: PlayerConsts.videoRenderersList.map((item) {
+                children: renderers.map((item) {
                   final key = item['key']!;
                   final selected = controller.player.videoOutputDriver.v == key;
 

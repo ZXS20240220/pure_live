@@ -32,7 +32,10 @@ class PlayerSettingsController extends GetxController {
   final RxBool enableCodec = hiveBool('enableCodec', true);
   final RxBool playerCompatMode = hiveBool('playerCompatMode', false);
   final RxBool customPlayerOutput = hiveBool('customPlayerOutput', false);
-  final RxString videoOutputDriver = hiveString('videoOutputDriver', 'gpu');
+  final RxString videoOutputDriver = hiveString(
+    'videoOutputDriver',
+    defaultMpvVideoOutputDriverForPlatform(defaultTargetPlatform),
+  );
   final RxString audioOutputDriver = hiveString('audioOutputDriver', 'auto');
   final RxString videoHardwareDecoder = hiveString('videoHardwareDecoder', 'auto');
 
