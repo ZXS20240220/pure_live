@@ -52,13 +52,7 @@ class DouyuCookieController extends GetxController {
   /// Whether the pasted cookie looks like the passport request's rather than a
   /// page session: renewal credentials, and nothing that identifies a login.
   static bool _hasCredentialFields(String cookie) {
-    const credentialFields = <String>[
-      'LTP0',
-      'acf_stk',
-      'acf_ccn',
-      'acf_ltkid',
-      'acf_ssid',
-    ];
+    const credentialFields = <String>['LTP0', 'acf_stk', 'acf_ccn', 'acf_ltkid', 'acf_ssid'];
     return credentialFields.any((name) => _fieldOf(cookie, name) != null);
   }
 
@@ -88,30 +82,49 @@ class DouyuCookieController extends GetxController {
     // what Douyu's edge answers with a bare 403 — so it is never stored as one.
     final isCredentialPaste = !pastedIsSession && _hasCredentialFields(normalized);
 
+    final ltp0 = ltp0Controller.text.trim();
+
     if (isCredentialPaste) {
-      cookies.douyuLtp0.v = ltp0Controller.text.trim();
+      cookies.douyuLtp0.v = ltp0;
       cookies.douyuDid.v = didController.text.trim();
       // Keep whatever login is already stored; if there is none, say so instead
-      // of storing a cookie the play path cannot use.
-      if (!keepsStoredSession) cookies.douyuCookie.v = '';
+      // of storing a cookie the play path cannot use. An emptied long-term-key
+      // box drops the copy inside the stored string too, or the box refills
+      // itself from it on the next change and the deletion never sticks.
+      if (!keepsStoredSession) {
+        cookies.douyuCookie.v = '';
+      } else if (ltp0.isEmpty) {
+        cookies.douyuCookie.v = DouyuUtils.withoutCookieField(stored, DouyuUtils.longTermTokenName);
+      }
       ToastUtil.show(i18n('douyu_cookie_credentials_only'));
       return;
     }
 
-    final effective = (keepsStoredSession && !pastedIsSession) ? stored : normalized;
+    // An emptied box is an explicit "sign out of this cookie": it must win over
+    // the keep-stored fallback below, or clearing the cookie silently restores
+    // the old one and the viewer stays signed in.
+    final effective = (keepsStoredSession && !pastedIsSession && normalized.isNotEmpty) ? stored : normalized;
 
-    cookieController.text = effective;
-    cookies.douyuCookie.v = effective;
-    cookies.douyuLtp0.v = ltp0Controller.text.trim();
+    // Clearing the long-term-key box must also drop the copy of `LTP0` inside
+    // the cookie string: otherwise the box refills itself from it on the very
+    // next change and the deletion never sticks.
+    final finalCookie = ltp0.isEmpty
+        ? DouyuUtils.withoutCookieField(effective, DouyuUtils.longTermTokenName)
+        : effective;
+
+    cookieController.text = finalCookie;
+    cookies.douyuCookie.v = finalCookie;
+    cookies.douyuLtp0.v = ltp0;
     cookies.douyuDid.v = didController.text.trim();
     // douyu.com issues `dy_auth` for seven days and the header the viewer pasted
     // does not carry that deadline: recording the moment is the only way to know
     // when to renew it.
-    cookies.douyuCookieSavedAt.v =
-        effective.isEmpty ? 0 : DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    cookies.douyuCookieSavedAt.v = finalCookie.isEmpty ? 0 : DateTime.now().millisecondsSinceEpoch ~/ 1000;
 
     ToastUtil.show(
-      (keepsStoredSession && !pastedIsSession) ? i18n('douyu_cookie_credentials_absorbed') : _sessionSummary(effective),
+      (keepsStoredSession && !pastedIsSession && normalized.isNotEmpty)
+          ? i18n('douyu_cookie_credentials_absorbed')
+          : _sessionSummary(finalCookie),
     );
   }
 
@@ -127,11 +140,7 @@ class DouyuCookieController extends GetxController {
       return;
     }
 
-    final credentials = DouyuUtils.refreshCredentials(
-      cookie,
-      longTerm: ltp0Controller.text,
-      did: didController.text,
-    );
+    final credentials = DouyuUtils.refreshCredentials(cookie, longTerm: ltp0Controller.text, did: didController.text);
     if (credentials.longTerm == null || credentials.did == null) {
       ToastUtil.show(i18n('douyu_cookie_refresh_no_credentials'));
       return;
@@ -184,11 +193,12 @@ class DouyuCookieController extends GetxController {
       DouyuSessionState.guest => i18n('douyu_cookie_guest'),
       // The web cookie's token is opaque: its end comes from the recorded save
       // time and Douyu's seven-day rule, so say that instead of a bare expiry.
-      DouyuSessionState.valid => expiry == null
-          ? i18n('douyu_cookie_valid_no_expiry')
-          : DouyuUtils.canRefreshSession(cookie)
-              ? i18n('douyu_cookie_valid_auto_renew', args: {'time': at})
-              : i18n('douyu_cookie_valid_needs_repaste', args: {'time': at}),
+      DouyuSessionState.valid =>
+        expiry == null
+            ? i18n('douyu_cookie_valid_no_expiry')
+            : DouyuUtils.canRefreshSession(cookie)
+            ? i18n('douyu_cookie_valid_auto_renew', args: {'time': at})
+            : i18n('douyu_cookie_valid_needs_repaste', args: {'time': at}),
       DouyuSessionState.expiredRefreshable => i18n('douyu_cookie_expired_refreshable', args: {'time': at}),
       DouyuSessionState.expired => i18n('douyu_cookie_expired', args: {'time': at}),
     };

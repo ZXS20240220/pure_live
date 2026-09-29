@@ -233,6 +233,17 @@ class DouyuUtils {
     return null;
   }
 
+  /// The cookie with every occurrence of one field removed, others intact.
+  ///
+  /// The editor fills its long-term-key box back in from the copy of `LTP0`
+  /// inside the cookie string, so clearing the box alone never sticks: the
+  /// string has to lose the field at the same time.
+  static String withoutCookieField(String cookie, String name) {
+    final wanted = name.toLowerCase();
+    final kept = parseCookieFields(cookie).where((field) => field.name.toLowerCase() != wanted);
+    return kept.map((field) => '${field.name}=${field.value}').join('; ');
+  }
+
   /// The session token the account cookie carries, if any.
   ///
   /// The web flavour's `dy_auth` counts: a pasted `www.douyu.com` cookie is a
