@@ -123,7 +123,7 @@ class VersionController extends GetxController {
       androidArmeabiV7aUrl.value = androidAbis.contains('armeabi-v7a') ? assets.androidArmeabiV7a : '';
       androidArm64Url.value = androidAbis.contains('arm64-v8a') ? assets.androidArm64 : '';
       androidX8664Url.value = androidAbis.contains('x86_64') ? assets.androidX8664 : '';
-      windowsSetupUrl.value = assets.windowsSetup;
+      windowsSetupUrl.value = VersionUtil.latestWindowsSetupAvailable ? assets.windowsSetup : '';
       windowsMsixUrl.value = VersionUtil.latestWindowsMsixAvailable ? assets.windowsMsix : '';
       windowsPortableUrl.value = assets.windowsPortable;
       macosUrl.value = assets.macosUniversal;

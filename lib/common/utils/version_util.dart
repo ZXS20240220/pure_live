@@ -51,6 +51,7 @@ class VersionUtil {
   static String downloadUrl = '';
   static Set<String> latestAndroidAbis = AppConsts.supportAndroidAbis;
   static bool latestWindowsMsixAvailable = false;
+  static bool latestWindowsSetupAvailable = false;
   var allReleased = [].obs;
 
   static Map<String, dynamic>? _cachedVersionJson;
@@ -132,6 +133,7 @@ class VersionUtil {
     downloadUrl = selected['download_url']?.toString() ?? '';
     latestAndroidAbis = selectAndroidAbis(selected);
     latestWindowsMsixAvailable = selected['windows_msix_available'] == true;
+    latestWindowsSetupAvailable = selected['windows_setup_available'] == true;
   }
 
   /// Only advertises APK variants that the release feed says were published.
@@ -219,6 +221,7 @@ class VersionUtil {
     downloadUrl = '';
     latestAndroidAbis = const {};
     latestWindowsMsixAvailable = false;
+    latestWindowsSetupAvailable = false;
     isHasNewVersion.value = false;
   }
 }
