@@ -16,6 +16,7 @@ import 'package:pure_live/modules/account/account_controller.dart';
 import 'package:pure_live/modules/account/account_page.dart';
 import 'package:pure_live/routes/app_pages.dart';
 import 'package:pure_live/routes/route_path.dart';
+import 'package:remixicon/remixicon.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -93,8 +94,15 @@ void main() {
       cookies.huyaCookie.value = 'fixture-cookie';
       await _pumpAccountPage(tester, labels, locale: locale);
       final huya = find.text(labels['site_huya'] as String);
-      await _scrollPageUntilHitTestable(tester, huya);
-      await tester.tap(huya.hitTestable());
+      // Signing out lives only in the trailing icon now: the row itself opens
+      // the cookie editor, so the confirmation is reached — and scrolled to —
+      // through the icon.
+      final logoutIcon = find.descendant(
+        of: find.ancestor(of: huya, matching: find.byType(ListTile)),
+        matching: find.byIcon(Remix.logout_box_r_line),
+      );
+      await _scrollPageUntilHitTestable(tester, logoutIcon);
+      await tester.tap(logoutIcon.hitTestable());
       await tester.pumpAndSettle();
 
       final dialog = find.byType(AlertDialog);
@@ -121,7 +129,15 @@ void main() {
     cookies.huyaCookie.value = 'fixture-cookie';
     await _pumpAccountPage(tester, english);
     final huyaTile = find.ancestor(of: find.text('Huya'), matching: find.byType(ListTile));
-    final onTap = tester.widget<ListTile>(huyaTile).onTap!;
+    // The sign-out trigger is the trailing icon's gesture, not the row: tapping
+    // the row opens the editor, so the coalescing is asserted on the icon.
+    final logoutGesture = find
+        .ancestor(
+          of: find.descendant(of: huyaTile, matching: find.byIcon(Remix.logout_box_r_line)),
+          matching: find.byType(GestureDetector),
+        )
+        .first;
+    final onTap = tester.widget<GestureDetector>(logoutGesture).onTap!;
 
     onTap();
     onTap();
@@ -182,6 +198,10 @@ void main() {
   });
 
   testWidgets('Douyu account row opens its distinct editor without reusing the legacy Douyin alias', (tester) async {
+    // Even with a stored session the row opens the editor: saving a cookie must
+    // not lock the viewer out of fixing or replacing it. Only the trailing icon
+    // offers a sign-out.
+    cookies.douyuCookie.value = _douyuSessionCookie();
     await _pumpAccountPage(tester, english);
     final douyu = find.text('Douyu');
     await _scrollPageUntilHitTestable(tester, douyu);
@@ -189,6 +209,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('canonical-douyu-cookie')), findsOneWidget);
     expect(find.byKey(const ValueKey('legacy-douyu-cookie')), findsNothing);
+    expect(find.byType(AlertDialog), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -201,7 +222,7 @@ void main() {
     await _scrollPageUntilHitTestable(tester, douyu);
     final tile = find.ancestor(of: douyu, matching: find.byType(ListTile));
     expect(find.descendant(of: tile, matching: find.text('Cookie saved on this device')), findsOneWidget);
-    final logout = find.descendant(of: tile, matching: find.byType(IconButton));
+    final logout = find.descendant(of: tile, matching: find.byIcon(Remix.logout_box_r_line));
     await _scrollPageUntilHitTestable(tester, logout);
     await tester.tap(logout.hitTestable());
     await tester.pumpAndSettle();
@@ -227,10 +248,7 @@ void main() {
       find.descendant(of: tile, matching: find.text(english['douyu_session_needs_cookie'] as String)),
       findsOneWidget,
     );
-    expect(
-      find.descendant(of: tile, matching: find.text('Cookie saved on this device')),
-      findsNothing,
-    );
+    expect(find.descendant(of: tile, matching: find.text('Cookie saved on this device')), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }

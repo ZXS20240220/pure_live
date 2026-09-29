@@ -34,6 +34,8 @@ class AccountPage extends GetView<AccountController> {
                           : accountName
                     : i18n("not_logged_in"),
                 isLogined: isLogined,
+                // Bilibili has no cookie editor to revisit: tapping the tile
+                // keeps opening the logout confirmation, as before.
                 onTap: () => isLogined
                     ? _showLogoutDialog(
                         context,
@@ -41,6 +43,13 @@ class AccountPage extends GetView<AccountController> {
                         onConfirm: BiliBiliAccountService.instance.logout,
                       )
                     : controller.bilibiliTap(),
+                onLogout: isLogined
+                    ? () => _showLogoutDialog(
+                        context,
+                        accountName: i18n('site_bilibili'),
+                        onConfirm: BiliBiliAccountService.instance.logout,
+                      )
+                    : null,
               );
             }),
             Obx(() {
@@ -63,15 +72,16 @@ class AccountPage extends GetView<AccountController> {
                   DouyuSessionState.guest || DouyuSessionState.expired => i18n('douyu_session_needs_cookie'),
                 },
                 isLogined: isLogined,
-                onTap: () => isLogined
-                    ? _showLogoutDialog(
+                // The tile always opens the editor: saving a cookie must not
+                // lock the viewer out of fixing or replacing it later.
+                onTap: () => Get.toNamed(RoutePath.kDouyuAccountCookie),
+                onLogout: isLogined
+                    ? () => _showLogoutDialog(
                         context,
                         accountName: i18n('site_douyu'),
                         onConfirm: () => cookie.douyuCookie.v = '',
                       )
-                    // A cookie that no longer holds a session is replaced, not
-                    // signed out of: the editor is where the viewer fixes it.
-                    : Get.toNamed(RoutePath.kDouyuAccountCookie),
+                    : null,
               );
             }),
             Obx(() {
@@ -82,13 +92,14 @@ class AccountPage extends GetView<AccountController> {
                 title: i18n("site_huya"),
                 subtitle: isLogined ? i18n("logined") : i18n("set_cookie"),
                 isLogined: isLogined,
-                onTap: () => isLogined
-                    ? _showLogoutDialog(
+                onTap: () => Get.toNamed(RoutePath.kHuyaCookie),
+                onLogout: isLogined
+                    ? () => _showLogoutDialog(
                         context,
                         accountName: i18n('site_huya'),
                         onConfirm: () => cookie.huyaCookie.v = "",
                       )
-                    : Get.toNamed(RoutePath.kHuyaCookie),
+                    : null,
               );
             }),
             Obx(() {
@@ -103,13 +114,14 @@ class AccountPage extends GetView<AccountController> {
                           : i18n("logined")
                     : i18n("set_cookie"),
                 isLogined: isLogined,
-                onTap: () => isLogined
-                    ? _showLogoutDialog(
+                onTap: () => Get.toNamed(RoutePath.kDouyinCookie),
+                onLogout: isLogined
+                    ? () => _showLogoutDialog(
                         context,
                         accountName: i18n('site_douyin'),
                         onConfirm: () => cookie.douyinCookie.v = "",
                       )
-                    : Get.toNamed(RoutePath.kDouyinCookie),
+                    : null,
               );
             }),
             Obx(() {
@@ -120,9 +132,14 @@ class AccountPage extends GetView<AccountController> {
                 title: i18n("site_yy"),
                 subtitle: isLogined ? i18n("logined") : i18n("set_cookie"),
                 isLogined: isLogined,
-                onTap: () => isLogined
-                    ? _showLogoutDialog(context, accountName: i18n('site_yy'), onConfirm: () => cookie.yyCookie.v = "")
-                    : Get.toNamed(RoutePath.kYyCookie),
+                onTap: () => Get.toNamed(RoutePath.kYyCookie),
+                onLogout: isLogined
+                    ? () => _showLogoutDialog(
+                        context,
+                        accountName: i18n('site_yy'),
+                        onConfirm: () => cookie.yyCookie.v = "",
+                      )
+                    : null,
               );
             }),
             Obx(() {
@@ -133,13 +150,14 @@ class AccountPage extends GetView<AccountController> {
                 title: i18n('site_taobaolive'),
                 subtitle: isLogined ? i18n('logined') : i18n('set_cookie'),
                 isLogined: isLogined,
-                onTap: () => isLogined
-                    ? _showLogoutDialog(
+                onTap: () => Get.toNamed(RoutePath.kTaobaoCookie),
+                onLogout: isLogined
+                    ? () => _showLogoutDialog(
                         context,
                         accountName: i18n('site_taobaolive'),
                         onConfirm: () => cookie.taobaoCookie.v = '',
                       )
-                    : Get.toNamed(RoutePath.kTaobaoCookie),
+                    : null,
               );
             }),
 
@@ -151,13 +169,14 @@ class AccountPage extends GetView<AccountController> {
                 title: i18n("site_kuaishou"),
                 subtitle: isLogined ? i18n("logined") : i18n("set_cookie"),
                 isLogined: isLogined,
-                onTap: () => isLogined
-                    ? _showLogoutDialog(
+                onTap: () => Get.toNamed(RoutePath.kKuaishouCookie),
+                onLogout: isLogined
+                    ? () => _showLogoutDialog(
                         context,
                         accountName: i18n('site_kuaishou'),
                         onConfirm: () => cookie.kuaishouCookie.v = "",
                       )
-                    : Get.toNamed(RoutePath.kKuaishouCookie),
+                    : null,
               );
             }),
             Obx(() {
@@ -168,13 +187,14 @@ class AccountPage extends GetView<AccountController> {
                 title: i18n("site_twitch"),
                 subtitle: isLogined ? i18n("logined") : i18n("set_cookie"),
                 isLogined: isLogined,
-                onTap: () => isLogined
-                    ? _showLogoutDialog(
+                onTap: () => Get.toNamed(RoutePath.kTwitchCookie),
+                onLogout: isLogined
+                    ? () => _showLogoutDialog(
                         context,
                         accountName: i18n('site_twitch'),
                         onConfirm: () => cookie.twitchCookie.v = "",
                       )
-                    : Get.toNamed(RoutePath.kTwitchCookie),
+                    : null,
               );
             }),
             Obx(() {
@@ -185,13 +205,14 @@ class AccountPage extends GetView<AccountController> {
                 title: i18n("site_soop"),
                 subtitle: isLogined ? i18n("logined") : i18n("set_cookie"),
                 isLogined: isLogined,
-                onTap: () => isLogined
-                    ? _showLogoutDialog(
+                onTap: () => Get.toNamed(RoutePath.kSoop),
+                onLogout: isLogined
+                    ? () => _showLogoutDialog(
                         context,
                         accountName: i18n('site_soop'),
                         onConfirm: () => cookie.soopCookie.v = "",
                       )
-                    : Get.toNamed(RoutePath.kSoop),
+                    : null,
               );
             }),
           ]),
@@ -208,6 +229,7 @@ class AccountPage extends GetView<AccountController> {
     required String subtitle,
     required bool isLogined,
     VoidCallback? onTap,
+    VoidCallback? onLogout,
     bool isEnabled = true,
   }) {
     final theme = Theme.of(context);
@@ -236,12 +258,15 @@ class AccountPage extends GetView<AccountController> {
               overflow: TextOverflow.ellipsis,
             ),
           ),
+          // Two separate hit targets: the tile opens the editor, the trailing
+          // icon alone signs out. Tying both to one callback is what made a
+          // saved cookie impossible to edit — tapping the row "logged out".
           trailing: !isEnabled
               ? null
-              : isLogined
+              : onLogout != null
               ? GestureDetector(
                   behavior: HitTestBehavior.opaque,
-                  onTap: onTap,
+                  onTap: onLogout,
                   child: Padding(
                     padding: const EdgeInsets.all(4),
                     child: Icon(
