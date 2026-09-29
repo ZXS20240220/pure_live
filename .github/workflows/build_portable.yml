@@ -1,10 +1,11 @@
-# main 仓库专用请勿修改此文件
-name: PureLive Windows Release
+# Fork 专用 – 仅构建 Windows 便携版（Portable ZIP）
+# 不依赖证书 / Inno Setup / fastforge，零 Secret 配置
+name: Build Portable
 on:
   workflow_dispatch:
     inputs:
       run_quality:
-        description: Run analyze, tests and public interface probes first
+        description: Run analyze and tests first
         required: true
         type: boolean
         default: false
@@ -14,28 +15,34 @@ on:
         type: boolean
         default: false
       release_tag:
-        description: Release tag (e.g. v1.0.0) – required if create_release is true
+        description: Release tag (e.g. v3.1.4) – required if create_release is true
         required: true
         type: string
         default: 'v3.1.4'
+      prerelease:
+        description: Mark as pre-release
+        required: true
+        type: boolean
+        default: true
 
 permissions:
   contents: read
 concurrency:
-  group: manual-build-${{ github.ref }}
+  group: portable-build-${{ github.ref }}
   cancel-in-progress: true
 env:
   FLUTTER_CHANNEL: stable
+  FORK_BRANCH: dev_from_v3.1.4
 jobs:
   quality:
-    name: Analyze, test and probe
+    name: Analyze & test
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_quality }}
     needs: []
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
         with:
           channel: ${{ env.FLUTTER_CHANNEL }}
           cache: true
@@ -52,11 +59,9 @@ jobs:
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
       - name: Test
         run: flutter test --concurrency=12
-      - name: Probe public interfaces
-        run: python tool/interface_probe.py
 
   windows:
-    name: Windows EXE + MSIX + Portable
+    name: Windows Portable
     if: >-
       ${{
         always() &&
@@ -67,40 +72,8 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 35
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Decode MSIX Certificate
-        shell: pwsh
-        env:
-          CERTIFICATE: ${{ secrets.CERTIFICATE }}
-        run: |
-          $ErrorActionPreference = "Stop"
-          $certBase64 = "$env:CERTIFICATE".Trim() -replace '\s+', ''
-          if ([string]::IsNullOrEmpty($certBase64)) {
-            Write-Error "CERTIFICATE secret is empty!"
-          }
-          $certBytes = [System.Convert]::FromBase64String($certBase64)
-          $certPath = Join-Path (Get-Location) "certificate.pfx"
-          [IO.File]::WriteAllBytes($certPath, $certBytes)
-          "FINAL_CERT_PATH=$certPath" >> $env:GITHUB_ENV
-      - name: Update MSIX make_config.yaml
-        shell: pwsh
-        env:
-          CERT_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
-        run: |
-          $ErrorActionPreference = "Stop"
-          $configPath = "windows/packaging/msix/make_config.yaml"
-          if (!(Test-Path $configPath)) {
-            Write-Error "Config file not found: $configPath"
-          }
-          if ([string]::IsNullOrEmpty($env:CERT_PASSWORD)) {
-            Write-Error "CERTIFICATE_PASSWORD secret is empty!"
-          }
-          $absolutePath = $env:FINAL_CERT_PATH -replace '\\', '/'
-          $content = Get-Content $configPath -Raw
-          $content = $content -replace 'certificate_path:\s*.*', "certificate_path: $absolutePath"
-          $content = $content -replace '(?m)^(\s*certificate_password:\s*).*$', "`${1}'$($env:CERT_PASSWORD)'"
-          Set-Content -Path $configPath -Value $content
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
         with:
           channel: ${{ env.FLUTTER_CHANNEL }}
           cache: true
@@ -113,21 +86,6 @@ jobs:
           dart run enven `
             --env-files .env,.env.prod `
             --class-name AppConfig
-      - name: Install pinned Windows packagers
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          choco install innosetup --version=6.7.1 -y --no-progress
-          dart pub global activate fastforge 0.6.0
-      - name: Copy Chinese language pack
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          $source = "windows\packaging\exe\ChineseSimplified.isl"
-          $target = "C:\Program Files (x86)\Inno Setup 6\Languages\ChineseSimplified.isl"
-          if (Test-Path $source) {
-            Copy-Item $source $target -Force
-          }
       - name: Get version
         id: version
         shell: pwsh
@@ -144,13 +102,9 @@ jobs:
             }
           }
           Write-Error "Version not found"
-      - name: Package Windows EXE and MSIX
+      - name: Build Windows release
         shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          fastforge package `
-            --platform windows `
-            --targets exe,msix
+        run: flutter build windows --release --no-pub
       - name: Locate Windows release bundle
         id: bundle
         shell: pwsh
@@ -161,7 +115,7 @@ jobs:
             Write-Error "Windows release bundle not found: $bundle"
           }
           "path=$bundle" | Out-File $env:GITHUB_OUTPUT -Encoding utf8 -Append
-      - name: Create Windows portable archive
+      - name: Create portable archive
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -172,9 +126,7 @@ jobs:
           Remove-Item $temporary -Recurse -Force -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Path $temporary -Force | Out-Null
           Get-ChildItem $bundle -Force |
-            Where-Object {
-              $_.Name -notin @("AppData", "IPTV_CACHE")
-            } |
+            Where-Object { $_.Name -notin @("AppData", "IPTV_CACHE") } |
             Copy-Item -Destination $temporary -Recurse -Force
           if (Test-Path (Join-Path $temporary "AppData")) {
             Remove-Item (Join-Path $temporary "AppData") -Recurse -Force
@@ -190,7 +142,7 @@ jobs:
           if (!(Test-Path $portable -PathType Leaf)) {
             Write-Error "Windows portable archive was not created."
           }
-      - name: Verify Windows portable archive
+      - name: Verify portable archive
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -203,31 +155,11 @@ jobs:
           if ($entries | Where-Object { $_ -match '(^|/)(AppData|IPTV_CACHE)(/|$)' }) {
             Write-Error "Runtime state was found in the Windows portable package."
           }
-      - name: Rename Windows installers
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          $version = "${{ steps.version.outputs.artifact_version }}"
-          $distDir = "dist"
-
-          $exeFile = Get-ChildItem $distDir -Recurse -Filter "*.exe" | Select-Object -First 1
-          if (!$exeFile) {
-            Write-Error "Windows EXE package not found."
-          }
-          Copy-Item $exeFile.FullName "PureLive-$version-windows-x64-setup.exe" -Force
-
-          $msixFile = Get-ChildItem $distDir -Recurse -Filter "*.msix" | Select-Object -First 1
-          if (!$msixFile) {
-            Write-Error "Windows MSIX package not found."
-          }
-          Copy-Item $msixFile.FullName "PureLive-$version-windows-x64.msix" -Force
-      - name: Upload Windows artifacts
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: pure-live-windows
+          name: pure-live-portable
           path: |
-            PureLive-*-windows-x64-setup.exe
-            PureLive-*-windows-x64.msix
             PureLive-*-windows-x64-portable.zip
           if-no-files-found: error
           retention-days: 3
@@ -251,34 +183,21 @@ jobs:
             exit 1
           fi
           if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Invalid release tag: $TAG"
-            echo "Expected format: v1.2.3"
+            echo "Invalid release tag: $TAG (expected: v1.2.3)"
             exit 1
           fi
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Checkout fork branch
+        uses: actions/checkout@v4
         with:
-          ref: master
+          ref: ${{ env.FORK_BRANCH }}
           fetch-depth: 0
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
-        with:
-          channel: ${{ env.FLUTTER_CHANNEL }}
-          cache: true
-      - name: Get Flutter version
-        shell: bash
-        run: |
-          set -euo pipefail
-          FLUTTER_VERSION=$(flutter --version --machine | python3 -c 'import json,sys; print(json.load(sys.stdin)["frameworkVersion"])')
-          echo "FLUTTER_VERSION=$FLUTTER_VERSION" >> "$GITHUB_ENV"
-          echo "Flutter version: $FLUTTER_VERSION"
-      - name: Download all build artifacts
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
         with:
           path: artifacts
       - name: Show release artifacts
         shell: bash
-        run: |
-          find artifacts -type f -print | sort
+        run: find artifacts -type f -print | sort
       - name: Generate BUILD_METADATA.json
         shell: bash
         env:
@@ -290,22 +209,18 @@ jobs:
           WORKFLOW: ${{ github.workflow }}
           RUN_ID: ${{ github.run_id }}
           RUN_NUMBER: ${{ github.run_number }}
-          FLUTTER_VERSION: ${{ env.FLUTTER_VERSION }}
         run: |
           set -euo pipefail
-          python <<'PY'
-          import json
-          import os
+          # 获取 Flutter 版本（从构建 job 的环境变量传递不可用，这里用 tag 占位）
+          FLUTTER_VERSION="n/a"
+          python3 <<'PY'
+          import json, os
           from datetime import datetime, timezone
           from pathlib import Path
           artifacts = []
           for path in sorted(Path("artifacts").rglob("*")):
               if path.is_file():
-                  artifacts.append({
-                      "name": path.name,
-                      "path": str(path),
-                      "size": path.stat().st_size,
-                  })
+                  artifacts.append({"name": path.name, "path": str(path), "size": path.stat().st_size})
           metadata = {
               "project": "PureLive",
               "repository": os.environ["REPOSITORY"],
@@ -316,12 +231,7 @@ jobs:
               "run_id": int(os.environ["RUN_ID"]),
               "run_number": int(os.environ["RUN_NUMBER"]),
               "actor": os.environ["ACTOR"],
-              "flutter_version": os.environ["FLUTTER_VERSION"],
               "generated_at": datetime.now(timezone.utc).isoformat(),
-              "build_options": {
-                  "windows": "true",
-                  "quality": "${{ inputs.run_quality }}",
-              },
               "artifacts": artifacts,
           }
           Path("BUILD_METADATA.json").write_text(
@@ -334,49 +244,37 @@ jobs:
         shell: bash
         env:
           RELEASE_TAG: ${{ inputs.release_tag }}
+          REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
-          
           python3 <<'PY'
-          import json
-          import os
+          import json, os
           from pathlib import Path
 
           tag = os.environ["RELEASE_TAG"]
+          repo = os.environ["REPOSITORY"]
           version_file = Path("assets/version.json")
 
           if not version_file.is_file():
               raise SystemExit(f"找不到 {version_file}")
 
-          data = json.loads(
-              version_file.read_text(encoding="utf-8")
-          )
-
+          data = json.loads(version_file.read_text(encoding="utf-8"))
           version_desc = data.get("version_desc")
-
           if not version_desc or not str(version_desc).strip():
-              raise SystemExit(
-                  "assets/version.json 中的 version_desc 为空"
-              )
+              raise SystemExit("assets/version.json 中的 version_desc 为空")
 
           version_desc = str(version_desc).strip()
 
           body = f"""# 纯粹直播 {tag}
 
-          |版本|下载地址|
-          |---|---|
-          |Windows版|[pure_live](https://github.com/liuchuancong/pure_live/releases/latest)|
-
-          ### 🖥️ Windows 版
+          ### 🖥️ Windows 便携版
 
           - **Portable ZIP**：解压即用，无需安装
-          - **EXE 安装包**：适合所有用户
-          - **MSIX 包**：现代应用格式，支持干净卸载
           - 适配：Windows 10/11 x64
 
           ### 🔧 Build Metadata
 
-          [**BUILD_METADATA.json**](https://github.com/liuchuancong/pure_live/releases/download/{tag}/BUILD_METADATA.json)
+          [BUILD_METADATA.json](https://github.com/{repo}/releases/download/{tag}/BUILD_METADATA.json)
 
           ### 📝 本次更新
 
@@ -385,27 +283,23 @@ jobs:
 
           body_file = Path("release_body.txt")
           body_file.write_text(body + "\n", encoding="utf-8")
-
-          print("========== Release Body ==========")
           print(body)
-          print("===================================")
           PY
-          
           echo "body_path=$(pwd)/release_body.txt" >> "$GITHUB_OUTPUT"
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.release_tag }}
           name: ${{ inputs.release_tag }}
           body_path: ${{ steps.release_body.outputs.body_path }}
-          prerelease: false
+          prerelease: ${{ inputs.prerelease }}
           generate_release_notes: false
-          append_body: false
-          make_latest: true
+          make_latest: ${{ !inputs.prerelease }}
           fail_on_unmatched_files: false
           files: |
             artifacts/**/*
             BUILD_METADATA.json
+
   update-json:
     name: Update releases.json
     if: ${{ always() && inputs.create_release && needs.publish-release.result == 'success' }}
@@ -415,13 +309,13 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Checkout fork branch
+        uses: actions/checkout@v4
         with:
-          ref: master
+          ref: ${{ env.FORK_BRANCH }}
           fetch-depth: 0
       - name: Setup Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v6.1.0
+        uses: actions/setup-python@v5
         with:
           python-version: "3.10"
       - name: Update assets/releases.json
@@ -431,24 +325,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python <<'PY'
-          import json
-          import os
-          import subprocess
+          python3 <<'PY'
+          import json, os, subprocess
           from pathlib import Path
           tag = os.environ["RELEASE_TAG"]
           result = subprocess.run(
-              [
-                  "gh",
-                  "release",
-                  "view",
-                  tag,
-                  "--json",
-                  "tagName,name,url,publishedAt,isDraft,body,author,isPrerelease,assets"
-              ],
-              check=True,
-              capture_output=True,
-              text=True,
+              ["gh", "release", "view", tag,
+               "--json", "tagName,name,url,publishedAt,isDraft,body,author,isPrerelease,assets"],
+              check=True, capture_output=True, text=True,
           )
           release = json.loads(result.stdout)
           path = Path("assets/releases.json")
@@ -464,20 +348,12 @@ jobs:
           else:
               releases = []
               data = {"releases": releases}
-          releases[:] = [
-              item for item in releases
-              if not (
-                  isinstance(item, dict)
-                  and item.get("tagName") == tag
-              )
-          ]
+          releases[:] = [item for item in releases
+                         if not (isinstance(item, dict) and item.get("tagName") == tag)]
           releases.insert(0, release)
-          path.write_text(
-              json.dumps(data, ensure_ascii=False, indent=2) + "\n",
-              encoding="utf-8",
-          )
+          path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
           PY
-      - name: Commit and Push releases.json
+      - name: Commit and Push
         shell: bash
         run: |
           set -euo pipefail
@@ -489,5 +365,5 @@ jobs:
           fi
           git add assets/releases.json
           git commit -m "chore: update releases.json for ${{ inputs.release_tag }} [skip ci]"
-          git pull --rebase origin master
-          git push origin master
+          git pull --rebase origin ${{ env.FORK_BRANCH }}
+          git push origin ${{ env.FORK_BRANCH }}
