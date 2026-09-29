@@ -250,9 +250,7 @@ class DouyuUtils {
   /// real login, and reading only the H5 JWTs would show a signed-in viewer as
   /// signed out.
   static String? sessionToken(String cookie) =>
-      cookieField(cookie, jwtTokenName) ??
-      cookieField(cookie, authTokenName) ??
-      cookieField(cookie, webAuthTokenName);
+      cookieField(cookie, jwtTokenName) ?? cookieField(cookie, authTokenName) ?? cookieField(cookie, webAuthTokenName);
 
   /// Decodes a JWT payload, or returns `null` when the token is not one.
   ///
@@ -325,11 +323,7 @@ class DouyuUtils {
   /// Either source counts: a viewer who pasted everything into the cookie box,
   /// and one who filled the two passport fields separately (which is where they
   /// actually come from) must both work.
-  static ({String? longTerm, String? did}) refreshCredentials(
-    String cookie, {
-    String? longTerm,
-    String? did,
-  }) {
+  static ({String? longTerm, String? did}) refreshCredentials(String cookie, {String? longTerm, String? did}) {
     final resolvedLongTerm = _nonBlank(longTerm) ?? _nonBlank(cookieField(cookie, longTermTokenName)) ?? _storedLtp0();
     // No fallback to the process DID here: a renewal must present the device the
     // login was issued for, and inventing one would only make the passport

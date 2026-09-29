@@ -1,6 +1,6 @@
-import 'dart:io';
 import 'dart:async';
 import 'dart:developer';
+import 'dart:io';
 
 import 'app_path_manager.dart';
 
@@ -63,6 +63,7 @@ class AppInitializer {
     await AppPathManager().initialize(instanceId: instanceId);
     await AppWebView2Environment.cleanupOnStartup();
     await AppWebView2Environment.ensureInitialized();
+
     await Future.wait([
       EasyLocalization.ensureInitialized(),
       (() async {

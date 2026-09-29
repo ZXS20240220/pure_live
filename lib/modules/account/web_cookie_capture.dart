@@ -14,6 +14,7 @@ class CookieCaptureTarget {
     required this.domains,
     this.excludeCookieNames = const <String>{},
     this.extraCookieUrls = const <String>[],
+    this.clearAfterCapture = false,
   });
 
   /// 平台标识（与账户模块一致），用于抓取后经平台接口校验登录态。
@@ -39,6 +40,13 @@ class CookieCaptureTarget {
   /// 不会出现在登录页的结果里；对凭证域再查一次才能捞全。这些域名也
   /// 必须落在 [domains] 的后缀范围内，否则组装时仍会被过滤掉。
   final List<String> extraCookieUrls;
+
+  /// 抓取成功后清除 WebView 里该域的会话 Cookie（浏览器回到游客态）。
+  ///
+  /// 斗鱼的 passport 续期会撤销 web 会话令牌：WebView 里留着的活会话在
+  /// app 侧续期后会被服务端判死，此后页面弹"未登录"并反复刷新。抓取
+  /// 完成即清场，续期时就没有可被踢的会话。
+  final bool clearAfterCapture;
 }
 
 /// 各平台抓取配置（key 与账户模块的平台标识一致）。
@@ -58,12 +66,15 @@ const Map<String, CookieCaptureTarget> kCookieCaptureTargets = {
   // LTP0/dy_did 若登录流程有下发则保留——它们正是续期需要的凭证。
   // LTP0 是 passport.douyu.com 的 host-only Cookie，查登录页拿不到，
   // 需要对 passport 域再查一次（Web 登录页本身就在该域，cookie 一定存在）。
+  // clearAfterCapture：passport 续期会撤销 web 会话，抓完就清掉 WebView
+  // 里的登录态，续期时没有可被踢的活会话，页面不会再弹"未登录"刷屏。
   'douyu': CookieCaptureTarget(
     platform: 'douyu',
     loginUrl: 'https://www.douyu.com/',
     domains: ['douyu.com'],
     excludeCookieNames: {'acf_stk', 'acf_ccn', 'acf_ltkid', 'acf_ssid'},
     extraCookieUrls: ['https://passport.douyu.com/'],
+    clearAfterCapture: true,
   ),
 };
 
@@ -170,6 +181,7 @@ class _WebCookieCapturePageState extends State<WebCookieCapturePage> {
       if (!mounted) return;
       switch (validation) {
         case CookieValidationStatus.valid || CookieValidationStatus.unverified:
+          await _clearWebSessionAfterCapture();
           await _safeClose(cookie);
         case CookieValidationStatus.invalid:
           ToastUtil.show(i18n('cookie_invalid_retry'));
@@ -180,6 +192,24 @@ class _WebCookieCapturePageState extends State<WebCookieCapturePage> {
       if (mounted) ToastUtil.show(i18n('cookie_check_failed'));
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// 抓取成功后清除 WebView 里该域的会话（配置了 [CookieCaptureTarget.clearAfterCapture] 的平台）。
+  ///
+  /// 走 environment 级 CDP：没有活动页面时原生端会建临时隐藏 WebView 执行、
+  /// 用完即关，与页面控制器的销毁时序互不影响。
+  Future<void> _clearWebSessionAfterCapture() async {
+    if (!target.clearAfterCapture) return;
+    try {
+      final environment = AppWebView2Environment.optional;
+      if (environment == null) return;
+      final manager = CookieManager.instance(webViewEnvironment: environment);
+      for (final url in <String>[target.loginUrl, ...target.extraCookieUrls]) {
+        await manager.deleteCookies(url: WebUri(url));
+      }
+    } catch (_) {
+      // 清理失败不影响捕获结果：app 侧 Cookie 已拿到并保存。
     }
   }
 
