@@ -103,10 +103,12 @@ jobs:
           }
           Write-Error "Version not found"
       - name: Generate version.json
+        env:
+          PRERELEASE: ${{ inputs.prerelease }}
         shell: pwsh
         run: |
           python3 <<'PY'
-          import json, re
+          import json, os, re
           from pathlib import Path
 
           pubspec = Path("pubspec.yaml").read_text(encoding="utf-8")
@@ -123,6 +125,7 @@ jobs:
               raise SystemExit("assets/version_desc.md 为空")
 
           existing = json.loads(Path("assets/version.json").read_text(encoding="utf-8"))
+          prerelease = os.environ.get("PRERELEASE", "false").lower() == "true"
 
           def ver_num(v, b):
               parts = [int(x) for x in v.split(".")]
@@ -134,7 +137,7 @@ jobs:
               "build_number": build,
               "version_num": ver_num(version, build),
               "version_desc": version_desc,
-              "prerelease": existing.get("prerelease", False),
+              "prerelease": prerelease,
               "download_url": existing.get("download_url", "https://github.com/ZXS20240220/pure_live/releases"),
               "platforms": {
                   "windows": {
@@ -142,7 +145,7 @@ jobs:
                       "build_number": build,
                       "version_num": ver_num(version, build),
                       "version_desc": version_desc,
-                      "prerelease": existing.get("prerelease", False),
+                      "prerelease": prerelease,
                       "download_url": existing.get("download_url", "https://github.com/ZXS20240220/pure_live/releases"),
                       **(existing.get("platforms", {}).get("windows", {}))
                   }
@@ -153,7 +156,7 @@ jobs:
               json.dumps(result, ensure_ascii=False, indent=2) + "\n",
               encoding="utf-8",
           )
-          print(f"version.json generated: {version}+{build}")
+          print(f"version.json generated: {version}+{build}, prerelease={prerelease}")
           PY
 
       - name: Build Windows release

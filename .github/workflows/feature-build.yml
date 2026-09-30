@@ -264,7 +264,7 @@ jobs:
               "build_number": build,
               "version_num": ver_num(version, build),
               "version_desc": version_desc,
-              "prerelease": existing.get("prerelease", False),
+              "prerelease": False,
               "download_url": existing.get("download_url", "https://github.com/ZXS20240220/pure_live/releases"),
               "platforms": {
                   "windows": {
@@ -272,7 +272,7 @@ jobs:
                       "build_number": build,
                       "version_num": ver_num(version, build),
                       "version_desc": version_desc,
-                      "prerelease": existing.get("prerelease", False),
+                      "prerelease": False,
                       "download_url": existing.get("download_url", "https://github.com/ZXS20240220/pure_live/releases"),
                       **(existing.get("platforms", {}).get("windows", {}))
                   }
