@@ -1,5 +1,11 @@
-# Fork 专用 – 仅构建 Windows 便携版（Portable ZIP）
+# Fork 专用 – Windows 便携版构建与发布
 # 不依赖证书 / Inno Setup / fastforge，零 Secret 配置
+#
+# workflow_dispatch 提供两个可独立勾选的阶段：
+#   do_build       —— 跑分析/测试（可选）+ 构建 Windows 便携版并上传产物
+#   create_release —— 创建 GitHub Release；若本次未构建，则自动回取本工作流
+#                     最近一次成功运行上传的产物，并把 version.json /
+#                     releases.json 提交回 dev_from_v3.1.4 分支
 name: Build Windows Portable & Create Release
 on:
   workflow_dispatch:
@@ -9,8 +15,13 @@ on:
         required: true
         type: boolean
         default: false
+      do_build:
+        description: Build the Windows portable ZIP and upload the artifact
+        required: true
+        type: boolean
+        default: true
       create_release:
-        description: Create a GitHub Release and update releases.json
+        description: Create a GitHub Release and sync version.json / releases.json
         required: true
         type: boolean
         default: true
@@ -22,16 +33,19 @@ on:
 
 permissions:
   contents: read
+# 发布阶段会创建 Release 并回推分支，不能被更新的一次触发中途取消，
+# 否则可能留下半成品 tag / Release。
 concurrency:
   group: portable-build-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 env:
   FLUTTER_CHANNEL: stable
   FORK_BRANCH: dev_from_v3.1.4
+  ARTIFACT_NAME: pure-live-portable
 jobs:
   quality:
     name: Analyze & test
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_quality }}
+    if: ${{ inputs.run_quality }}
     needs: []
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -59,17 +73,12 @@ jobs:
     name: Windows Portable
     if: >-
       ${{
-        always() &&
-        github.event_name == 'workflow_dispatch' &&
+        inputs.do_build &&
         (needs.quality.result == 'success' || needs.quality.result == 'skipped')
       }}
     needs: quality
     runs-on: windows-latest
     timeout-minutes: 35
-    outputs:
-      tag: ${{ steps.version.outputs.tag }}
-      version: ${{ steps.version.outputs.version }}
-      artifact_version: ${{ steps.version.outputs.artifact_version }}
     steps:
       - uses: actions/checkout@v7
       - uses: subosito/flutter-action@v2
@@ -103,63 +112,6 @@ jobs:
             }
           }
           Write-Error "Version not found"
-      - name: Generate version.json
-        env:
-          PRERELEASE: ${{ inputs.prerelease }}
-        shell: pwsh
-        run: |
-          python3 <<'PY'
-          import json, os, re
-          from pathlib import Path
-
-          pubspec = Path("pubspec.yaml").read_text(encoding="utf-8")
-          m = re.search(r'^version:\s*(\d+\.\d+\.\d+)\+(\d+)\s*$', pubspec, re.MULTILINE)
-          if not m:
-              raise SystemExit("pubspec.yaml version 格式应为 X.Y.Z+NNN")
-          version, build = m.group(1), int(m.group(2))
-
-          desc_path = Path("assets/version_desc.md")
-          if not desc_path.is_file():
-              raise SystemExit("找不到 assets/version_desc.md")
-          version_desc = desc_path.read_text(encoding="utf-8").strip()
-          if not version_desc:
-              raise SystemExit("assets/version_desc.md 为空")
-
-          existing = json.loads(Path("assets/version.json").read_text(encoding="utf-8"))
-          prerelease = os.environ.get("PRERELEASE", "false").lower() == "true"
-
-          def ver_num(v, b):
-              parts = [int(x) for x in v.split(".")]
-              while len(parts) < 3: parts.append(0)
-              return parts[0] * 10000000 + parts[1] * 100000 + parts[2] * 1000 + b
-
-          result = {
-              "version": version,
-              "build_number": build,
-              "version_num": ver_num(version, build),
-              "version_desc": version_desc,
-              "prerelease": prerelease,
-              "download_url": existing.get("download_url", "https://github.com/ZXS20240220/pure_live/releases"),
-              "platforms": {
-                  "windows": {
-                      "version": version,
-                      "build_number": build,
-                      "version_num": ver_num(version, build),
-                      "version_desc": version_desc,
-                      "prerelease": prerelease,
-                      "download_url": existing.get("download_url", "https://github.com/ZXS20240220/pure_live/releases"),
-                      **(existing.get("platforms", {}).get("windows", {}))
-                  }
-              }
-          }
-
-          Path("assets/version.json").write_text(
-              json.dumps(result, ensure_ascii=False, indent=2) + "\n",
-              encoding="utf-8",
-          )
-          print(f"version.json generated: {version}+{build}, prerelease={prerelease}")
-          PY
-
       - name: Build Windows release
         shell: pwsh
         run: flutter build windows --release --no-pub
@@ -216,37 +168,100 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: pure-live-portable
+          name: ${{ env.ARTIFACT_NAME }}
           path: |
             PureLive-*-windows-x64-portable.zip
           if-no-files-found: error
-          retention-days: 3
+          # 保留 14 天，供“只发布”模式回取最近一次成功构建的产物。
+          retention-days: 14
 
   publish-release:
     name: Publish GitHub Release
-    if: ${{ always() && inputs.create_release && needs.windows.result == 'success' }}
+    if: >-
+      ${{
+        inputs.create_release &&
+        (
+          (inputs.do_build && needs.windows.result == 'success') ||
+          (!inputs.do_build &&
+            (needs.quality.result == 'success' || needs.quality.result == 'skipped'))
+        )
+      }}
     needs:
+      - quality
       - windows
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: read
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      artifact_run_id: ${{ steps.artifact_source.outputs.run_id }}
     steps:
       - name: Checkout fork branch
         uses: actions/checkout@v7
         with:
           ref: ${{ env.FORK_BRANCH }}
           fetch-depth: 0
+      - name: Get version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          full=$(grep -m1 '^version:' pubspec.yaml | awk '{print $2}' | tr -d '\r')
+          display="${full%%+*}"
+          artifact="${full/+/-}"
+          echo "version=$display" >> "$GITHUB_OUTPUT"
+          echo "artifact_version=$artifact" >> "$GITHUB_OUTPUT"
+          echo "tag=v$display" >> "$GITHUB_OUTPUT"
+      - name: Resolve artifact source run
+        id: artifact_source
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.do_build }}" = "true" ] && \
+             [ "${{ needs.windows.result }}" = "success" ]; then
+            echo "run_id=${{ github.run_id }}" >> "$GITHUB_OUTPUT"
+            echo "source=current" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # “只发布”模式：从本工作流最近的成功运行中找到仍保留的构建产物。
+          run_id=""
+          runs=$(gh api \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/build_portable.yml/runs?event=workflow_dispatch&status=success&per_page=20" \
+            --jq '.workflow_runs[].id')
+          for rid in $runs; do
+            match=$(gh api \
+              "repos/$GITHUB_REPOSITORY/actions/runs/$rid/artifacts?per_page=100" \
+              --jq '[.artifacts[].name] | index("${{ env.ARTIFACT_NAME }}") // empty')
+            if [ -n "$match" ]; then
+              run_id=$rid
+              break
+            fi
+          done
+          if [ -z "$run_id" ]; then
+            echo "::error::最近成功的运行中没有找到有效产物（可能已过保留期），请先执行一次构建。"
+            exit 1
+          fi
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+          echo "source=previous" >> "$GITHUB_OUTPUT"
+          echo "将回取运行 #$run_id 的构建产物。"
       - name: Download build artifacts
         uses: actions/download-artifact@v7
         with:
+          name: ${{ env.ARTIFACT_NAME }}
           path: artifacts
+          run-id: ${{ steps.artifact_source.outputs.run_id }}
+          github-token: ${{ github.token }}
       - name: Show release artifacts
         shell: bash
         run: find artifacts -type f -print | sort
       - name: Generate BUILD_METADATA.json
         shell: bash
         env:
-          RELEASE_TAG: ${{ needs.windows.outputs.tag }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
           REPOSITORY: ${{ github.repository }}
           SHA: ${{ github.sha }}
           REF: ${{ github.ref }}
@@ -254,10 +269,9 @@ jobs:
           WORKFLOW: ${{ github.workflow }}
           RUN_ID: ${{ github.run_id }}
           RUN_NUMBER: ${{ github.run_number }}
+          BUILD_RUN_ID: ${{ steps.artifact_source.outputs.run_id }}
         run: |
           set -euo pipefail
-          # 获取 Flutter 版本（从构建 job 的环境变量传递不可用，这里用 tag 占位）
-          FLUTTER_VERSION="n/a"
           python3 <<'PY'
           import json, os
           from datetime import datetime, timezone
@@ -275,6 +289,7 @@ jobs:
               "workflow": os.environ["WORKFLOW"],
               "run_id": int(os.environ["RUN_ID"]),
               "run_number": int(os.environ["RUN_NUMBER"]),
+              "build_run_id": int(os.environ["BUILD_RUN_ID"]),
               "actor": os.environ["ACTOR"],
               "generated_at": datetime.now(timezone.utc).isoformat(),
               "artifacts": artifacts,
@@ -288,7 +303,7 @@ jobs:
         id: release_body
         shell: bash
         env:
-          RELEASE_TAG: ${{ needs.windows.outputs.tag }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
@@ -331,8 +346,8 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: ${{ needs.windows.outputs.tag }}
-          name: ${{ needs.windows.outputs.tag }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
           body_path: ${{ steps.release_body.outputs.body_path }}
           prerelease: ${{ inputs.prerelease }}
           generate_release_notes: false
@@ -343,10 +358,9 @@ jobs:
             BUILD_METADATA.json
 
   update-json:
-    name: Update releases.json
-    if: ${{ always() && inputs.create_release && needs.publish-release.result == 'success' }}
+    name: Sync version.json & releases.json
+    if: ${{ inputs.create_release && needs.publish-release.result == 'success' }}
     needs:
-      - windows
       - publish-release
     runs-on: ubuntu-latest
     permissions:
@@ -361,10 +375,74 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: "3.10"
+      - name: Generate assets/version.json
+        env:
+          PRERELEASE: ${{ inputs.prerelease }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import json, os, re
+          from pathlib import Path
+
+          pubspec = Path("pubspec.yaml").read_text(encoding="utf-8")
+          m = re.search(r'^version:\s*(\d+\.\d+\.\d+)\+(\d+)\s*$', pubspec, re.MULTILINE)
+          if not m:
+              raise SystemExit("pubspec.yaml version 格式应为 X.Y.Z+NNN")
+          version, build = m.group(1), int(m.group(2))
+
+          desc_path = Path("assets/version_desc.md")
+          if not desc_path.is_file():
+              raise SystemExit("找不到 assets/version_desc.md")
+          version_desc = desc_path.read_text(encoding="utf-8").strip()
+          if not version_desc:
+              raise SystemExit("assets/version_desc.md 为空")
+
+          existing = json.loads(Path("assets/version.json").read_text(encoding="utf-8"))
+          prerelease = os.environ.get("PRERELEASE", "false").lower() == "true"
+          download_url = existing.get("download_url") or \
+              "https://github.com/ZXS20240220/pure_live/releases"
+
+          def ver_num(v, b):
+              parts = [int(x) for x in v.split(".")]
+              while len(parts) < 3:
+                  parts.append(0)
+              return parts[0] * 10000000 + parts[1] * 100000 + parts[2] * 1000 + b
+
+          # 先拷贝既有字段，再用本次发布身份覆盖，避免旧值反向覆盖
+          # version / build_number；同时保留 platforms 下其它平台节点。
+          platforms = dict(existing.get("platforms", {}))
+          windows_node = dict(platforms.get("windows", {}))
+          windows_node.update({
+              "version": version,
+              "build_number": build,
+              "version_num": ver_num(version, build),
+              "version_desc": version_desc,
+              "prerelease": prerelease,
+              "download_url": download_url,
+          })
+          platforms["windows"] = windows_node
+
+          result = {
+              "version": version,
+              "build_number": build,
+              "version_num": ver_num(version, build),
+              "version_desc": version_desc,
+              "prerelease": prerelease,
+              "download_url": download_url,
+              "platforms": platforms,
+          }
+
+          Path("assets/version.json").write_text(
+              json.dumps(result, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          print(f"version.json generated: {version}+{build}, prerelease={prerelease}")
+          PY
       - name: Update assets/releases.json
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.windows.outputs.tag }}
+          RELEASE_TAG: ${{ needs.publish-release.outputs.tag }}
         shell: bash
         run: |
           set -euo pipefail
@@ -402,11 +480,11 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add assets/version.json assets/releases.json
           if [[ -z "$(git status --porcelain)" ]]; then
-            echo "assets/releases.json has no changes."
+            echo "version.json / releases.json 均无变化，跳过提交。"
             exit 0
           fi
-          git add assets/releases.json
-          git commit -m "chore: update releases.json for ${{ needs.windows.outputs.tag }} [skip ci]"
+          git commit -m "chore: update release feed for ${{ needs.publish-release.outputs.tag }} [skip ci]"
           git pull --rebase origin ${{ env.FORK_BRANCH }}
-          git push origin ${{ env.FORK_BRANCH }}
+          git push origin HEAD:${{ env.FORK_BRANCH }}

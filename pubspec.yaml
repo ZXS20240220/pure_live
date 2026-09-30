@@ -229,7 +229,6 @@ flutter:
     - assets/images/video/
     - assets/icons/
     - assets/webdav/
-    - assets/version.json
     - assets/releases.json
     - assets/emo/images/huya/
     - assets/emo/images/douyu/
