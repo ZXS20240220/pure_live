@@ -71,8 +71,11 @@ jobs:
 
   windows:
     name: Windows Portable
+    # quality 未勾选时为 skipped；被 needs 的 job 被 skip 时，下游必须用
+    # always() 才能继续求值条件，否则会被强制 skip。
     if: >-
       ${{
+        always() &&
         inputs.do_build &&
         (needs.quality.result == 'success' || needs.quality.result == 'skipped')
       }}
@@ -179,6 +182,7 @@ jobs:
     name: Publish GitHub Release
     if: >-
       ${{
+        always() &&
         inputs.create_release &&
         (
           (inputs.do_build && needs.windows.result == 'success') ||
@@ -218,6 +222,8 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          WORKFLOW_NAME: ${{ github.workflow }}
+          ARTIFACT_NAME: ${{ env.ARTIFACT_NAME }}
         run: |
           set -euo pipefail
           if [ "${{ inputs.do_build }}" = "true" ] && \
@@ -228,14 +234,26 @@ jobs:
           fi
 
           # “只发布”模式：从本工作流最近的成功运行中找到仍保留的构建产物。
+          # 工作流文件名可能被重命名（且可能含 & 等特殊字符），先按工作流
+          # 名称解析出实际文件路径，再做 URL 编码，避免硬编码文件名。
+          wf_path=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows?per_page=100" \
+            --jq ".workflows[] | select(.name == \"$WORKFLOW_NAME\") | .path" | head -n1)
+          if [ -z "$wf_path" ]; then
+            echo "::error::无法按名称解析当前工作流文件：$WORKFLOW_NAME"
+            exit 1
+          fi
+          wf_file="${wf_path##*/}"
+          wf_enc="${wf_file//&/%26}"
+          echo "当前工作流文件：$wf_file"
+
           run_id=""
           runs=$(gh api \
-            "repos/$GITHUB_REPOSITORY/actions/workflows/build_portable.yml/runs?event=workflow_dispatch&status=success&per_page=20" \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/$wf_enc/runs?event=workflow_dispatch&status=success&per_page=20" \
             --jq '.workflow_runs[].id')
           for rid in $runs; do
             match=$(gh api \
               "repos/$GITHUB_REPOSITORY/actions/runs/$rid/artifacts?per_page=100" \
-              --jq '[.artifacts[].name] | index("${{ env.ARTIFACT_NAME }}") // empty')
+              --jq '[.artifacts[].name] | index(env.ARTIFACT_NAME) // empty')
             if [ -n "$match" ]; then
               run_id=$rid
               break
@@ -359,7 +377,7 @@ jobs:
 
   update-json:
     name: Sync version.json & releases.json
-    if: ${{ inputs.create_release && needs.publish-release.result == 'success' }}
+    if: ${{ always() && inputs.create_release && needs.publish-release.result == 'success' }}
     needs:
       - publish-release
     runs-on: ubuntu-latest
