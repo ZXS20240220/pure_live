@@ -232,6 +232,60 @@ jobs:
 
           Write-Error "Version not found"
 
+      - name: Generate version.json
+        shell: pwsh
+        run: |
+          python3 <<'PY'
+          import json, re
+          from pathlib import Path
+
+          pubspec = Path("pubspec.yaml").read_text(encoding="utf-8")
+          m = re.search(r'^version:\s*(\d+\.\d+\.\d+)\+(\d+)\s*$', pubspec, re.MULTILINE)
+          if not m:
+              raise SystemExit("pubspec.yaml version 格式应为 X.Y.Z+NNN")
+          version, build = m.group(1), int(m.group(2))
+
+          desc_path = Path("assets/version_desc.md")
+          if not desc_path.is_file():
+              raise SystemExit("找不到 assets/version_desc.md")
+          version_desc = desc_path.read_text(encoding="utf-8").strip()
+          if not version_desc:
+              raise SystemExit("assets/version_desc.md 为空")
+
+          existing = json.loads(Path("assets/version.json").read_text(encoding="utf-8"))
+
+          def ver_num(v, b):
+              parts = [int(x) for x in v.split(".")]
+              while len(parts) < 3: parts.append(0)
+              return parts[0] * 10000000 + parts[1] * 100000 + parts[2] * 1000 + b
+
+          result = {
+              "version": version,
+              "build_number": build,
+              "version_num": ver_num(version, build),
+              "version_desc": version_desc,
+              "prerelease": existing.get("prerelease", False),
+              "download_url": existing.get("download_url", "https://github.com/ZXS20240220/pure_live/releases"),
+              "platforms": {
+                  "windows": {
+                      "version": version,
+                      "build_number": build,
+                      "version_num": ver_num(version, build),
+                      "version_desc": version_desc,
+                      "prerelease": existing.get("prerelease", False),
+                      "download_url": existing.get("download_url", "https://github.com/ZXS20240220/pure_live/releases"),
+                      **(existing.get("platforms", {}).get("windows", {}))
+                  }
+              }
+          }
+
+          Path("assets/version.json").write_text(
+              json.dumps(result, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          print(f"version.json generated: {version}+{build}")
+          PY
+
       # -----------------------------------------------------
       # Package
       # -----------------------------------------------------
@@ -460,9 +514,13 @@ jobs:
 
       - name: Read version description
         id: version
-        uses: juliangruber/read-file-action@271ff311a4947af354c6abcd696a306553b9ec18 # v1
-        with:
-          path: assets/version.json
+        shell: pwsh
+        run: |
+          $desc = Get-Content -LiteralPath "assets\version_desc.md" -Raw -Encoding UTF8
+          if (-not $desc -or -not $desc.Trim()) {
+            Write-Error "assets/version_desc.md 为空或缺失"
+          }
+          Set-Content -Path $env:GITHUB_OUTPUT -Value "content=$($desc.Trim())" -Encoding UTF8
 
       # -----------------------------------------------------
       # Build Release Body
@@ -473,7 +531,7 @@ jobs:
         shell: bash
         env:
           RELEASE_TAG: ${{ inputs.release_tag }}
-          RELEASE_DESCRIPTION: ${{ fromJson(steps.version.outputs.content).version_desc }}
+          RELEASE_DESCRIPTION: ${{ steps.version.outputs.content }}
         run: |
           set -euo pipefail
 

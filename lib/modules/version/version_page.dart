@@ -40,26 +40,6 @@ class VersionPage extends GetView<VersionController> {
           physics: const PureLiveScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           children: [
-            if (PlatformUtils.isAndroid) ...[
-              _buildPlatformCard(
-                context,
-                title: "Android",
-                subtitle: i18n("android_desc"),
-                icon: Remix.android_line,
-                children: [
-                  _buildDownloadSection(context, title: i18n("arch_arm64"), urls: controller.androidArm64Url.value),
-                  const SizedBox(height: 16),
-                  _buildDownloadSection(
-                    context,
-                    title: i18n("arch_arm32"),
-                    urls: controller.androidArmeabiV7aUrl.value,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildDownloadSection(context, title: i18n("arch_x86_64"), urls: controller.androidX8664Url.value),
-                ],
-              ),
-              const SizedBox(height: 24),
-            ],
             if (PlatformUtils.isWindows) ...[
               _buildPlatformCard(
                 context,

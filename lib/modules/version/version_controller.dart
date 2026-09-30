@@ -43,9 +43,6 @@ class ReleaseAssetUrls {
     return '$releaseBase/PureLive-$normalizedVersion-$buildNumber-$suffix';
   }
 
-  String get androidArm64 => _asset('android-arm64-v8a-release.apk');
-  String get androidArmeabiV7a => _asset('android-armeabi-v7a-release.apk');
-  String get androidX8664 => _asset('android-x86_64-release.apk');
   String get windowsSetup => _asset('windows-x64-setup.exe');
   String get windowsMsix => _asset('windows-x64.msix');
   String get windowsPortable => _asset('windows-x64-portable.zip');
@@ -60,14 +57,6 @@ class VersionController extends GetxController {
   bool _checking = false;
 
   final hasNewVersion = false.obs;
-
-  // =========================
-  // Android
-  // =========================
-
-  final androidArmeabiV7aUrl = ''.obs;
-  final androidArm64Url = ''.obs;
-  final androidX8664Url = ''.obs;
 
   // =========================
   // Windows
@@ -119,10 +108,6 @@ class VersionController extends GetxController {
 
       hasNewVersion.value = newVersion;
       updateLog.value = VersionUtil.latestUpdateLog;
-      final androidAbis = VersionUtil.latestAndroidAbis;
-      androidArmeabiV7aUrl.value = androidAbis.contains('armeabi-v7a') ? assets.androidArmeabiV7a : '';
-      androidArm64Url.value = androidAbis.contains('arm64-v8a') ? assets.androidArm64 : '';
-      androidX8664Url.value = androidAbis.contains('x86_64') ? assets.androidX8664 : '';
       windowsSetupUrl.value = VersionUtil.latestWindowsSetupAvailable ? assets.windowsSetup : '';
       windowsMsixUrl.value = VersionUtil.latestWindowsMsixAvailable ? assets.windowsMsix : '';
       windowsPortableUrl.value = assets.windowsPortable;
@@ -139,9 +124,6 @@ class VersionController extends GetxController {
   void _clearReleaseState() {
     hasNewVersion.value = false;
     updateLog.value = '';
-    androidArmeabiV7aUrl.value = '';
-    androidArm64Url.value = '';
-    androidX8664Url.value = '';
     windowsSetupUrl.value = '';
     windowsMsixUrl.value = '';
     windowsPortableUrl.value = '';

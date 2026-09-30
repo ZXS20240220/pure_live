@@ -144,6 +144,59 @@ jobs:
             }
           }
           Write-Error "Version not found"
+      - name: Generate version.json
+        shell: pwsh
+        run: |
+          python3 <<'PY'
+          import json, re
+          from pathlib import Path
+
+          pubspec = Path("pubspec.yaml").read_text(encoding="utf-8")
+          m = re.search(r'^version:\s*(\d+\.\d+\.\d+)\+(\d+)\s*$', pubspec, re.MULTILINE)
+          if not m:
+              raise SystemExit("pubspec.yaml version 格式应为 X.Y.Z+NNN")
+          version, build = m.group(1), int(m.group(2))
+
+          desc_path = Path("assets/version_desc.md")
+          if not desc_path.is_file():
+              raise SystemExit("找不到 assets/version_desc.md")
+          version_desc = desc_path.read_text(encoding="utf-8").strip()
+          if not version_desc:
+              raise SystemExit("assets/version_desc.md 为空")
+
+          existing = json.loads(Path("assets/version.json").read_text(encoding="utf-8"))
+
+          def ver_num(v, b):
+              parts = [int(x) for x in v.split(".")]
+              while len(parts) < 3: parts.append(0)
+              return parts[0] * 10000000 + parts[1] * 100000 + parts[2] * 1000 + b
+
+          result = {
+              "version": version,
+              "build_number": build,
+              "version_num": ver_num(version, build),
+              "version_desc": version_desc,
+              "prerelease": existing.get("prerelease", False),
+              "download_url": existing.get("download_url", "https://github.com/ZXS20240220/pure_live/releases"),
+              "platforms": {
+                  "windows": {
+                      "version": version,
+                      "build_number": build,
+                      "version_num": ver_num(version, build),
+                      "version_desc": version_desc,
+                      "prerelease": existing.get("prerelease", False),
+                      "download_url": existing.get("download_url", "https://github.com/ZXS20240220/pure_live/releases"),
+                      **(existing.get("platforms", {}).get("windows", {}))
+                  }
+              }
+          }
+
+          Path("assets/version.json").write_text(
+              json.dumps(result, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          print(f"version.json generated: {version}+{build}")
+          PY
       - name: Package Windows EXE and MSIX
         shell: pwsh
         run: |
@@ -343,23 +396,17 @@ jobs:
           from pathlib import Path
 
           tag = os.environ["RELEASE_TAG"]
-          version_file = Path("assets/version.json")
+          desc_path = Path("assets/version_desc.md")
 
-          if not version_file.is_file():
-              raise SystemExit(f"找不到 {version_file}")
+          if not desc_path.is_file():
+              raise SystemExit(f"找不到 {desc_path}")
 
-          data = json.loads(
-              version_file.read_text(encoding="utf-8")
-          )
+          version_desc = desc_path.read_text(encoding="utf-8").strip()
 
-          version_desc = data.get("version_desc")
-
-          if not version_desc or not str(version_desc).strip():
+          if not version_desc:
               raise SystemExit(
-                  "assets/version.json 中的 version_desc 为空"
+                  "assets/version_desc.md 为空"
               )
-
-          version_desc = str(version_desc).strip()
 
           body = f"""# 纯粹直播 {tag}
 

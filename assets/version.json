@@ -1,23 +1,9 @@
 {
-  "version": "1.0.2",
-  "build_number": 314,
-  "version_num": 10002314,
-  "android_abis": [
-    "armeabi-v7a",
-    "arm64-v8a",
-    "x86_64"
-  ],
-  "version_desc": "version: 1.0.2 (build 314)\n- 新增斗鱼 Cookie 自动获取功能，支持剔除风控字段并补充 passport 域 Cookie 查询\n- 将各平台账号行的点击事件改为打开 Cookie 编辑\n- add webview reload and devtools to cookie capture page\n- 优化斗鱼 Cookie 自动抓取流程，抓取后自动清除 WebView 会话 Cookie，避免服务端判定会话失效导致的网页问题\n\n",
+  "version_desc": "CI 生成前请将更新说明写入 assets/version_desc.md\n",
   "prerelease": false,
   "download_url": "https://github.com/ZXS20240220/pure_live/releases",
   "platforms": {
     "windows": {
-      "version": "1.0.2",
-      "build_number": 314,
-      "version_num": 10002314,
-      "version_desc": "version: 1.0.2 (build 314)\n- 新增斗鱼 Cookie 自动获取功能，支持剔除风控字段并补充 passport 域 Cookie 查询\n- 将各平台账号行的点击事件改为打开 Cookie 编辑\n- add webview reload and devtools to cookie capture page\n- 优化斗鱼 Cookie 自动抓取流程，抓取后自动清除 WebView 会话 Cookie，避免服务端判定会话失效导致的网页问题\n\n",
-      "prerelease": false,
-      "download_url": "https://github.com/ZXS20240220/pure_live/releases",
       "windows_setup_available": false,
       "windows_msix_available": false
     }

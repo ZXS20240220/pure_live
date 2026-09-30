@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:pure_live/gen/env.g.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/plugins/race_http.dart';
-import 'package:pure_live/common/consts/app_consts.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:pure_live/common/utils/githup_mirror.dart';
 import 'package:pure_live/common/global/platform_utils.dart';
@@ -49,7 +48,6 @@ class VersionUtil {
   static String latestUpdateLog = '';
   static bool prerelease = false;
   static String downloadUrl = '';
-  static Set<String> latestAndroidAbis = AppConsts.supportAndroidAbis;
   static bool latestWindowsMsixAvailable = false;
   static bool latestWindowsSetupAvailable = false;
   var allReleased = [].obs;
@@ -131,18 +129,8 @@ class VersionUtil {
     latestUpdateLog = selected['version_desc']?.toString() ?? '';
     prerelease = selected['prerelease'] == true;
     downloadUrl = selected['download_url']?.toString() ?? '';
-    latestAndroidAbis = selectAndroidAbis(selected);
     latestWindowsMsixAvailable = selected['windows_msix_available'] == true;
     latestWindowsSetupAvailable = selected['windows_setup_available'] == true;
-  }
-
-  /// Only advertises APK variants that the release feed says were published.
-  /// Older feeds default to arm64, matching this maintenance branch's local
-  /// release target, rather than generating links to missing assets.
-  static Set<String> selectAndroidAbis(Map<String, dynamic> data) {
-    final raw = data['android_abis'];
-    if (raw is! List) return const {'arm64-v8a'};
-    return raw.map((item) => item.toString()).where(AppConsts.supportAndroidAbis.contains).toSet();
   }
 
   /// Keeps update announcements aligned with the artifacts that were really
@@ -219,7 +207,6 @@ class VersionUtil {
     latestUpdateLog = '';
     prerelease = false;
     downloadUrl = '';
-    latestAndroidAbis = const {};
     latestWindowsMsixAvailable = false;
     latestWindowsSetupAvailable = false;
     isHasNewVersion.value = false;
