@@ -49,6 +49,13 @@ class FlutterWindow : public Win32Window {
       const flutter::MethodCall<flutter::EncodableValue>& call,
       std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
   void DrainNativeHttpCompletions();
+  void HandleAppControlCall(
+      const flutter::MethodCall<flutter::EncodableValue>& call,
+      std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
+  // Launches a successor instance with the --restart-app sentinel and posts
+  // WM_QUIT to end the current instance. The successor blocks on the primary
+  // instance mutex in wWinMain until this process has fully exited.
+  void LaunchSuccessorAndQuit();
 
   // Completed WinHTTP requests, handed from worker threads to the platform
   // thread. Shared so a worker never touches a destroyed window.
@@ -69,6 +76,8 @@ class FlutterWindow : public Win32Window {
       display_mode_channel_;
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
       native_http_channel_;
+  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
+      app_control_channel_;
   std::shared_ptr<NativeHttpQueue> native_http_queue_ =
       std::make_shared<NativeHttpQueue>();
   std::map<int, std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>>>

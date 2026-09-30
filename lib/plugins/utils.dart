@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -12,6 +13,44 @@ class Utils {
   static DateFormat dateFormatWithYear = DateFormat("yyyy-MM-dd HH:mm");
   static DateFormat timeFormat = DateFormat("HH:mm:ss");
   static Future<bool>? _activeExitFlow;
+  static Future<void>? _activeRestartFlow;
+
+  static Future<void> restartDesktopApplication() async {
+    if (!Platform.isWindows) return;
+
+    final active = _activeRestartFlow;
+    if (active != null) return active;
+
+    late final Future<void> tracked;
+    tracked = _restartDesktopApplication().whenComplete(() {
+      if (identical(_activeRestartFlow, tracked)) {
+        _activeRestartFlow = null;
+      }
+    });
+    _activeRestartFlow = tracked;
+    return tracked;
+  }
+
+  static const MethodChannel _appControlChannel = MethodChannel('pure_live/app_control');
+
+  static Future<void> _restartDesktopApplication() async {
+    try {
+      await HivePrefUtil.flush().timeout(const Duration(seconds: 2));
+    } catch (e) {
+      debugPrint('设置落盘超时: $e');
+    }
+
+    try {
+      await trayManager.destroy().timeout(const Duration(seconds: 2));
+    } catch (e) {
+      debugPrint('托盘注销失败: $e');
+    }
+
+    // 原生侧负责拉起带 --restart-app 的后继进程并 PostQuitMessage 结束当前
+    // 实例；后继进程在 runner 入口等待单实例互斥体释放后才创建引擎，交接
+    // 时序由内核对象保证，无需 PowerShell 或固定延时。
+    await _appControlChannel.invokeMethod('restart');
+  }
 
   static Future<void> exitDesktopApplication() async {
     if (!Platform.isWindows && !Platform.isLinux && !Platform.isMacOS) return;

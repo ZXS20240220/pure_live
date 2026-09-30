@@ -5,6 +5,7 @@
 #include <optional>
 #include <set>
 #include <thread>
+#include <vector>
 
 #include <flutter/standard_method_codec.h>
 #include "flutter/generated_plugin_registrant.h"
@@ -88,6 +89,15 @@ bool FlutterWindow::OnCreate() {
         HandleNativeHttpCall(call, std::move(result));
       });
 
+  app_control_channel_ =
+      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+          flutter_controller_->engine()->messenger(), "pure_live/app_control",
+          &flutter::StandardMethodCodec::GetInstance());
+  app_control_channel_->SetMethodCallHandler(
+      [this](const auto& call, auto result) {
+        HandleAppControlCall(call, std::move(result));
+      });
+
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
@@ -110,6 +120,7 @@ void FlutterWindow::OnDestroy() {
   flutter_controller_destroying_ = true;
   display_mode_channel_.reset();
   native_http_channel_.reset();
+  app_control_channel_.reset();
   native_http_pending_.clear();
   flutter_controller_.reset();
 
@@ -279,6 +290,56 @@ void FlutterWindow::RememberDisplayMode(
   last_display_width_ = snapshot.width;
   last_display_height_ = snapshot.height;
   last_display_refresh_rate_ = snapshot.current_refresh_rate;
+}
+
+void FlutterWindow::HandleAppControlCall(
+    const flutter::MethodCall<flutter::EncodableValue>& call,
+    std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
+  if (call.method_name() != "restart") {
+    result->NotImplemented();
+    return;
+  }
+  LaunchSuccessorAndQuit();
+  result->Success(flutter::EncodableValue(true));
+}
+
+void FlutterWindow::LaunchSuccessorAndQuit() {
+  wchar_t module_path[MAX_PATH] = {0};
+  const DWORD path_length =
+      ::GetModuleFileNameW(nullptr, module_path, MAX_PATH);
+  if (path_length > 0 && path_length < MAX_PATH) {
+    // Run the successor from the executable directory so the relative
+    // "data/flutter_assets" bundle resolves regardless of the parent CWD.
+    std::wstring working_directory(module_path, path_length);
+    const size_t last_separator = working_directory.find_last_of(L"\\/");
+    if (last_separator != std::wstring::npos) {
+      working_directory.resize(last_separator);
+    }
+
+    const std::wstring command_line_text =
+        L"\"" + std::wstring(module_path) + L"\" --restart-app";
+    // CreateProcessW may modify the command-line buffer in place.
+    std::vector<wchar_t> command_line(command_line_text.begin(),
+                                      command_line_text.end());
+    command_line.push_back(L'\0');
+
+    STARTUPINFOW startup_info{};
+    startup_info.cb = sizeof(startup_info);
+    PROCESS_INFORMATION process_info{};
+    // The successor blocks on the primary-instance mutex in wWinMain until
+    // this process exits, so neither process inherits handles nor waits here.
+    if (::CreateProcessW(module_path, command_line.data(), nullptr, nullptr,
+                         FALSE, 0, nullptr, working_directory.c_str(),
+                         &startup_info, &process_info)) {
+      ::CloseHandle(process_info.hThread);
+      ::CloseHandle(process_info.hProcess);
+    }
+  }
+
+  // PostQuitMessage breaks the GetMessage loop; SetQuitOnClose(true) plus the
+  // explicit TerminateProcess in wWinMain finish teardown. The window
+  // preventClose guard does not block this path.
+  ::PostQuitMessage(0);
 }
 
 void FlutterWindow::HandleNativeHttpCall(

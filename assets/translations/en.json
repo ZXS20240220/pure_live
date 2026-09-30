@@ -2387,5 +2387,6 @@
   "anchor_level": "Anchor level",
   "union_name": "Guild",
   "last_watched": "Last watched",
-  "title_label": "Title"
+  "title_label": "Title",
+  "restart_app": "Restart App"
 }

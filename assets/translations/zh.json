@@ -2387,5 +2387,6 @@
   "anchor_level": "主播等级",
   "union_name": "工会",
   "last_watched": "上次观看",
-  "title_label": "标题"
+  "title_label": "标题",
+  "restart_app": "重启应用"
 }

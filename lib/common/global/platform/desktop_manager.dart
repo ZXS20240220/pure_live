@@ -188,6 +188,7 @@ class DesktopManager {
                 : i18nOr('show_window', useChineseFallback ? '显示窗口' : 'Show Window'),
           ),
           MenuItem.separator(),
+          MenuItem(key: 'restart_app', label: i18nOr('restart_app', useChineseFallback ? '重启应用' : 'Restart App')),
           MenuItem(key: 'exit_app', label: i18nOr('exit_app', useChineseFallback ? '退出应用' : 'Exit')),
         ],
       );
@@ -219,6 +220,10 @@ class DesktopManager {
 
         case 'hide_window':
           await hideWindow();
+          break;
+
+        case 'restart_app':
+          await Utils.restartDesktopApplication();
           break;
 
         case 'exit_app':
@@ -258,6 +263,11 @@ class DesktopManager {
     if (!PlatformUtils.isDesktop) return;
 
     try {
+      // MSDN 要求：调用 TrackPopupMenu 前 owner window 必须是前台窗口，
+      // 否则菜单不会在外部点击时自动消失。
+      if (Platform.isWindows) {
+        await windowManager.focus();
+      }
       await _trayMenuCoordinator.show(refresh: updateTray, open: () => trayManager.popUpContextMenu());
     } catch (e) {
       debugPrint('托盘右键点击处理失败: $e');

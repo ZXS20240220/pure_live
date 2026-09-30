@@ -40,6 +40,20 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   std::vector<std::string> command_line_arguments =
       GetCommandLineArguments();
 
+  // Internal sentinel used by the in-app restart flow (see
+  // FlutterWindow::LaunchSuccessorAndQuit). It is consumed here and never
+  // forwarded to the Dart entrypoint.
+  constexpr char kRestartAppArg[] = "--restart-app";
+  bool is_restart = false;
+  std::vector<std::string> entrypoint_arguments;
+  for (const std::string& argument : command_line_arguments) {
+    if (argument == kRestartAppArg) {
+      is_restart = true;
+    } else {
+      entrypoint_arguments.push_back(argument);
+    }
+  }
+
   // Reject a duplicate primary process before allocating a Flutter engine,
   // GPU surface, Dart isolate or plugins. The Dart single-instance channel is
   // retained for argument forwarding; this early fence prevents the brief
@@ -49,7 +63,27 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   // still reach the Dart single-instance channel for forwarding or intentional
   // multi-window creation. The common duplicate-shortcut case has no arguments
   // and can be rejected here without starting a second Flutter engine.
-  if (command_line_arguments.empty()) {
+  if (is_restart) {
+    // Successor process of an in-app restart: block until the previous
+    // instance exits and releases the named mutex, so exactly one engine is
+    // ever alive. A successful wait (including WAIT_ABANDONED when the old
+    // process was terminated) transfers mutex ownership to this thread; keep
+    // the handle open for the process lifetime.
+    primary_instance_mutex = ::OpenMutexW(SYNCHRONIZE, FALSE,
+                                         kPrimaryInstanceMutex);
+    if (primary_instance_mutex != nullptr) {
+      const DWORD wait_result =
+          ::WaitForSingleObject(primary_instance_mutex, 15000);
+      if (wait_result != WAIT_OBJECT_0 && wait_result != WAIT_ABANDONED) {
+        ::CloseHandle(primary_instance_mutex);
+        primary_instance_mutex =
+            ::CreateMutexW(nullptr, TRUE, kPrimaryInstanceMutex);
+      }
+    } else {
+      primary_instance_mutex =
+          ::CreateMutexW(nullptr, TRUE, kPrimaryInstanceMutex);
+    }
+  } else if (entrypoint_arguments.empty()) {
     primary_instance_mutex =
         ::CreateMutexW(nullptr, TRUE, kPrimaryInstanceMutex);
     if (primary_instance_mutex != nullptr &&
@@ -73,7 +107,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   {
     flutter::DartProject project(L"data");
 
-    project.set_dart_entrypoint_arguments(std::move(command_line_arguments));
+    project.set_dart_entrypoint_arguments(std::move(entrypoint_arguments));
     SetCurrentProcessExplicitAppUserModelID(L"com.mystyle.purelive");
     FlutterWindow window(project);
     Win32Window::Point origin(10, 10);
