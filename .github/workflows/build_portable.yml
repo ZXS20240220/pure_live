@@ -1,6 +1,6 @@
 # Fork 专用 – 仅构建 Windows 便携版（Portable ZIP）
 # 不依赖证书 / Inno Setup / fastforge，零 Secret 配置
-name: Build Portable
+name: Build Windows Portable & Create Release
 on:
   workflow_dispatch:
     inputs:

@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 import 'package:markdown_widget/config/configs.dart';
 import 'package:markdown_widget/widget/all.dart';
 import 'package:pure_live/common/index.dart';
