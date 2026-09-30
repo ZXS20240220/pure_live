@@ -440,7 +440,7 @@
   "prefer_resolution_subtitle": "When enter live play, first resolution choice",
   "project": "Project",
   "project_alert": "Project Alert",
-  "fork_repository": "Fork Repository",
+  "upstream_repository": "Upstream Repository",
   "project_page": "Project Homepage",
   "proxy_host": "Proxy Host",
   "proxy_host_hint": "e.g. 127.0.0.1",

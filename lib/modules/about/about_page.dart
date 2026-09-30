@@ -112,7 +112,7 @@ class _AboutPageState extends State<AboutPage> {
           const SizedBox(height: 8),
           context.buildModernCard([
             context.buildTile(
-              icon: Remix.code_s_slash_line,
+              icon: Remix.git_repository_line,
               title: i18n("project_page"),
               subtitle: VersionUtil.projectUrl,
               isLong: true,
@@ -121,13 +121,13 @@ class _AboutPageState extends State<AboutPage> {
               },
             ),
             context.buildTile(
-              icon: Remix.git_branch_line,
-              title: i18n("fork_repository"),
-              subtitle: 'https://github.com/ZXS20240220/pure_live/tree/dev_from_v3.1.4',
+              icon: Remix.cloud_line,
+              title: i18n("upstream_repository"),
+              subtitle: 'https://github.com/liuchuancong/pure_live',
               isLong: true,
               onTap: () {
                 launchUrl(
-                  Uri.parse('https://github.com/ZXS20240220/pure_live/tree/dev_from_v3.1.4'),
+                  Uri.parse('https://github.com/liuchuancong/pure_live'),
                   mode: LaunchMode.externalApplication,
                 );
               },

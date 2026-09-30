@@ -441,7 +441,7 @@
   "prefer_resolution_subtitle": "根据设备分辨率自动选择最合适的画质（选最低够用）",
   "project": "项目",
   "project_alert": "项目声明",
-  "fork_repository": "Fork 分支仓库(当前项目)",
+  "upstream_repository": "上游仓库",
   "project_page": "项目主页",
   "proxy_host": "代理主机 (Host)",
   "proxy_host_hint": "例如: 127.0.0.1",
