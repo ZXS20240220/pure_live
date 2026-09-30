@@ -13,17 +13,12 @@ on:
         description: Create a GitHub Release and update releases.json
         required: true
         type: boolean
-        default: false
-      release_tag:
-        description: Release tag (e.g. v1.0.0) – required if create_release is true
-        required: true
-        type: string
-        default: 'v1.0.0'
+        default: true
       prerelease:
         description: Mark as pre-release
         required: true
         type: boolean
-        default: true
+        default: false
 
 permissions:
   contents: read
@@ -71,6 +66,10 @@ jobs:
     needs: quality
     runs-on: windows-latest
     timeout-minutes: 35
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+      artifact_version: ${{ steps.version.outputs.artifact_version }}
     steps:
       - uses: actions/checkout@v7
       - uses: subosito/flutter-action@v2
@@ -96,8 +95,10 @@ jobs:
               $fullVersion = $matches[1] -replace '[`"''`]', ''
               $displayVersion = $fullVersion.Split('+')[0]
               $artifactVersion = $fullVersion.Replace('+', '-')
+              $tag = "v$displayVersion"
               "version=$displayVersion" | Out-File $env:GITHUB_OUTPUT -Encoding utf8 -Append
               "artifact_version=$artifactVersion" | Out-File $env:GITHUB_OUTPUT -Encoding utf8 -Append
+              "tag=$tag" | Out-File $env:GITHUB_OUTPUT -Encoding utf8 -Append
               exit 0
             }
           }
@@ -230,19 +231,6 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Validate release tag
-        shell: bash
-        run: |
-          set -euo pipefail
-          TAG="${{ inputs.release_tag }}"
-          if [[ -z "$TAG" ]]; then
-            echo "release_tag is required when create_release=true."
-            exit 1
-          fi
-          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
-            echo "Invalid release tag: $TAG (expected: v1.2.3 or v1.2.3.4)"
-            exit 1
-          fi
       - name: Checkout fork branch
         uses: actions/checkout@v7
         with:
@@ -258,7 +246,7 @@ jobs:
       - name: Generate BUILD_METADATA.json
         shell: bash
         env:
-          RELEASE_TAG: ${{ inputs.release_tag }}
+          RELEASE_TAG: ${{ needs.windows.outputs.tag }}
           REPOSITORY: ${{ github.repository }}
           SHA: ${{ github.sha }}
           REF: ${{ github.ref }}
@@ -300,7 +288,7 @@ jobs:
         id: release_body
         shell: bash
         env:
-          RELEASE_TAG: ${{ inputs.release_tag }}
+          RELEASE_TAG: ${{ needs.windows.outputs.tag }}
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
@@ -343,8 +331,8 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: ${{ inputs.release_tag }}
-          name: ${{ inputs.release_tag }}
+          tag_name: ${{ needs.windows.outputs.tag }}
+          name: ${{ needs.windows.outputs.tag }}
           body_path: ${{ steps.release_body.outputs.body_path }}
           prerelease: ${{ inputs.prerelease }}
           generate_release_notes: false
@@ -358,6 +346,7 @@ jobs:
     name: Update releases.json
     if: ${{ always() && inputs.create_release && needs.publish-release.result == 'success' }}
     needs:
+      - windows
       - publish-release
     runs-on: ubuntu-latest
     permissions:
@@ -375,7 +364,7 @@ jobs:
       - name: Update assets/releases.json
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.release_tag }}
+          RELEASE_TAG: ${{ needs.windows.outputs.tag }}
         shell: bash
         run: |
           set -euo pipefail
@@ -418,6 +407,6 @@ jobs:
             exit 0
           fi
           git add assets/releases.json
-          git commit -m "chore: update releases.json for ${{ inputs.release_tag }} [skip ci]"
+          git commit -m "chore: update releases.json for ${{ needs.windows.outputs.tag }} [skip ci]"
           git pull --rebase origin ${{ env.FORK_BRANCH }}
           git push origin ${{ env.FORK_BRANCH }}
