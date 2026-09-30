@@ -39,11 +39,16 @@ class ReleaseModel {
       ),
       changelog: json['changelog'] ?? json['body'] ?? '',
       files: filesData.map<ReleaseFileModel>((e) {
-        final downloads = e['downloads'] ?? e['downloadCount'] ?? 0;
+        final rawSize = e['size'];
+        final sizeText = switch (rawSize) {
+          String text => text,
+          num n => _formatByteSize(n.toInt()),
+          _ => '0 B',
+        };
         return ReleaseFileModel(
           name: e['name'] ?? '',
-          size: e['size'] ?? '0.0mb',
-          downloads: downloads,
+          size: sizeText,
+          downloads: (e['downloads'] ?? e['downloadCount'] ?? 0) as int,
           url: e['url'] ?? '',
         );
       }).toList(),
@@ -60,6 +65,19 @@ class ReleaseModel {
       'changelog': changelog,
       'files': files.map((e) => e.toJson()).toList(),
     };
+  }
+
+  static String _formatByteSize(int bytes) {
+    if (bytes < 0) bytes = 0;
+    if (bytes < 1024) return '$bytes B';
+    const units = ['KB', 'MB', 'GB', 'TB'];
+    double size = bytes / 1024;
+    int unitIndex = 0;
+    while (size >= 1024 && unitIndex < units.length - 1) {
+      size /= 1024;
+      unitIndex++;
+    }
+    return '${size.toStringAsFixed(2)} ${units[unitIndex]}';
   }
 }
 

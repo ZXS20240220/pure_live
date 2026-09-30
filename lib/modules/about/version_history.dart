@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:markdown_widget/config/configs.dart';
 import 'package:markdown_widget/widget/all.dart';
 import 'package:pure_live/common/index.dart';
@@ -64,6 +65,20 @@ List<ReleaseModel> parseReleaseHistoryPayload(Object? decoded) {
     return byDate != 0 ? byDate : right.version.compareTo(left.version);
   });
   return List.unmodifiable(releases);
+}
+
+String _stripVPrefix(String version) {
+  return version.startsWith('v') || version.startsWith('V') ? version.substring(1) : version;
+}
+
+String _formatReleaseDate(String raw) {
+  if (raw.isEmpty) return '';
+  try {
+    final dt = DateTime.parse(raw).toLocal();
+    return DateFormat('yyyy-MM-dd HH:mm').format(dt);
+  } catch (_) {
+    return raw;
+  }
 }
 
 Uri? releaseHistoryWebUri(String rawUrl) => updateDownloadUri(rawUrl);
@@ -230,7 +245,7 @@ class _VersionHistoryPageState extends State<VersionHistoryPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'v${item.version}',
+                                'v${_stripVPrefix(item.version)}',
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: theme.textTheme.titleMedium?.copyWith(
@@ -240,7 +255,7 @@ class _VersionHistoryPageState extends State<VersionHistoryPage> {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                item.date,
+                                _formatReleaseDate(item.date),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: theme.textTheme.bodySmall?.copyWith(
@@ -517,7 +532,7 @@ class _VersionBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
       ),
       child: Text(
-        'v$version',
+        'v${_stripVPrefix(version)}',
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
         style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary),
@@ -597,13 +612,13 @@ class _VersionAuthorHeaderWidget extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'v${item.version}',
+                'v${_stripVPrefix(item.version)}',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
               Text(
-                i18n('version_published_at', args: {'date': item.date}),
+                i18n('version_published_at', args: {'date': _formatReleaseDate(item.date)}),
                 style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
             ],
