@@ -1,11 +1,20 @@
 {
-  "version_desc": "CI 生成前请将更新说明写入 assets/version_desc.md\n",
+  "version": "1.0.3",
+  "build_number": 314,
+  "version_num": 10003314,
+  "version_desc": "version: 1.0.3 (build 314)\n\n- 修复release历史版本更新记录无法显示的问题\n- 修复托盘菜单不正确消失的问题\n- 托盘菜单添加应用重启功能\n- 优化 build+release 工作流，细化功能控制，保证版本号和 prerelease 的一致性",
   "prerelease": false,
   "download_url": "https://github.com/ZXS20240220/pure_live/releases",
   "platforms": {
     "windows": {
       "windows_setup_available": false,
-      "windows_msix_available": false
+      "windows_msix_available": false,
+      "version": "1.0.3",
+      "build_number": 314,
+      "version_num": 10003314,
+      "version_desc": "version: 1.0.3 (build 314)\n\n- 修复release历史版本更新记录无法显示的问题\n- 修复托盘菜单不正确消失的问题\n- 托盘菜单添加应用重启功能\n- 优化 build+release 工作流，细化功能控制，保证版本号和 prerelease 的一致性",
+      "prerelease": false,
+      "download_url": "https://github.com/ZXS20240220/pure_live/releases"
     }
   }
 }
