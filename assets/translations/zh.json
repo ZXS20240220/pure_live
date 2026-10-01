@@ -2184,7 +2184,7 @@
   "tag_multi_select_enabled": "多选筛选已开启",
   "favorite_search_hint": "搜索标题 / 主播 / 房间号 / 标签（多关键字空格分隔）",
   "keyboard_shortcuts": "快捷键帮助",
-  "keyboard_shortcuts_title": "键盘快捷键",
+  "keyboard_shortcuts_title": "键盘/鼠标快捷键",
   "site_showroom": "SHOWROOM",
   "showroom_directory_scope": "官方公开直播快照与原生分类；目录和关键词搜索在同一快照内本地分页。直播间链接可查询未开播状态；view_num 作为本场累计观看展示，不当作实时在线人数。",
   "showroom_quality_auto": "自动",

@@ -323,6 +323,7 @@ class _KeyboardShortcutsDialog extends StatelessWidget {
               _ShortcutItem(keys: const ['→'], desc: '下一页'),
               _ShortcutItem(keys: const ['↑'], desc: '向上滚一屏'),
               _ShortcutItem(keys: const ['↓'], desc: '向下滚一屏'),
+              _ShortcutItem(keys: const ['Mouse Wheel'], desc: '可通过鼠标滚轮在所有页签和页码中翻页'),
             ],
           )
         : _ShortcutSectionData(
