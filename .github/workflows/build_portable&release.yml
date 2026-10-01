@@ -457,41 +457,14 @@ jobs:
           )
           print(f"version.json generated: {version}+{build}, prerelease={prerelease}")
           PY
+      # 用本 Fork 全量 Release 重建 feed：REST API 相比 gh release view
+      # 能补齐 author.avatar，并刷新历史版本的 downloadCount。
+      # 脚本固定只查当前仓库（GITHUB_REPOSITORY），不合并上游历史。
       - name: Update assets/releases.json
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.publish-release.outputs.tag }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 <<'PY'
-          import json, os, subprocess
-          from pathlib import Path
-          tag = os.environ["RELEASE_TAG"]
-          result = subprocess.run(
-              ["gh", "release", "view", tag,
-               "--json", "tagName,name,url,publishedAt,isDraft,body,author,isPrerelease,assets"],
-              check=True, capture_output=True, text=True,
-          )
-          release = json.loads(result.stdout)
-          path = Path("assets/releases.json")
-          if path.exists():
-              data = json.loads(path.read_text(encoding="utf-8"))
-          else:
-              data = {}
-          if isinstance(data, dict) and isinstance(data.get("releases"), list):
-              releases = data["releases"]
-          elif isinstance(data, list):
-              releases = data
-              data = {"releases": releases}
-          else:
-              releases = []
-              data = {"releases": releases}
-          releases[:] = [item for item in releases
-                         if not (isinstance(item, dict) and item.get("tagName") == tag)]
-          releases.insert(0, release)
-          path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-          PY
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 tool/sync_fork_releases.py
       - name: Commit and Push
         shell: bash
         run: |

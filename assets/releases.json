@@ -21,21 +21,22 @@
           "contentType": "application/zip",
           "createdAt": "2026-09-30T17:00:51Z",
           "digest": "sha256:c7ea67fb4584017f601f9b753ff80d30b0966a9c2ff2caa12745d3caad7a5d5a",
-          "downloadCount": 0,
+          "downloadCount": 122,
           "id": "RA_kwDOUTPDUc4j2K2F",
           "label": "",
-          "name": "PureLive-1.0.3-314-windows-x64-portable.zip",
+          "name": "PureLive-dev-1.0.3-314-windows-x64-portable.zip",
           "size": 70508373,
           "state": "uploaded",
-          "updatedAt": "2026-09-30T17:00:54Z",
-          "url": "https://github.com/ZXS20240220/pure_live/releases/download/v1.0.3/PureLive-1.0.3-314-windows-x64-portable.zip"
+          "updatedAt": "2026-10-01T14:35:02Z",
+          "url": "https://github.com/ZXS20240220/pure_live/releases/download/v1.0.3/PureLive-dev-1.0.3-314-windows-x64-portable.zip"
         }
       ],
       "author": {
         "id": "MDM6Qm90NDE4OTgyODI=",
-        "login": "github-actions[bot]"
+        "login": "github-actions[bot]",
+        "avatar": "https://avatars.githubusercontent.com/in/15368?v=4"
       },
-      "body": "# 纯粹直播 v1.0.3\n\n### 🖥️ Windows 便携版\n\n- **Portable ZIP**：解压即用，无需安装\n- 适配：Windows 10/11 x64\n\n### 🔧 Build Metadata\n\n[BUILD_METADATA.json](https://github.com/ZXS20240220/pure_live/releases/download/v1.0.3/BUILD_METADATA.json)\n\n### 📝 本次更新\n\nversion: 1.0.3 (build 314)\n\n- 修复release历史版本更新记录无法显示的问题\n- 修复托盘菜单不正确消失的问题\n- 托盘菜单添加应用重启功能\n- 优化 build+release 工作流，细化功能控制，保证版本号和 prerelease 的一致性\n",
+      "body": "# 纯粹直播-dev v1.0.3\r\n\r\n### 🖥️ Windows 便携版\r\n\r\n- **Portable ZIP**：解压即用，无需安装\r\n- 适配：Windows 10/11 x64\r\n\r\n### 🔧 Build Metadata\r\n\r\n[BUILD_METADATA.json](https://github.com/ZXS20240220/pure_live/releases/download/v1.0.3/BUILD_METADATA.json)\r\n\r\n### 📝 本次更新\r\n\r\nversion: 1.0.3 (build 314)\r\n\r\n- 修复release历史版本更新记录无法显示的问题\r\n- 修复托盘菜单不正确消失的问题\r\n- 托盘菜单添加应用重启功能\r\n- 优化 build+release 工作流，细化功能控制，保证版本号和 prerelease 的一致性\r\n",
       "isDraft": false,
       "isPrerelease": false,
       "name": "v1.0.3",
@@ -64,21 +65,22 @@
           "contentType": "application/zip",
           "createdAt": "2026-09-29T17:36:03Z",
           "digest": "sha256:781ddbc47aa2f0cfa08531de22d30ac2a6c4f65991955ba729caa279e4e0559a",
-          "downloadCount": 0,
+          "downloadCount": 3,
           "id": "RA_kwDOUTPDUc4jsSAz",
           "label": "",
-          "name": "PureLive-1.0.2-314-windows-x64-portable.zip",
+          "name": "PureLive-dev-1.0.2-314-windows-x64-portable.zip",
           "size": 70507643,
           "state": "uploaded",
-          "updatedAt": "2026-09-29T17:36:06Z",
-          "url": "https://github.com/ZXS20240220/pure_live/releases/download/v1.0.2/PureLive-1.0.2-314-windows-x64-portable.zip"
+          "updatedAt": "2026-10-01T14:34:13Z",
+          "url": "https://github.com/ZXS20240220/pure_live/releases/download/v1.0.2/PureLive-dev-1.0.2-314-windows-x64-portable.zip"
         }
       ],
       "author": {
         "id": "MDM6Qm90NDE4OTgyODI=",
-        "login": "github-actions[bot]"
+        "login": "github-actions[bot]",
+        "avatar": "https://avatars.githubusercontent.com/in/15368?v=4"
       },
-      "body": "# 纯粹直播 v1.0.2\n\n### 🖥️ Windows 便携版\n\n- **Portable ZIP**：解压即用，无需安装\n- 适配：Windows 10/11 x64\n\n### 🔧 Build Metadata\n\n[BUILD_METADATA.json](https://github.com/ZXS20240220/pure_live/releases/download/v1.0.2/BUILD_METADATA.json)\n\n### 📝 本次更新\n\nversion: 1.0.2 (build 314)\n- 新增斗鱼 Cookie 自动获取功能，支持剔除风控字段并补充 passport 域 Cookie 查询\n- 将各平台账号行的点击事件改为打开 Cookie 编辑\n- add webview reload and devtools to cookie capture page\n- 优化斗鱼 Cookie 自动抓取流程，抓取后自动清除 WebView 会话 Cookie，避免服务端判定会话失效导致的网页问题\n",
+      "body": "# 纯粹直播-dev v1.0.2\r\n\r\n### 🖥️ Windows 便携版\r\n\r\n- **Portable ZIP**：解压即用，无需安装\r\n- 适配：Windows 10/11 x64\r\n\r\n### 🔧 Build Metadata\r\n\r\n[BUILD_METADATA.json](https://github.com/ZXS20240220/pure_live/releases/download/v1.0.2/BUILD_METADATA.json)\r\n\r\n### 📝 本次更新\r\n\r\nversion: 1.0.2 (build 314)\r\n- 新增斗鱼 Cookie 自动获取功能，支持剔除风控字段并补充 passport 域 Cookie 查询\r\n- 将各平台账号行的点击事件改为打开 Cookie 编辑\r\n- add webview reload and devtools to cookie capture page\r\n- 优化斗鱼 Cookie 自动抓取流程，抓取后自动清除 WebView 会话 Cookie，避免服务端判定会话失效导致的网页问题\r\n",
       "isDraft": false,
       "isPrerelease": false,
       "name": "v1.0.2",
@@ -93,7 +95,7 @@
           "contentType": "application/json",
           "createdAt": "2026-09-29T12:57:17Z",
           "digest": "sha256:d57fcca514a459379209b0cf364363c4f40ca02ac702e9d8022ca27cb4a81dd1",
-          "downloadCount": 0,
+          "downloadCount": 2,
           "id": "RA_kwDOUTPDUc4jqDaR",
           "label": "",
           "name": "BUILD_METADATA.json",
@@ -107,7 +109,7 @@
           "contentType": "application/zip",
           "createdAt": "2026-09-29T12:57:17Z",
           "digest": "sha256:04c4c75ed9cdfcc7703b4315198250c44d09241bc5ee4943dd1a7a8d8a283522",
-          "downloadCount": 0,
+          "downloadCount": 1,
           "id": "RA_kwDOUTPDUc4jqDaS",
           "label": "",
           "name": "PureLive-1.0.1-314-windows-x64-portable.zip",
@@ -119,9 +121,10 @@
       ],
       "author": {
         "id": "MDM6Qm90NDE4OTgyODI=",
-        "login": "github-actions[bot]"
+        "login": "github-actions[bot]",
+        "avatar": "https://avatars.githubusercontent.com/in/15368?v=4"
       },
-      "body": "# 纯粹直播 v1.0.1\n\n### 🖥️ Windows 便携版\n\n- **Portable ZIP**：解压即用，无需安装\n- 适配：Windows 10/11 x64\n\n### 🔧 Build Metadata\n\n[BUILD_METADATA.json](https://github.com/ZXS20240220/pure_live/releases/download/v1.0.1/BUILD_METADATA.json)\n\n### 📝 本次更新\n\nversion: 1.0.1 (build 314)\n修复了自定义驱动/硬件加速在 Windows 上导致画面无法显示、弹出独立窗口和无声等问题\n",
+      "body": "# 纯粹直播-dev v1.0.1\r\n\r\n### 🖥️ Windows 便携版\r\n\r\n- **Portable ZIP**：解压即用，无需安装\r\n- 适配：Windows 10/11 x64\r\n\r\n### 🔧 Build Metadata\r\n\r\n[BUILD_METADATA.json](https://github.com/ZXS20240220/pure_live/releases/download/v1.0.1/BUILD_METADATA.json)\r\n\r\n### 📝 本次更新\r\n\r\nversion: 1.0.1 (build 314)\r\n- 修复了自定义驱动/硬件加速在 Windows 上导致画面无法显示、弹出独立窗口和无声等问题\r\n",
       "isDraft": false,
       "isPrerelease": false,
       "name": "v1.0.1",
@@ -150,21 +153,22 @@
           "contentType": "application/zip",
           "createdAt": "2026-09-29T10:37:10Z",
           "digest": "sha256:5da8552ce36d5abd9c5781d31fda0efe9a7dc6e28ec0e9f59b191828eb729b26",
-          "downloadCount": 0,
+          "downloadCount": 3,
           "id": "RA_kwDOUTPDUc4jo_de",
           "label": "",
-          "name": "PureLive-1.0.0-314-windows-x64-portable.zip",
+          "name": "PureLive-dev-1.0.0-314-windows-x64-portable.zip",
           "size": 70507186,
           "state": "uploaded",
-          "updatedAt": "2026-09-29T10:37:13Z",
-          "url": "https://github.com/ZXS20240220/pure_live/releases/download/v1.0.0/PureLive-1.0.0-314-windows-x64-portable.zip"
+          "updatedAt": "2026-10-01T14:34:00Z",
+          "url": "https://github.com/ZXS20240220/pure_live/releases/download/v1.0.0/PureLive-dev-1.0.0-314-windows-x64-portable.zip"
         }
       ],
       "author": {
         "id": "MDM6Qm90NDE4OTgyODI=",
-        "login": "github-actions[bot]"
+        "login": "github-actions[bot]",
+        "avatar": "https://avatars.githubusercontent.com/in/15368?v=4"
       },
-      "body": "# 纯粹直播 v1.0.0\n\n### 🖥️ Windows 便携版\n\n- **Portable ZIP**：解压即用，无需安装\n- 适配：Windows 10/11 x64\n\n### 🔧 Build Metadata\n\n[BUILD_METADATA.json](https://github.com/ZXS20240220/pure_live/releases/download/v1.0.0/BUILD_METADATA.json)\n\n### 📝 本次更新\n\nversion: 1.0.0 (build 314)\n独立分支内部测试版：\n- 基于上游 pure_live 3.1.4 fork 的独立迭代版本，更新通道已切换至本仓库。\n",
+      "body": "# 纯粹直播-dev v1.0.0\r\n\r\n### 🖥️ Windows 便携版\r\n\r\n- **Portable ZIP**：解压即用，无需安装\r\n- 适配：Windows 10/11 x64\r\n\r\n### 🔧 Build Metadata\r\n\r\n[BUILD_METADATA.json](https://github.com/ZXS20240220/pure_live/releases/download/v1.0.0/BUILD_METADATA.json)\r\n\r\n### 📝 本次更新\r\n\r\nversion: 1.0.0 (build 314)\r\n独立分支内部测试版：\r\n- 基于上游 pure_live 3.1.4 fork 的独立迭代版本，更新通道已切换至本仓库。\r\n",
       "isDraft": false,
       "isPrerelease": false,
       "name": "v1.0.0",

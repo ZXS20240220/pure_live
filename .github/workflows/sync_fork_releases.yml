@@ -1,0 +1,69 @@
+# 定时/手动刷新 dev_from_v3.1.4 发布通道的 releases.json
+#
+# 与 update_releases.yml（master 的上游全量历史）不同，本工作流只同步
+# 本 Fork 自己的 Release，并始终写入 dev_from_v3.1.4 —— 这才是
+# Windows 客户端“历史版本更新记录”实际读取的分支（见
+# lib/common/utils/version_util.dart 中的 branch: 'dev_from_v3.1.4'）。
+#
+# 分支注意事项：
+#   本仓库默认分支即 dev_from_v3.1.4，GitHub 的 schedule 事件只在
+#   默认分支上生效，因此本文件随 dev_from_v3.1.4 推送后定时任务即会生效，
+#   无需同步到 master。job 仍显式 checkout 该分支，避免默认分支调整后误写。
+name: 定时同步 release.json 数据
+
+on:
+  workflow_dispatch:
+  schedule:
+    # GitHub 在整点高负载时 cron 任务常被延迟，避开整点。
+    - cron: '23 */12 * * *'  # 每 12 小时（UTC 00:23 / 12:23）
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-index-dev_from_v3.1.4
+  cancel-in-progress: false
+
+jobs:
+  sync-releases:
+    name: Regenerate releases.json on dev_from_v3.1.4
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      # 无论从哪个分支触发，都固定检出并回写 dev_from_v3.1.4，
+      # 避免 schedule 在 master 上触发时误改 master 的上游历史 feed。
+      - name: Checkout fork release branch
+        uses: actions/checkout@v7
+        with:
+          ref: dev_from_v3.1.4
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+
+      - name: Regenerate assets/releases.json
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 tool/sync_fork_releases.py
+
+      - name: Commit and Push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if ! git diff --quiet -- assets/releases.json; then
+            git add assets/releases.json
+            git commit -m "chore: refresh releases.json [skip ci]"
+            git pull --rebase origin dev_from_v3.1.4
+            git push origin HEAD:dev_from_v3.1.4
+          else
+            echo "发布数据未发生变化，无需更新。"
+          fi
