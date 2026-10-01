@@ -3,7 +3,7 @@
   "account_verifying": "Verifying account…",
   "add": "Add",
   "app_legalese": "© 2026 PureLive Open-Source Project. This program is a pure local client application that directly requests the official public APIs of media platforms. The project itself does not store, host, reproduce, or distribute any audio/video resources. The developer solemnly pledges that this application does not collect, process, or retain any user personal data or privacy information. All operational parameters, local configurations, and synchronized metadata are exclusively retained and controlled by the end-user. Users shall assume all legal responsibilities arising from the use of this testing tool.",
-  "app_name": "PureLive",
+  "app_name": "PureLive dev",
   "areas_title": "Areas",
   "arm32": "ARM32 (armeabi-v7a)",
   "arm64": "ARM64 (arm64-v8a)",

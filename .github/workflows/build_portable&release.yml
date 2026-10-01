@@ -134,7 +134,7 @@ jobs:
           $ErrorActionPreference = "Stop"
           $version = "${{ steps.version.outputs.artifact_version }}"
           $bundle = "${{ steps.bundle.outputs.path }}"
-          $portable = "PureLive-$version-windows-x64-portable.zip"
+          $portable = "PureLive-dev-$version-windows-x64-portable.zip"
           $temporary = Join-Path $env:RUNNER_TEMP "pure-live-portable"
           Remove-Item $temporary -Recurse -Force -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Path $temporary -Force | Out-Null
@@ -160,7 +160,7 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           $version = "${{ steps.version.outputs.artifact_version }}"
-          $portable = "PureLive-$version-windows-x64-portable.zip"
+          $portable = "PureLive-dev-$version-windows-x64-portable.zip"
           if (!(Test-Path $portable -PathType Leaf)) {
             Write-Error "Portable package not found: $portable"
           }
@@ -173,7 +173,7 @@ jobs:
         with:
           name: ${{ env.ARTIFACT_NAME }}
           path: |
-            PureLive-*-windows-x64-portable.zip
+            PureLive-dev-*-windows-x64-portable.zip
           if-no-files-found: error
           # 保留 14 天，供“只发布”模式回取最近一次成功构建的产物。
           retention-days: 14
@@ -340,7 +340,7 @@ jobs:
           if not version_desc:
               raise SystemExit("assets/version_desc.md 为空")
 
-          body = f"""# 纯粹直播 {tag}
+          body = f"""# 纯粹直播-dev {tag}
 
           ### 🖥️ Windows 便携版
 

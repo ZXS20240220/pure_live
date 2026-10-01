@@ -40,7 +40,7 @@ class ReleaseAssetUrls {
 
   String _asset(String suffix) {
     if (!isValid) return '';
-    return '$releaseBase/PureLive-$normalizedVersion-$buildNumber-$suffix';
+    return '$releaseBase/PureLive-dev-$normalizedVersion-$buildNumber-$suffix';
   }
 
   String get windowsSetup => _asset('windows-x64-setup.exe');
