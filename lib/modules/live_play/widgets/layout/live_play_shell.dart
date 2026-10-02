@@ -5,6 +5,7 @@ import 'dart:math' as math;
 
 import 'package:ffi/ffi.dart' as ffi;
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/services/settings/panel_size_controller.dart';
 import 'package:pure_live/modules/live_play/widgets/layout/live_play_video.dart';
@@ -275,6 +276,8 @@ class _LivePlayShellState extends State<LivePlayShell> with SingleTickerProvider
     return Listener(
       onPointerSignal: (event) {
         if (event is PointerScrollEvent) {
+          // Ctrl+滚轮属于画面缩放手势（由视频控制面板处理），不调节面板透明度。
+          if (HardwareKeyboard.instance.isControlPressed) return;
           final current = SettingsService.to.panel.immersiveOpacity;
           final delta = event.scrollDelta.dy > 0 ? -0.05 : 0.05;
           SettingsService.to.panel.immersiveOpacity = current + delta;

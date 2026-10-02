@@ -100,6 +100,7 @@
   "screenshot_saved": "截图已保存",
   "screenshot_directory_invalid": "截图目录为空或不存在，请先设置",
   "screenshot_failed": "截图失败",
+  "reset_video_zoom": "重置画面大小和位置",
   "iptv_settings": "IPTV 设置",
   "manage_iptv_sources": "管理您的播放列表和 EPG 订阅源",
   "epg_import_success": "EPG 导入成功",

@@ -3,6 +3,7 @@ import 'package:pure_live/player/core/playback_source.dart';
 import 'dart:io';
 import 'dart:async';
 import 'dart:developer';
+import 'dart:math' as math;
 
 import 'video_controller_panel.dart';
 import 'iptv_programme_policy.dart';
@@ -370,6 +371,93 @@ class VideoController with ChangeNotifier implements DanmakuSettingsBinding {
   final catchUpSwitching = false.obs;
   final batteryLevel = 100.obs;
   final currentVolume = 1.0.obs;
+
+  /// 画面缩放/平移（桌面端 Ctrl+滚轮缩放、Ctrl+拖拽平移）。
+  /// [videoScale] 为相对适配画面的等比倍率，1.0 即原始大小（可缩小露出黑边）；
+  /// [videoPan] 为变换矩阵原点（表面左上角）下的逻辑像素偏移。
+  final videoScale = 1.0.obs;
+  final videoPan = Offset.zero.obs;
+
+  /// 正在进行 Ctrl+左键拖拽平移（用于切换 grabbing 光标）。
+  final videoPanning = false.obs;
+
+  /// 视频表面的最新布局尺寸，用于以指针为锚点缩放和限制平移范围。
+  Size _videoViewSize = Size.zero;
+
+  /// 最小可缩小到适配画面的 50%（四周黑色填充），最大 5 倍。
+  static const double videoZoomMinScale = 0.5;
+  static const double videoZoomMaxScale = 5.0;
+
+  /// Windows 鼠标一格滚轮约为 120，每格缩放 10%（指数累计，触摸板连续平滑）。
+  static const double _wheelPixelsPerNotch = 120.0;
+  static const double _wheelStepRatio = 0.10;
+
+  /// 画面是否处于非默认变换（显示"重置画面"按钮的依据），基准始终为 1.0。
+  bool get isVideoZoomed => (videoScale.value - 1.0).abs() > 0.001;
+
+  /// 同步视频表面尺寸（布局变化/全屏切换后重新约束平移，避免切换后画面偏移越界）。
+  void applyVideoViewSize(Size size) {
+    if (!size.isFinite || size.isEmpty || size == _videoViewSize) return;
+    _videoViewSize = size;
+    if (isVideoZoomed) {
+      final clamped = _clampVideoPan(videoPan.value, videoScale.value);
+      if (clamped != videoPan.value) videoPan.value = clamped;
+    }
+  }
+
+  /// 平移边界：变换矩阵以表面左上角为原点，画面在单轴上覆盖 [pan, pan+s·边长]。
+  /// - 放大（s ≥ 1）时画面须完全覆盖表面：pan ∈ [-(s-1)·边长, 0]；
+  /// - 缩小（s ≤ 1）时画面须完全位于表面内（边缘不能超出播放器）：
+  ///   pan ≥ 0 且 pan + s·边长 ≤ 边长，即 pan ∈ [0, (1-s)·边长]。
+  Offset _clampVideoPan(Offset pan, double scale) {
+    final boundX = (1.0 - scale) * _videoViewSize.width;
+    final boundY = (1.0 - scale) * _videoViewSize.height;
+    return Offset(
+      pan.dx.clamp(math.min(0.0, boundX), math.max(0.0, boundX)).toDouble(),
+      pan.dy.clamp(math.min(0.0, boundY), math.max(0.0, boundY)).toDouble(),
+    );
+  }
+
+  /// 以[focalPoint]（视频表面本地坐标）为锚点缩放：锚点下的画面位置保持不动。
+  /// [scrollDy] 为 PointerScrollEvent.scrollDelta.dy，向上滚（负值）放大。
+  void zoomVideoAt({required Offset focalPoint, required double scrollDy}) {
+    if (_videoViewSize.isEmpty) return;
+    final notches = -scrollDy / _wheelPixelsPerNotch;
+    if (notches.abs() < 0.001) return;
+    final factor = math.pow(1.0 + _wheelStepRatio, notches).toDouble();
+    final oldScale = videoScale.value;
+    final newScale = (oldScale * factor).clamp(videoZoomMinScale, videoZoomMaxScale).toDouble();
+    if ((newScale - oldScale).abs() < 0.0001) return;
+    // newPan = focal - (focal - oldPan) * (newScale / oldScale)
+    final ratio = newScale / oldScale;
+    final newPan = _clampVideoPan(focalPoint - (focalPoint - videoPan.value) * ratio, newScale);
+    videoPan.value = newPan;
+    videoScale.value = newScale;
+  }
+
+  /// 拖拽平移（仅放大状态下生效，受[_clampVideoPan]边界约束）。
+  void panVideoBy(Offset delta) {
+    if (!videoPanning.value || !isVideoZoomed) return;
+    videoPan.value = _clampVideoPan(videoPan.value + delta, videoScale.value);
+  }
+
+  void beginVideoPan() {
+    if (!isVideoZoomed || videoPanning.value) return;
+    videoPanning.value = true;
+  }
+
+  void endVideoPan() {
+    if (!videoPanning.value) return;
+    videoPanning.value = false;
+  }
+
+  /// 恢复画面大小与位置（1.0 + 居中，与最小倍率无关）。
+  void resetVideoTransform() {
+    videoPanning.value = false;
+    videoPan.value = Offset.zero;
+    videoScale.value = 1.0;
+  }
+
   final FullscreenOrientationRestoreState _fullscreenOrientationRestore = FullscreenOrientationRestoreState();
 
   // 弹幕相关

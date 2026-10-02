@@ -42,15 +42,21 @@ class _VideoPlayerState extends State<VideoPlayer> {
         video: Stack(
           fit: StackFit.expand,
           children: [
-            PlaybackFailureOverlay(
-              hasError: hasError,
-              onRetry: controller.refresh,
-              child: GlobalPlayerService.instance.player.getVideoWidget(
-                SettingsService.to.player.videoFitIndex.v,
-                fitList: SettingsService.to.player.videoFitArray,
-                trackPipSource: true,
-                audioOnlyOverride: audioOnly,
-                surfaceColor: widget.surfaceColor,
+            // 桌面端 Ctrl+滚轮缩放 / Ctrl+拖拽平移只作用于视频纹理层，
+            // 弹幕、控制栏等 UI 不受影响；ClipRect 防止放大后的纹理
+            // 绘制到视频表面之外（例如盖住沉浸模式右侧弹幕面板）。
+            VideoZoomTransform(
+              controller: controller,
+              child: PlaybackFailureOverlay(
+                hasError: hasError,
+                onRetry: controller.refresh,
+                child: GlobalPlayerService.instance.player.getVideoWidget(
+                  SettingsService.to.player.videoFitIndex.v,
+                  fitList: SettingsService.to.player.videoFitArray,
+                  trackPipSource: true,
+                  audioOnlyOverride: audioOnly,
+                  surfaceColor: widget.surfaceColor,
+                ),
               ),
             ),
             VideoControllerPanel(controller: controller),
@@ -99,6 +105,67 @@ class StableVideoLayer extends StatelessWidget {
         Offstage(offstage: !visible, child: video),
         if (!visible) placeholder,
       ],
+    );
+  }
+}
+
+/// 桌面端画面缩放/平移变换层：仅变换视频纹理（mpv 输出），
+/// 不影响弹幕、控制栏与截图（截图取的是 mpv 原始解码帧）。
+///
+/// 变换矩阵约定：映射点 p -> scale * p + pan（原点为左上角），
+/// 与 [VideoController.zoomVideoAt] 的锚点计算公式保持一致。
+class VideoZoomTransform extends StatefulWidget {
+  const VideoZoomTransform({super.key, required this.controller, required this.child});
+
+  final VideoController controller;
+  final Widget child;
+
+  @override
+  State<VideoZoomTransform> createState() => _VideoZoomTransformState();
+}
+
+class _VideoZoomTransformState extends State<VideoZoomTransform> {
+  Size? _reportedSize;
+
+  @override
+  void didUpdateWidget(covariant VideoZoomTransform oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 刷新/切换房间会更换 VideoController：新控制器的表面尺寸为 zero，
+    // 必须丢弃旧缓存重新上报，否则缩放会因尺寸未知而被永久拦截。
+    if (oldWidget.controller != widget.controller) {
+      _reportedSize = null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = Size(constraints.maxWidth, constraints.maxHeight);
+        if (size.isFinite && !size.isEmpty && size != _reportedSize) {
+          _reportedSize = size;
+          // 布局期间不能直接触发 Rx 刷新，延后到帧后同步给控制器。
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) widget.controller.applyVideoViewSize(size);
+          });
+        }
+        return Obx(() {
+          final scale = widget.controller.videoScale.value;
+          final pan = widget.controller.videoPan.value;
+          // 列优先矩阵：缩放对角项 + 第 4 列平移，映射 p -> scale * p + pan。
+          final matrix = Matrix4(scale, 0, 0, 0, 0, scale, 0, 0, 0, 0, 1, 0, pan.dx, pan.dy, 0, 1);
+          return ClipRect(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // 缩小画面时纹理外露出的区域统一填充黑色。
+                const ColoredBox(color: Colors.black),
+                Transform(transform: matrix, child: widget.child),
+              ],
+            ),
+          );
+        });
+      },
     );
   }
 }

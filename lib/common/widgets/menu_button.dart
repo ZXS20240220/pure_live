@@ -359,6 +359,9 @@ class _KeyboardShortcutsDialog extends StatelessWidget {
               _ShortcutItem(keys: const ['shift', '←'], desc: '后退 30 秒'),
               _ShortcutItem(keys: const ['shift', '→'], desc: '前进 30 秒'),
               _ShortcutItem(keys: const ['`'], desc: '沉浸模式侧栏开关'),
+              _ShortcutItem(keys: const ['Mouse Wheel'], desc: '调节音量'),
+              _ShortcutItem(keys: const ['Ctrl', 'Mouse Wheel'], desc: '以指针为中心等比缩放画面'),
+              _ShortcutItem(keys: const ['Ctrl', 'Drag'], desc: '画面缩放后按住 Ctrl 拖拽移动画面'),
               _ShortcutItem(keys: const ['Esc'], desc: '退出全屏 / 关闭页面'),
             ],
           )
@@ -377,6 +380,9 @@ class _KeyboardShortcutsDialog extends StatelessWidget {
               _ShortcutItem(keys: const ['←'], desc: 'Back 5s (Shift 30s)'),
               _ShortcutItem(keys: const ['→'], desc: 'Forward 5s (Shift 30s)'),
               _ShortcutItem(keys: const ['`'], desc: 'Toggle immersive panel'),
+              _ShortcutItem(keys: const ['Mouse Wheel'], desc: 'Adjust volume'),
+              _ShortcutItem(keys: const ['Ctrl', 'Mouse Wheel'], desc: 'Zoom video at the cursor'),
+              _ShortcutItem(keys: const ['Ctrl', 'Drag'], desc: 'Hold Ctrl and drag to pan while zoomed'),
               _ShortcutItem(keys: const ['Esc'], desc: 'Exit fullscreen / Close page'),
             ],
           );

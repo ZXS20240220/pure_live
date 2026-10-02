@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/plugins/event_bus.dart';
@@ -102,14 +103,102 @@ class _VideoControllerPanelState extends State<VideoControllerPanel> {
   static const barHeight = 56.0;
   Offset? _lastTapLocalPosition;
 
+  /// Ctrl+左键拖拽平移的指针 id（同一时刻只跟踪一根指针）。
+  int? _panPointerId;
+
+  /// 当前 Ctrl 是否按下，用于切换 grab/zoomIn 光标。
+  bool _ctrlHeld = false;
+
   VideoController get controller => widget.controller;
 
   @override
   void initState() {
     super.initState();
+    HardwareKeyboard.instance.addHandler(_handleHardwareKey);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.enableController();
     });
+  }
+
+  @override
+  void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleHardwareKey);
+    // 面板销毁（进入小窗/切换房间）时结束拖拽，避免 grabbing 状态残留。
+    controller.endVideoPan();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant VideoControllerPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 刷新/切换房间会在同一位置挂载新的 VideoController：结束旧控制器上
+    // 可能残留的平移跟踪，避免 grabbing 光标/指针 id 跨房间串状态。
+    if (oldWidget.controller != widget.controller) {
+      _panPointerId = null;
+      _ctrlHeld = HardwareKeyboard.instance.isControlPressed;
+      oldWidget.controller.endVideoPan();
+    }
+  }
+
+  /// 全局按键回调：跟踪 Ctrl 按下/释放。拖拽中松开 Ctrl 立即结束平移，
+  /// 否则后续普通移动会继续拖走画面。
+  bool _handleHardwareKey(KeyEvent event) {
+    if (!mounted) return false;
+    final held = HardwareKeyboard.instance.isControlPressed;
+    if (held == _ctrlHeld) return false;
+    setState(() => _ctrlHeld = held);
+    if (!held && _panPointerId != null) {
+      _panPointerId = null;
+      controller.endVideoPan();
+    }
+    return false;
+  }
+
+  void _startVideoPan(PointerDownEvent event) {
+    if (_panPointerId != null) return;
+    // 直接读全局实时状态，避免面板挂载前 Ctrl 已按住时本地标志不同步。
+    if (!HardwareKeyboard.instance.isControlPressed || !controller.isVideoZoomed) return;
+    _panPointerId = event.pointer;
+    controller.beginVideoPan();
+    // 拖拽期间没有 hover 事件，主动维持控制栏显示，结束后自动隐藏计时照常恢复。
+    controller.enableController();
+  }
+
+  void _updateVideoPan(PointerMoveEvent event) {
+    if (_panPointerId != event.pointer) return;
+    // 拖拽过程中松开 Ctrl 立即停止平移（本地标志可能尚未回调）。
+    if (!HardwareKeyboard.instance.isControlPressed) {
+      _panPointerId = null;
+      controller.endVideoPan();
+      return;
+    }
+    controller.panVideoBy(event.delta);
+    controller.enableController();
+  }
+
+  void _finishVideoPan(PointerEvent event) {
+    if (_panPointerId != event.pointer) return;
+    _panPointerId = null;
+    controller.endVideoPan();
+  }
+
+  void _handleVideoZoomScroll(PointerScrollEvent event) {
+    if (!HardwareKeyboard.instance.isControlPressed || event.scrollDelta.dy == 0) return;
+    final renderObject = context.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) return;
+    // 面板与视频纹理层铺满同一个 Stack，本地坐标即视频表面坐标。
+    final focalPoint = renderObject.globalToLocal(event.position);
+    controller.zoomVideoAt(focalPoint: focalPoint, scrollDy: event.scrollDelta.dy);
+    controller.enableController();
+  }
+
+  MouseCursor _resolveCursor() {
+    if (controller.videoPanning.value) return SystemMouseCursors.grabbing;
+    if (!controller.showController.value) return SystemMouseCursors.none;
+    if (_ctrlHeld) {
+      return controller.isVideoZoomed ? SystemMouseCursors.grab : SystemMouseCursors.zoomIn;
+    }
+    return SystemMouseCursors.basic;
   }
 
   @override
@@ -131,16 +220,28 @@ class _VideoControllerPanelState extends State<VideoControllerPanel> {
           return MouseRegion(
             onHover: (_) => controller.onMouseHoverPlayer(),
             onExit: (_) => controller.onMouseExitPlayer(),
-            cursor: !controller.showController.value ? SystemMouseCursors.none : SystemMouseCursors.basic,
+            cursor: _resolveCursor(),
             // Right-click is the danmaku interaction trigger. A Listener at the
             // stack root receives secondary presses even over the action bars
             // (no control uses right-click), so danmaku beneath the controls
             // stays interactive.
+            //
+            // Ctrl+滚轮缩放画面、Ctrl+左键拖拽平移也在这一层拦截：滚轮信号
+            // 会同时派发给下层音量区域，音量侧另有 Ctrl 守卫跳过，互不影响。
             child: Listener(
               behavior: HitTestBehavior.translucent,
               onPointerDown: (event) {
+                if (event.buttons == kPrimaryButton) {
+                  _startVideoPan(event);
+                }
                 if (event.buttons != kSecondaryMouseButton) return;
                 controller.handleDanmakuPointer(event.position);
+              },
+              onPointerMove: _updateVideoPan,
+              onPointerUp: _finishVideoPan,
+              onPointerCancel: _finishVideoPan,
+              onPointerSignal: (event) {
+                if (event is PointerScrollEvent) _handleVideoZoomScroll(event);
               },
               child: Stack(
                 children: [
@@ -198,6 +299,8 @@ class _VideoControllerPanelState extends State<VideoControllerPanel> {
                       _lastTapLocalPosition = details.localPosition;
                     },
                     onTap: () {
+                      // Ctrl+点击属于画面缩放/平移交互，不触发暂停/播放与控制栏切换。
+                      if (HardwareKeyboard.instance.isControlPressed) return;
                       final localPosition = _lastTapLocalPosition;
                       if (localPosition != null &&
                           !shouldHandleVideoSurfaceTap(
@@ -219,6 +322,7 @@ class _VideoControllerPanelState extends State<VideoControllerPanel> {
                       }
                     },
                     onLongPressStart: (details) {
+                      if (HardwareKeyboard.instance.isControlPressed) return;
                       if (!shouldHandleVideoSurfaceTap(
                         localPosition: details.localPosition,
                         surfaceSize: context.size ?? Size.zero,
@@ -229,6 +333,7 @@ class _VideoControllerPanelState extends State<VideoControllerPanel> {
                       }
                     },
                     onDoubleTap: () {
+                      if (HardwareKeyboard.instance.isControlPressed) return;
                       if (!controller.showLocked.value) {
                         GlobalPlayerState.to.isWindowFullscreen.value
                             ? controller.toggleWindowFullScreen()
@@ -238,7 +343,7 @@ class _VideoControllerPanelState extends State<VideoControllerPanel> {
                     child: BrightnessVolumnDargArea(controller: controller),
                   ),
                   LockButton(controller: controller),
-                  ScreenshotButton(controller: controller),
+                  PlaybackLeftSideButtons(controller: controller),
                   TopActionBar(controller: controller, barHeight: barHeight),
                   BottomActionBar(controller: controller, barHeight: barHeight),
                 ],
@@ -771,6 +876,8 @@ class BrightnessVolumnDargAreaState extends State<BrightnessVolumnDargArea> {
 
     return Listener(
       onPointerDown: (event) {
+        // Ctrl+左键拖拽是画面平移手势，不启动音量/亮度竖向调节。
+        if (event.buttons == kPrimaryButton && HardwareKeyboard.instance.isControlPressed) return;
         if (event.buttons != kPrimaryButton) return;
         _syncBaseValue(event.position);
         if (Platform.isWindows && _isBrightness) return;
@@ -783,6 +890,7 @@ class BrightnessVolumnDargAreaState extends State<BrightnessVolumnDargArea> {
         });
       },
       onPointerMove: (event) {
+        if (HardwareKeyboard.instance.isControlPressed) return;
         if (!_isActivated) return;
         _applyVerticalDelta(event.delta.dy);
         _cancelAndRestartHideBVTimer();
@@ -797,6 +905,8 @@ class BrightnessVolumnDargAreaState extends State<BrightnessVolumnDargArea> {
       },
       onPointerSignal: (event) {
         if (event is PointerScrollEvent) {
+          // Ctrl+滚轮用于等比例缩放画面，此处跳过，音量保持不变。
+          if (HardwareKeyboard.instance.isControlPressed) return;
           _syncBaseValue(event.position);
           if (Platform.isWindows && _isBrightness) return;
           _applyScrollDelta(event.scrollDelta.dy);
@@ -881,7 +991,81 @@ class LockButton extends StatelessWidget {
   }
 }
 
-/// 播放器左侧的常驻截屏按钮（与右侧锁定按钮位置对称的播放器控件），
+/// 播放器左侧按钮列：截图按钮，以及画面被缩放后出现在其正上方的
+/// "重置画面"按钮（风格与截图按钮一致）。
+class PlaybackLeftSideButtons extends StatelessWidget {
+  const PlaybackLeftSideButtons({super.key, required this.controller});
+
+  final VideoController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: 20,
+      top: 0,
+      bottom: 0,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 未缩放时重置按钮折叠为零高度，截图按钮保持垂直居中；
+            // 缩放后展开并与截图按钮间隔 16px。
+            AnimatedSize(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+              alignment: Alignment.bottomCenter,
+              child: Obx(() {
+                if (!controller.isVideoZoomed) return const SizedBox(width: 50, height: 0);
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    VideoZoomResetButton(controller: controller),
+                    const SizedBox(height: 16),
+                  ],
+                );
+              }),
+            ),
+            ScreenshotButton(controller: controller),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 画面缩放后的"重置画面大小和位置"按钮，样式与截图按钮完全一致，
+/// 显隐同样跟随控制栏（控制栏自动隐藏时一起淡出且不响应点击）。
+class VideoZoomResetButton extends StatelessWidget {
+  const VideoZoomResetButton({super.key, required this.controller});
+
+  final VideoController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(
+      () => AnimatedOpacity(
+        opacity: controller.showController.value ? 0.9 : 0.0,
+        duration: const Duration(milliseconds: 300),
+        child: AbsorbPointer(
+          absorbing: !controller.showController.value,
+          child: IconButton(
+            tooltip: i18n('reset_video_zoom'),
+            onPressed: controller.resetVideoTransform,
+            icon: const Icon(Icons.fit_screen_rounded, size: 28),
+            color: Colors.white,
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.black38,
+              shape: const StadiumBorder(),
+              minimumSize: const Size(50, 50),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 播放器左侧的截屏按钮（与右侧锁定按钮位置对称的播放器控件），
 /// 跟随控件栏显隐，任何窗口尺寸/模式下都可用，不限于宽屏模式。
 /// 截取 mpv 原始解码帧（不含 UI 控件），保存到设置的截图目录。
 class ScreenshotButton extends StatelessWidget {
@@ -895,22 +1079,16 @@ class ScreenshotButton extends StatelessWidget {
       () => AnimatedOpacity(
         opacity: controller.showController.value ? 0.9 : 0.0,
         duration: const Duration(milliseconds: 300),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: AbsorbPointer(
-            absorbing: !controller.showController.value,
-            child: Container(
-              margin: const EdgeInsets.only(left: 20.0),
-              child: IconButton(
-                onPressed: controller.takeScreenshot,
-                icon: const Icon(Icons.photo_camera_outlined, size: 28),
-                color: Colors.white,
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.black38,
-                  shape: const StadiumBorder(),
-                  minimumSize: const Size(50, 50),
-                ),
-              ),
+        child: AbsorbPointer(
+          absorbing: !controller.showController.value,
+          child: IconButton(
+            onPressed: controller.takeScreenshot,
+            icon: const Icon(Icons.photo_camera_outlined, size: 28),
+            color: Colors.white,
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.black38,
+              shape: const StadiumBorder(),
+              minimumSize: const Size(50, 50),
             ),
           ),
         ),
