@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:remixicon/remixicon.dart';
@@ -121,6 +122,11 @@ class RoomCard extends StatelessWidget {
   }
 
   void onTap(BuildContext context) async {
+    // Windows 桌面：按住 Ctrl 点击直接在悬浮窗中播放该房间。
+    if (Platform.isWindows && HardwareKeyboard.instance.isControlPressed) {
+      await GlobalPlayerService.instance.player.openAppFloatingFromRoom(room);
+      return;
+    }
     AppNavigator.toLiveRoomDetail(liveRoom: room);
   }
 

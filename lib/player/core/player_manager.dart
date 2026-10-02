@@ -4,9 +4,12 @@ import 'dart:developer';
 import 'dart:math' as math;
 
 import 'package:pure_live/core/common/hls_source_query_policy.dart';
+import 'package:pure_live/core/interface/live_site.dart';
+import 'package:pure_live/core/interface/live_quality_discovery.dart';
 
 import 'playback_source_transport.dart';
 import 'playback_source.dart';
+import 'playback_header_resolver.dart';
 
 import 'line_fallback_manager.dart';
 import 'live_stream_geometry_hint.dart';
@@ -20,6 +23,7 @@ import 'package:floating/floating.dart';
 import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform, Uint8List;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart' show HardwareKeyboard;
 
 import '../models/player_exception.dart';
 
@@ -407,6 +411,17 @@ class PlayerManager {
   final RxBool isFloating = false.obs;
   final RxBool isHovered = false.obs;
   final RxBool isFloatingVideoVisible = true.obs;
+
+  /// 悬浮窗（app floating）长边尺寸，运行时记忆，不落盘。
+  /// 范围 [floatingMinLongSide, floatingMaxLongSide]，默认 350（即原最小尺寸）。
+  final RxDouble floatingLongSide = 350.0.obs;
+
+  /// 悬浮窗上次拖拽结束后的位置（左上角坐标），运行时记忆，不落盘。
+  /// null 表示使用默认位置（right: 50, top: 100）。
+  final Rxn<Offset> floatingSavedPosition = Rxn<Offset>();
+
+  static const double floatingMinLongSide = 350.0;
+  static const double floatingMaxLongSide = 640.0;
 
   /// Compact-mode scoped mute (PiP + app floating). It only silences the
   /// current player session and is never persisted: leaving compact mode
@@ -811,6 +826,81 @@ class PlayerManager {
       _appFloatingSession = null;
     }
     _appFloatingPrepared = true;
+  }
+
+  /// 从房间卡片直接打开悬浮窗播放（关注/热门/分区页 Ctrl+点击入口）。
+  ///
+  /// - 若已在播放同一房间：原地刷新流，不重建悬浮窗、不改变位置/尺寸。
+  /// - 若已有悬浮窗在播其他房间：关闭旧的再开新的。
+  /// - 复用 [showAppFloating] 同一套悬浮窗 UI。
+  Future<void> openAppFloatingFromRoom(LiveRoom room) async {
+    if (!Platform.isWindows) return;
+    final platform = room.platform;
+    final roomId = room.roomId;
+    if (platform == null || roomId == null) return;
+
+    // 同房间原地刷新：只重载流，不重建 floating overlay。
+    final current = currentFloatRoom;
+    if (current != null && current.platform == platform && current.roomId == roomId) {
+      await _reloadFloatingRoom(room);
+      return;
+    }
+
+    // 关闭已有悬浮窗（若在播其他房间）。
+    if (isFloating.value || _appFloatingPrepared) {
+      await closeAppFloating();
+    }
+
+    final site = Sites.of(platform);
+    final liveSite = site.liveSite;
+    try {
+      final detail = await liveSite.getRoomDetail(roomId: roomId, platform: platform);
+      if (!detail.isPlayableNow) return;
+      final qualities = await liveSite.discoverPlayQualities(detail: detail);
+      if (qualities.isEmpty) return;
+      // 悬浮窗尺寸小，取最低清晰度省流量。
+      final quality = qualities.last;
+      final resolution = await liveSite.resolvePlayUrls(detail: detail, quality: quality);
+      final urls = resolution.urls;
+      if (urls.isEmpty) return;
+      final headers = await PlaybackHeaderResolver.resolve(
+        platform: platform,
+        roomId: roomId,
+        roomHeaders: detail.httpHeaders,
+      );
+      await play(urls.first, urls, headers, room: detail);
+      prepareAppFloating(onClose: () async {}, session: null);
+      showAppFloating();
+    } catch (error, stackTrace) {
+      log('openAppFloatingFromRoom failed', name: 'PlayerManager', error: error, stackTrace: stackTrace);
+    }
+  }
+
+  /// 原地刷新悬浮窗正在播放的房间流（不重建 overlay、不改位置/尺寸）。
+  Future<void> _reloadFloatingRoom(LiveRoom room) async {
+    final platform = room.platform;
+    final roomId = room.roomId;
+    if (platform == null || roomId == null) return;
+    final site = Sites.of(platform);
+    final liveSite = site.liveSite;
+    try {
+      final detail = await liveSite.getRoomDetail(roomId: roomId, platform: platform);
+      if (!detail.isPlayableNow) return;
+      final qualities = await liveSite.discoverPlayQualities(detail: detail);
+      if (qualities.isEmpty) return;
+      final quality = qualities.last;
+      final resolution = await liveSite.resolvePlayUrls(detail: detail, quality: quality);
+      final urls = resolution.urls;
+      if (urls.isEmpty) return;
+      final headers = await PlaybackHeaderResolver.resolve(
+        platform: platform,
+        roomId: roomId,
+        roomHeaders: detail.httpHeaders,
+      );
+      await play(urls.first, urls, headers, room: detail);
+    } catch (error, stackTrace) {
+      log('_reloadFloatingRoom failed', name: 'PlayerManager', error: error, stackTrace: stackTrace);
+    }
   }
 
   Widget _buildCompactDanmaku() {
@@ -3169,7 +3259,8 @@ class PlayerManager {
     isFloatingVideoVisible.value = true;
     floatingManager.disposeFloating(_floatTag);
     _hideTimer?.cancel();
-    final maxSide = Platform.isWindows ? 350.0 : 220.0;
+    // 长边从运行时记忆的 floatingLongSide 读取，clamp 到合法范围。
+    final maxSide = Platform.isWindows ? floatingLongSide.value.clamp(floatingMinLongSide, floatingMaxLongSide) : 220.0;
     // This selects Flutter interaction behavior, not a native platform API.
     final touchControls =
         defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS;
@@ -3182,6 +3273,10 @@ class PlayerManager {
         });
       }
     }
+
+    // 若有记忆的位置则按绝对坐标定位，否则沿用默认右上角偏移。
+    final savedPos = floatingSavedPosition.value;
+    final hasSavedPosition = savedPos != null && Platform.isWindows;
 
     isFloatingVideoVisible.value = true;
     floatingManager.createFloating(
@@ -3272,13 +3367,23 @@ class PlayerManager {
             );
           }),
         ),
-        right: 50,
-        top: 100,
-        slideType: FloatingEdgeType.onRightAndTop,
+        slideType: hasSavedPosition ? FloatingEdgeType.onPoint : FloatingEdgeType.onRightAndTop,
+        top: hasSavedPosition ? null : 100,
+        right: hasSavedPosition ? null : 50,
+        position: hasSavedPosition ? FPosition(savedPos.dx, savedPos.dy) : null,
         params: FloatingParams(isSnapToEdge: false, snapToEdgeSpace: 10, dragOpacity: 0.8),
       ),
     );
     final overlay = floatingManager.getFloating(_floatTag);
+    // 拖拽结束时记忆位置（仅 Windows，运行时不落盘）。
+    if (Platform.isWindows) {
+      overlay.addFloatingListener(
+        FloatingEventListener()
+          ..moveEndListener = (pos) {
+            floatingSavedPosition.value = Offset(pos.x, pos.y);
+          },
+      );
+    }
     final overlayContext = Get.overlayContext;
     if (overlayContext != null) {
       overlay.open(overlayContext);
@@ -3538,9 +3643,14 @@ class PlayerManager {
     return Builder(
       builder: (context) => Listener(
         onPointerSignal: (event) {
-          if (event is PointerScrollEvent && event.scrollDelta.dy != 0) {
-            unawaited(adjustCompactVolumeByWheel(event.scrollDelta.dy));
+          if (event is! PointerScrollEvent || event.scrollDelta.dy == 0) return;
+          // Ctrl + 滚轮：固定比例缩放窗口（app floating / Windows PiP 通用）。
+          if (HardwareKeyboard.instance.isControlPressed) {
+            unawaited(_adjustCompactSizeByWheel(event.scrollDelta.dy));
+            return;
           }
+          // 普通滚轮：调节音量（原有行为）。
+          unawaited(adjustCompactVolumeByWheel(event.scrollDelta.dy));
         },
         // While a button is held (e.g. dragging the volume track), Flutter
         // desktop does not update MouseRegion hover state, so a drag that
@@ -3552,6 +3662,32 @@ class PlayerManager {
         child: child,
       ),
     );
+  }
+
+  /// Ctrl+滚轮固定比例缩放紧凑窗口。
+  /// - app floating：更新 [floatingLongSide]，触发 Obx 重建尺寸。
+  /// - Windows PiP：直接调用 windowManager.setSize，按当前比例缩放。
+  Future<void> _adjustCompactSizeByWheel(double scrollDy) async {
+    if (!Platform.isWindows) return;
+    const step = 24.0;
+    final delta = scrollDy > 0 ? -step : step; // 向上滚放大，向下滚缩小
+    if (isInPip.value) {
+      // Windows PiP：按当前视频比例缩放窗口尺寸。
+      final bounds = await windowManager.getBounds();
+      final current = bounds.size;
+      final ratio = current.width / current.height;
+      var longSide = (current.longestSide + delta).clamp(floatingMinLongSide, floatingMaxLongSide);
+      final Size newSize;
+      if (current.width >= current.height) {
+        newSize = Size(longSide, longSide / ratio);
+      } else {
+        newSize = Size(longSide * ratio, longSide);
+      }
+      await windowManager.setSize(newSize);
+    } else {
+      // app floating：更新长边，showAppFloating 的 Obx 会重建尺寸。
+      floatingLongSide.value = (floatingLongSide.value + delta).clamp(floatingMinLongSide, floatingMaxLongSide);
+    }
   }
 
   void _compactReleaseHoverGuard(BuildContext context, Offset globalPosition) {
