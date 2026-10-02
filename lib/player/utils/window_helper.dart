@@ -116,6 +116,24 @@ void _writeWindowsPipGeometry(Size size, Offset position, String displayId) {
   SettingsService.to.window.windowsPip.update(size, position, displayId);
 }
 
+/// Smallest user-resizable PiP window for a given content aspect ratio.
+/// Uses the same 350 long-edge ladder as the in-app floating window so manual
+/// dragging cannot shrink a Windows mini player below the compact baseline.
+@visibleForTesting
+Size resolveWindowsPipMinSize(double aspectRatio) {
+  const minLongEdge = 350.0;
+  const minShortEdge = 120.0;
+  final ratio = aspectRatio.isFinite && aspectRatio > 0 ? aspectRatio : 16 / 9;
+  if (ratio >= 1) return Size(minLongEdge, minLongEdge / ratio);
+  var height = minLongEdge * 1.2;
+  var width = height * ratio;
+  if (width < minShortEdge) {
+    width = minShortEdge;
+    height = width / ratio;
+  }
+  return Size(width, height);
+}
+
 @visibleForTesting
 Rect resolveWindowsPipBounds({
   required Size defaultSize,
@@ -307,15 +325,24 @@ class WindowHelper {
       savedBounds: savedBounds,
     );
 
+    // A remembered size from an older release (or the square-entry branch)
+    // can be smaller than the compact baseline; enlarge it when applying so
+    // neither entry nor later manual resizing can break the floor.
+    final pipMinSize = resolveWindowsPipMinSize(ratio);
+    final effectiveSize = Size(
+      bounds.width < pipMinSize.width ? pipMinSize.width : bounds.width,
+      bounds.height < pipMinSize.height ? pipMinSize.height : bounds.height,
+    );
+
     try {
       await _host.setAlwaysOnTop(preferences.alwaysOnTop);
-      await _host.setMinimumSize(Size.zero);
-      await _host.setSize(bounds.size);
+      await _host.setMinimumSize(pipMinSize);
+      await _host.setSize(effectiveSize);
       await _host.setPosition(bounds.topLeft);
 
       if (rememberPosition) {
         final resolvedDisplay = _findDisplayForPosition(displays, bounds.topLeft) ?? currentDisplay;
-        _writeGeometry(bounds.size, bounds.topLeft, resolvedDisplay.id);
+        _writeGeometry(effectiveSize, bounds.topLeft, resolvedDisplay.id);
       }
     } catch (error, stackTrace) {
       await _restoreHostWindow(

@@ -35,6 +35,7 @@ import '../interface/unified_player_interface.dart';
 import 'package:pure_live/routes/app_navigation.dart';
 import 'package:pure_live/model/live_play_quality.dart';
 import 'package:pure_live/player/utils/fullscreen.dart';
+import 'package:pure_live/player/utils/window_helper.dart';
 import 'package:flutter_floating/flutter_floating.dart';
 import 'package:pure_live/player/utils/player_consts.dart';
 import 'package:pure_live/player/utils/popup_route_tracker.dart';
@@ -405,6 +406,17 @@ class PlayerManager {
   final RxBool isFloating = false.obs;
   final RxBool isHovered = false.obs;
   final RxBool isFloatingVideoVisible = true.obs;
+
+  /// Compact-mode scoped mute (PiP + app floating). It only silences the
+  /// current player session and is never persisted: leaving compact mode
+  /// restores the room's saved volume, and the next compact session starts
+  /// unmuted.
+  final RxBool isCompactMuted = false.obs;
+
+  /// Live topmost state of the Windows PiP window. Seeded from the
+  /// `windowsPipAlwaysOnTop` setting on entry, toggled from the PiP overlay;
+  /// not persisted across PiP sessions.
+  final RxBool isPipAlwaysOnTop = false.obs;
 
   /// True only while a deep power-saving audio session is reacquiring video.
   /// The audio presentation remains interactive during this interval, avoiding
@@ -2770,6 +2782,50 @@ class PlayerManager {
     await _currentPlayer?.setVolume(volume.clamp(0.0, 1.0));
   }
 
+  /// Toggles the compact-mode scoped mute used by the PiP/floating controls.
+  /// Muting sets the live session to volume 0 without touching the room's
+  /// saved preference; unmuting restores that preference.
+  Future<void> toggleCompactMute() async {
+    final player = _currentPlayer;
+    if (player == null || _isClosing || _disposed) return;
+    final next = !isCompactMuted.value;
+    final targetVolume = next ? 0.0 : (currentFloatRoom?.getSavedVolume() ?? 1.0).clamp(0.0, 1.0);
+    try {
+      await player.setVolume(targetVolume);
+      isCompactMuted.value = next;
+    } catch (error, stackTrace) {
+      log('Compact mute toggle failed', name: 'PlayerManager', error: error, stackTrace: stackTrace);
+    }
+  }
+
+  /// Restores the room volume and clears the compact mute flag. Called when a
+  /// PiP/floating session ends so the mute never leaks back into the room.
+  Future<void> resetCompactMute() async {
+    if (!isCompactMuted.value) return;
+    isCompactMuted.value = false;
+    final player = _currentPlayer;
+    if (player == null || _isClosing || _disposed) return;
+    try {
+      await player.setVolume((currentFloatRoom?.getSavedVolume() ?? 1.0).clamp(0.0, 1.0));
+    } catch (error, stackTrace) {
+      log('Restore room volume after compact mute failed', name: 'PlayerManager', error: error, stackTrace: stackTrace);
+    }
+  }
+
+  /// Flips the live topmost state of the current Windows PiP window. This does
+  /// not change the `windowsPipAlwaysOnTop` default for future PiP sessions.
+  Future<void> toggleWindowsPipAlwaysOnTop() async {
+    if (!_usesWindowsPip || !isInPip.value || _pipTransitionInFlight) return;
+    final next = !isPipAlwaysOnTop.value;
+    try {
+      await WindowHelper.instance.setPiPAlwaysOnTop(next);
+      isPipAlwaysOnTop.value = next;
+    } catch (error, stackTrace) {
+      log('Windows PiP always-on-top toggle failed', name: 'PlayerManager', error: error, stackTrace: stackTrace);
+      ToastUtil.show(i18n('windows_pip_always_on_top_apply_failed'));
+    }
+  }
+
   Future<void> seekTo(Duration position) async => await _currentPlayer?.seekTo(position);
 
   Future<void> seekRelative(Duration offset) async => await _currentPlayer?.seekRelative(offset);
@@ -2968,6 +3024,9 @@ class PlayerManager {
           return;
         }
         isInPip.value = true;
+        // Seed the ephemeral pin toggle from the setting every time PiP opens;
+        // in-session flips must not survive into the next PiP session.
+        isPipAlwaysOnTop.value = SettingsService.to.player.windowsPipAlwaysOnTop.value;
       } finally {
         if (revision == _pipTransitionRevision) {
           _pipTransitionInFlight = false;
@@ -3011,9 +3070,13 @@ class PlayerManager {
         await _windowsPipExit();
         if (!ownsTransition()) return;
         isInPip.value = false;
+        // The compact-only mute is scoped to the mini window: returning to
+        // the room restores the room's saved volume.
+        await resetCompactMute();
       } catch (error) {
         if (error is WindowsPipExitFailure && !error.hostIsInPip && ownsTransition()) {
           isInPip.value = false;
+          await resetCompactMute();
         }
         rethrow;
       } finally {
@@ -3122,36 +3185,7 @@ class PlayerManager {
                       child: const SizedBox.expand(),
                     ),
                   ),
-                  Center(
-                    child: Obx(
-                      () => AnimatedOpacity(
-                        opacity: isHovered.value ? 1 : 0,
-                        duration: const Duration(milliseconds: 200),
-                        child: IgnorePointer(
-                          ignoring: !isHovered.value,
-                          child: StreamBuilder<bool>(
-                            stream: onPlaying,
-                            initialData: isPlayingNow,
-                            builder: (context, snapshot) {
-                              var isPlay = snapshot.data ?? true;
-                              return IconButton(
-                                iconSize: 42,
-                                style: IconButton.styleFrom(backgroundColor: Colors.black45),
-                                icon: Icon(
-                                  isPlay ? Icons.pause_circle_filled : Icons.play_circle_filled,
-                                  color: Colors.white,
-                                ),
-                                onPressed: () {
-                                  togglePlayPause();
-                                  resetHideTimer();
-                                },
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                  _buildCompactPlaybackControls(afterAction: resetHideTimer),
                   Positioned(
                     right: 4,
                     top: 4,
@@ -3258,6 +3292,9 @@ class PlayerManager {
       }
       if (!isInPip.value) {
         _videoController?.clearPipDanmaku();
+        // Both "tap to re-enter the room" and "close" finish here: drop the
+        // compact-only mute and restore the room's saved volume.
+        await resetCompactMute();
       }
     }();
     _floatingCleanup = cleanup;
@@ -3266,6 +3303,58 @@ class PlayerManager {
     } finally {
       if (identical(_floatingCleanup, cleanup)) _floatingCleanup = null;
     }
+  }
+
+  /// Centered play/pause + compact-mute controls shared by the Windows PiP
+  /// overlay and the in-app floating window. [afterAction] is used by touch
+  /// overlays to reset the auto-hide timer after a tap.
+  Widget _buildCompactPlaybackControls({VoidCallback? afterAction}) {
+    Widget circularButton({required IconData icon, String? tooltip, required VoidCallback onPressed}) {
+      return IconButton(
+        iconSize: 42,
+        tooltip: tooltip,
+        style: IconButton.styleFrom(backgroundColor: Colors.black45),
+        icon: Icon(icon, color: Colors.white),
+        onPressed: () {
+          onPressed();
+          afterAction?.call();
+        },
+      );
+    }
+
+    return Center(
+      child: Obx(
+        () => AnimatedOpacity(
+          opacity: isHovered.value ? 1 : 0,
+          duration: const Duration(milliseconds: 200),
+          child: IgnorePointer(
+            ignoring: !isHovered.value,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                circularButton(
+                  icon: isCompactMuted.value ? Icons.volume_off : Icons.volume_up,
+                  tooltip: i18n(isCompactMuted.value ? 'cancel_mute' : 'mute'),
+                  onPressed: () => unawaited(toggleCompactMute()),
+                ),
+                const SizedBox(width: 12),
+                StreamBuilder<bool>(
+                  stream: onPlaying,
+                  initialData: isPlayingNow,
+                  builder: (context, snapshot) {
+                    final isPlay = snapshot.data ?? true;
+                    return circularButton(
+                      icon: isPlay ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                      onPressed: () => unawaited(togglePlayPause()),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget buildPiPOverlay() {
@@ -3292,32 +3381,34 @@ class PlayerManager {
                 ),
               ),
               Positioned.fill(child: _buildCompactDanmaku()),
-              Center(
-                child: Obx(
-                  () => AnimatedOpacity(
-                    opacity: isHovered.value ? 1 : 0,
-                    duration: const Duration(milliseconds: 200),
-                    child: StreamBuilder<bool>(
-                      stream: onPlaying,
-                      initialData: isPlayingNow,
-                      builder: (context, snapshot) {
-                        var isPlay = snapshot.data ?? true;
-                        return IconButton(
-                          iconSize: 42,
+              _buildCompactPlaybackControls(),
+              // Windows only: live topmost toggle for the mini window. It is
+              // seeded from the setting on PiP entry and is not persisted.
+              if (_usesWindowsPip)
+                Positioned(
+                  left: 8,
+                  top: 8,
+                  child: Obx(
+                    () => AnimatedOpacity(
+                      opacity: isHovered.value ? 1 : 0,
+                      duration: const Duration(milliseconds: 200),
+                      child: IgnorePointer(
+                        ignoring: !isHovered.value,
+                        child: IconButton(
+                          constraints: const BoxConstraints(),
+                          padding: const EdgeInsets.all(8),
                           style: IconButton.styleFrom(backgroundColor: Colors.black45),
+                          tooltip: i18n(isPipAlwaysOnTop.value ? 'pip_cancel_always_on_top' : 'pip_always_on_top'),
                           icon: Icon(
-                            isPlay ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                            isPipAlwaysOnTop.value ? Icons.push_pin : Icons.push_pin_outlined,
                             color: Colors.white,
                           ),
-                          onPressed: () {
-                            togglePlayPause();
-                          },
-                        );
-                      },
+                          onPressed: isPipPreparing.value ? null : () => unawaited(toggleWindowsPipAlwaysOnTop()),
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
               Positioned(
                 right: 8,
                 top: 8,
@@ -3635,6 +3726,9 @@ class PlayerManager {
     _cancelPipTransition();
     _stopAndroidPipObservation();
     if (_usesAndroidPip || restoreWindowsWindow) isInPip.value = false;
+    // Compact-only controls never outlive the playback session.
+    isCompactMuted.value = false;
+    isPipAlwaysOnTop.value = false;
     // Intent changes belong to dispatch, not native teardown. A pending source
     // open/recovery must lose ownership as soon as close is requested. Waiting
     // for the lifecycle queue used to let it become audible first, and a later
@@ -4736,6 +4830,9 @@ class PlayerManager {
     _cancelPipTransition();
     _stopAndroidPipObservation();
     if (_usesAndroidPip || restoreWindowsWindow) isInPip.value = false;
+    // Compact-only controls never outlive the playback session.
+    isCompactMuted.value = false;
+    isPipAlwaysOnTop.value = false;
     if (restoreWindowsWindow) {
       await _restoreWindowsMainWindow();
     }
