@@ -1,4 +1,5 @@
 import 'package:pure_live/common/index.dart';
+import 'package:pure_live/modules/live_play/pip/mini_pip_widgets.dart';
 import 'package:pure_live/modules/live_play/widgets/keyboard/video_keyboard.dart';
 import 'package:pure_live/modules/live_play/widgets/layout/live_play_back_scope.dart';
 import 'package:pure_live/modules/live_play/widgets/layout/live_play_content.dart';
@@ -27,13 +28,29 @@ class LivePlayPage extends GetView<LivePlayController> {
 
       final content = _withLocalGiftEffect(child);
 
+      // 沉浸模式下小窗宿主挂在 LivePlayShell 内部（视频层与侧栏层之间），
+      // 保证展开的侧栏始终盖住小窗；其余模式（普通分屏/全屏/窗口全屏）
+      // 由这里的顶层宿主渲染。两处挂载互斥，不会重复出现。
+      final immersiveActive = !isInPip && mode == VideoMode.normal && SettingsService.to.player.enableImmersiveLayout.v;
+
       // Keep desktop route shortcuts mounted even when metadata loading ends
       // in an offline/error placeholder before a VideoController exists.
       // Otherwise the visible back button works while Escape silently does
       // nothing on exactly those failure states.
       final page = VideoKeyboardShortcuts(
         controller: videoController,
-        child: Container(color: Colors.black, width: double.infinity, height: double.infinity, child: content),
+        child: Container(
+          color: Colors.black,
+          width: double.infinity,
+          height: double.infinity,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              content,
+              if (!immersiveActive) const Positioned.fill(child: MiniPipHost()),
+            ],
+          ),
+        ),
       );
 
       return LivePlayBackScope(

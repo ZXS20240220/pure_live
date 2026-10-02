@@ -642,12 +642,17 @@ class PIPButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final miniPip = Get.isRegistered<LivePlayController>() ? Get.find<LivePlayController>().miniPip : null;
     return Obx(() {
       final manager = GlobalPlayerService.instance.player;
+      // 新进程内小窗存在时暂时禁用旧 Windows PiP：两套浮窗的视频/窗口
+      // 状态互不感知，同时激活会造成主画面归属混乱。
+      final blockedByMiniPip = miniPip?.slots.isNotEmpty ?? false;
+      final disabled = manager.isPipPreparing.value || blockedByMiniPip;
       return IconButton(
-        tooltip: i18n('float_window_play'),
+        tooltip: i18n(blockedByMiniPip ? 'pip_disabled_by_mini_pip' : 'float_window_play'),
         color: Colors.white,
-        onPressed: manager.isPipPreparing.value
+        onPressed: disabled
             ? null
             : () async {
                 try {

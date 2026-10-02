@@ -361,7 +361,9 @@ class _KeyboardShortcutsDialog extends StatelessWidget {
               _ShortcutItem(keys: const ['`'], desc: '沉浸模式侧栏开关'),
               _ShortcutItem(keys: const ['Mouse Wheel'], desc: '调节音量'),
               _ShortcutItem(keys: const ['Ctrl', 'Mouse Wheel'], desc: '以指针为中心等比缩放画面'),
-              _ShortcutItem(keys: const ['Ctrl', 'Drag'], desc: '画面缩放后按住 Ctrl 拖拽移动画面'),
+              _ShortcutItem(keys: const ['Ctrl', 'Drag'], desc: '画面放大后按住 Ctrl 拖拽移动画面'),
+              _ShortcutItem(keys: const ['Ctrl', 'Click'], desc: '按住 Ctrl 点击侧栏直播间卡片，在小窗中打开'),
+              _ShortcutItem(keys: const ['Double Click'], desc: '双击小窗将该直播间切换到主窗口并关闭小窗'),
               _ShortcutItem(keys: const ['Esc'], desc: '退出全屏 / 关闭页面'),
             ],
           )
@@ -382,7 +384,15 @@ class _KeyboardShortcutsDialog extends StatelessWidget {
               _ShortcutItem(keys: const ['`'], desc: 'Toggle immersive panel'),
               _ShortcutItem(keys: const ['Mouse Wheel'], desc: 'Adjust volume'),
               _ShortcutItem(keys: const ['Ctrl', 'Mouse Wheel'], desc: 'Zoom video at the cursor'),
-              _ShortcutItem(keys: const ['Ctrl', 'Drag'], desc: 'Hold Ctrl and drag to pan while zoomed'),
+              _ShortcutItem(keys: const ['Ctrl', 'Drag'], desc: 'Hold Ctrl and drag to pan while zoomed in'),
+              _ShortcutItem(
+                keys: const ['Ctrl', 'Click'],
+                desc: 'Ctrl-click a sidebar room card to open it in a mini window',
+              ),
+              _ShortcutItem(
+                keys: const ['Double Click'],
+                desc: 'Double-click a mini window to move that room to the main player and close it',
+              ),
               _ShortcutItem(keys: const ['Esc'], desc: 'Exit fullscreen / Close page'),
             ],
           );

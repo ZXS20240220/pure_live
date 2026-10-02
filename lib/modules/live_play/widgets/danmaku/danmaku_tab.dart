@@ -5,6 +5,7 @@ import 'package:pure_live/modules/live_play/pages/keyword_block_page.dart';
 import 'package:pure_live/modules/live_play/pages/danmaku_settings_page.dart';
 import 'package:pure_live/modules/live_play/controllers/live_play_controller.dart';
 import 'package:pure_live/modules/live_play/dialogs/play_other.dart';
+import 'package:pure_live/modules/live_play/pip/mini_pip_widgets.dart';
 import 'package:pure_live/modules/live_play/widgets/danmaku/danmaku_list_view.dart';
 import 'package:pure_live/modules/multiview/danmaku/multiview_danmaku_settings_binding.dart';
 
@@ -46,7 +47,7 @@ class DanmakuTabView extends GetView<LivePlayController> {
                     showHeader: true,
                     showCloseButton: false,
                     isPersistent: true,
-                    onSelectRoom: (room) => controller.switchRoom(room),
+                    onSelectRoom: (room) => selectRoomWithMiniPip(controller, room),
                   ),
                   DanmakuSettingsPage(controller: settingsBinding),
                   const KeywordBlockPage(),

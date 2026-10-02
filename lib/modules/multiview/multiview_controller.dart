@@ -194,6 +194,26 @@ class MultiviewController extends GetxController {
     );
   }
 
+  /// 供播放页进程内小窗（mini PiP）复用的公开解析入口：始终取最低清晰度。
+  ///
+  /// 小窗显示尺寸小，固定最低档可显著降低解码与带宽成本，档位切换不向
+  /// 小窗开放；解析链路、headers、FLV 租约等与多画面格完全一致。
+  static Future<MultiviewStreamSource> resolveRoomStream(LiveRoom room) {
+    return resolveStreamForSite(
+      room,
+      site: Sites.of(room.platform!),
+      preferLowest: true,
+    );
+  }
+
+  /// 供进程内小窗复用：把已解析的直播源提交给独立播放器实例（静音起播）。
+  static Future<void> openResolvedSource(
+    MultiviewCellPlayerHandle handle,
+    MultiviewStreamSource source, {
+    required bool start,
+    String? url,
+  }) => _openCellSource(handle, source, start: start, url: url);
+
   static Future<void> _openCellSource(
     MultiviewCellPlayerHandle handle,
     MultiviewStreamSource source, {

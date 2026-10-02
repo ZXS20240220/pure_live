@@ -11,6 +11,7 @@ import 'package:pure_live/plugins/cache_manager.dart';
 import 'package:pure_live/common/widgets/common_avatar.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:pure_live/modules/live_play/controllers/live_play_controller.dart';
+import 'package:pure_live/modules/live_play/pip/mini_pip_widgets.dart';
 import 'package:pure_live/modules/live_play/widgets/content_first_panel_layout.dart';
 import 'package:pure_live/modules/live_play/widgets/layout/panel_popup_scope.dart';
 import 'package:pure_live/modules/tags/tag_management_controller.dart';
@@ -52,7 +53,7 @@ class PlayOtherPanel extends StatefulWidget {
           isPersistent: false,
           onSelectRoom: (room) {
             Navigator.of(context).pop();
-            controller.switchRoom(room);
+            selectRoomWithMiniPip(controller, room);
           },
         ),
       ),

@@ -1,4 +1,5 @@
 import 'package:pure_live/player/core/playback_source.dart';
+import 'package:pure_live/modules/live_play/pip/mini_pip_controller.dart';
 
 import 'dart:io';
 import 'dart:async';
@@ -11,6 +12,7 @@ import 'dart:developer' as developer;
 import 'package:flutter/scheduler.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/services/settings/app_settings_controller.dart';
+import 'package:pure_live/common/services/settings/window_size_controller.dart';
 import 'package:pure_live/plugins/event_bus.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:pure_live/plugins/emoji_manager.dart';
@@ -61,6 +63,10 @@ class LivePlayController extends GetxController
   final RecorderController recorderController = Get.find<RecorderController>();
   final LocalInteractionController localInteractionController = Get.find<LocalInteractionController>();
 
+  /// 播放页进程内小窗组（Ctrl+点击侧栏房间卡片创建）。
+  /// 生命周期严格跟随本控制器：退出/返回播放页时随 onClose 全部释放。
+  late final MiniPipController miniPip = MiniPipController();
+
   @override
   final Rx<LivePlayState> state = const LivePlayState().obs;
   final RxList<LiveMessage> danmakuMessages = <LiveMessage>[].obs;
@@ -104,6 +110,7 @@ class LivePlayController extends GetxController
   Timer? _danmakuFlushTimer;
   Worker? _pipStateWorker;
   Worker? _screenKeepOnWorker;
+  Worker? _miniPipMinSizeWorker;
   late final DanmakuPresentationRecovery _danmakuPresentationRecovery;
   bool _wasInSystemPip = false;
   bool _wasBackgrounded = false;
@@ -200,6 +207,19 @@ class LivePlayController extends GetxController
     // reachable through the global Rx callback together with its 500-message
     // history, player controller and render caches.
     _screenKeepOnWorker = ever(SettingsService.to.app.enableScreenKeepOn, (_) => _updateWakelock());
+
+    // 小窗尺寸变化时，动态约束主窗口最小尺寸不小于最大小窗尺寸，
+    // 避免窗口缩到比小窗还小导致小窗被裁切。
+    const defaultMin = Size(WindowSizeController.minWindowWidth, WindowSizeController.minWindowHeight);
+    _miniPipMinSizeWorker = ever(miniPip.maxSlotSize, (size) {
+      if (size.isEmpty) {
+        unawaited(windowManager.setMinimumSize(defaultMin));
+      } else {
+        final minW = math.max(size.width, defaultMin.width);
+        final minH = math.max(size.height, defaultMin.height);
+        unawaited(windowManager.setMinimumSize(Size(minW, minH)));
+      }
+    });
 
     _updateWakelock();
   }
@@ -1025,6 +1045,12 @@ class LivePlayController extends GetxController
   }
 
   Future<void> switchRoom(LiveRoom newRoom) async {
+    // 切换目标恰好是某个小窗中的直播间：关闭该小窗，主窗正常切入对应房间。
+    // 其余小窗与主窗切换完全隔离，互不影响。
+    final pipSlot = miniPip.slotOfRoom(newRoom);
+    if (pipSlot != null) {
+      unawaited(miniPip.close(pipSlot));
+    }
     // Fence any room-detail/play-quality request that was started before this
     // switch. Its late result must not restore the previous room or socket.
     invalidateRoomLoad();
@@ -1299,8 +1325,17 @@ class LivePlayController extends GetxController
     _roomLoadEpoch++;
     _iptvPlaybackEpoch++;
     WidgetsBinding.instance.removeObserver(this);
+    // 退出/返回播放页：所有进程内小窗与其独立播放器/弹幕会话一并销毁。
+    miniPip.disposeAll();
     _pipStateWorker?.dispose();
     _screenKeepOnWorker?.dispose();
+    _miniPipMinSizeWorker?.dispose();
+    // 退出播放页：恢复主窗口默认最小尺寸约束。
+    unawaited(
+      windowManager.setMinimumSize(
+        const Size(WindowSizeController.minWindowWidth, WindowSizeController.minWindowHeight),
+      ),
+    );
     _danmakuPresentationRecovery.dispose();
     clearSuperChats();
     playerController.invalidateLoad();

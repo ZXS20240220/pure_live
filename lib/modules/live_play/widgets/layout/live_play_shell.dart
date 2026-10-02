@@ -10,6 +10,7 @@ import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/services/settings/panel_size_controller.dart';
 import 'package:pure_live/modules/live_play/widgets/layout/live_play_video.dart';
 import 'package:pure_live/modules/live_play/controllers/live_play_controller.dart';
+import 'package:pure_live/modules/live_play/pip/mini_pip_widgets.dart';
 import 'package:pure_live/modules/live_play/widgets/layout/panel_popup_scope.dart';
 import 'package:pure_live/modules/live_play/widgets/layout/panel_resize_divider.dart';
 import 'package:win32/win32.dart' as win32;
@@ -94,7 +95,14 @@ class _LivePlayShellState extends State<LivePlayShell> with SingleTickerProvider
   @override
   Widget build(BuildContext context) {
     if (!widget.showPanel) {
-      return const _VideoHost();
+      // IPTV 沉浸态没有侧栏，小窗直接浮在纯视频层之上（无被侧栏遮挡的约束）。
+      return const Stack(
+        fit: StackFit.expand,
+        children: [
+          _VideoHost(),
+          Positioned.fill(child: MiniPipHost()),
+        ],
+      );
     }
 
     final size = MediaQuery.sizeOf(context);
@@ -133,6 +141,9 @@ class _LivePlayShellState extends State<LivePlayShell> with SingleTickerProvider
         fit: StackFit.expand,
         children: [
           const Positioned.fill(child: _VideoHost()),
+          // 进程内小窗挂在视频层之上、侧栏层之下：小窗 Z 序高于主画面，
+          // 但展开的沉浸侧栏始终覆盖小窗（小窗不会浮到侧栏之前）。
+          const Positioned.fill(child: MiniPipHost()),
           Positioned(
             top: 0,
             right: 0,
