@@ -1,6 +1,7 @@
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/utils/compact_danmaku_metrics.dart';
 import 'package:flame_barrage/flame_barrage.dart';
+import 'package:pure_live/modules/live_play/widgets/danmaku/main_danmaku_metrics.dart';
 import 'package:pure_live/modules/live_play/widgets/video_player/video_controller.dart';
 
 class CompactDanmakuOverlay extends StatelessWidget {
@@ -29,6 +30,9 @@ class CompactDanmakuOverlay extends StatelessWidget {
       final area = settings.pipDanmakuArea.v;
       final speed = settings.pipDanmakuSpeed.v;
       final opacity = settings.pipDanmakuOpacity.v;
+      // Compact mode shares the room-wide density preset so "dense/overlap"
+      // behaves consistently on the main surface and in PiP/floating windows.
+      final densityMode = settings.danmakuDensityMode.v;
       final fps = settings.resolvedDanmakuFps(pip: true, refreshRateMode: SettingsService.to.app.refreshRateMode);
       final maxVisibleCount = settings.pipDanmakuMaxVisibleCount.v;
       final emitInterval = settings.pipDanmakuEmitInterval.v;
@@ -62,7 +66,9 @@ class CompactDanmakuOverlay extends StatelessWidget {
                   fontFamily: typography.fontFamily,
                   area: area,
                   baseSpeed: metrics.baseSpeed,
-                  opacity: opacity,
+                  opacity: (opacity * MainDanmakuMetrics.resolveOpacityMultiplier(densityMode))
+                      .clamp(0.0, 1.0)
+                      .toDouble(),
                   showStroke: typography.showStroke,
                   noEmojiMode: noEmojiMode,
                   strokeWidth: typography.strokeWidth,
@@ -74,7 +80,8 @@ class CompactDanmakuOverlay extends StatelessWidget {
                   maxPendingCount: 36,
                   maxPendingAge: const Duration(seconds: 3),
                   emitInterval: emitInterval,
-                  overlapSafeGap: metrics.overlapSafeGap,
+                  overlapSafeGap: metrics.overlapSafeGap * MainDanmakuMetrics.resolveSafeGapMultiplier(densityMode),
+                  allowOverlap: MainDanmakuMetrics.resolveAllowOverlap(densityMode),
                   // PiP only exposes a handful of tracks. Keeping desktop-size
                   // pools here retained hundreds of paragraphs/pictures after
                   // an overnight compact session and made repeated PiP cycles

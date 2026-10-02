@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/utils/compact_danmaku_metrics.dart';
+import 'package:pure_live/modules/live_play/widgets/danmaku/main_danmaku_metrics.dart';
 import 'package:pure_live/modules/settings/widgets/app_color_picker_dialog.dart';
 import 'package:pure_live/common/consts/app_consts.dart';
 import 'package:syncfusion_flutter_sliders/sliders.dart';
@@ -539,6 +540,13 @@ class _PipDanmakuPreviewState extends State<PipDanmakuPreview> with SingleTicker
       final strokeWidth = settings.danmakuFontBorder.v;
       final speed = settings.pipDanmakuSpeed.v;
       final opacity = enabled ? settings.pipDanmakuOpacity.v : 0.25;
+      // The preview must mirror the live compact overlay, which inherits the
+      // room-wide density preset (halved gap for dense, dimmed + overlapping
+      // lanes for overlap).
+      final densityMode = settings.danmakuDensityMode.v;
+      final effectiveOpacity = (opacity * MainDanmakuMetrics.resolveOpacityMultiplier(densityMode))
+          .clamp(0.0, 1.0)
+          .toDouble();
       final area = settings.pipDanmakuArea.v;
       final maxVisibleCount = settings.pipDanmakuMaxVisibleCount.v;
       final emitInterval = settings.pipDanmakuEmitInterval.v;
@@ -587,7 +595,7 @@ class _PipDanmakuPreviewState extends State<PipDanmakuPreview> with SingleTicker
                       text: TextSpan(
                         text: previewTexts[index],
                         style: TextStyle(
-                          color: colors[index % colors.length].withValues(alpha: opacity),
+                          color: colors[index % colors.length].withValues(alpha: effectiveOpacity),
                           fontSize: fontSize,
                           fontWeight: FontWeight(typography.fontWeight),
                           fontFamily: typography.fontFamily,
@@ -608,7 +616,9 @@ class _PipDanmakuPreviewState extends State<PipDanmakuPreview> with SingleTicker
                                 foreground: Paint()
                                   ..style = PaintingStyle.stroke
                                   ..strokeWidth = typography.strokeWidth
-                                  ..color = Colors.black.withValues(alpha: resolveBarrageStrokeOpacity(opacity)),
+                                  ..color = Colors.black.withValues(
+                                    alpha: resolveBarrageStrokeOpacity(effectiveOpacity),
+                                  ),
                                 fontSize: fontSize,
                                 fontWeight: FontWeight(typography.fontWeight),
                                 fontFamily: typography.fontFamily,
@@ -647,7 +657,9 @@ class _PipDanmakuPreviewState extends State<PipDanmakuPreview> with SingleTicker
                                   strokeWidth: typography.strokeWidth,
                                   speed: metrics.baseSpeed,
                                   trackHeight: metrics.trackHeight,
-                                  overlapSafeGap: metrics.overlapSafeGap,
+                                  overlapSafeGap:
+                                      metrics.overlapSafeGap * MainDanmakuMetrics.resolveSafeGapMultiplier(densityMode),
+                                  allowOverlap: MainDanmakuMetrics.resolveAllowOverlap(densityMode),
                                   emitInterval: emitInterval,
                                 ),
                               );
@@ -690,6 +702,7 @@ class _PipDanmakuPreviewPainter extends CustomPainter {
     required this.speed,
     required this.trackHeight,
     required this.overlapSafeGap,
+    required this.allowOverlap,
     required this.emitInterval,
   });
 
@@ -704,6 +717,7 @@ class _PipDanmakuPreviewPainter extends CustomPainter {
   final double speed;
   final double trackHeight;
   final double overlapSafeGap;
+  final bool allowOverlap;
   final double emitInterval;
 
   @override
@@ -715,7 +729,11 @@ class _PipDanmakuPreviewPainter extends CustomPainter {
     for (var index = 0; index < painters.length; index++) {
       final painter = painters[index];
       final travel = size.width + painter.width + overlapSafeGap;
-      final phaseDistance = index * math.max(speed * emitInterval, painter.width + overlapSafeGap);
+      // The overlap preset lets followers share lanes without the width+gap
+      // clearance, so phase items only by the configured emission cadence.
+      final phaseDistance = allowOverlap
+          ? index * speed * emitInterval
+          : index * math.max(speed * emitInterval, painter.width + overlapSafeGap);
       final travelled = elapsedSeconds * speed + phaseDistance;
       final x = size.width - (travelled % travel);
       final y = (index % laneCount) * trackHeight + math.max(0, (trackHeight - painter.height) / 2);
@@ -739,6 +757,7 @@ class _PipDanmakuPreviewPainter extends CustomPainter {
         oldDelegate.speed != speed ||
         oldDelegate.trackHeight != trackHeight ||
         oldDelegate.overlapSafeGap != overlapSafeGap ||
+        oldDelegate.allowOverlap != allowOverlap ||
         oldDelegate.emitInterval != emitInterval;
   }
 }

@@ -11,6 +11,10 @@
 ///  - dense:  halve the horizontal safe gap so lanes accept closer followers;
 ///  - overlap: dense + allow sharing lanes without clearance + reduced global
 ///    opacity so stacked messages stay readable.
+///
+/// The three density rules below are shared by the compact (PiP/floating)
+/// danmaku overlay, which inherits the room-wide `danmakuDensityMode` setting
+/// instead of defining its own preset.
 final class MainDanmakuMetrics {
   const MainDanmakuMetrics._();
 
