@@ -18,6 +18,7 @@ class PopularGridView extends StatelessWidget {
           showScrollToTopBtn: SettingsService.to.page.showScrollToTopBtn.v,
           pageSizeOptions: SettingsService.to.page.pageSizeOptions,
           showPageSizeSelector: SettingsService.to.page.showPageSizeSelector.v,
+          showGotoButton: SettingsService.to.page.showGotoButton.v,
           emptyBuilder: (c) => AppStatusView(
             type: AppStatusType.empty,
             icon: RemixIcons.fire_fill,

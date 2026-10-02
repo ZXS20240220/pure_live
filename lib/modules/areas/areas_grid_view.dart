@@ -143,6 +143,7 @@ class _AreaGridViewState extends State<AreaGridView> with TickerProviderStateMix
         customDesktopBottomPadding: 135,
         showScrollToTopBtn: false,
         showPageSizeSelector: false,
+        showGotoButton: false,
         pageSizeOptions: SettingsService.to.page.pageSizeOptions,
         emptyBuilder: (context) => EmptyView(
           icon: Remix.apps_2_line,
@@ -169,6 +170,7 @@ class _AreaGridViewState extends State<AreaGridView> with TickerProviderStateMix
           enableRefresh: true,
           enableLoadMore: false,
           showPageSizeSelector: false,
+          showGotoButton: false,
           pageSizeOptions: SettingsService.to.page.pageSizeOptions,
           emptyBuilder: (context) => EmptyView(
             icon: Remix.apps_2_line,
@@ -220,6 +222,7 @@ class _AreaGridViewState extends State<AreaGridView> with TickerProviderStateMix
               customDesktopBottomPadding: 135,
               showScrollToTopBtn: false,
               showPageSizeSelector: false,
+              showGotoButton: false,
               pageSizeOptions: SettingsService.to.page.pageSizeOptions,
               emptyBuilder: (context) => EmptyView(
                 icon: Remix.apps_2_line,
@@ -295,11 +298,9 @@ class _AreaGridViewState extends State<AreaGridView> with TickerProviderStateMix
     return LayoutBuilder(
       builder: (context, constraint) {
         final width = constraint.maxWidth;
-        final crossAxisCount =width > 1365
+        final crossAxisCount = width > 1365
             ? 15
-            :  (width > 1170
-            ? 13
-            : (width > 975 ? 11 : (width > 780 ? 9 : (width > 585 ? 7 : (width > 390 ? 5 : 3)))));
+            : (width > 1170 ? 13 : (width > 975 ? 11 : (width > 780 ? 9 : (width > 585 ? 7 : (width > 390 ? 5 : 3)))));
         final spacing = SettingsService.to.theme.crossAxisSpacing.v;
         final mainAxisSpacing = SettingsService.to.theme.mainAxisSpacing.v;
         final itemWidth = (width - 12 - spacing * (crossAxisCount - 1)) / crossAxisCount;

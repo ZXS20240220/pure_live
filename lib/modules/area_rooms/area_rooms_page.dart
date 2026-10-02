@@ -42,6 +42,7 @@ class _AreasRoomPageState extends State<AreasRoomPage> {
           customDesktopBottomPadding: 135,
           showScrollToTopBtn: SettingsService.to.page.showScrollToTopBtn.v,
           showPageSizeSelector: SettingsService.to.page.showPageSizeSelector.v,
+          showGotoButton: SettingsService.to.page.showGotoButton.v,
           pageSizeOptions: SettingsService.to.page.pageSizeOptions,
           emptyBuilder: (context) => EmptyView(icon: Icons.live_tv_rounded, title: i18n('no_data'), subtitle: ''),
           contentBuilder: (context, list, scrollController) {

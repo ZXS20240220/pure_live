@@ -891,6 +891,8 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
                   controller.cardLayoutMode.value != 'compact' && SettingsService.to.page.showScrollToTopBtn.v,
               showPageSizeSelector:
                   controller.cardLayoutMode.value != 'compact' && SettingsService.to.page.showPageSizeSelector.v,
+              showGotoButton:
+                  controller.cardLayoutMode.value != 'compact' && SettingsService.to.page.showGotoButton.v,
               pageSizeOptions: SettingsService.to.page.pageSizeOptions,
               leftPaginationWidget: _buildLastRefreshTime(context),
               contentBuilder: (context, list, _) {

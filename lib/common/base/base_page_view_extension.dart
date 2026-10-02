@@ -12,6 +12,7 @@ extension BasePageViewContentExtension<C extends BasePageScrollAndStateBone<T>, 
             DesktopPaginationBar(
               controller: controller,
               showSelector: showPageSizeSelector,
+              showGoto: showGotoButton,
               options: pageSizeOptions,
               leftWidget: leftPaginationWidget,
             ),

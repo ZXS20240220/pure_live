@@ -24,6 +24,7 @@ class BasePageView<C extends BasePageScrollAndStateBone<T>, T> extends Stateless
   final bool preserveContentWhenEmpty;
   final bool? showScrollToTopBtn;
   final bool showPageSizeSelector;
+  final bool showGotoButton;
   final List<int> pageSizeOptions;
   final double? customMobileBottomPadding;
   final double? customDesktopBottomPadding;
@@ -44,6 +45,7 @@ class BasePageView<C extends BasePageScrollAndStateBone<T>, T> extends Stateless
     this.preserveContentWhenEmpty = false,
     this.showScrollToTopBtn,
     this.showPageSizeSelector = false,
+    this.showGotoButton = false,
     this.pageSizeOptions = const [],
     this.customMobileBottomPadding,
     this.customDesktopBottomPadding,

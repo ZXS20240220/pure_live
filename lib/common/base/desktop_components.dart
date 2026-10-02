@@ -5,6 +5,7 @@ import 'package:pure_live/common/index.dart';
 class DesktopPaginationBar extends StatefulWidget {
   final BasePageScrollAndStateBone controller;
   final bool showSelector;
+  final bool showGoto;
   final List<int> options;
   final Widget? leftWidget;
 
@@ -12,6 +13,7 @@ class DesktopPaginationBar extends StatefulWidget {
     super.key,
     required this.controller,
     required this.showSelector,
+    required this.showGoto,
     required this.options,
     this.leftWidget,
   });
@@ -25,6 +27,7 @@ class _DesktopPaginationBarState extends State<DesktopPaginationBar> {
 
   BasePageScrollAndStateBone get controller => widget.controller;
   bool get showSelector => widget.showSelector;
+  bool get showGoto => widget.showGoto;
   List<int> get options => widget.options;
 
   @override
@@ -189,27 +192,29 @@ class _DesktopPaginationBarState extends State<DesktopPaginationBar> {
                           CompactPageSizeSelector(controller: controller, options: options),
                           const SizedBox(width: 16),
                         ],
-                        Text(i18n("go_to"), style: AppTextStyles.t13Muted),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 6),
-                          child: SizedBox(
-                            height: 32,
-                            width: 50,
-                            child: TextField(
-                              controller: _inputController,
-                              keyboardType: TextInputType.number,
-                              textAlign: TextAlign.center,
-                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                              style: AppTextStyles.t13.copyWith(height: 1.2),
-                              decoration: InputDecoration(
-                                contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 4),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                        if (showGoto) ...[
+                          Text(i18n("go_to"), style: AppTextStyles.t13Muted),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            child: SizedBox(
+                              height: 32,
+                              width: 50,
+                              child: TextField(
+                                controller: _inputController,
+                                keyboardType: TextInputType.number,
+                                textAlign: TextAlign.center,
+                                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                style: AppTextStyles.t13.copyWith(height: 1.2),
+                                decoration: InputDecoration(
+                                  contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 4),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                                ),
+                                onSubmitted: (_) => _executeJump(context, maxPage, total != null),
                               ),
-                              onSubmitted: (_) => _executeJump(context, maxPage, total != null),
                             ),
                           ),
-                        ),
-                        Text(i18n("page_unit"), style: AppTextStyles.t13Muted),
+                          Text(i18n("page_unit"), style: AppTextStyles.t13Muted),
+                        ],
                       ],
                     ),
                     if (widget.leftWidget != null)
