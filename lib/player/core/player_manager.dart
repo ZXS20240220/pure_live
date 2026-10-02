@@ -18,6 +18,7 @@ import 'playback_lifecycle_coordinator.dart';
 
 import 'package:floating/floating.dart';
 import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform, Uint8List;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../models/player_exception.dart';
@@ -412,6 +413,13 @@ class PlayerManager {
   /// restores the room's saved volume, and the next compact session starts
   /// unmuted.
   final RxBool isCompactMuted = false.obs;
+
+  /// Ephemeral compact-mode volume override changed via the mouse wheel or the
+  /// compact volume bar. It is independent of the room's saved volume and is
+  /// dropped when compact mode ends. `null` means the saved room volume is
+  /// currently in effect.
+  double? _compactVolumeOverride;
+  final RxDouble compactVolumePreview = 1.0.obs;
 
   /// Live topmost state of the Windows PiP window. Seeded from the
   /// `windowsPipAlwaysOnTop` setting on entry, toggled from the PiP overlay;
@@ -2782,33 +2790,73 @@ class PlayerManager {
     await _currentPlayer?.setVolume(volume.clamp(0.0, 1.0));
   }
 
-  /// Toggles the compact-mode scoped mute used by the PiP/floating controls.
-  /// Muting sets the live session to volume 0 without touching the room's
-  /// saved preference; unmuting restores that preference.
+  double _savedRoomVolume() => (currentFloatRoom?.getSavedVolume() ?? 1.0).clamp(0.0, 1.0).toDouble();
+
+  /// Last audible compact volume, used to restore a sensible level when the
+  /// volume icon is pressed while muted.
+  double? _compactLastAudibleVolume;
+
+  /// Applies the ephemeral compact volume from the wheel or the volume bar.
+  Future<void> setCompactVolumeDirect(double volume) async {
+    final player = _currentPlayer;
+    if (player == null || _isClosing || _disposed) return;
+    final clamped = volume.clamp(0.0, 1.0).toDouble();
+    await player.setVolume(clamped);
+    _compactVolumeOverride = clamped;
+    if (clamped > 0.001) _compactLastAudibleVolume = clamped;
+    isCompactMuted.value = clamped <= 0.001;
+    compactVolumePreview.value = clamped;
+  }
+
+  /// Mouse-wheel volume step for the PiP/floating windows. One conventional
+  /// wheel notch (~100 px delta) moves the volume by 5%.
+  static const double _compactVolumeWheelStep = 0.05;
+
+  /// Adjusts the ephemeral compact-mode volume by a pointer wheel delta.
+  /// Scrolling up raises the volume. The change applies to this session only
+  /// and is discarded when compact mode ends.
+  Future<void> adjustCompactVolumeByWheel(double scrollDeltaDy) async {
+    if (scrollDeltaDy == 0) return;
+    final normalized = scrollDeltaDy.clamp(-100.0, 100.0) / 100.0;
+    final current = isCompactMuted.value
+        ? (_compactLastAudibleVolume ?? _savedRoomVolume())
+        : (_compactVolumeOverride ?? _savedRoomVolume());
+    await setCompactVolumeDirect(current - normalized * _compactVolumeWheelStep);
+  }
+
+  /// Toggles the compact-mode scoped mute used by the PiP/floating volume
+  /// icon. Muting sets the live session to volume 0 without touching the
+  /// room's saved preference; unmuting restores the last audible level.
   Future<void> toggleCompactMute() async {
     final player = _currentPlayer;
     if (player == null || _isClosing || _disposed) return;
-    final next = !isCompactMuted.value;
-    final targetVolume = next ? 0.0 : (currentFloatRoom?.getSavedVolume() ?? 1.0).clamp(0.0, 1.0);
-    try {
-      await player.setVolume(targetVolume);
-      isCompactMuted.value = next;
-    } catch (error, stackTrace) {
-      log('Compact mute toggle failed', name: 'PlayerManager', error: error, stackTrace: stackTrace);
+    if (isCompactMuted.value) {
+      final restore = (_compactVolumeOverride != null && _compactVolumeOverride! > 0.001)
+          ? _compactVolumeOverride!
+          : (_compactLastAudibleVolume ?? _savedRoomVolume());
+      await setCompactVolumeDirect(restore);
+    } else {
+      // Remember the audible level so unmute can return to it.
+      _compactLastAudibleVolume ??= _compactVolumeOverride ?? _savedRoomVolume();
+      await setCompactVolumeDirect(0.0);
     }
   }
 
-  /// Restores the room volume and clears the compact mute flag. Called when a
-  /// PiP/floating session ends so the mute never leaks back into the room.
+  /// Restores the room volume and clears all compact-only volume state.
+  /// Called when a PiP/floating session ends so wheel volume and mute never
+  /// leak back into the room.
   Future<void> resetCompactMute() async {
-    if (!isCompactMuted.value) return;
+    final hadOverride = isCompactMuted.value || _compactVolumeOverride != null;
     isCompactMuted.value = false;
+    _compactVolumeOverride = null;
+    _compactLastAudibleVolume = null;
+    compactVolumePreview.value = _savedRoomVolume();
     final player = _currentPlayer;
-    if (player == null || _isClosing || _disposed) return;
+    if (!hadOverride || player == null || _isClosing || _disposed) return;
     try {
-      await player.setVolume((currentFloatRoom?.getSavedVolume() ?? 1.0).clamp(0.0, 1.0));
+      await player.setVolume(_savedRoomVolume());
     } catch (error, stackTrace) {
-      log('Restore room volume after compact mute failed', name: 'PlayerManager', error: error, stackTrace: stackTrace);
+      log('Restore room volume after compact mode failed', name: 'PlayerManager', error: error, stackTrace: stackTrace);
     }
   }
 
@@ -2990,6 +3038,9 @@ class PlayerManager {
         if (ownsTransition() && statusRevision == _pipStatusRevision && result == PiPStatus.enabled) {
           _lastAppliedPipAspectRatio = pipRatio.value;
           isInPip.value = true;
+          // Start every compact session with controls hidden; the fresh
+          // MouseRegion re-asserts hover when the pointer is already inside.
+          isHovered.value = false;
         }
       } finally {
         if (revision == _pipTransitionRevision) {
@@ -3024,6 +3075,9 @@ class PlayerManager {
           return;
         }
         isInPip.value = true;
+        // Start every compact session with controls hidden; the fresh
+        // MouseRegion re-asserts hover when the pointer is already inside.
+        isHovered.value = false;
         // Seed the ephemeral pin toggle from the setting every time PiP opens;
         // in-session flips must not survive into the next PiP session.
         isPipAlwaysOnTop.value = SettingsService.to.player.windowsPipAlwaysOnTop.value;
@@ -3070,12 +3124,14 @@ class PlayerManager {
         await _windowsPipExit();
         if (!ownsTransition()) return;
         isInPip.value = false;
+        isHovered.value = false;
         // The compact-only mute is scoped to the mini window: returning to
         // the room restores the room's saved volume.
         await resetCompactMute();
       } catch (error) {
         if (error is WindowsPipExitFailure && !error.hostIsInPip && ownsTransition()) {
           isInPip.value = false;
+          isHovered.value = false;
           await resetCompactMute();
         }
         rethrow;
@@ -3149,66 +3205,69 @@ class PlayerManager {
               height: floatingSize.height,
               clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: Colors.black),
-              child: Stack(
-                children: [
-                  Obx(
-                    () => Positioned.fill(
-                      child: isFloatingVideoVisible.value
-                          ? getVideoWidget(
-                              SettingsService.to.player.videoFitIndex.v,
-                              fitList: SettingsService.to.player.videoFitArray,
-                            )
-                          : const SizedBox.shrink(),
+              child: _wrapCompactWheel(
+                Stack(
+                  children: [
+                    Obx(
+                      () => Positioned.fill(
+                        child: isFloatingVideoVisible.value
+                            ? getVideoWidget(
+                                SettingsService.to.player.videoFitIndex.v,
+                                fitList: SettingsService.to.player.videoFitArray,
+                              )
+                            : const SizedBox.shrink(),
+                      ),
                     ),
-                  ),
-                  Positioned.fill(child: _buildCompactDanmaku()),
-                  Positioned.fill(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () async {
-                        // Mobile overlays hide their controls after a short
-                        // delay.  Previously the next tap immediately opened
-                        // the room, so the close/pause controls could never be
-                        // revealed again without racing the three-second
-                        // timer.  Match native PiP behaviour: the first tap
-                        // reveals controls; a second tap resumes the room.
-                        if (touchControls && !isHovered.value) {
-                          isHovered.value = true;
-                          resetHideTimer();
-                          return;
-                        }
-                        final room = currentFloatRoom;
-                        if (room != null) {
-                          await AppNavigator.toLiveRoomDetail(liveRoom: room);
-                        }
-                      },
-                      child: const SizedBox.expand(),
+                    Positioned.fill(child: _buildCompactDanmaku()),
+                    Positioned.fill(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () async {
+                          // Mobile overlays hide their controls after a short
+                          // delay.  Previously the next tap immediately opened
+                          // the room, so the close/pause controls could never be
+                          // revealed again without racing the three-second
+                          // timer.  Match native PiP behaviour: the first tap
+                          // reveals controls; a second tap resumes the room.
+                          if (touchControls && !isHovered.value) {
+                            isHovered.value = true;
+                            resetHideTimer();
+                            return;
+                          }
+                          final room = currentFloatRoom;
+                          if (room != null) {
+                            await AppNavigator.toLiveRoomDetail(liveRoom: room);
+                          }
+                        },
+                        child: const SizedBox.expand(),
+                      ),
                     ),
-                  ),
-                  _buildCompactPlaybackControls(afterAction: resetHideTimer),
-                  Positioned(
-                    right: 4,
-                    top: 4,
-                    child: Obx(
-                      () => AnimatedOpacity(
-                        opacity: isHovered.value ? 1 : 0,
-                        duration: const Duration(milliseconds: 200),
-                        child: IgnorePointer(
-                          ignoring: !isHovered.value,
-                          child: IconButton(
-                            constraints: const BoxConstraints(),
-                            padding: const EdgeInsets.all(4),
-                            style: IconButton.styleFrom(backgroundColor: Colors.black45),
-                            icon: const Icon(Icons.close, color: Colors.white, size: 20),
-                            onPressed: () async {
-                              await stop();
-                            },
+                    _buildCompactPlaybackControls(afterAction: resetHideTimer),
+                    _buildCompactOverlayChrome(),
+                    Positioned(
+                      right: 4,
+                      top: 4,
+                      child: Obx(
+                        () => AnimatedOpacity(
+                          opacity: isHovered.value ? 1 : 0,
+                          duration: const Duration(milliseconds: 200),
+                          child: IgnorePointer(
+                            ignoring: !isHovered.value,
+                            child: IconButton(
+                              constraints: const BoxConstraints(),
+                              padding: const EdgeInsets.all(4),
+                              style: IconButton.styleFrom(backgroundColor: Colors.black45),
+                              icon: const Icon(Icons.close, color: Colors.white, size: 20),
+                              onPressed: () async {
+                                await stop();
+                              },
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
           }),
@@ -3238,12 +3297,18 @@ class PlayerManager {
     if (touchControls) {
       isHovered.value = true;
       resetHideTimer();
+    } else {
+      // Desktop: never inherit hover state from a previous compact session.
+      // The freshly mounted MouseRegion re-asserts it when the pointer is
+      // already over the floating window.
+      isHovered.value = false;
     }
   }
 
   Future<void> closeAppFloating() async {
     _hideTimer?.cancel();
     _hideTimer = null;
+    isHovered.value = false;
     unawaited(_floatingPopupSubscription?.cancel());
     _floatingPopupSubscription = null;
     final cleanupInFlight = _floatingCleanup;
@@ -3305,26 +3370,48 @@ class PlayerManager {
     }
   }
 
-  /// Centered play/pause + compact-mute controls shared by the Windows PiP
-  /// overlay and the in-app floating window. [afterAction] is used by touch
-  /// overlays to reset the auto-hide timer after a tap.
+  /// Fixed width of the compact volume track. The pill shrink-wraps its Row,
+  /// so pointer ratios must be derived from this constant, not layout
+  /// constraints (which are unbounded under MainAxisSize.min).
+  static const double _compactVolumeTrackWidth = 124;
+
+  /// Currently effective compact volume: the session override while one
+  /// exists, otherwise the room's saved volume.
+  double _compactVolumeValue() => _compactVolumeOverride ?? _savedRoomVolume();
+
+  /// Centered play/pause + horizontal volume control shared by the Windows
+  /// PiP overlay and the in-app floating window. Both fade in with the hover
+  /// mask. [afterAction] is used by touch overlays to reset the auto-hide
+  /// timer after an interaction.
   Widget _buildCompactPlaybackControls({VoidCallback? afterAction}) {
-    Widget circularButton({required IconData icon, String? tooltip, required VoidCallback onPressed}) {
-      return IconButton(
-        iconSize: 42,
-        tooltip: tooltip,
-        style: IconButton.styleFrom(backgroundColor: Colors.black45),
-        icon: Icon(icon, color: Colors.white),
-        onPressed: () {
-          onPressed();
-          afterAction?.call();
+    // Keep the same footprint as the corner buttons (PiP pin / close):
+    // default 24 px icon + 8 px padding => a 40 x 40 hit target.
+    Widget pauseButton() {
+      return StreamBuilder<bool>(
+        stream: onPlaying,
+        initialData: isPlayingNow,
+        builder: (context, snapshot) {
+          final isPlay = snapshot.data ?? true;
+          return IconButton(
+            constraints: const BoxConstraints(),
+            padding: const EdgeInsets.all(8),
+            style: IconButton.styleFrom(backgroundColor: Colors.black45),
+            icon: Icon(isPlay ? Icons.pause_circle_filled : Icons.play_circle_filled, color: Colors.white),
+            onPressed: () {
+              unawaited(togglePlayPause());
+              afterAction?.call();
+            },
+          );
         },
       );
     }
 
     return Center(
-      child: Obx(
-        () => AnimatedOpacity(
+      child: Obx(() {
+        // Rebuild the volume pill whenever the preview/mute state changes.
+        compactVolumePreview.value;
+        isCompactMuted.value;
+        return AnimatedOpacity(
           opacity: isHovered.value ? 1 : 0,
           duration: const Duration(milliseconds: 200),
           child: IgnorePointer(
@@ -3332,26 +3419,216 @@ class PlayerManager {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                circularButton(
-                  icon: isCompactMuted.value ? Icons.volume_off : Icons.volume_up,
-                  tooltip: i18n(isCompactMuted.value ? 'cancel_mute' : 'mute'),
-                  onPressed: () => unawaited(toggleCompactMute()),
-                ),
-                const SizedBox(width: 12),
-                StreamBuilder<bool>(
-                  stream: onPlaying,
-                  initialData: isPlayingNow,
-                  builder: (context, snapshot) {
-                    final isPlay = snapshot.data ?? true;
-                    return circularButton(
-                      icon: isPlay ? Icons.pause_circle_filled : Icons.play_circle_filled,
-                      onPressed: () => unawaited(togglePlayPause()),
-                    );
-                  },
-                ),
+                pauseButton(),
+                const SizedBox(width: 10),
+                _buildCompactVolumeControl(afterAction: afterAction),
               ],
             ),
           ),
+        );
+      }),
+    );
+  }
+
+  /// Horizontal volume pill: mute-toggle icon, draggable/clickable track and
+  /// percentage. Styled after the full-player wheel volume OSD.
+  Widget _buildCompactVolumeControl({VoidCallback? afterAction}) {
+    final volume = _compactVolumeValue();
+    final muted = volume <= 0.001;
+    final icon = muted ? Icons.volume_off : (volume < 0.5 ? Icons.volume_down : Icons.volume_up);
+
+    return GestureDetector(
+      // Absorb competing gestures so interacting with the pill never falls
+      // through to the video layer (floating tap-to-open / PiP double-tap
+      // exit / window drag). The inner IconButton still wins taps on the
+      // icon because child recognizers take the arena first.
+      behavior: HitTestBehavior.opaque,
+      onTap: () {},
+      onDoubleTap: () {},
+      onHorizontalDragStart: (_) => afterAction?.call(),
+      onHorizontalDragUpdate: (_) {},
+      onHorizontalDragEnd: (_) {},
+      onVerticalDragStart: (_) {},
+      onVerticalDragUpdate: (_) {},
+      onVerticalDragEnd: (_) {},
+      child: Container(
+        height: 40,
+        decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(20)),
+        padding: const EdgeInsets.only(left: 2, right: 10),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              constraints: const BoxConstraints(),
+              padding: const EdgeInsets.all(7),
+              iconSize: 22,
+              tooltip: i18n(muted ? 'cancel_mute' : 'mute'),
+              icon: Icon(icon, color: Colors.white),
+              onPressed: () {
+                unawaited(toggleCompactMute());
+                afterAction?.call();
+              },
+            ),
+            _buildCompactVolumeTrack(volume, afterAction),
+            const SizedBox(width: 8),
+            Text(
+              '${(volume * 100).round()}%',
+              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompactVolumeTrack(double volume, VoidCallback? afterAction) {
+    void updateFromPosition(double dx) {
+      final ratio = (dx / _compactVolumeTrackWidth).clamp(0.0, 1.0).toDouble();
+      unawaited(setCompactVolumeDirect(ratio));
+      afterAction?.call();
+    }
+
+    final clamped = volume.clamp(0.0, 1.0).toDouble();
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: Listener(
+        behavior: HitTestBehavior.opaque,
+        onPointerDown: (event) => updateFromPosition(event.localPosition.dx),
+        onPointerMove: (event) {
+          if (event.buttons != 0) updateFromPosition(event.localPosition.dx);
+        },
+        child: SizedBox(
+          width: _compactVolumeTrackWidth,
+          height: 20,
+          child: Stack(
+            alignment: Alignment.centerLeft,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(3),
+                child: LinearProgressIndicator(
+                  value: clamped,
+                  minHeight: 5,
+                  backgroundColor: Colors.white24,
+                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              ),
+              Positioned(
+                left: (clamped * _compactVolumeTrackWidth - 6).clamp(0.0, _compactVolumeTrackWidth - 12),
+                child: Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.black26),
+                    boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 2)],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Mouse wheel adjusts the ephemeral compact volume over the whole mini
+  /// window surface (video, danmaku and empty areas all forward wheel events).
+  Widget _wrapCompactWheel(Widget child) {
+    return Builder(
+      builder: (context) => Listener(
+        onPointerSignal: (event) {
+          if (event is PointerScrollEvent && event.scrollDelta.dy != 0) {
+            unawaited(adjustCompactVolumeByWheel(event.scrollDelta.dy));
+          }
+        },
+        // While a button is held (e.g. dragging the volume track), Flutter
+        // desktop does not update MouseRegion hover state, so a drag that
+        // ends outside the window never delivers onExit and the controls get
+        // stuck visible. Re-check the pointer position on release and force
+        // the hover state off when it is already outside the mini window.
+        onPointerUp: (event) => _compactReleaseHoverGuard(context, event.position),
+        onPointerCancel: (event) => _compactReleaseHoverGuard(context, event.position),
+        child: child,
+      ),
+    );
+  }
+
+  void _compactReleaseHoverGuard(BuildContext context, Offset globalPosition) {
+    if (!(Platform.isWindows || Platform.isMacOS)) return;
+    final box = context.findRenderObject();
+    if (box is! RenderBox || !box.attached || box.size.isEmpty) return;
+    final local = box.globalToLocal(globalPosition);
+    final inside = local.dx >= 0 && local.dy >= 0 && local.dx <= box.size.width && local.dy <= box.size.height;
+    if (!inside) isHovered.value = false;
+  }
+
+  /// Hover chrome shared by both compact windows: the platform logo and the
+  /// streamer name fade in with the other controls.
+  Widget _buildCompactOverlayChrome() {
+    return Positioned(
+      left: 8,
+      right: 8,
+      top: 8,
+      child: Obx(
+        () => AnimatedOpacity(
+          opacity: isHovered.value ? 1 : 0,
+          duration: const Duration(milliseconds: 200),
+          child: IgnorePointer(
+            child: Row(
+              children: [
+                // Leave room for the PiP pin / floating close buttons.
+                const SizedBox(width: 44),
+                Expanded(
+                  child: Align(alignment: Alignment.topCenter, child: _buildCompactRoomLabel()),
+                ),
+                const SizedBox(width: 44),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompactRoomLabel() {
+    final room = currentFloatRoom;
+    var name = '';
+    if (room != null) {
+      final nick = room.nick?.trim() ?? '';
+      final title = room.title?.trim() ?? '';
+      name = nick.isNotEmpty ? nick : title;
+    }
+    if (name.isEmpty) return const SizedBox.shrink();
+    final platform = room?.platform;
+    final logo = platform != null ? Sites.logoOf(platform) : null;
+    return DecoratedBox(
+      decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (logo != null)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: Image.asset(
+                  logo,
+                  width: 18,
+                  height: 18,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                ),
+              ),
+            Flexible(
+              child: Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -3363,67 +3640,70 @@ class PlayerManager {
       body: MouseRegion(
         onEnter: (_) => isHovered.value = true,
         onExit: (_) => isHovered.value = false,
-        child: Container(
-          clipBehavior: Clip.antiAlias,
-          decoration: const BoxDecoration(color: Colors.black),
-          child: Stack(
-            children: [
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onPanStart: (_) => windowManager.startDragging(),
-                onDoubleTap: isPipPreparing.value ? null : _exitPipFromControl,
-                child: Obx(
-                  () => getVideoWidget(
-                    SettingsService.to.player.videoFitIndex.v,
-                    fitList: SettingsService.to.player.videoFitArray,
-                    trackPipSource: true,
+        child: _wrapCompactWheel(
+          Container(
+            clipBehavior: Clip.antiAlias,
+            decoration: const BoxDecoration(color: Colors.black),
+            child: Stack(
+              children: [
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onPanStart: (_) => windowManager.startDragging(),
+                  onDoubleTap: isPipPreparing.value ? null : _exitPipFromControl,
+                  child: Obx(
+                    () => getVideoWidget(
+                      SettingsService.to.player.videoFitIndex.v,
+                      fitList: SettingsService.to.player.videoFitArray,
+                      trackPipSource: true,
+                    ),
                   ),
                 ),
-              ),
-              Positioned.fill(child: _buildCompactDanmaku()),
-              _buildCompactPlaybackControls(),
-              // Windows only: live topmost toggle for the mini window. It is
-              // seeded from the setting on PiP entry and is not persisted.
-              if (_usesWindowsPip)
+                Positioned.fill(child: _buildCompactDanmaku()),
+                _buildCompactPlaybackControls(),
+                _buildCompactOverlayChrome(),
+                // Windows only: live topmost toggle for the mini window. It is
+                // seeded from the setting on PiP entry and is not persisted.
+                if (_usesWindowsPip)
+                  Positioned(
+                    left: 8,
+                    top: 8,
+                    child: Obx(
+                      () => AnimatedOpacity(
+                        opacity: isHovered.value ? 1 : 0,
+                        duration: const Duration(milliseconds: 200),
+                        child: IgnorePointer(
+                          ignoring: !isHovered.value,
+                          child: IconButton(
+                            constraints: const BoxConstraints(),
+                            padding: const EdgeInsets.all(8),
+                            style: IconButton.styleFrom(backgroundColor: Colors.black45),
+                            tooltip: i18n(isPipAlwaysOnTop.value ? 'pip_cancel_always_on_top' : 'pip_always_on_top'),
+                            icon: Icon(
+                              isPipAlwaysOnTop.value ? Icons.push_pin : Icons.push_pin_outlined,
+                              color: Colors.white,
+                            ),
+                            onPressed: isPipPreparing.value ? null : () => unawaited(toggleWindowsPipAlwaysOnTop()),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 Positioned(
-                  left: 8,
+                  right: 8,
                   top: 8,
                   child: Obx(
                     () => AnimatedOpacity(
                       opacity: isHovered.value ? 1 : 0,
                       duration: const Duration(milliseconds: 200),
-                      child: IgnorePointer(
-                        ignoring: !isHovered.value,
-                        child: IconButton(
-                          constraints: const BoxConstraints(),
-                          padding: const EdgeInsets.all(8),
-                          style: IconButton.styleFrom(backgroundColor: Colors.black45),
-                          tooltip: i18n(isPipAlwaysOnTop.value ? 'pip_cancel_always_on_top' : 'pip_always_on_top'),
-                          icon: Icon(
-                            isPipAlwaysOnTop.value ? Icons.push_pin : Icons.push_pin_outlined,
-                            color: Colors.white,
-                          ),
-                          onPressed: isPipPreparing.value ? null : () => unawaited(toggleWindowsPipAlwaysOnTop()),
-                        ),
+                      child: IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        onPressed: isPipPreparing.value ? null : _exitPipFromControl,
                       ),
                     ),
                   ),
                 ),
-              Positioned(
-                right: 8,
-                top: 8,
-                child: Obx(
-                  () => AnimatedOpacity(
-                    opacity: isHovered.value ? 1 : 0,
-                    duration: const Duration(milliseconds: 200),
-                    child: IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white),
-                      onPressed: isPipPreparing.value ? null : _exitPipFromControl,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -4831,6 +5111,8 @@ class PlayerManager {
     _stopAndroidPipObservation();
     if (_usesAndroidPip || restoreWindowsWindow) isInPip.value = false;
     // Compact-only controls never outlive the playback session.
+    _compactVolumeOverride = null;
+    _compactLastAudibleVolume = null;
     isCompactMuted.value = false;
     isPipAlwaysOnTop.value = false;
     if (restoreWindowsWindow) {
