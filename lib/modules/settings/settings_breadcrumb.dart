@@ -131,21 +131,41 @@ class SettingsNavigator {
     );
   }
 
-  /// 回到目录路径上的某个祖先页；栈中找不到时（理论上不会出现）直接重定向。
+  /// 回到目录路径上的某个祖先页。
+  ///
+  /// 栈中能找到目标时直接 popUntil 回退；
+  /// 找不到时（例如从主菜单直接进入设置子页，栈中没有设置首页），
+  /// 先 pop 到栈底（保留首页，避免黑屏），再依次 push 路径上每一级。
   static void backTo(SettingsCrumb target) {
     final context = Get.context;
     if (context == null) return;
-    var found = false;
-    Navigator.popUntil(context, (route) {
-      if (route.settings.name == target.routeName) found = true;
-      return found;
-    });
-    if (!found && target.pageBuilder != null) {
-      Get.off(
-        target.pageBuilder!,
-        routeName: target.routeName,
+
+    // 无损探测：读取 GetX 路由栈，确认目标是否已在栈中。
+    final activePages = Get.rootController.rootDelegate.activePages;
+    final targetInStack = activePages.any((decoder) => decoder.route?.name == target.routeName);
+
+    if (targetInStack) {
+      // 目标在栈中：直接 popUntil 回退。
+      Navigator.popUntil(context, (route) => route.settings.name == target.routeName);
+      return;
+    }
+
+    // 目标不在栈中：先 pop 到栈底（保留首页，避免黑屏），再依次 push 路径上每一级。
+    // 不能用 Get.offAll：裁剪版 GetX 的 _replace 依赖 routeTree，匿名 pageBuilder
+    // 不在 routeTree 中会导致 _getRouteDecoder 返回 null，触发 activePage! 崩溃。
+    Navigator.popUntil(context, (route) => route.isFirst);
+    _pushPath(context, target.path);
+  }
+
+  /// 从根到目标依次 push 每一级路径（在当前栈底之上）。
+  static void _pushPath(BuildContext context, List<SettingsCrumb> path) {
+    for (final node in path) {
+      if (node.pageBuilder == null) continue;
+      Get.to(
+        node.pageBuilder!,
+        routeName: node.routeName,
         preventDuplicates: false,
-        bindings: <BindingsInterface>[if (target.binding != null) target.binding as BindingsInterface],
+        bindings: <BindingsInterface>[if (node.binding != null) node.binding as BindingsInterface],
       );
     }
   }
