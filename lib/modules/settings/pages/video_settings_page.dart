@@ -79,12 +79,17 @@ class _VideoSettingsPageState extends State<VideoSettingsPage> {
           // 音频设置
           context.buildGroupTitle(i18n("audio_settings")),
           context.buildModernCard([
-            context.buildSwitchTile(
-              title: i18n("global_mute"),
-              subtitle: i18n("global_mute_subtitle"),
-              value: SettingsService.to.vol.globalVolumeMute,
-              icon: SettingsService.to.vol.globalVolumeMute.v ? Remix.volume_mute_line : Remix.volume_up_line,
-            ),
+            // 图标随静音状态切换：外层 Obx 订阅了 globalVolumeMute（非空订阅），
+            // 切换时用新图标重新构建内部自带 Obx 的 buildSwitchTile。
+            Obx(() {
+              final muted = SettingsService.to.vol.globalVolumeMute;
+              return context.buildSwitchTile(
+                title: i18n("global_mute"),
+                subtitle: i18n("global_mute_subtitle"),
+                value: muted,
+                icon: muted.v ? Remix.volume_mute_line : Remix.volume_up_line,
+              );
+            }),
             if (_isMobile)
               Obx(
                 () => context.buildSliderTile(

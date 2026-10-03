@@ -1983,6 +1983,19 @@ class BottomActionBar extends StatelessWidget {
     return Obx(() {
       bool shouldShow =
           (controller.showController.value || controller.isMenuOpen.value) && !controller.showLocked.value;
+
+      // 控制栏结构依赖的响应式值必须在 Obx 的同步 build 阶段读取以注册
+      // 依赖：下方 LayoutBuilder 的 builder 在布局阶段执行，其中的 Rx 读取
+      // 不会被 Obx 收集，值变化不触发重建。
+      final playerState = GlobalPlayerState.to;
+      final fullscreen = playerState.fullscreenUI;
+      final isPipMode = playerState.isPipMode.value;
+      final enableImmersiveLayout = SettingsService.to.player.enableImmersiveLayout.v;
+      final localInteractionEnabled = controller.livePlayController.localInteractionController.enabled.value;
+      final enableDanmakuDisplay = SettingsService.to.danmaku.enableDanmakuDisplay.v;
+      final isFullscreen = playerState.isFullscreen.value;
+      final isWindowFullscreen = playerState.isWindowFullscreen.value;
+
       return BottomControlSurface(
         visible: shouldShow,
         height: barHeight + progressBarSlot,
@@ -2011,20 +2024,21 @@ class BottomActionBar extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     child: LayoutBuilder(
                       builder: (context, constraints) {
-                        final fullscreen = GlobalPlayerState.to.fullscreenUI;
                         // 沉浸模式：非全屏时底栏复用全屏分支布局
                         // （居中发送框 + 清晰度/线路合并胶囊），与宽屏全屏底栏一致。
-                        final immersive =
-                            !fullscreen &&
-                            !GlobalPlayerState.to.isPipMode.value &&
-                            SettingsService.to.player.enableImmersiveLayout.v;
+                        final immersive = !fullscreen && !isPipMode && enableImmersiveLayout;
                         final fullscreenStyle = fullscreen || immersive;
-                        final localInteraction = controller.livePlayController.localInteractionController;
                         final compact = constraints.maxWidth < 760;
                         final left = _buildLeftActions(
-                          compact: fullscreenStyle && compact && localInteraction.enabled.value,
+                          compact: fullscreenStyle && compact && localInteractionEnabled,
+                          enableDanmakuDisplay: enableDanmakuDisplay,
                         );
-                        final right = _buildRightActions(compact: fullscreenStyle && compact);
+                        final right = _buildRightActions(
+                          compact: fullscreenStyle && compact,
+                          showStreamSelector: fullscreen || (!isPipMode && enableImmersiveLayout),
+                          isFullscreen: isFullscreen,
+                          isWindowFullscreen: isWindowFullscreen,
+                        );
 
                         if (fullscreenStyle) {
                           return Padding(
@@ -2073,7 +2087,7 @@ class BottomActionBar extends StatelessWidget {
     });
   }
 
-  Widget _buildLeftActions({required bool compact}) {
+  Widget _buildLeftActions({required bool compact, required bool enableDanmakuDisplay}) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -2081,29 +2095,27 @@ class BottomActionBar extends StatelessWidget {
         LiveEdgeButton(controller: controller),
         if (!compact) RefreshButton(controller: controller),
         if (!compact) FavoriteButton(controller: controller),
-        if (SettingsService.to.danmaku.enableDanmakuDisplay.v) ...[
-          DanmakuButton(controller: controller),
-          SettingsButton(controller: controller),
-        ],
+        if (enableDanmakuDisplay) ...[DanmakuButton(controller: controller), SettingsButton(controller: controller)],
       ],
     );
   }
 
-  Widget _buildRightActions({required bool compact}) {
+  Widget _buildRightActions({
+    required bool compact,
+    required bool showStreamSelector,
+    required bool isFullscreen,
+    required bool isWindowFullscreen,
+  }) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         // 清晰度/线路合并胶囊：全屏或沉浸模式（非紧凑布局）显示。
-        if (!compact &&
-            (GlobalPlayerState.to.fullscreenUI ||
-                (!GlobalPlayerState.to.isPipMode.value && SettingsService.to.player.enableImmersiveLayout.v))) ...[
-          FullscreenStreamSelectorButton(controller: controller),
-        ],
+        if (!compact && showStreamSelector) ...[FullscreenStreamSelectorButton(controller: controller)],
         VideoFitSetting(controller: controller),
         if (Platform.isWindows) OverlayVolumeControl(controller: controller),
-        if (Platform.isWindows && controller.supportWindowFull && !GlobalPlayerState.to.isFullscreen.value)
+        if (Platform.isWindows && controller.supportWindowFull && !isFullscreen)
           ExpandWindowButton(controller: controller),
-        if (!GlobalPlayerState.to.isWindowFullscreen.value) ExpandButton(controller: controller),
+        if (!isWindowFullscreen) ExpandButton(controller: controller),
       ],
     );
   }

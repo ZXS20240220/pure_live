@@ -37,19 +37,21 @@ class PlayerKernelSettingsPage extends GetView<SettingsService> {
               ),
               stackTrailingOnNarrow: true,
             ),
-            context.buildTile(
-              icon: Remix.global_line,
-              title: i18n("network_proxy"),
-              subtitle: i18n("network_proxy_subtitle"),
-              onTap: showProxySettingsDialog,
-              trailing: Text(
-                SettingsService.to.proxy.enableProxy.v ? i18n("enabled") : i18n("disabled"),
-                style: AppTextStyles.t13.copyWith(
-                  color: SettingsService.to.proxy.enableProxy.v ? theme.colorScheme.primary : theme.hintColor,
-                  fontWeight: FontWeight.w600,
+            Obx(
+              () => context.buildTile(
+                icon: Remix.global_line,
+                title: i18n("network_proxy"),
+                subtitle: i18n("network_proxy_subtitle"),
+                onTap: showProxySettingsDialog,
+                trailing: Text(
+                  SettingsService.to.proxy.enableProxy.v ? i18n("enabled") : i18n("disabled"),
+                  style: AppTextStyles.t13.copyWith(
+                    color: SettingsService.to.proxy.enableProxy.v ? theme.colorScheme.primary : theme.hintColor,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
+                stackTrailingOnNarrow: true,
               ),
-              stackTrailingOnNarrow: true,
             ),
             context.buildSwitchTile(
               icon: Remix.speed_up_line,

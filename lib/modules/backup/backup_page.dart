@@ -20,7 +20,6 @@ class BackupPage extends StatefulWidget {
 class _BackupPageState extends State<BackupPage> {
   final LogController logController = LogController.to;
   String get backupDirectory => SettingsService.to.backup.backupDirectory.v;
-  String get m3uDirectory => SettingsService.to.iptv.m3uDirectory.v;
 
   Future<void> _openLogDirectory() async {
     try {
@@ -93,14 +92,16 @@ class _BackupPageState extends State<BackupPage> {
           const SizedBox(height: 20),
           context.buildGroupTitle(i18n("backup_settings")),
           context.buildModernCard([
-            context.buildTile(
-              icon: Remix.folder_open_line,
-              title: i18n("backup_directory"),
-              subtitle: backupDirectory.isEmpty ? i18n('please_set_backup_directory') : backupDirectory,
-              isLong: true,
-              onTap: () async {
-                await BackupRecoveryService().updateBackupDirectory();
-              },
+            Obx(
+              () => context.buildTile(
+                icon: Remix.folder_open_line,
+                title: i18n("backup_directory"),
+                subtitle: backupDirectory.isEmpty ? i18n('please_set_backup_directory') : backupDirectory,
+                isLong: true,
+                onTap: () async {
+                  await BackupRecoveryService().updateBackupDirectory();
+                },
+              ),
             ),
           ]),
           const SizedBox(height: 20),

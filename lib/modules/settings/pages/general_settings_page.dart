@@ -146,13 +146,15 @@ class GeneralSettingsPage extends GetView<SettingsService> {
                   contentPadding: const EdgeInsets.only(left: 16, top: 2, bottom: 2, right: 8),
                 );
               }),
-              context.buildTile(
-                icon: Remix.aspect_ratio_line,
-                title: i18n("window_size"),
-                subtitle:
-                    "${SettingsService.to.window.resolvedStoredWidth.toInt()} × ${SettingsService.to.window.resolvedStoredHeight.toInt()}",
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => _showWindowSizeDialog(context),
+              Obx(
+                () => context.buildTile(
+                  icon: Remix.aspect_ratio_line,
+                  title: i18n("window_size"),
+                  subtitle:
+                      "${SettingsService.to.window.resolvedStoredWidth.toInt()} × ${SettingsService.to.window.resolvedStoredHeight.toInt()}",
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => _showWindowSizeDialog(context),
+                ),
               ),
               context.buildSwitchTile(
                 title: i18n("no_exit_confirm"),
