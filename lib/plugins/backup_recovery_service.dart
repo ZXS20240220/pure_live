@@ -10,28 +10,27 @@ import 'package:pure_live/core/common/http_client.dart';
 import 'package:pure_live/common/services/settings/backup_controller.dart';
 
 class BackupRecoveryService {
+  /// 已设置备份目录时直接在该目录创建备份文件；未设置时仅提示用户先设置，
+  /// 不再弹出目录选择框。
   Future<String?> createAppSettingsBackup(String backupDirectory) async {
     final backup = Get.find<BackupController>();
+    if (backupDirectory.isEmpty) {
+      ToastUtil.show(i18n("please_set_backup_directory"));
+      return null;
+    }
+
     final granted = await FileUtils.requestStoragePermission();
     if (!granted) {
       ToastUtil.show(i18n("grant_storage_permission_first"));
       return null;
     }
 
-    String? selectedDirectory = await FilePicker.getDirectoryPath(
-      initialDirectory: backupDirectory.isEmpty ? null : backupDirectory,
-    );
-    if (selectedDirectory == null) return null;
-
     final dateStr = formatDate(DateTime.now(), [yyyy, '-', mm, '-', dd, 'T', HH, '_', nn, '_', ss]);
-    final file = File('$selectedDirectory/purelive_$dateStr.txt');
+    final file = File('$backupDirectory/purelive_$dateStr.txt');
 
     if (backup.backup(file)) {
       ToastUtil.show(i18n("create_backup_success"));
-      if (backup.backupDirectory.v.isEmpty) {
-        backup.backupDirectory.v = selectedDirectory;
-      }
-      return selectedDirectory;
+      return backupDirectory;
     } else {
       ToastUtil.show(i18n("create_backup_failed"));
       return null;

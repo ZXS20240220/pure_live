@@ -92,45 +92,34 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('first backup opens one directory picker and cancellation keeps the empty preference', (tester) async {
+  testWidgets('unset directory shows a hint and creates no backup or picker', (tester) async {
     await openPage(tester);
     await createBackup(tester);
-    expect(picker.initialDirectories, [null]);
+    expect(picker.initialDirectories, isEmpty);
     expect(backup.destinations, isEmpty);
     expect(backup.backupDirectory.value, isEmpty);
     await finish(tester);
   });
 
-  testWidgets('first successful backup remembers the selected directory without a separate settings step', (
-    tester,
-  ) async {
-    picker.result = directory.path;
+  testWidgets('set directory backs up directly without opening a picker', (tester) async {
+    backup.backupDirectory.value = directory.path;
     await openPage(tester);
     await createBackup(tester);
-    expect(picker.initialDirectories, [null]);
+    expect(picker.initialDirectories, isEmpty);
     expect(backup.destinations, hasLength(1));
     expect(backup.destinations.single.parent.path, directory.path);
     expect(backup.backupDirectory.value, directory.path);
     await finish(tester);
   });
 
-  testWidgets('failed first export leaves the backup directory unset', (tester) async {
-    picker.result = directory.path;
+  testWidgets('failed export with a set directory keeps the configured directory', (tester) async {
+    backup.backupDirectory.value = directory.path;
     backup.succeeds = false;
     await openPage(tester);
     await createBackup(tester);
-    expect(picker.initialDirectories, [null]);
+    expect(picker.initialDirectories, isEmpty);
     expect(backup.destinations, hasLength(1));
-    expect(backup.backupDirectory.value, isEmpty);
-    await finish(tester);
-  });
-
-  testWidgets('existing directory is a picker hint and cancellation preserves it', (tester) async {
-    backup.backupDirectory.value = directory.path;
-    await openPage(tester);
-    await createBackup(tester);
-    expect(picker.initialDirectories, [directory.path]);
-    expect(backup.destinations, isEmpty);
+    expect(backup.destinations.single.parent.path, directory.path);
     expect(backup.backupDirectory.value, directory.path);
     await finish(tester);
   });

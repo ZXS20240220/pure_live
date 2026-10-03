@@ -78,8 +78,7 @@ class _BackupPageState extends State<BackupPage> {
               subtitle: i18n("create_backup_subtitle"),
               isLong: true,
               onTap: () async {
-                // The export flow chooses a directory and remembers the first
-                // successful choice; no separate first-run settings step.
+                // 备份目录已设置时直接导出到该目录；未设置时提示用户先设置。
                 await BackupRecoveryService().createAppSettingsBackup(backupDirectory);
               },
             ),
