@@ -324,6 +324,7 @@ class _KeyboardShortcutsDialog extends StatelessWidget {
               _ShortcutItem(keys: const ['↑'], desc: '向上滚一屏'),
               _ShortcutItem(keys: const ['↓'], desc: '向下滚一屏'),
               _ShortcutItem(keys: const ['Mouse Wheel'], desc: '可通过鼠标滚轮在所有页签和页码中翻页'),
+              _ShortcutItem(keys: const ['Ctrl', 'Click'], desc: '按住 Ctrl 点击直播间卡片，在悬浮窗中播放（关注/热门/分区页通用）'),
             ],
           )
         : _ShortcutSectionData(
@@ -337,6 +338,10 @@ class _KeyboardShortcutsDialog extends StatelessWidget {
               _ShortcutItem(keys: const ['→'], desc: 'Next page'),
               _ShortcutItem(keys: const ['↑'], desc: 'Scroll up one page'),
               _ShortcutItem(keys: const ['↓'], desc: 'Scroll down one page'),
+              _ShortcutItem(
+                keys: const ['Ctrl', 'Click'],
+                desc: 'Ctrl-click a room card to play it in a floating window (Favorite/Popular/Area pages)',
+              ),
             ],
           );
 
@@ -363,7 +368,12 @@ class _KeyboardShortcutsDialog extends StatelessWidget {
               _ShortcutItem(keys: const ['Ctrl', 'Mouse Wheel'], desc: '以指针为中心等比缩放画面'),
               _ShortcutItem(keys: const ['Ctrl', 'Drag'], desc: '画面放大后按住 Ctrl 拖拽移动画面'),
               _ShortcutItem(keys: const ['Ctrl', 'Click'], desc: '按住 Ctrl 点击侧栏直播间卡片，在小窗中打开'),
+              _ShortcutItem(keys: const ['Ctrl', 'Mouse Wheel'], desc: '在小窗上按住 Ctrl 滚轮缩放小窗尺寸'),
               _ShortcutItem(keys: const ['Double Click'], desc: '双击小窗将该直播间切换到主窗口并关闭小窗'),
+              _ShortcutItem(
+                keys: const ['Ctrl', 'Mouse Wheel'],
+                desc: '在悬浮窗或 Windows 画中画上按住 Ctrl 滚轮缩放窗口；也可直接拖拽悬浮窗边缘或四角改变尺寸',
+              ),
               _ShortcutItem(keys: const ['Esc'], desc: '退出全屏 / 关闭页面'),
             ],
           )
@@ -389,9 +399,16 @@ class _KeyboardShortcutsDialog extends StatelessWidget {
                 keys: const ['Ctrl', 'Click'],
                 desc: 'Ctrl-click a sidebar room card to open it in a mini window',
               ),
+              _ShortcutItem(keys: const ['Ctrl', 'Mouse Wheel'], desc: 'Ctrl-scroll over a mini window to resize it'),
               _ShortcutItem(
                 keys: const ['Double Click'],
                 desc: 'Double-click a mini window to move that room to the main player and close it',
+              ),
+              _ShortcutItem(
+                keys: const ['Ctrl', 'Mouse Wheel'],
+                desc:
+                    'Ctrl-scroll over the floating window or Windows PiP to resize it; '
+                    'you can also drag the floating window edges or corners',
               ),
               _ShortcutItem(keys: const ['Esc'], desc: 'Exit fullscreen / Close page'),
             ],

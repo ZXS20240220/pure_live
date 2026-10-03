@@ -545,6 +545,22 @@ class PlayerController extends GetxController {
       onAudioOnlyChanged: _main.setCurrentRoomAudioOnlyFromUser,
     );
     _main.updatePlayer(videoController: videoController);
+
+    // 从悬浮窗进入直播间：悬浮窗用最低清，此处切换到用户偏好的清晰度。
+    if (!session.hasUseDefaultResolution && qualities.length > 1) {
+      final beforeIndex = _state.player.currentQuality;
+      await _setDefaultResolution(qualities, isCurrent: () => !_main.isClosed && !isClosed);
+      final targetIndex = _state.player.currentQuality;
+      if (targetIndex != beforeIndex && !_main.isClosed && !isClosed) {
+        await switchStreamSelection(
+          type: ReloadDataType.changeQuality,
+          qualityIndex: targetIndex,
+          lineIndex: currentLineIndex,
+          force: true,
+        );
+      }
+    }
+
     return videoController;
   }
 
@@ -687,6 +703,7 @@ class PlayerController extends GetxController {
     required ReloadDataType type,
     required int qualityIndex,
     required int lineIndex,
+    bool force = false,
   }) async {
     if (type != ReloadDataType.changeQuality && type != ReloadDataType.changeLine) return false;
 
@@ -701,7 +718,17 @@ class PlayerController extends GetxController {
     // A pending selection may already be opening a different native source.
     // Selecting the committed choice must supersede it and queue a restore;
     // only an idle selection of the current source is a genuine no-op.
-    if (!isStreamSwitching.value && requestedQuality == before.currentQuality && lineIndex == before.currentLineIndex) {
+    //
+    // [force] is required when reusing a session prepared outside this route
+    // (e.g. entering the live room from the card-opened floating window):
+    // _setDefaultResolution has already moved currentQuality to the preferred
+    // label, but the native player is still streaming the floating window's
+    // low-quality URL. Skipping here would leave a "fake HD" label on a
+    // blurry stream until a manual refresh/line switch.
+    if (!force &&
+        !isStreamSwitching.value &&
+        requestedQuality == before.currentQuality &&
+        lineIndex == before.currentLineIndex) {
       return true;
     }
 

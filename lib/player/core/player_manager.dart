@@ -22,6 +22,7 @@ import 'playback_lifecycle_coordinator.dart';
 import 'package:floating/floating.dart';
 import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform, Uint8List;
 import 'package:flutter/gestures.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart' show HardwareKeyboard;
 
@@ -42,6 +43,7 @@ import 'package:pure_live/model/live_play_quality.dart';
 import 'package:pure_live/player/utils/fullscreen.dart';
 import 'package:pure_live/player/utils/window_helper.dart';
 import 'package:flutter_floating/flutter_floating.dart';
+import 'package:flame_barrage/flame_barrage.dart';
 import 'package:pure_live/player/utils/player_consts.dart';
 import 'package:pure_live/player/utils/popup_route_tracker.dart';
 import 'package:pure_live/common/global/platform_utils.dart';
@@ -56,6 +58,7 @@ import 'package:pure_live/player/utils/media_kit_content_probe.dart';
 import 'package:pure_live/modules/live_play/controllers/player_state.dart';
 import 'package:pure_live/modules/live_play/widgets/video_player/video_controller.dart';
 import 'package:pure_live/modules/live_play/widgets/danmaku/compact_danmaku_overlay.dart';
+import 'package:pure_live/modules/multiview/danmaku/multiview_danmaku_session.dart';
 import 'package:pure_live/player/core/flv_splice_relay.dart';
 
 typedef UnifiedPlayerCreator = FutureOr<UnifiedPlayer> Function(PlayerEngine engine);
@@ -420,6 +423,22 @@ class PlayerManager {
   /// null 表示使用默认位置（right: 50, top: 100）。
   final Rxn<Offset> floatingSavedPosition = Rxn<Offset>();
 
+  /// 从卡片打开悬浮窗时的独立弹幕会话（不依赖 LivePlayController）。
+  MultiviewDanmakuSession? _floatingDanmakuSession;
+
+  /// 卡片悬浮窗专用弹幕控制器。该场景没有直播页路由，也就没有
+  /// VideoController/DanmakuManager，弹幕经 [MultiviewDanmakuSession]
+  /// 直接转发到这里，并由 StandaloneCompactDanmakuOverlay 渲染。
+  final BarrageController _standaloneFloatingDanmaku = BarrageController();
+
+  /// Ctrl+点击打开悬浮窗的请求代号。每次 [openAppFloatingFromRoom] 自增，
+  /// 异步解析返回后核对，丢弃被新请求取代的过期结果（快速切换房间竞态）。
+  int _appFloatingOpenEpoch = 0;
+
+  /// 悬浮窗尺寸容器的 key：边缘拖拽开始时据此读取当前窗口位置/尺寸。
+  final GlobalKey _appFloatingContainerKey = GlobalKey(debugLabel: 'app-floating-container');
+  _FloatingResizeSession? _floatingResizeSession;
+
   static const double floatingMinLongSide = 350.0;
   static const double floatingMaxLongSide = 640.0;
 
@@ -428,6 +447,11 @@ class PlayerManager {
   /// restores the room's saved volume, and the next compact session starts
   /// unmuted.
   final RxBool isCompactMuted = false.obs;
+
+  /// App 悬浮窗弹幕的会话级显隐开关。仅由左上角按钮切换，不接入设置、
+  /// 不落盘，生命周期与 [isCompactMuted] 一致：下次打开悬浮窗默认显示。
+  /// 注意：只作用于应用内悬浮窗，不影响 Windows PiP。
+  final RxBool isCompactDanmakuHidden = false.obs;
 
   /// Ephemeral compact-mode volume override changed via the mouse wheel or the
   /// compact volume bar. It is independent of the room's saved volume and is
@@ -830,66 +854,199 @@ class PlayerManager {
 
   /// 从房间卡片直接打开悬浮窗播放（关注/热门/分区页 Ctrl+点击入口）。
   ///
-  /// - 若已在播放同一房间：原地刷新流，不重建悬浮窗、不改变位置/尺寸。
+  /// - 若悬浮窗正在播放同一房间：原地刷新流，不重建悬浮窗、不改变位置/尺寸。
   /// - 若已有悬浮窗在播其他房间：关闭旧的再开新的。
   /// - 复用 [showAppFloating] 同一套悬浮窗 UI。
+  ///
+  /// 注意：退出直播间（未转悬浮窗）后 [currentFloatRoom] 仍指向该房间，但
+  /// overlay 已经销毁。此时 Ctrl+点击同一房间不能走"原地刷新"分支（只 play
+  /// 不显示窗口），必须重新走完整的 prepare + show 流程。
   Future<void> openAppFloatingFromRoom(LiveRoom room) async {
     if (!Platform.isWindows) return;
     final platform = room.platform;
     final roomId = room.roomId;
     if (platform == null || roomId == null) return;
 
-    // 同房间原地刷新：只重载流，不重建 floating overlay。
+    final requestId = ++_appFloatingOpenEpoch;
+    bool isStale() => requestId != _appFloatingOpenEpoch || _disposed;
+    bool isOverlayActive() => isFloating.value || _appFloatingPrepared;
+
+    // 同房间且悬浮窗确实还在显示：原地刷新流，不重建 floating overlay。
     final current = currentFloatRoom;
-    if (current != null && current.platform == platform && current.roomId == roomId) {
-      await _reloadFloatingRoom(room);
+    if (current != null && current.platform == platform && current.roomId == roomId && isOverlayActive()) {
+      await _reloadFloatingRoom(room, requestId);
       return;
     }
 
-    // 关闭已有悬浮窗（若在播其他房间）。
-    if (isFloating.value || _appFloatingPrepared) {
+    // 关闭已有悬浮窗（若在播其他房间）。必须 await，避免新旧播放器重叠。
+    if (isOverlayActive()) {
       await closeAppFloating();
     }
+    if (isStale()) return;
 
     final site = Sites.of(platform);
     final liveSite = site.liveSite;
     try {
+      // 先准备并显示悬浮窗（黑色占位），让用户立即看到反馈，
+      // 视频流在后台异步解析完成后自动渲染。
+      prepareAppFloating(onClose: () async {}, session: null);
+      showAppFloating();
+
       final detail = await liveSite.getRoomDetail(roomId: roomId, platform: platform);
-      if (!detail.isPlayableNow) return;
+      if (isStale()) return;
+      if (!detail.isPlayableNow) {
+        await closeAppFloating();
+        return;
+      }
       final qualities = await liveSite.discoverPlayQualities(detail: detail);
-      if (qualities.isEmpty) return;
+      if (isStale()) return;
+      if (qualities.isEmpty) {
+        await closeAppFloating();
+        return;
+      }
       // 悬浮窗尺寸小，取最低清晰度省流量。
       final quality = qualities.last;
       final resolution = await liveSite.resolvePlayUrls(detail: detail, quality: quality);
+      if (isStale()) return;
       final urls = resolution.urls;
-      if (urls.isEmpty) return;
+      if (urls.isEmpty) {
+        await closeAppFloating();
+        return;
+      }
       final headers = await PlaybackHeaderResolver.resolve(
         platform: platform,
         roomId: roomId,
         roomHeaders: detail.httpHeaders,
       );
+      if (isStale() || !isOverlayActive()) return;
       await play(urls.first, urls, headers, room: detail);
-      prepareAppFloating(onClose: () async {}, session: null);
-      showAppFloating();
+      if (isStale() || !isOverlayActive()) return;
+      // 传入完整 qualities 列表，hasUseDefaultResolution=false：
+      // 进入直播间后会重新选择用户偏好的清晰度，避免悬浮窗的低清被沿用。
+      final selectedIndex = qualities.indexOf(quality).clamp(0, qualities.length - 1);
+      prepareAppFloating(
+        onClose: () async {},
+        session: RoomSessionSnapshot(
+          room: detail,
+          qualities: List<LivePlayQuality>.unmodifiable(qualities),
+          currentQuality: selectedIndex,
+          playUrls: List<String>.unmodifiable(urls),
+          currentLineIndex: 0,
+          headers: Map<String, String>.unmodifiable(headers),
+          isAudioOnly: false,
+          isLiving: true,
+          dataSource: urls.first,
+          hasUseDefaultResolution: false,
+        ),
+      );
+      // 卡片悬浮窗没有 VideoController：弹幕走独立会话 + 独立弹幕层。
+      // 若用户开启了悬浮窗弹幕且平台支持，建立独立弹幕会话。
+      if (isOverlayActive() &&
+          _videoController == null &&
+          SettingsService.to.danmaku.enablePipDanmaku.v &&
+          MultiviewDanmakuSession.supportsRoom(detail)) {
+        await _connectFloatingDanmaku(detail);
+      }
     } catch (error, stackTrace) {
+      if (isStale()) return;
       log('openAppFloatingFromRoom failed', name: 'PlayerManager', error: error, stackTrace: stackTrace);
+      await closeAppFloating();
     }
   }
 
+  /// 为从卡片打开的悬浮窗建立独立弹幕会话。
+  ///
+  /// 存在路由级 [VideoController] 时（退出直播间转悬浮窗的场景）转发给它的
+  /// DanmakuManager；否则直接转成 [BarrageItem] 发往独立弹幕控制器——
+  /// DanmakuManager 会丢弃非播放态消息，且卡片悬浮窗根本没有 VideoController。
+  Future<void> _connectFloatingDanmaku(LiveRoom room) async {
+    final session = _floatingDanmakuSession ??= MultiviewDanmakuSession(
+      engineFactory: (r) => Sites.of(r.platform!).liveSite.getDanmaku(),
+      onChatMessage: _dispatchFloatingDanmaku,
+    );
+    await session.connect(room);
+  }
+
+  void _dispatchFloatingDanmaku(LiveMessage msg) {
+    final controller = _videoController;
+    if (controller != null) {
+      controller.sendDanmaku(msg);
+      return;
+    }
+    if (!isPlayingNow && !msg.isLocal) return;
+    final danmakuSettings = SettingsService.to.danmaku;
+    final Color color;
+    if (msg.isLocal || danmakuSettings.pipDanmakuUseOriginalColor.v) {
+      color = Color.fromARGB(255, msg.color.r, msg.color.g, msg.color.b);
+    } else {
+      color = Color(danmakuSettings.pipDanmakuColor.v);
+    }
+    final content = msg.repeatCount >= 2 ? '${msg.message} ×${msg.repeatCount}' : msg.message;
+    // 与 VideoController 的 PiP 弹幕转发保持一致：本地发送的弹幕保留
+    // 置顶/置底与自定义样式。
+    final localStyle = msg.isLocal ? msg.style : null;
+    _standaloneFloatingDanmaku.send(
+      BarrageItem(
+        content: content,
+        type: switch (localStyle?.placement) {
+          LiveMessagePlacement.top => BarrageType.topFixed,
+          LiveMessagePlacement.bottom => BarrageType.bottomFixed,
+          _ => BarrageType.scroll,
+        },
+        userId: msg.userId,
+        userName: msg.userName,
+        textColor: color,
+        fontSize: localStyle?.fontSize,
+        fontWeight: localStyle == null ? null : FontWeight(localStyle.fontWeight),
+        fontStyle: localStyle?.italic == true ? FontStyle.italic : null,
+        fontFamily: localStyle?.fontFamily,
+        letterSpacing: localStyle?.letterSpacing,
+        opacity: localStyle?.opacity,
+        showStroke: localStyle?.showStroke,
+        strokeColor: localStyle == null ? null : Color(localStyle.strokeColor),
+        strokeWidth: localStyle?.strokeWidth,
+        showShadow: localStyle?.showShadow,
+        shadowColor: localStyle == null ? null : Color(localStyle.shadowColor),
+        shadowBlur: localStyle?.shadowBlur,
+        shadowOffset: localStyle == null ? null : Offset(localStyle.shadowOffset, localStyle.shadowOffset),
+        fixedDuration: localStyle == null ? null : Duration(milliseconds: localStyle.fixedDurationMs),
+        baseSpeed: localStyle?.baseSpeed,
+      ),
+    );
+  }
+
+  /// 断开悬浮窗弹幕会话。
+  Future<void> _disconnectFloatingDanmaku() async {
+    final session = _floatingDanmakuSession;
+    if (session != null) {
+      _floatingDanmakuSession = null;
+      await session.disconnect();
+    }
+    // 清空独立弹幕层残留，避免下次打开悬浮窗时短暂出现上个房间的弹幕。
+    _standaloneFloatingDanmaku.clear();
+  }
+
   /// 原地刷新悬浮窗正在播放的房间流（不重建 overlay、不改位置/尺寸）。
-  Future<void> _reloadFloatingRoom(LiveRoom room) async {
+  ///
+  /// [requestId] 与 [openAppFloatingFromRoom] 的代号对应：解析期间若有更新的
+  /// Ctrl+点击请求或悬浮窗已被关闭/进入直播间，则放弃本次结果。
+  Future<void> _reloadFloatingRoom(LiveRoom room, int requestId) async {
     final platform = room.platform;
     final roomId = room.roomId;
     if (platform == null || roomId == null) return;
+    bool isStale() => requestId != _appFloatingOpenEpoch || _disposed;
+    bool isOverlayActive() => isFloating.value || _appFloatingPrepared;
     final site = Sites.of(platform);
     final liveSite = site.liveSite;
     try {
       final detail = await liveSite.getRoomDetail(roomId: roomId, platform: platform);
-      if (!detail.isPlayableNow) return;
+      if (isStale() || !isOverlayActive() || !detail.isPlayableNow) return;
       final qualities = await liveSite.discoverPlayQualities(detail: detail);
+      if (isStale() || !isOverlayActive()) return;
       if (qualities.isEmpty) return;
       final quality = qualities.last;
       final resolution = await liveSite.resolvePlayUrls(detail: detail, quality: quality);
+      if (isStale() || !isOverlayActive()) return;
       final urls = resolution.urls;
       if (urls.isEmpty) return;
       final headers = await PlaybackHeaderResolver.resolve(
@@ -897,19 +1054,41 @@ class PlayerManager {
         roomId: roomId,
         roomHeaders: detail.httpHeaders,
       );
+      if (isStale() || !isOverlayActive()) return;
       await play(urls.first, urls, headers, room: detail);
+      if (isStale() || !isOverlayActive()) return;
+      // play() 打开的是全新原生播放器，默认按房间保存音量播放。必须把当前
+      // compact 会话音量（含单击静音的 0）重新施加给新实例，否则会出现
+      // “声音恢复了但音量图标仍显示静音”的状态错位。
+      await _reapplyCompactVolumeAfterReload();
+      // 同房间刷新：若弹幕会话已断开则重连（connect 幂等）。路由级
+      // VideoController 存在时由其自身弹幕引擎负责，不建立独立会话。
+      if (_videoController == null &&
+          SettingsService.to.danmaku.enablePipDanmaku.v &&
+          MultiviewDanmakuSession.supportsRoom(detail)) {
+        await _connectFloatingDanmaku(detail);
+      }
     } catch (error, stackTrace) {
+      if (isStale()) return;
       log('_reloadFloatingRoom failed', name: 'PlayerManager', error: error, stackTrace: stackTrace);
     }
   }
 
   Widget _buildCompactDanmaku() {
     final controller = _videoController;
-    return controller == null ? const SizedBox.shrink() : CompactDanmakuOverlay(controller: controller);
+    if (controller != null) {
+      return CompactDanmakuOverlay(controller: controller);
+    }
+    // 卡片直接打开的悬浮窗没有直播页路由/VideoController，使用独立弹幕层。
+    return StandaloneCompactDanmakuOverlay(barrageController: _standaloneFloatingDanmaku);
   }
 
   Future<void> _releaseAppFloatingResources() async {
     _appFloatingPrepared = false;
+    // 弹幕显隐是会话临时态：随悬浮窗资源释放一起复位，下次打开默认显示。
+    isCompactDanmakuHidden.value = false;
+    // 断开悬浮窗独立弹幕会话。
+    await _disconnectFloatingDanmaku();
     final disposers = List<Future<void> Function()>.from(_floatingResourceDisposers);
     _floatingResourceDisposers.clear();
     for (final disposer in disposers) {
@@ -2950,6 +3129,23 @@ class PlayerManager {
     }
   }
 
+  /// 把当前 compact 会话音量（override 或房间保存音量；静音时为 0）重新施加
+  /// 给刚由 play() 创建的全新原生播放器实例，保证实际音量与 UI 图标一致。
+  Future<void> _reapplyCompactVolumeAfterReload() async {
+    final player = _currentPlayer;
+    if (player == null || _isClosing || _disposed) return;
+    try {
+      await player.setVolume(_compactVolumeValue().clamp(0.0, 1.0).toDouble());
+    } catch (error, stackTrace) {
+      log(
+        'Reapply compact volume after floating reload failed',
+        name: 'PlayerManager',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
   /// Flips the live topmost state of the current Windows PiP window. This does
   /// not change the `windowsPipAlwaysOnTop` default for future PiP sessions.
   Future<void> toggleWindowsPipAlwaysOnTop() async {
@@ -3259,8 +3455,7 @@ class PlayerManager {
     isFloatingVideoVisible.value = true;
     floatingManager.disposeFloating(_floatTag);
     _hideTimer?.cancel();
-    // 长边从运行时记忆的 floatingLongSide 读取，clamp 到合法范围。
-    final maxSide = Platform.isWindows ? floatingLongSide.value.clamp(floatingMinLongSide, floatingMaxLongSide) : 220.0;
+    // 长边在 Obx 内部读取 floatingLongSide，确保 Ctrl+滚轮缩放时立即重建尺寸。
     // This selects Flutter interaction behavior, not a native platform API.
     final touchControls =
         defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS;
@@ -3294,12 +3489,22 @@ class PlayerManager {
             // settle. Keep its outer bounds on the same reactive geometry as
             // the texture instead of freezing the entry-time 16:9 size.
             videoPresentationRevision.value;
+            // 在 Obx 内读取 floatingLongSide，Ctrl+滚轮缩放时立即生效。
+            final maxSide = Platform.isWindows
+                ? floatingLongSide.value.clamp(floatingMinLongSide, floatingMaxLongSide)
+                : 220.0;
             final floatingSize = resolveAppFloatingSize(aspectRatio: currentVideoRatio, maxSide: maxSide);
             return Container(
+              key: _appFloatingContainerKey,
               width: floatingSize.width,
               height: floatingSize.height,
               clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: Colors.black),
+              // Windows 悬停时描边，提示边缘可拖拽改变尺寸。
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                color: Colors.black,
+                border: Platform.isWindows && isHovered.value ? Border.all(color: Colors.white30, width: 1) : null,
+              ),
               child: _wrapCompactWheel(
                 Stack(
                   children: [
@@ -3313,7 +3518,11 @@ class PlayerManager {
                             : const SizedBox.shrink(),
                       ),
                     ),
-                    Positioned.fill(child: _buildCompactDanmaku()),
+                    // 左上角弹幕显隐按钮的会话级开关：外层 Obx 读取该值，
+                    // 隐藏时弹幕层直接不挂载。仅作用于 app 悬浮窗。
+                    Positioned.fill(
+                      child: isCompactDanmakuHidden.value ? const SizedBox.shrink() : _buildCompactDanmaku(),
+                    ),
                     Positioned.fill(
                       child: GestureDetector(
                         behavior: HitTestBehavior.opaque,
@@ -3337,8 +3546,40 @@ class PlayerManager {
                         child: const SizedBox.expand(),
                       ),
                     ),
+                    // Windows 边缘拖拽改变尺寸（手柄在子树中优先于外层悬浮窗
+                    // 的整体拖动手势）；控制条与关闭按钮在更上层，事件不冲突。
+                    ..._buildFloatingResizeHandles(),
                     _buildCompactPlaybackControls(afterAction: resetHideTimer),
                     _buildCompactOverlayChrome(),
+                    // 左上角弹幕显隐按钮：仅 app 悬浮窗可见，会话临时态，
+                    // 不持久化（与 compact 音量/静音一致）。位于 Stack 上层，
+                    // 点击不会冒泡到单击进房手势。
+                    Positioned(
+                      left: 4,
+                      top: 4,
+                      child: Obx(
+                        () => AnimatedOpacity(
+                          opacity: isHovered.value ? 1 : 0,
+                          duration: const Duration(milliseconds: 200),
+                          child: IgnorePointer(
+                            ignoring: !isHovered.value,
+                            child: IconButton(
+                              constraints: const BoxConstraints(),
+                              padding: const EdgeInsets.all(8),
+                              style: IconButton.styleFrom(backgroundColor: Colors.black45),
+                              tooltip: i18n('mini_pip_toggle_danmaku'),
+                              icon: Icon(
+                                isCompactDanmakuHidden.value ? Icons.subtitles_off_outlined : Icons.subtitles_outlined,
+                                color: Colors.white,
+                              ),
+                              onPressed: () {
+                                isCompactDanmakuHidden.value = !isCompactDanmakuHidden.value;
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                     Positioned(
                       right: 4,
                       top: 4,
@@ -3410,10 +3651,350 @@ class PlayerManager {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // App floating：Windows 边缘/四角拖拽改变尺寸
+  //
+  // flutter_floating 只支持整体拖动，不支持边缘 resize。这里在悬浮窗
+  // Stack 内放置 4 条边 + 4 个角的手势手柄：命中测试中前层子节点的手势
+  // 优先于 FloatingView 外层的整体拖动手势，因此手柄区域拖动会调整尺寸，
+  // 其余区域仍是移动窗口。尺寸通过 floatingLongSide 驱动同一套 Obx 布局，
+  // 并用 FloatingCommonController.setWAndH/scrollTopLeft 提前通知插件，
+  // 锚定被拖拽边的对边，避免缩放时窗口跳动。
+  // ---------------------------------------------------------------------------
+
+  List<Widget> _buildFloatingResizeHandles() {
+    if (!Platform.isWindows) return const <Widget>[];
+    const double band = 6.0;
+    const double corner = 12.0;
+    return <Widget>[
+      _resizeHandle(
+        edge: _FloatingResizeEdge.left,
+        cursor: SystemMouseCursors.resizeLeftRight,
+        left: 0,
+        top: corner,
+        bottom: corner,
+        width: band,
+      ),
+      _resizeHandle(
+        edge: _FloatingResizeEdge.right,
+        cursor: SystemMouseCursors.resizeLeftRight,
+        right: 0,
+        top: corner,
+        bottom: corner,
+        width: band,
+      ),
+      _resizeHandle(
+        edge: _FloatingResizeEdge.top,
+        cursor: SystemMouseCursors.resizeUpDown,
+        top: 0,
+        left: corner,
+        right: corner,
+        height: band,
+      ),
+      _resizeHandle(
+        edge: _FloatingResizeEdge.bottom,
+        cursor: SystemMouseCursors.resizeUpDown,
+        bottom: 0,
+        left: corner,
+        right: corner,
+        height: band,
+      ),
+      _resizeHandle(
+        edge: _FloatingResizeEdge.topLeft,
+        cursor: SystemMouseCursors.resizeUpLeftDownRight,
+        left: 0,
+        top: 0,
+        width: corner,
+        height: corner,
+      ),
+      _resizeHandle(
+        edge: _FloatingResizeEdge.topRight,
+        cursor: SystemMouseCursors.resizeUpRightDownLeft,
+        right: 0,
+        top: 0,
+        width: corner,
+        height: corner,
+      ),
+      _resizeHandle(
+        edge: _FloatingResizeEdge.bottomLeft,
+        cursor: SystemMouseCursors.resizeUpRightDownLeft,
+        left: 0,
+        bottom: 0,
+        width: corner,
+        height: corner,
+      ),
+      _resizeHandle(
+        edge: _FloatingResizeEdge.bottomRight,
+        cursor: SystemMouseCursors.resizeUpLeftDownRight,
+        right: 0,
+        bottom: 0,
+        width: corner,
+        height: corner,
+      ),
+    ];
+  }
+
+  Widget _resizeHandle({
+    required _FloatingResizeEdge edge,
+    required MouseCursor cursor,
+    double? left,
+    double? top,
+    double? right,
+    double? bottom,
+    double? width,
+    double? height,
+  }) {
+    return Positioned(
+      left: left,
+      top: top,
+      right: right,
+      bottom: bottom,
+      child: Obx(
+        () => IgnorePointer(
+          ignoring: !isHovered.value,
+          child: AnimatedOpacity(
+            opacity: isHovered.value ? 1 : 0,
+            duration: const Duration(milliseconds: 160),
+            child: MouseRegion(
+              cursor: cursor,
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onPanStart: (details) => _beginFloatingResize(edge, details),
+                onPanUpdate: _updateFloatingResize,
+                onPanEnd: (_) => _endFloatingResize(),
+                onPanCancel: _endFloatingResize,
+                child: SizedBox(width: width, height: height),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  FloatingCommonController? get _floatingOverlayController {
+    if (!floatingManager.containsFloating(_floatTag)) return null;
+    return floatingManager.getFloating(_floatTag).controller;
+  }
+
+  void _beginFloatingResize(_FloatingResizeEdge edge, DragStartDetails details) {
+    final context = _appFloatingContainerKey.currentContext;
+    final renderObject = context?.findRenderObject();
+    if (context == null || renderObject is! RenderBox) return;
+    // flutter_floating 的定位命令（fx/fy、parentW/parentH、各 scroll* 的
+    // inset）全部相对它内部承载悬浮窗的 Stack。该 Stack 位于 Overlay 中，
+    // 在 Windows 上其上方可能还有自定义标题栏等区域，因此它与窗口根坐标
+    // 之间存在恒定偏移（实测 Y=32）。若直接把 localToGlobal 的全局坐标
+    // 当作 fx/fy/top inset 下发，凡涉及“顶边绝对定位”的方向都会把窗口
+    // 向下顶出该偏移量（表现为拖非上边缘整体下移）。
+    // 故起始矩形与“屏幕尺寸”一律换算成插件 Stack 自己的坐标系。
+    final stackBox = context.findAncestorRenderObjectOfType<RenderStack>();
+    if (stackBox == null) return;
+    final stackOrigin = stackBox.localToGlobal(Offset.zero);
+    final origin = renderObject.localToGlobal(Offset.zero) - stackOrigin;
+    final session = _FloatingResizeSession(
+      edge: edge,
+      startRect: origin & renderObject.size,
+      startLongSide: floatingLongSide.value,
+      screenSize: stackBox.size,
+    );
+    session.targetX = origin.dx;
+    session.targetY = origin.dy;
+    session.targetWidth = renderObject.size.width;
+    session.targetHeight = renderObject.size.height;
+    _floatingResizeSession = session;
+    // 拖拽过程中窗口立即跟随，不做位移动画。
+    _floatingOverlayController?.scrollTime(0);
+    // 插件在收到 setWAndH 后，其 sizeChange 会按“贴边/屏幕中线”启发式
+    // 自行挪动窗口；在窗口位于屏幕下半部时它会保底边，与我们要的“锚定
+    // 被拖拽边的对边”相冲突。每帧绘制结束后按会话目标位置再钉一次锚点
+    // （命令 FIFO，晚于插件启发式生效），保证下一帧位置始终正确且误差
+    // 不会逐帧累积。
+    _scheduleFloatingResizeFrameGuard();
+  }
+
+  void _updateFloatingResize(DragUpdateDetails details) {
+    final session = _floatingResizeSession;
+    if (session == null || session.finalizing) return;
+    session.accumulatedDx += details.delta.dx;
+    session.accumulatedDy += details.delta.dy;
+
+    final edge = session.edge;
+    final start = session.startRect;
+    var w = start.width;
+    var h = start.height;
+    if (edge.affectsLeft) {
+      w = start.width - session.accumulatedDx;
+    }
+    if (edge.affectsRight) w = start.width + session.accumulatedDx;
+    if (edge.affectsTop) {
+      h = start.height - session.accumulatedDy;
+    }
+    if (edge.affectsBottom) h = start.height + session.accumulatedDy;
+
+    // 沿长边等比缩放，宽高比始终与视频一致。
+    final sx = start.width <= 0 ? 1.0 : w / start.width;
+    final sy = start.height <= 0 ? 1.0 : h / start.height;
+    final double scale;
+    if (edge.affectsHorizontal && edge.affectsVertical) {
+      scale = (sx + sy) / 2;
+    } else if (edge.affectsHorizontal) {
+      scale = sx;
+    } else {
+      scale = sy;
+    }
+    final longSide = (session.startLongSide * scale).clamp(floatingMinLongSide, floatingMaxLongSide).toDouble();
+    final newSize = resolveAppFloatingSize(aspectRatio: currentVideoRatio, maxSide: longSide);
+
+    // 锚定被拖拽边的对边/对角：拖左边/上边时反向修正左上角坐标。
+    var nx = start.left;
+    var ny = start.top;
+    if (edge.affectsLeft) nx = start.right - newSize.width;
+    if (edge.affectsTop) ny = start.bottom - newSize.height;
+
+    // 限制在插件父容器范围内，避免窗口被拖出可视区域。
+    const double margin = 10.0;
+    final maxX = math.max(margin, session.screenSize.width - margin - newSize.width);
+    final maxY = math.max(margin, session.screenSize.height - margin - newSize.height);
+    nx = nx.clamp(margin, maxX).toDouble();
+    ny = ny.clamp(margin, maxY).toDouble();
+
+    session.targetX = nx;
+    session.targetY = ny;
+    session.targetWidth = newSize.width;
+    session.targetHeight = newSize.height;
+
+    final controller = _floatingOverlayController;
+    // setWAndH 先把插件内部尺寸改成目标值（避免旧尺寸撑一帧闪烁），
+    // 紧接着按拖拽方向下发对边锚点命令，命令按 FIFO 顺序执行。
+    controller?.setWAndH(newSize.width, newSize.height);
+    _sendFloatingAnchor(controller, session);
+    // 与插件坐标系一致（moveEndListener 同样保存插件坐标），避免开窗位置
+    // 被全局坐标污染后逐次下移。
+    floatingSavedPosition.value = Offset(nx, ny);
+    floatingLongSide.value = longSide;
+  }
+
+  /// 下发锚点定位命令。
+  ///
+  /// 所有 inset 均处于**插件 Stack 坐标系**（见 [_beginFloatingResize]）：
+  /// 起始矩形与父尺寸都相对插件内部 Stack，不能使用窗口全局坐标，否则
+  /// 标题栏等偏移会直接变成顶边定位误差。
+  ///
+  /// 锚点 inset 只能由会话起始矩形 [_FloatingResizeSession.startRect]
+  /// 与插件父尺寸这些**常量**推导，不携带外部算出的新尺寸：插件执行
+  /// scrollBottom*/scrollTopRight 时用它内部实测的
+  /// `_fWidth/_fHeight/_parentWidth/_parentHeight` 换算，外部
+  /// resolveAppFloatingSize 的尺寸与 MeasureSize 实测值若有偏差 Δ，
+  /// 用“被拖拽边的对边与父边缘的恒定间距”可让 Δ 在插件内部闭环抵消。
+  ///
+  /// 方向映射（拖动的边 → 保持不动的对边）：
+  /// - 右/下/右下角：保持上、左边 -> scrollTopLeft
+  /// - 左/左下角：保持上、右边 -> scrollTopRight
+  /// - 上边：保持下、左边 -> scrollBottomLeft
+  /// - 左上：保持下、右边 -> scrollBottomRight
+  /// - 右上：保持下、左边 -> scrollBottomLeft
+  void _sendFloatingAnchor(FloatingCommonController? controller, _FloatingResizeSession session) {
+    if (controller == null) return;
+    final start = session.startRect;
+    final screenW = session.screenSize.width;
+    final screenH = session.screenSize.height;
+    final edge = session.edge;
+
+    // 四条“固定边”相对插件父边缘的恒定间距。
+    final leftInset = start.left;
+    final topInset = start.top;
+    final rightInset = screenW - start.right;
+    final bottomInset = screenH - start.bottom;
+
+    // 越界保护：按目标尺寸估算插件将要渲染的左上角。正常缩放时固定边
+    // 本就在范围内（起始位置合法），这里只在窗口贴边放大到超出对侧边缘
+    // 时生效，退回绝对定位（极限场景，容忍 Δ）。
+    const margin = 10.0;
+    final w = session.targetWidth;
+    final h = session.targetHeight;
+    final predictedX = edge.affectsLeft ? screenW - rightInset - w : leftInset;
+    final predictedY = edge.affectsTop ? screenH - bottomInset - h : topInset;
+    final maxX = math.max(margin, screenW - margin - w);
+    final maxY = math.max(margin, screenH - margin - h);
+    final clampedX = predictedX.clamp(margin, maxX).toDouble();
+    final clampedY = predictedY.clamp(margin, maxY).toDouble();
+    if (clampedX != predictedX || clampedY != predictedY) {
+      controller.scrollTopLeft(clampedY, clampedX);
+      return;
+    }
+
+    if (edge.affectsTop && edge.affectsLeft) {
+      controller.scrollBottomRight(bottomInset, rightInset);
+    } else if (edge.affectsTop) {
+      controller.scrollBottomLeft(bottomInset, leftInset);
+    } else if (edge.affectsLeft) {
+      controller.scrollTopRight(topInset, rightInset);
+    } else {
+      controller.scrollTopLeft(topInset, leftInset);
+    }
+  }
+
+  /// 每帧绘制完成后重钉一次锚点，抵消插件尺寸变化启发式造成的位置漂移。
+  void _scheduleFloatingResizeFrameGuard() {
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      final session = _floatingResizeSession;
+      if (session == null || session.finalizing) return;
+      final controller = _floatingOverlayController;
+      // 悬浮窗可能在拖拽过程中被关闭：没有控制器就终止整个校正链。
+      if (controller == null) {
+        _floatingResizeSession = null;
+        return;
+      }
+      _sendFloatingAnchor(controller, session);
+      _scheduleFloatingResizeFrameGuard();
+    });
+  }
+
+  void _endFloatingResize() {
+    final session = _floatingResizeSession;
+    final controller = _floatingOverlayController;
+    if (session == null) {
+      controller?.scrollTime(300);
+      return;
+    }
+    session.finalizing = true;
+    // 终态再钉一次锚点；并在下一帧布局（含插件最后一次 sizeChange 回调）
+    // 完成后补一次校正，随后再恢复 300ms 动画时长——命令 FIFO 保证校正
+    // 仍以 scrollTime=0 瞬时生效，不会播放位移动画。
+    _sendFloatingAnchor(controller, session);
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      final currentSession = _floatingResizeSession;
+      final currentController = _floatingOverlayController;
+      if (currentSession != null) {
+        _sendFloatingAnchor(currentController, currentSession);
+      }
+      currentController?.scrollTime(300);
+      _floatingResizeSession = null;
+      // 以插件内部实测位置回写，避免外部几何计算与插件实测尺寸的偏差
+      // 污染下次开窗位置。
+      if (currentController != null) {
+        unawaited(
+          currentController
+              .currentPosition()
+              .then((position) {
+                if (position != null) {
+                  floatingSavedPosition.value = Offset(position.x, position.y);
+                }
+              })
+              .catchError((_) => null),
+        );
+      }
+    });
+  }
+
   Future<void> closeAppFloating() async {
     _hideTimer?.cancel();
     _hideTimer = null;
     isHovered.value = false;
+    // 悬浮窗即将移除：终止边缘缩放会话，帧末校正回调会随之停止，
+    // 避免控制器销毁后回调仍在逐帧重排。
+    _floatingResizeSession = null;
     unawaited(_floatingPopupSubscription?.cancel());
     _floatingPopupSubscription = null;
     final cleanupInFlight = _floatingCleanup;
@@ -3665,12 +4246,17 @@ class PlayerManager {
   }
 
   /// Ctrl+滚轮固定比例缩放紧凑窗口。
-  /// - app floating：更新 [floatingLongSide]，触发 Obx 重建尺寸。
+  /// - app floating：先向 flutter_floating 下发 setWAndH（插件会在同一帧
+  ///   布局前完成尺寸与位置调整），再更新 [floatingLongSide] 触发 Obx 重建，
+  ///   避免“新尺寸先在旧位置渲染一帧、下一帧才跳位”的卡顿。
   /// - Windows PiP：直接调用 windowManager.setSize，按当前比例缩放。
+  /// 步进取 14（鼠标一格约 100px delta），并按滚轮 delta 大小线性缩放，
+  /// 触控板的小幅度平滑滚动因此更连续、跟手。
   Future<void> _adjustCompactSizeByWheel(double scrollDy) async {
-    if (!Platform.isWindows) return;
-    const step = 24.0;
-    final delta = scrollDy > 0 ? -step : step; // 向上滚放大，向下滚缩小
+    if (!Platform.isWindows || scrollDy == 0) return;
+    const baseStep = 14.0;
+    final factor = (scrollDy.abs() / 100.0).clamp(0.15, 2.0);
+    final delta = -scrollDy.sign * baseStep * factor; // 向上滚放大，向下滚缩小
     if (isInPip.value) {
       // Windows PiP：按当前视频比例缩放窗口尺寸。
       final bounds = await windowManager.getBounds();
@@ -3684,9 +4270,32 @@ class PlayerManager {
         newSize = Size(longSide * ratio, longSide);
       }
       await windowManager.setSize(newSize);
+      return;
+    }
+
+    final controller = _floatingOverlayController;
+    final next = (floatingLongSide.value + delta).clamp(floatingMinLongSide, floatingMaxLongSide).toDouble();
+    if ((next - floatingLongSide.value).abs() < 0.01) return;
+    final newSize = resolveAppFloatingSize(aspectRatio: currentVideoRatio, maxSide: next);
+    if (controller != null) {
+      // 关键顺序：先通知插件新尺寸（插件内部按所在屏幕区域锚定位置），
+      // 再让 Obx 重建子树，尺寸与位置在同一帧内生效。
+      controller.setWAndH(newSize.width, newSize.height);
+      floatingLongSide.value = next;
+      // 记录插件启发式调整后的真实位置，供下次打开悬浮窗使用（否则旧位置
+      // 配新尺寸可能让窗口超出屏幕右边/底边）。边缘拖拽会话进行中不干预。
+      if (_floatingResizeSession == null) {
+        try {
+          final position = await controller.currentPosition();
+          if (position != null && _floatingResizeSession == null) {
+            floatingSavedPosition.value = Offset(position.x, position.y);
+          }
+        } catch (_) {
+          // 读取位置失败不影响缩放本身。
+        }
+      }
     } else {
-      // app floating：更新长边，showAppFloating 的 Obx 会重建尺寸。
-      floatingLongSide.value = (floatingLongSide.value + delta).clamp(floatingMinLongSide, floatingMaxLongSide);
+      floatingLongSide.value = next;
     }
   }
 
@@ -4144,6 +4753,7 @@ class PlayerManager {
     if (_usesAndroidPip || restoreWindowsWindow) isInPip.value = false;
     // Compact-only controls never outlive the playback session.
     isCompactMuted.value = false;
+    isCompactDanmakuHidden.value = false;
     isPipAlwaysOnTop.value = false;
     // Intent changes belong to dispatch, not native teardown. A pending source
     // open/recovery must lose ownership as soon as close is requested. Waiting
@@ -5250,6 +5860,7 @@ class PlayerManager {
     _compactVolumeOverride = null;
     _compactLastAudibleVolume = null;
     isCompactMuted.value = false;
+    isCompactDanmakuHidden.value = false;
     isPipAlwaysOnTop.value = false;
     if (restoreWindowsWindow) {
       await _restoreWindowsMainWindow();
@@ -5597,4 +6208,50 @@ class RoomSessionSnapshot {
       hasUseDefaultResolution: hasUseDefaultResolution ?? this.hasUseDefaultResolution,
     );
   }
+}
+
+/// 悬浮窗边缘拖拽缩放的手柄方向。
+enum _FloatingResizeEdge {
+  left,
+  top,
+  right,
+  bottom,
+  topLeft,
+  topRight,
+  bottomLeft,
+  bottomRight;
+
+  bool get affectsLeft => this == left || this == topLeft || this == bottomLeft;
+  bool get affectsRight => this == right || this == topRight || this == bottomRight;
+  bool get affectsTop => this == top || this == topLeft || this == topRight;
+  bool get affectsBottom => this == bottom || this == bottomLeft || this == bottomRight;
+  bool get affectsHorizontal => affectsLeft || affectsRight;
+  bool get affectsVertical => affectsTop || affectsBottom;
+}
+
+/// 一次悬浮窗边缘拖拽缩放过程的快照与累计位移。
+class _FloatingResizeSession {
+  _FloatingResizeSession({
+    required this.edge,
+    required this.startRect,
+    required this.startLongSide,
+    required this.screenSize,
+  });
+
+  final _FloatingResizeEdge edge;
+  final Rect startRect;
+  final double startLongSide;
+  final Size screenSize;
+  double accumulatedDx = 0;
+  double accumulatedDy = 0;
+
+  /// 最新一帧的期望几何位置（屏幕 margin 钳制后）。帧末校正回调据此
+  /// 重新向插件下发锚点命令，抵消插件 sizeChange 启发式的位移。
+  double targetX = 0;
+  double targetY = 0;
+  double targetWidth = 0;
+  double targetHeight = 0;
+
+  /// 手势已结束：正在等待最后一帧完成终态校正，之后恢复动画时长。
+  bool finalizing = false;
 }
