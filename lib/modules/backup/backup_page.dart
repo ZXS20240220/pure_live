@@ -83,6 +83,16 @@ class _BackupPageState extends State<BackupPage> {
               },
             ),
             context.buildTile(
+              icon: Remix.file_zip_line,
+              title: i18n("create_full_backup"),
+              subtitle: i18n("create_full_backup_subtitle"),
+              isLong: true,
+              onTap: () async {
+                // 完整备份将设置、IPTV 数据库、已下载字体打包为 zip。
+                await BackupRecoveryService().createFullBackup(backupDirectory);
+              },
+            ),
+            context.buildTile(
               icon: Remix.file_upload_line,
               title: i18n("recover_backup"),
               subtitle: i18n("recover_backup_subtitle"),
