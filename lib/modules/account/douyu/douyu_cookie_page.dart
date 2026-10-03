@@ -2,6 +2,7 @@ import 'package:pure_live/common/index.dart';
 import 'package:pure_live/modules/account/douyu/douyu_cookie_controller.dart';
 import 'package:pure_live/modules/account/web_cookie_capture.dart';
 import 'package:pure_live/modules/account/widgets/account_cookie_editor.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Where the renewal key and the device id are found.
@@ -22,6 +23,7 @@ class DouyuCookiePage extends GetView<DouyuCookieController> {
     final theme = Theme.of(context);
 
     return AccountCookieEditorPage(
+      breadcrumb: SettingsCrumbs.douyuCookie,
       controller: controller.cookieController,
       hintText: i18n('douyu_cookie_hint'),
       tipText: i18n('douyu_cookie_tip'),

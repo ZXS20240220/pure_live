@@ -4,11 +4,9 @@ import 'package:pure_live/common/index.dart';
 import 'package:pure_live/player/utils/player_consts.dart';
 import 'package:pure_live/player/utils/window_helper.dart';
 import 'package:pure_live/player/core/live_audio_service.dart';
-import 'package:pure_live/modules/settings/pages/font_family_manager_page.dart';
 import 'package:pure_live/common/services/settings/app_settings_controller.dart';
 import 'package:pure_live/common/services/settings/player_settings_controller.dart';
-import 'package:pure_live/modules/settings/pages/pip_danmaku_settings_page.dart';
-import 'package:pure_live/modules/settings/pages/audience_metric_settings_page.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 
 typedef SleepTimerConfigurator = Future<void> Function({required bool enabled, required int minutes});
 typedef SleepPermissionRequester = Future<bool> Function();
@@ -71,7 +69,7 @@ class _VideoSettingsPageState extends State<VideoSettingsPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: Text(i18n("video_settings"))),
+      appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.video),
       body: ListView(
         physics: const PureLiveScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -177,7 +175,7 @@ class _VideoSettingsPageState extends State<VideoSettingsPage> {
               subtitle: i18n('audience_metric_settings_desc'),
               icon: Icons.groups_2_rounded,
               trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () => Get.to(() => const AudienceMetricSettingsPage()),
+              onTap: () => SettingsNavigator.open(SettingsCrumbs.audienceMetric),
             ),
             if (_isAndroid)
               context.buildSwitchTile(
@@ -280,14 +278,14 @@ class _VideoSettingsPageState extends State<VideoSettingsPage> {
               title: i18n('pip_danmaku'),
               subtitle: i18n('pip_danmaku_desc'),
               trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () => Get.to(() => const PipDanmakuSettingsPage()),
+              onTap: () => SettingsNavigator.open(SettingsCrumbs.pipDanmaku),
             ),
             Obx(
               () => context.buildTile(
                 icon: Remix.font_size,
                 title: i18n("change_danmaku_font_family"),
                 subtitle: "${i18n("current_font_prefix")}: ${SettingsService.to.danmaku.danmakuFontFamilyName.v}",
-                onTap: () => Get.to(() => const FontFamilyManagerPage(isDanmakuSettings: true)),
+                onTap: () => SettingsNavigator.open(SettingsCrumbs.danmakuFontFamily),
               ),
             ),
 
@@ -295,7 +293,7 @@ class _VideoSettingsPageState extends State<VideoSettingsPage> {
               icon: Remix.filter_2_line,
               title: i18n("danmaku_filter"),
               subtitle: "",
-              onTap: () => Get.toNamed(RoutePath.kSettingsDanmuShield),
+              onTap: () => SettingsNavigator.open(SettingsCrumbs.danmakuShield),
             ),
           ]),
           const SizedBox(height: 32),

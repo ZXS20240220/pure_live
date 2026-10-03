@@ -1,5 +1,6 @@
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/player/utils/player_consts.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 
 class DecoderSettingsPage extends GetView<SettingsService> {
   const DecoderSettingsPage({super.key});
@@ -7,7 +8,7 @@ class DecoderSettingsPage extends GetView<SettingsService> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(i18n('hardware_decoder'))),
+      appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.decoder),
       body: ListView(
         physics: const PureLiveScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

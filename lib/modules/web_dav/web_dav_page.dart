@@ -5,9 +5,9 @@ import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:webdav_client/webdav_client.dart' as webdav;
 import 'package:pure_live/common/services/settings/backup_controller.dart';
-import 'package:pure_live/modules/web_dav/web_dav_help.dart';
 import 'package:pure_live/modules/web_dav/webdav_config.dart';
 import 'package:pure_live/modules/web_dav/web_dav_controller.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 
 class WebDavPage extends StatefulWidget {
   const WebDavPage({super.key});
@@ -241,7 +241,7 @@ class _WebDavPageState extends State<WebDavPage> {
       snap: false,
       backgroundColor: Theme.of(Get.context!).colorScheme.surface,
       surfaceTintColor: Colors.transparent,
-      title: Text(i18n("webdav"), style: const TextStyle(fontWeight: FontWeight.w400)),
+      title: SettingsBreadcrumbBar(node: SettingsCrumbs.webdav),
       actions: [
         PopupMenuButton<int>(
           icon: Icon(Icons.more_vert, color: Theme.of(Get.context!).colorScheme.onPrimaryContainer),
@@ -252,7 +252,7 @@ class _WebDavPageState extends State<WebDavPage> {
             } else if (value == 2) {
               _scaffoldKey.currentState?.openEndDrawer();
             } else if (value == 3) {
-              Get.to(() => const WebDavHelpPage());
+              SettingsNavigator.open(SettingsCrumbs.webdavHelp);
             }
           },
           itemBuilder: (BuildContext context) => [

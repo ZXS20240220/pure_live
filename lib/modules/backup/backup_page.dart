@@ -9,6 +9,7 @@ import 'package:pure_live/plugins/file_utils.dart';
 import 'package:pure_live/modules/backup/scan_page.dart';
 import 'package:pure_live/plugins/backup_recovery_service.dart';
 import 'package:pure_live/common/services/settings/log_controller.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 
 class BackupPage extends StatefulWidget {
   const BackupPage({super.key});
@@ -39,7 +40,7 @@ class _BackupPageState extends State<BackupPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(i18n("backup_recover"))),
+      appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.backup),
       body: ListView(
         physics: const PureLiveScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -50,14 +51,14 @@ class _BackupPageState extends State<BackupPage> {
               icon: Remix.qr_scan_2_line,
               title: i18n('remote_sync'),
               subtitle: i18n('remote_sync_subtitle'),
-              onTap: () => Get.toNamed(RoutePath.kRemoteSync),
+              onTap: () => SettingsNavigator.open(SettingsCrumbs.remoteSync),
             ),
             context.buildTile(
               icon: Remix.cloud_line,
               title: i18n("webdav"),
               subtitle: i18n("backup_to_webdav"),
               isLong: true,
-              onTap: () => Get.toNamed(RoutePath.kWebDavPage),
+              onTap: () => SettingsNavigator.open(SettingsCrumbs.webdav),
             ),
             if (Platform.isAndroid || Platform.isIOS)
               context.buildTile(

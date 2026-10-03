@@ -1,5 +1,6 @@
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 
 class PlatformSettingsPage extends GetView<SettingsService> {
   const PlatformSettingsPage({super.key});
@@ -7,7 +8,7 @@ class PlatformSettingsPage extends GetView<SettingsService> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(i18n("platform_settings"))),
+      appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.platform),
       body: ListView(
         physics: const PureLiveScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -18,7 +19,7 @@ class PlatformSettingsPage extends GetView<SettingsService> {
               icon: Remix.apps_2_line,
               title: i18n("platform_display"),
               subtitle: i18n("platform_display_subtitle"),
-              onTap: () => Get.toNamed(RoutePath.kSettingsHotAreas),
+              onTap: () => SettingsNavigator.open(SettingsCrumbs.hotAreas),
             ),
             Obx(
               () => context.buildTile(
@@ -53,7 +54,7 @@ class PlatformSettingsPage extends GetView<SettingsService> {
               subtitle: i18n('third_party_auth_subtitle'),
               isLong: true,
               onTap: () {
-                Get.toNamed(RoutePath.kSettingsAccount);
+                SettingsNavigator.open(SettingsCrumbs.account);
               },
             ),
             context.buildTile(
@@ -62,7 +63,7 @@ class PlatformSettingsPage extends GetView<SettingsService> {
               subtitle: i18n('tag_management_subtitle'),
               isLong: true,
               onTap: () {
-                Get.toNamed(RoutePath.kSettingsTags);
+                SettingsNavigator.open(SettingsCrumbs.tags);
               },
             ),
           ]),

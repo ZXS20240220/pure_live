@@ -4,11 +4,11 @@ import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/plugins/file_utils.dart';
 import 'package:pure_live/plugins/db_service.dart';
-import 'package:pure_live/modules/iptv/iptv_manage.dart';
 import 'package:pure_live/core/iptv/local/database.dart' as database;
 import 'package:pure_live/core/iptv/services/epg_import_manager.dart';
 import 'package:pure_live/core/iptv/services/iptv_import_manager.dart';
 import 'package:pure_live/core/iptv/services/auto_sync_scheduler.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 
 class IptvPage extends StatefulWidget {
   const IptvPage({super.key, this.importFromNetwork, this.loadDefaultEpg});
@@ -116,7 +116,7 @@ class _IptvPageState extends State<IptvPage> with SingleTickerProviderStateMixin
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(i18n("iptv_settings"))),
+      appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.iptv),
       body: ListView(
         physics: const PureLiveScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -146,7 +146,7 @@ class _IptvPageState extends State<IptvPage> with SingleTickerProviderStateMixin
               icon: Remix.cloud_line,
               title: i18n("iptv_list_manage"),
               subtitle: i18n("download_guide_sub"),
-              onTap: () => Get.to(() => const IptvManagePage()),
+              onTap: () => SettingsNavigator.open(SettingsCrumbs.iptvManage),
             ),
           ]),
           const SizedBox(height: 20),

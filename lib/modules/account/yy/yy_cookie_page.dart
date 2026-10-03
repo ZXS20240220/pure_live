@@ -1,5 +1,6 @@
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/modules/account/widgets/account_cookie_editor.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 import 'package:pure_live/modules/account/yy/yy_cookie_controller.dart';
 
 class YyCookiePage extends GetView<YyCookieBindingCookieController> {
@@ -8,6 +9,7 @@ class YyCookiePage extends GetView<YyCookieBindingCookieController> {
   @override
   Widget build(BuildContext context) {
     return AccountCookieEditorPage(
+      breadcrumb: SettingsCrumbs.yyCookie,
       controller: controller.cookieController,
       hintText: i18n('cookie_hint', args: {'name': 'YY'}),
       tipText: i18n('cookie_tip', args: {'name': 'YY'}),

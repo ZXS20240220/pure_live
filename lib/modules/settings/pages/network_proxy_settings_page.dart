@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/core/common/proxy_routing.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 
 final TextInputFormatter _proxyHostInputFormatter = TextInputFormatter.withFunction((oldValue, newValue) {
   final normalized = normalizeProxyHost(newValue.text);
@@ -132,7 +133,7 @@ class _NetworkProxySettingsPageState extends State<NetworkProxySettingsPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: Text(i18n("network_proxy_settings"))),
+      appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.proxy),
       body: Obx(() {
         return ListView(
           physics: const PureLiveScrollPhysics(),

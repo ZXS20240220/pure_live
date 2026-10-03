@@ -2,6 +2,7 @@ import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/consts/app_consts.dart';
 import 'package:pure_live/common/services/settings/app_settings_controller.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 
 class NavigationSettingsPage extends StatelessWidget {
   const NavigationSettingsPage({super.key});
@@ -14,7 +15,7 @@ class NavigationSettingsPage extends StatelessWidget {
     final allMenus = [HomeMenu.favorites, HomeMenu.popular, HomeMenu.areas, HomeMenu.record];
 
     return Scaffold(
-      appBar: AppBar(title: Text(i18n("navigation_display_settings"))),
+      appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.navigation),
       body: ListView(
         physics: const PureLiveScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

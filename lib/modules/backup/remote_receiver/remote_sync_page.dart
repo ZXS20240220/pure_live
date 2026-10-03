@@ -7,6 +7,7 @@ import 'package:pure_live/modules/backup/remote_receiver/remote_sync_device.dart
 import 'package:pure_live/modules/backup/remote_receiver/remote_sync_service.dart';
 import 'package:pure_live/modules/backup/remote_receiver/remote_sync_protocol.dart';
 import 'package:pure_live/modules/backup/remote_receiver/remote_sync_preview_page.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 
 class RemoteSyncPage extends StatefulWidget {
   const RemoteSyncPage({super.key});
@@ -69,7 +70,10 @@ class _RemoteSyncPageState extends State<RemoteSyncPage> {
 
     // 由对方主动推送进入：对方的配对码未知，若在预览页选择"返回配置给对方"
     // 会在那时再弹窗索取。
-    Get.to(() => RemoteSyncPreviewPage(ip: ip, port: port, code: '', settings: settings));
+    Get.to(
+      () => RemoteSyncPreviewPage(ip: ip, port: port, code: '', settings: settings),
+      routeName: SettingsCrumbs.remoteSyncPreview.routeName,
+    );
   }
 
   @override
@@ -131,7 +135,10 @@ class _RemoteSyncPageState extends State<RemoteSyncPage> {
       return;
     }
 
-    Get.to(() => RemoteSyncPreviewPage(ip: ip, port: port, code: code, settings: settings));
+    Get.to(
+      () => RemoteSyncPreviewPage(ip: ip, port: port, code: code, settings: settings),
+      routeName: SettingsCrumbs.remoteSyncPreview.routeName,
+    );
   }
 
   /// 连接前确认已持有对方配对码：二维码可能自带，否则弹窗索取。
@@ -190,7 +197,7 @@ class _RemoteSyncPageState extends State<RemoteSyncPage> {
       return;
     }
 
-    final result = await Get.to<String>(() => const _RemoteSyncScannerPage());
+    final result = await SettingsNavigator.open<String>(SettingsCrumbs.remoteSyncScanner);
 
     if (result == null || result.trim().isEmpty) {
       return;
@@ -224,8 +231,8 @@ class _RemoteSyncPageState extends State<RemoteSyncPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(i18n('remote_sync')),
+      appBar: SettingsBreadcrumbAppBar(
+        node: SettingsCrumbs.remoteSync,
         actions: [
           if (!PlatformUtils.isDesktop) IconButton(onPressed: _scanQr, icon: const Icon(Icons.qr_code_scanner)),
           Obx(
@@ -474,14 +481,14 @@ class _RemoteSyncPageState extends State<RemoteSyncPage> {
   }
 }
 
-class _RemoteSyncScannerPage extends StatefulWidget {
-  const _RemoteSyncScannerPage();
+class RemoteSyncScannerPage extends StatefulWidget {
+  const RemoteSyncScannerPage({super.key});
 
   @override
-  State<_RemoteSyncScannerPage> createState() => _RemoteSyncScannerPageState();
+  State<RemoteSyncScannerPage> createState() => _RemoteSyncScannerPageState();
 }
 
-class _RemoteSyncScannerPageState extends State<_RemoteSyncScannerPage> {
+class _RemoteSyncScannerPageState extends State<RemoteSyncScannerPage> {
   final MobileScannerController controller = MobileScannerController();
 
   bool found = false;
@@ -495,7 +502,7 @@ class _RemoteSyncScannerPageState extends State<_RemoteSyncScannerPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(i18n('remote_sync_scan_qr'))),
+      appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.remoteSyncScanner),
       body: MobileScanner(
         controller: controller,
         onDetect: (capture) {

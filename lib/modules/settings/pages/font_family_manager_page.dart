@@ -9,6 +9,7 @@ import 'package:pure_live/common/global/platform_utils.dart';
 import 'package:pure_live/plugins/font_download_manager.dart';
 import 'package:pure_live/common/global/app_path_manager.dart';
 import 'package:pure_live/common/services/medels/download_status.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 
 class FontFamilyManagerPage extends GetView<SettingsService> {
   final bool isDanmakuSettings;
@@ -44,7 +45,6 @@ class FontFamilyManagerPage extends GetView<SettingsService> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final mediaQuery = MediaQuery.of(context);
-    final title = isDanmakuSettings ? i18n("change_danmaku_font_family") : i18n("font_family_settings");
     final openFolderLabel = i18n("recorder_open_folder");
     final useCompactFolderAction = mediaQuery.size.width < 520 || mediaQuery.textScaler.scale(14) > 18;
 
@@ -56,16 +56,8 @@ class FontFamilyManagerPage extends GetView<SettingsService> {
     SettingsService.to.font.refreshFontDiskSizes();
 
     return Scaffold(
-      appBar: AppBar(
-        title: Tooltip(
-          message: title,
-          child: Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0.3),
-          ),
-        ),
+      appBar: SettingsBreadcrumbAppBar(
+        node: isDanmakuSettings ? SettingsCrumbs.danmakuFontFamily : SettingsCrumbs.fontFamily,
         actions: [
           if (useCompactFolderAction)
             IconButton(

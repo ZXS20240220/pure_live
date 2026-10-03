@@ -6,6 +6,7 @@ import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/services/settings/exit_settings_controller.dart';
 import 'package:pure_live/common/services/settings/window_size_controller.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 import 'package:stop_watch_timer/stop_watch_timer.dart';
 
 class GeneralSettingsPage extends GetView<SettingsService> {
@@ -14,7 +15,7 @@ class GeneralSettingsPage extends GetView<SettingsService> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(i18n("general"))),
+      appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.general),
       body: ListView(
         physics: const PureLiveScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

@@ -2,6 +2,7 @@ import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/services/settings/room_card_settings_controller.dart';
 import 'package:pure_live/common/widgets/room_card_compact.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 
 class RoomCardSettingsPage extends StatefulWidget {
   const RoomCardSettingsPage({super.key});
@@ -38,8 +39,8 @@ class _RoomCardSettingsPageState extends State<RoomCardSettingsPage> {
   Widget build(BuildContext context) {
     final controller = SettingsService.to.roomCard;
     return Scaffold(
-      appBar: AppBar(
-        title: Text(i18n('room_card_settings')),
+      appBar: SettingsBreadcrumbAppBar(
+        node: SettingsCrumbs.roomCard,
         actions: [
           IconButton(
             key: const ValueKey('room-card-reset'),

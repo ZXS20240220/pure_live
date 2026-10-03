@@ -7,6 +7,7 @@ import 'package:photo_view/photo_view.dart';
 import 'package:pure_live/common/widgets/pure_live_scroll_physics.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 
 typedef WebDavExternalLauncher = Future<bool> Function(Uri uri);
 
@@ -34,12 +35,7 @@ class WebDavHelpPage extends StatelessWidget {
     final textScale = MediaQuery.textScalerOf(context).scale(1);
     final toolbarHeight = textScale <= 1.5 ? kToolbarHeight : math.min(152.0, 44 + 36 * textScale);
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: toolbarHeight,
-        titleSpacing: 0,
-        title: Text(context.tr('webdav_help_title'), maxLines: 2, overflow: TextOverflow.ellipsis),
-        elevation: 0,
-      ),
+      appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.webdavHelp, toolbarHeight: toolbarHeight),
       body: ListView(
         key: const ValueKey('webdav-help-scroll'),
         physics: const PureLiveScrollPhysics(),

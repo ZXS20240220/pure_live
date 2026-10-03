@@ -5,6 +5,7 @@ import 'package:pure_live/common/index.dart';
 import 'package:pure_live/core/site/douyu/douyu_utils.dart';
 import 'package:pure_live/modules/account/account_controller.dart';
 import 'package:pure_live/common/services/settings/bilibili_account_service.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 
 class AccountPage extends GetView<AccountController> {
   const AccountPage({super.key});
@@ -14,7 +15,7 @@ class AccountPage extends GetView<AccountController> {
     final cookie = controller.cookie;
 
     return Scaffold(
-      appBar: AppBar(title: Text(i18n('third_party_auth'))),
+      appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.account),
       body: ListView(
         physics: const PureLiveScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

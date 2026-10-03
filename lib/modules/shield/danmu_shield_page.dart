@@ -1,6 +1,7 @@
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/services/settings/favorite_room_controller.dart';
 import 'package:pure_live/modules/shield/danmu_shield_controller.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 import 'package:remixicon/remixicon.dart';
 
 class DanmuShieldPage extends GetView<DanmuShieldController> {
@@ -11,7 +12,7 @@ class DanmuShieldPage extends GetView<DanmuShieldController> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: Text(i18n("danmaku_keyword_block"))),
+      appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.danmakuShield),
       body: ListView(
         physics: const PureLiveScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),

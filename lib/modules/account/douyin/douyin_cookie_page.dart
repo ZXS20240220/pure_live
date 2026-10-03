@@ -2,6 +2,7 @@ import 'package:pure_live/common/index.dart';
 import 'package:pure_live/modules/account/douyin/douyin_cookie_controller.dart';
 import 'package:pure_live/modules/account/web_cookie_capture.dart';
 import 'package:pure_live/modules/account/widgets/account_cookie_editor.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 
 class DouyinCookiePage extends GetView<DouyinCookieController> {
   const DouyinCookiePage({super.key});
@@ -9,6 +10,7 @@ class DouyinCookiePage extends GetView<DouyinCookieController> {
   @override
   Widget build(BuildContext context) {
     return AccountCookieEditorPage(
+      breadcrumb: SettingsCrumbs.douyinCookie,
       controller: controller.cookieController,
       hintText: i18n('douyin_cookie_hint'),
       tipText: i18n('douyin_cookie_tip'),

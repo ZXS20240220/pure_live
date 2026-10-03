@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/services/settings/backup_controller.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 import 'package:pure_live/modules/backup/remote_receiver/remote_sync_data_merger.dart';
 import 'package:pure_live/modules/backup/remote_receiver/remote_sync_json_tree.dart';
 import 'package:pure_live/modules/backup/remote_receiver/remote_sync_protocol.dart';
@@ -142,8 +143,7 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
   }
 
   /// 当前模式下右侧树展示与编辑的内容。
-  Map<String, dynamic> get _currentPayload =>
-      _mode == _PreviewMode.applyLocal ? _applyPayload : _payload;
+  Map<String, dynamic> get _currentPayload => _mode == _PreviewMode.applyLocal ? _applyPayload : _payload;
 
   List<String> _userVisibleKeys() {
     return widget.settings.keys
@@ -161,8 +161,7 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
   // ---------------------------------------------------------------------------
 
   void _refreshSensitiveFlag(Map<String, dynamic> payload) {
-    payload['sensitiveDataIncluded'] =
-        payload.containsKey('webdav') || payload.containsKey('cookie');
+    payload['sensitiveDataIncluded'] = payload.containsKey('webdav') || payload.containsKey('cookie');
   }
 
   /// 应用模式：把归一化结果覆盖进本地预览（勾选），或恢复本地原值（取消）。
@@ -190,24 +189,14 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
 
       if (_mode == _PreviewMode.applyLocal) {
         // 单独归一化该模块：本端不认识的字段已被过滤，不会进入预览。
-        final normalized = RemoteSyncDataMerger.normalizeForLocalApply(widget.settings, {
-          key,
-        }, _localSnapshot);
+        final normalized = RemoteSyncDataMerger.normalizeForLocalApply(widget.settings, {key}, _localSnapshot);
         _overlayApplyModule(value, normalized);
         return;
       }
 
       final next = value
-          ? RemoteSyncDataMerger.mergeModuleFromLocal(
-              base: _payload,
-              moduleKey: key,
-              localSnapshot: _localSnapshot,
-            )
-          : RemoteSyncDataMerger.restoreModuleFromRaw(
-              base: _payload,
-              moduleKey: key,
-              raw: widget.settings,
-            );
+          ? RemoteSyncDataMerger.mergeModuleFromLocal(base: _payload, moduleKey: key, localSnapshot: _localSnapshot)
+          : RemoteSyncDataMerger.restoreModuleFromRaw(base: _payload, moduleKey: key, raw: widget.settings);
       _refreshSensitiveFlag(next);
       _payload = next;
     });
@@ -218,9 +207,7 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
       if (_mode == _PreviewMode.applyLocal) {
         for (final key in _selections.keys.toList()) {
           _selections[key] = value;
-          final normalized = RemoteSyncDataMerger.normalizeForLocalApply(widget.settings, {
-            key,
-          }, _localSnapshot);
+          final normalized = RemoteSyncDataMerger.normalizeForLocalApply(widget.settings, {key}, _localSnapshot);
           _overlayApplyModule(value, normalized);
         }
         return;
@@ -230,16 +217,8 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
       for (final key in _selections.keys.toList()) {
         _selections[key] = value;
         next = value
-            ? RemoteSyncDataMerger.mergeModuleFromLocal(
-                base: next,
-                moduleKey: key,
-                localSnapshot: _localSnapshot,
-              )
-            : RemoteSyncDataMerger.restoreModuleFromRaw(
-                base: next,
-                moduleKey: key,
-                raw: widget.settings,
-              );
+            ? RemoteSyncDataMerger.mergeModuleFromLocal(base: next, moduleKey: key, localSnapshot: _localSnapshot)
+            : RemoteSyncDataMerger.restoreModuleFromRaw(base: next, moduleKey: key, raw: widget.settings);
       }
       _refreshSensitiveFlag(next);
       _payload = next;
@@ -421,14 +400,8 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
           '未涉及的模块保持不变。是否继续？',
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(i18n('cancel')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(i18n('confirm')),
-          ),
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: Text(i18n('cancel'))),
+          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: Text(i18n('confirm'))),
         ],
       ),
     );
@@ -445,11 +418,7 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
       // 先按本端 schema 归一化（携带 backupVersion，并保留 windowSize 附带的
       // 过滤 player 块供 extractConfig 回读），选中模块再用预览内容
       // （含手动编辑）覆盖，做到"所见即所应用"。
-      final normalized = RemoteSyncDataMerger.normalizeForLocalApply(
-        widget.settings,
-        allowedKeys,
-        _localSnapshot,
-      );
+      final normalized = RemoteSyncDataMerger.normalizeForLocalApply(widget.settings, allowedKeys, _localSnapshot);
       for (final key in allowedKeys) {
         if (_applyPayload.containsKey(key)) {
           normalized[key] = RemoteSyncDataMerger.deepCopy(_applyPayload[key]);
@@ -492,20 +461,12 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
           autofocus: true,
           keyboardType: TextInputType.number,
           maxLength: RemoteSyncProtocol.pairingCodeLength,
-          decoration: InputDecoration(
-            hintText: i18n('remote_sync_pairing_code_hint'),
-          ),
+          decoration: InputDecoration(hintText: i18n('remote_sync_pairing_code_hint')),
           onSubmitted: (value) => Navigator.of(context).pop(value),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(i18n('cancel')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(controller.text),
-            child: Text(i18n('confirm')),
-          ),
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(i18n('cancel'))),
+          FilledButton(onPressed: () => Navigator.of(context).pop(controller.text), child: Text(i18n('confirm'))),
         ],
       ),
     );
@@ -539,14 +500,8 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
                     '未勾选的数据块保持对方原值）发送到 ${widget.ip}:${widget.port}。是否继续？',
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(i18n('cancel')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(i18n('confirm')),
-          ),
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: Text(i18n('cancel'))),
+          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: Text(i18n('confirm'))),
         ],
       ),
     );
@@ -570,12 +525,7 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
     try {
       final service = Get.find<RemoteSyncService>();
       final payload = RemoteSyncDataMerger.deepCopy(_payload) as Map<String, dynamic>;
-      final success = await service.pushSettings(
-        widget.ip,
-        widget.port,
-        code,
-        payload,
-      );
+      final success = await service.pushSettings(widget.ip, widget.port, code, payload);
 
       if (!mounted) return;
 
@@ -605,7 +555,11 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('配置预览 / 选择性同步')),
+      appBar: SettingsBreadcrumbAppBar(
+        node: SettingsCrumbs.remoteSyncPreview.withPage(
+          () => RemoteSyncPreviewPage(ip: widget.ip, port: widget.port, code: widget.code, settings: widget.settings),
+        ),
+      ),
       body: Column(
         children: [
           _buildSummary(),
@@ -636,9 +590,7 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha(80),
-      ),
+      decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha(80)),
       child: Row(
         children: [
           const Icon(Icons.info_outline, size: 18),
@@ -686,10 +638,7 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
             physics: const PureLiveScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
             children: [
-              if (_report.unknownModules.isNotEmpty) ...[
-                _buildUnknownModules(),
-                const SizedBox(height: 8),
-              ],
+              if (_report.unknownModules.isNotEmpty) ...[_buildUnknownModules(), const SizedBox(height: 8)],
               ..._selections.keys.map(_buildKeyTile),
             ],
           ),
@@ -758,9 +707,7 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
     final hasData = widget.settings[key] != null;
 
     final subtitle = hasData ? _describeValue(widget.settings[key]) : '(空)';
-    final note = unknownFields.isNotEmpty
-        ? '\n未识别: ${unknownFields.join(', ')}（${isApply ? '应用时将被过滤' : '将保持原样'}）'
-        : '';
+    final note = unknownFields.isNotEmpty ? '\n未识别: ${unknownFields.join(', ')}（${isApply ? '应用时将被过滤' : '将保持原样'}）' : '';
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 3),
@@ -772,10 +719,7 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Checkbox(
-                value: _selections[key] ?? false,
-                onChanged: (v) => _setSelected(key, v ?? false),
-              ),
+              Checkbox(value: _selections[key] ?? false, onChanged: (v) => _setSelected(key, v ?? false)),
               const SizedBox(width: 4),
               Expanded(
                 child: Padding(
@@ -785,9 +729,7 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
                     children: [
                       Row(
                         children: [
-                          Flexible(
-                            child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-                          ),
+                          Flexible(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis)),
                           if (isExtension) ...[
                             const SizedBox(width: 6),
                             Container(
@@ -796,10 +738,7 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
                                 color: Colors.orange.withAlpha(40),
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: const Text(
-                                '扩展',
-                                style: TextStyle(fontSize: 10, color: Colors.orange),
-                              ),
+                              child: const Text('扩展', style: TextStyle(fontSize: 10, color: Colors.orange)),
                             ),
                           ],
                           if (unknownFields.isNotEmpty) ...[
@@ -812,10 +751,7 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
                               ),
                               child: Text(
                                 '未识别字段 ${unknownFields.length}',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Theme.of(context).colorScheme.outline,
-                                ),
+                                style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.outline),
                               ),
                             ),
                           ],
@@ -894,10 +830,7 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
         children: [
           Row(
             children: [
-              Text(
-                isApply ? '本地 JSON（应用预览）' : '原始 JSON（返回内容）',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
+              Text(isApply ? '本地 JSON（应用预览）' : '原始 JSON（返回内容）', style: const TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -947,9 +880,7 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        boxShadow: [
-          BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 4, offset: const Offset(0, -1)),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 4, offset: const Offset(0, -1))],
       ),
       child: SafeArea(
         top: false,
@@ -1020,11 +951,7 @@ bool _deepEquals(dynamic a, dynamic b) {
 // -----------------------------------------------------------------------------
 
 class _LeafEditDialog extends StatefulWidget {
-  const _LeafEditDialog({
-    required this.pathLabel,
-    required this.currentValue,
-    required this.schemaValue,
-  });
+  const _LeafEditDialog({required this.pathLabel, required this.currentValue, required this.schemaValue});
 
   final String pathLabel;
   final dynamic currentValue;
@@ -1052,9 +979,7 @@ class _LeafEditDialogState extends State<_LeafEditDialog> {
   @override
   void initState() {
     super.initState();
-    _textController = TextEditingController(
-      text: widget.currentValue == null ? '' : widget.currentValue.toString(),
-    );
+    _textController = TextEditingController(text: widget.currentValue == null ? '' : widget.currentValue.toString());
     _boolChoice = widget.currentValue is bool
         ? widget.currentValue as bool
         : (widget.schemaValue is bool ? widget.schemaValue as bool : true);
@@ -1129,10 +1054,7 @@ class _LeafEditDialogState extends State<_LeafEditDialog> {
           children: [
             Text(
               widget.pathLabel,
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontFamily: 'monospace',
-                color: theme.colorScheme.outline,
-              ),
+              style: theme.textTheme.bodySmall?.copyWith(fontFamily: 'monospace', color: theme.colorScheme.outline),
             ),
             const SizedBox(height: 4),
             Text(
@@ -1145,11 +1067,7 @@ class _LeafEditDialogState extends State<_LeafEditDialog> {
             if (_isBoolMode)
               DropdownButtonFormField<bool>(
                 initialValue: _boolChoice,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  labelText: '值（布尔）',
-                  isDense: true,
-                ),
+                decoration: const InputDecoration(border: OutlineInputBorder(), labelText: '值（布尔）', isDense: true),
                 items: const [
                   DropdownMenuItem(value: true, child: Text('true')),
                   DropdownMenuItem(value: false, child: Text('false')),
@@ -1159,11 +1077,7 @@ class _LeafEditDialogState extends State<_LeafEditDialog> {
             else if (_isFreeMode) ...[
               DropdownButtonFormField<String>(
                 initialValue: _typeChoice,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  labelText: '类型',
-                  isDense: true,
-                ),
+                decoration: const InputDecoration(border: OutlineInputBorder(), labelText: '类型', isDense: true),
                 items: const [
                   DropdownMenuItem(value: 'null', child: Text('null')),
                   DropdownMenuItem(value: 'string', child: Text('文本')),
@@ -1207,10 +1121,7 @@ class _LeafEditDialogState extends State<_LeafEditDialog> {
               ),
             if (_errorText != null) ...[
               const SizedBox(height: 8),
-              Text(
-                '可强行保存，但类型不符可能导致对方解析异常或数据丢失。',
-                style: theme.textTheme.bodySmall?.copyWith(color: Colors.orange),
-              ),
+              Text('可强行保存，但类型不符可能导致对方解析异常或数据丢失。', style: theme.textTheme.bodySmall?.copyWith(color: Colors.orange)),
             ],
           ],
         ),

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:pure_live/common/index.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 import 'package:pure_live/player/utils/mpv_platform_profile.dart';
 import 'package:pure_live/player/utils/player_consts.dart';
 
@@ -13,7 +14,7 @@ class RendererSettingsPage extends GetView<SettingsService> {
         .where((item) => item['key'] == 'auto' || supportedDrivers.containsKey(item['key']))
         .toList(growable: false);
     return Scaffold(
-      appBar: AppBar(title: Text(i18n('video_output_driver'))),
+      appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.renderer),
       body: ListView(
         physics: const PureLiveScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

@@ -2,6 +2,7 @@ import 'package:pure_live/common/index.dart';
 import 'package:pure_live/modules/account/soop/soop_cookie_controller.dart';
 import 'package:pure_live/modules/account/web_cookie_capture.dart';
 import 'package:pure_live/modules/account/widgets/account_cookie_editor.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 
 class SoopCookiePage extends GetView<SoopCookieBindingCookieController> {
   const SoopCookiePage({super.key});
@@ -9,6 +10,7 @@ class SoopCookiePage extends GetView<SoopCookieBindingCookieController> {
   @override
   Widget build(BuildContext context) {
     return AccountCookieEditorPage(
+      breadcrumb: SettingsCrumbs.soopCookie,
       controller: controller.cookieController,
       hintText: i18n('soop_cookie_hint'),
       tipText: i18n('soop_cookie_tip'),

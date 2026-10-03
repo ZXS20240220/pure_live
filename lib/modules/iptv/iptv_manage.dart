@@ -9,6 +9,7 @@ import 'package:pure_live/core/iptv/services/epg_import_manager.dart';
 import 'package:pure_live/core/iptv/services/epg_sync_engine.dart';
 import 'package:pure_live/core/iptv/services/iptv_sync_engine.dart';
 import 'package:pure_live/core/iptv/services/iptv_import_manager.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 
 enum ManageItemType { iptv, epg }
 
@@ -223,8 +224,8 @@ class _IptvManagePageState extends State<IptvManagePage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(i18n("manage_page_title")),
+      appBar: SettingsBreadcrumbAppBar(
+        node: SettingsCrumbs.iptvManage,
         actions: [
           Obx(
             () => IconButton(

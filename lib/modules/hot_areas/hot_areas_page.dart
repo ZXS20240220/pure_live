@@ -1,6 +1,7 @@
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/modules/hot_areas/hot_areas_controller.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 
 class HotAreasPage extends GetView<HotAreasController> {
   const HotAreasPage({super.key});
@@ -10,7 +11,7 @@ class HotAreasPage extends GetView<HotAreasController> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: Text(i18n('platform_display'))),
+      appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.hotAreas),
       body: ListView(
         physics: const PureLiveScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

@@ -6,6 +6,7 @@ import 'package:loading_indicator/loading_indicator.dart';
 import 'package:pure_live/common/index.dart' hide Indicator;
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:pure_live/modules/settings/widgets/app_color_picker_dialog.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 
 class LoadingStyleSettingsPage extends StatefulWidget {
   const LoadingStyleSettingsPage({super.key});
@@ -417,8 +418,8 @@ class _LoadingStyleSettingsPageState extends State<LoadingStyleSettingsPage> wit
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(i18n("change_loading_style")),
+      appBar: SettingsBreadcrumbAppBar(
+        node: SettingsCrumbs.loading,
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8.0),

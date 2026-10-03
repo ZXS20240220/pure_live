@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/modules/account/bilibili/qr_login_controller.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:remixicon/remixicon.dart';
 
@@ -13,7 +14,7 @@ class BiliBiliQRLoginPage extends GetView<BiliBiliQRLoginController> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: Text(i18n('bilibili_login'))),
+      appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.bilibiliQrLogin),
       body: ListView(
         key: const ValueKey('bilibili-qr-scroll-view'),
         physics: const PureLiveScrollPhysics(),

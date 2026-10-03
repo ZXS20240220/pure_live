@@ -5,6 +5,7 @@ import 'package:pure_live/common/index.dart';
 import 'package:pure_live/core/common/cookie_string.dart';
 import 'package:pure_live/core/utils/web_view2_environment.dart';
 import 'package:pure_live/modules/account/cookie_validator.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 
 /// 平台抓取配置：登录页地址与 Cookie 归属域名。
 class CookieCaptureTarget {
@@ -106,7 +107,10 @@ class WebCookieCapturePage extends StatefulWidget {
   /// 打开内置浏览器抓取页并等待用户完成登录；
   /// 捕获成功返回 Cookie 字符串，返回/取消返回 null。
   static Future<String?> capture(CookieCaptureTarget target) async {
-    return Get.to<String>(() => WebCookieCapturePage(target: target));
+    return Get.to<String>(
+      () => WebCookieCapturePage(target: target),
+      routeName: SettingsCrumbs.cookieCapture.routeName,
+    );
   }
 
   @override
@@ -257,8 +261,8 @@ class _WebCookieCapturePageState extends State<WebCookieCapturePage> {
         if (!didPop) unawaited(_safeClose());
       },
       child: Scaffold(
-        appBar: AppBar(
-          title: Text(i18n('cookie_capture_title')),
+        appBar: SettingsBreadcrumbAppBar(
+          node: SettingsCrumbs.cookieCapture.withPage(() => WebCookieCapturePage(target: target)),
           actions: [
             IconButton(
               icon: const Icon(Icons.refresh_rounded),

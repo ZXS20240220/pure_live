@@ -1,4 +1,5 @@
 import 'package:pure_live/common/index.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 import 'package:pure_live/modules/live_play/widgets/local_interaction/local_interaction_controller.dart';
 import 'package:pure_live/modules/live_play/widgets/local_interaction/local_danmaku_style_editor.dart';
 
@@ -30,7 +31,7 @@ class _LocalInteractionSettingsPageState extends State<LocalInteractionSettingsP
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(i18n('local_interaction_settings'))),
+      appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.localInteraction),
       body: ListView(
         key: const ValueKey('local-interaction-settings-scroll'),
         physics: const PureLiveScrollPhysics(),

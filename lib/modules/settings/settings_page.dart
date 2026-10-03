@@ -1,19 +1,6 @@
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
-import 'package:pure_live/modules/iptv/iptv_page.dart';
-import 'package:pure_live/modules/backup/backup_page.dart';
-import 'package:pure_live/modules/settings/pages/refresh_settings.dart';
-import 'package:pure_live/modules/settings/pages/theme_settings_page.dart';
-import 'package:pure_live/modules/settings/pages/video_settings_page.dart';
-import 'package:pure_live/modules/settings/pages/pip_danmaku_settings_page.dart';
-import 'package:pure_live/modules/settings/pages/local_config_preveiw.dart';
-import 'package:pure_live/modules/settings/pages/general_settings_page.dart';
-import 'package:pure_live/modules/settings/pages/platform_settings_page.dart';
-import 'package:pure_live/modules/settings/pages/navigation_settings_page.dart';
-import 'package:pure_live/modules/settings/pages/cache_data_settings_page.dart';
-import 'package:pure_live/modules/settings/pages/network_proxy_settings_page.dart';
-import 'package:pure_live/modules/settings/pages/player_kernel_settings_page.dart';
-import 'package:pure_live/modules/settings/pages/local_interaction_settings_page.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 
 class SettingsPage extends GetView<SettingsService> {
   const SettingsPage({super.key});
@@ -27,12 +14,12 @@ class SettingsPage extends GetView<SettingsService> {
     final scaledActionFontSize = mediaQuery.textScaler.scale(14);
     final useCompactConfigAction = screenWidth < 520 || scaledActionFontSize > 18;
     final configPreviewLabel = i18n('config_preview');
-    void openConfigPreview() => Get.to(() => LocalConfigPreviewPage());
+    void openConfigPreview() => SettingsNavigator.open(SettingsCrumbs.configPreview);
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: SettingsBreadcrumbAppBar(
+        node: SettingsCrumbs.root,
         scrolledUnderElevation: screenWidth > 640 ? 0 : null,
-        title: Text(i18n('settings_title'), maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
           if (useCompactConfigAction)
             IconButton(
@@ -61,7 +48,7 @@ class SettingsPage extends GetView<SettingsService> {
               icon: Remix.palette_line,
               title: i18n("theme_customization"),
               subtitle: i18n("theme_customization_desc"),
-              onTap: () => Get.to(() => const ThemeSettingsPage()),
+              onTap: () => SettingsNavigator.open(SettingsCrumbs.theme),
             ),
           ]),
 
@@ -71,23 +58,22 @@ class SettingsPage extends GetView<SettingsService> {
               icon: Remix.settings_4_line,
               title: i18n("general"),
               subtitle: i18n("general_desc"),
-              onTap: () => Get.to(() => const GeneralSettingsPage()),
+              onTap: () => SettingsNavigator.open(SettingsCrumbs.general),
             ),
             context.buildTile(
               icon: Remix.menu_line,
               title: i18n("navigation_display_settings"),
               subtitle: i18n("navigation_display_settings_desc"),
-              onTap: () => Get.to(() => NavigationSettingsPage()),
+              onTap: () => SettingsNavigator.open(SettingsCrumbs.navigation),
             ),
             context.buildTile(
               icon: Remix.apps_2_line,
               title: i18n("platform_settings"),
               subtitle: i18n("platform_settings_desc"),
-              onTap: () => Get.to(() => const PlatformSettingsPage()),
+              onTap: () => SettingsNavigator.open(SettingsCrumbs.platform),
             ),
           ]),
 
-          
           const SizedBox(height: 20),
           context.buildGroupTitle(i18n("refresh_settings")),
           context.buildModernCard([
@@ -95,7 +81,7 @@ class SettingsPage extends GetView<SettingsService> {
               icon: Remix.refresh_line,
               title: i18n("refresh_settings"),
               subtitle: i18n("refresh_settings_subtitle"),
-              onTap: () => Get.to(() => const RefreshSettingsPage()),
+              onTap: () => SettingsNavigator.open(SettingsCrumbs.refresh),
             ),
           ]),
           const SizedBox(height: 20),
@@ -105,13 +91,7 @@ class SettingsPage extends GetView<SettingsService> {
               icon: Remix.film_line,
               title: i18n("video"),
               subtitle: i18n("video_desc"),
-              onTap: () => Get.to(() => const VideoSettingsPage()),
-            ),
-            context.buildTile(
-              icon: Remix.picture_in_picture_2_line,
-              title: i18n('pip_danmaku'),
-              subtitle: i18n('pip_danmaku_desc'),
-              onTap: () => Get.to(() => const PipDanmakuSettingsPage()),
+              onTap: () => SettingsNavigator.open(SettingsCrumbs.video),
             ),
           ]),
 
@@ -122,7 +102,7 @@ class SettingsPage extends GetView<SettingsService> {
               icon: Remix.tv_line,
               title: i18n("iptv_settings"),
               subtitle: i18n("manage_iptv_sources"),
-              onTap: () => Get.to(() => const IptvPage()),
+              onTap: () => SettingsNavigator.open(SettingsCrumbs.iptv),
             ),
           ]),
 
@@ -133,7 +113,7 @@ class SettingsPage extends GetView<SettingsService> {
               icon: Remix.cpu_line,
               title: i18n("player_kernel"),
               subtitle: i18n("player_kernel_desc"),
-              onTap: () => Get.to(() => const PlayerKernelSettingsPage()),
+              onTap: () => SettingsNavigator.open(SettingsCrumbs.kernel),
             ),
           ]),
           const SizedBox(height: 20),
@@ -143,7 +123,7 @@ class SettingsPage extends GetView<SettingsService> {
               icon: Remix.global_line,
               title: i18n("custom_network_proxy"),
               subtitle: i18n("custom_network_proxy_desc"),
-              onTap: () => Get.to(() => const NetworkProxySettingsPage()),
+              onTap: () => SettingsNavigator.open(SettingsCrumbs.proxy),
             ),
           ]),
 
@@ -154,12 +134,12 @@ class SettingsPage extends GetView<SettingsService> {
               icon: Icons.auto_awesome_rounded,
               title: i18n('local_interaction_title'),
               subtitle: i18n('local_interaction_settings_desc'),
-              onTap: () => Get.to(() => const LocalInteractionSettingsPage()),
+              onTap: () => SettingsNavigator.open(SettingsCrumbs.localInteraction),
             ),
           ]),
 
           const SizedBox(height: 20),
-          
+
           const SizedBox(height: 20),
           context.buildGroupTitle(i18n("data_manage")),
           context.buildModernCard([
@@ -167,7 +147,7 @@ class SettingsPage extends GetView<SettingsService> {
               icon: Remix.database_2_line,
               title: i18n("cache_and_data"),
               subtitle: i18n("cache_and_data_desc"),
-              onTap: () => Get.to(() => const CacheDataSettingsPage()),
+              onTap: () => SettingsNavigator.open(SettingsCrumbs.cache),
             ),
           ]),
 
@@ -178,7 +158,7 @@ class SettingsPage extends GetView<SettingsService> {
               icon: Remix.cloud_line,
               title: i18n("backup_recover"),
               subtitle: i18n("backup_recover_desc"),
-              onTap: () => Get.to(() => const BackupPage()),
+              onTap: () => SettingsNavigator.open(SettingsCrumbs.backup),
             ),
           ]),
           const SizedBox(height: 32),

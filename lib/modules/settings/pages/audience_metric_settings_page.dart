@@ -1,5 +1,6 @@
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/services/settings/app_settings_controller.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 
 class AudienceMetricSettingsPage extends StatelessWidget {
   const AudienceMetricSettingsPage({super.key});
@@ -33,7 +34,7 @@ class AudienceMetricSettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = SettingsService.to.app;
     return Scaffold(
-      appBar: AppBar(title: Text(i18n('audience_metric_settings'))),
+      appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.audienceMetric),
       body: ListView(
         physics: const PureLiveScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

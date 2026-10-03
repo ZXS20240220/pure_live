@@ -7,9 +7,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 import 'package:pure_live/core/common/proxy_routing.dart';
 import 'package:pure_live/player/utils/player_consts.dart';
 import 'package:pure_live/common/global/platform_utils.dart';
-import 'package:pure_live/modules/settings/pages/decoder_settings.dart';
-import 'package:pure_live/modules/settings/pages/renderer_settings.dart';
-import 'package:pure_live/modules/settings/pages/audio_output_settings_page.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 
 class PlayerKernelSettingsPage extends GetView<SettingsService> {
   const PlayerKernelSettingsPage({super.key});
@@ -19,7 +17,7 @@ class PlayerKernelSettingsPage extends GetView<SettingsService> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: Text(i18n("player_kernel_settings"))),
+      appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.kernel),
       body: ListView(
         physics: const PureLiveScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -133,7 +131,7 @@ class PlayerKernelSettingsPage extends GetView<SettingsService> {
       title: i18n('hardware_decoder'),
       subtitle: _getHardwareDecoderName(),
       trailing: const Icon(Remix.arrow_right_s_line),
-      onTap: () => Get.to(() => const DecoderSettingsPage()),
+      onTap: () => SettingsNavigator.open(SettingsCrumbs.decoder),
     );
   }
 
@@ -143,7 +141,7 @@ class PlayerKernelSettingsPage extends GetView<SettingsService> {
       title: i18n('video_output_driver'),
       subtitle: _getRendererName(),
       trailing: const Icon(Remix.arrow_right_s_line),
-      onTap: () => Get.to(() => const RendererSettingsPage()),
+      onTap: () => SettingsNavigator.open(SettingsCrumbs.renderer),
     );
   }
 
@@ -159,7 +157,7 @@ class PlayerKernelSettingsPage extends GetView<SettingsService> {
             title: i18n('audio_output_driver'),
             subtitle: _getAudioOutputDriverName(),
             trailing: const Icon(Remix.arrow_right_s_line),
-            onTap: () => Get.to(() => const AudioOutputSettingsPage()),
+            onTap: () => SettingsNavigator.open(SettingsCrumbs.audioOutput),
           ),
         ]),
       ],

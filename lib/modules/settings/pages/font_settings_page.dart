@@ -1,6 +1,7 @@
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/services/settings/font_settings_controller.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 
 class FontSettingsPage extends StatefulWidget {
   const FontSettingsPage({super.key});
@@ -15,11 +16,8 @@ class _FontSettingsPageState extends State<FontSettingsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Tooltip(
-          message: i18n("font_settings_title"),
-          child: Text(i18n("font_settings_title"), maxLines: 1, overflow: TextOverflow.ellipsis),
-        ),
+      appBar: SettingsBreadcrumbAppBar(
+        node: SettingsCrumbs.font,
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16.0),

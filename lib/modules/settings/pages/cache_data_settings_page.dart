@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:file_picker/file_picker.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 
 class CacheDataSettingsPage extends StatefulWidget {
   const CacheDataSettingsPage({super.key});
@@ -119,7 +120,7 @@ class _CacheDataSettingsPageState extends State<CacheDataSettingsPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: Text(i18n("cache_and_data"))),
+      appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.cache),
       body: ListView(
         physics: const PureLiveScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

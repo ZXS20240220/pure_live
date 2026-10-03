@@ -2,6 +2,7 @@ import 'package:remixicon/remixicon.dart';
 import 'package:flutter/services.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/services/settings/page_settings_controller.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 
 class PageSettingsPage extends GetView<SettingsService> {
   const PageSettingsPage({super.key});
@@ -9,7 +10,7 @@ class PageSettingsPage extends GetView<SettingsService> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(i18n("page_settings"))),
+      appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.pageSettings),
       body: ListView(
         physics: const PureLiveScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

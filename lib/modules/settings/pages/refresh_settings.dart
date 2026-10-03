@@ -1,6 +1,7 @@
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/services/settings/refresh_config_controller.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 
 class RefreshSettingsPage extends GetView<RefreshConfigController> {
   const RefreshSettingsPage({super.key});
@@ -8,7 +9,7 @@ class RefreshSettingsPage extends GetView<RefreshConfigController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(i18n("refresh_settings"))),
+      appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.refresh),
       body: ListView(
         physics: const PureLiveScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

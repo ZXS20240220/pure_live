@@ -4,6 +4,7 @@ import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/services/settings/cookie_value.dart';
 import 'package:pure_live/modules/account/web_cookie_capture.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 
 export 'package:pure_live/common/services/settings/cookie_value.dart' show normalizeAccountCookie;
 
@@ -42,6 +43,7 @@ class AccountCookieEditorPage extends StatefulWidget {
     super.key,
     this.extraFields = const <Widget>[],
     this.tipBody,
+    this.breadcrumb,
   });
 
   final TextEditingController controller;
@@ -64,6 +66,9 @@ class AccountCookieEditorPage extends StatefulWidget {
   /// A platform whose instructions include a link or a list needs more than one
   /// string, and the banner is where a viewer looks for them.
   final Widget? tipBody;
+
+  /// 面包屑导航节点；为 null 时回退到普通标题栏。
+  final SettingsCrumb? breadcrumb;
 
   @override
   State<AccountCookieEditorPage> createState() => _AccountCookieEditorPageState();
@@ -168,7 +173,9 @@ class _AccountCookieEditorPageState extends State<AccountCookieEditorPage> {
         if (!didPop) unawaited(_confirmDiscard());
       },
       child: Scaffold(
-        appBar: AppBar(title: Text(i18n('set_cookie'))),
+        appBar: widget.breadcrumb != null
+            ? SettingsBreadcrumbAppBar(node: widget.breadcrumb!)
+            : AppBar(title: Text(i18n('set_cookie'))),
         body: SafeArea(
           top: false,
           child: LayoutBuilder(
@@ -203,10 +210,7 @@ class _AccountCookieEditorPageState extends State<AccountCookieEditorPage> {
                             scrollPadding: const EdgeInsets.only(bottom: 120),
                             decoration: accountCookieFieldDecoration(theme, hintText: widget.hintText),
                           ),
-                          for (final field in widget.extraFields) ...<Widget>[
-                            const SizedBox(height: 12),
-                            field,
-                          ],
+                          for (final field in widget.extraFields) ...<Widget>[const SizedBox(height: 12), field],
                           const SizedBox(height: 16),
                           Row(
                             children: [

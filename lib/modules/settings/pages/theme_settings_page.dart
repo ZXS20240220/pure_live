@@ -4,12 +4,8 @@ import 'package:pure_live/common/consts/app_consts.dart';
 import 'package:pure_live/common/services/settings/font_settings_controller.dart';
 import 'package:pure_live/common/services/settings/theme_settings_controller.dart';
 import 'package:flex_color_picker/flex_color_picker.dart';
-import 'package:pure_live/modules/settings/pages/page_settings.dart';
-import 'package:pure_live/modules/settings/pages/font_settings_page.dart';
-import 'package:pure_live/modules/settings/pages/font_family_manager_page.dart';
-import 'package:pure_live/modules/settings/pages/loading_style_settings_page.dart';
-import 'package:pure_live/modules/settings/pages/room_card_settings_page.dart';
 import 'package:pure_live/modules/settings/widgets/app_color_picker_dialog.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 
 class ThemeSettingsPage extends GetView<SettingsService> {
   const ThemeSettingsPage({super.key});
@@ -19,7 +15,7 @@ class ThemeSettingsPage extends GetView<SettingsService> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: Text(i18n("theme_customization"))),
+      appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.theme),
       body: ListView(
         physics: const PureLiveScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -67,7 +63,7 @@ class ThemeSettingsPage extends GetView<SettingsService> {
                 ),
                 title: i18n("change_loading_style"),
                 subtitle: i18n("change_loading_style_subtitle"),
-                onTap: () => Get.to(() => const LoadingStyleSettingsPage()),
+                onTap: () => SettingsNavigator.open(SettingsCrumbs.loading),
                 stackTrailingOnNarrow: true,
                 trailing: Obx(() {
                   final String currentKey = SettingsService.to.theme.resolvedLoadingStyle;
@@ -96,7 +92,7 @@ class ThemeSettingsPage extends GetView<SettingsService> {
                 title: i18n('room_card_settings'),
                 subtitle: i18n('room_card_settings_subtitle'),
                 trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => Get.to(() => const RoomCardSettingsPage()),
+                onTap: () => SettingsNavigator.open(SettingsCrumbs.roomCard),
               ),
             ),
           ]),
@@ -125,7 +121,7 @@ class ThemeSettingsPage extends GetView<SettingsService> {
                 title: i18n('page_settings'),
                 subtitle: i18n('page_settings_subtitle'),
                 trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => Get.to(() => const PageSettingsPage()),
+                onTap: () => SettingsNavigator.open(SettingsCrumbs.pageSettings),
               ),
             ]),
           ],
@@ -149,7 +145,7 @@ class ThemeSettingsPage extends GetView<SettingsService> {
                 title: i18n("change_font_family"),
                 subtitle:
                     "${i18n("current_font_prefix")}: ${SettingsService.to.font.fontFamilyFileName.v.isNotEmpty ? SettingsService.to.font.fontFamilyFileName.v : SettingsService.to.font.fontFamilyName.v}",
-                onTap: () => Get.to(() => const FontFamilyManagerPage()),
+                onTap: () => SettingsNavigator.open(SettingsCrumbs.fontFamily),
               ),
             ),
           ]),
@@ -160,7 +156,7 @@ class ThemeSettingsPage extends GetView<SettingsService> {
               icon: Remix.font_size,
               title: i18n("font_settings_title"),
               subtitle: i18n("font_settings_desc"),
-              onTap: () => Get.to(() => const FontSettingsPage()),
+              onTap: () => SettingsNavigator.open(SettingsCrumbs.font),
             ),
             const SizedBox(height: 20),
 

@@ -4,6 +4,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/core/utils/web_view2_environment.dart';
 import 'package:pure_live/modules/account/bilibili/web_login_controller.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 import 'package:remixicon/remixicon.dart';
 
 class BiliBiliWebLoginPage extends GetView<BiliBiliWebLoginController> {
@@ -15,8 +16,8 @@ class BiliBiliWebLoginPage extends GetView<BiliBiliWebLoginController> {
     final compactAction = MediaQuery.sizeOf(context).width < 520 || MediaQuery.textScalerOf(context).scale(14) > 20;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(i18n('bilibili_login')),
+      appBar: SettingsBreadcrumbAppBar(
+        node: SettingsCrumbs.bilibiliWebLogin,
         actions: [
           Obx(() {
             final busy = controller.isVerifying.value || controller.isSwitchingToQr.value;

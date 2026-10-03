@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_json/flutter_json.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/services/settings/backup_controller.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 import 'package:remixicon/remixicon.dart';
 
 class LocalConfigPreviewPage extends StatefulWidget {
@@ -54,14 +55,14 @@ class _LocalConfigPreviewPageState extends State<LocalConfigPreviewPage> {
 
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(),
+        appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.configPreview),
         body: Center(child: AppStatusView(type: AppStatusType.loading)),
       );
     }
 
     if (_errorMsg.isNotEmpty) {
       return Scaffold(
-        appBar: AppBar(),
+        appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.configPreview),
         body: Center(
           child: AppStatusView(type: AppStatusType.error, title: _errorMsg),
         ),
@@ -73,16 +74,7 @@ class _LocalConfigPreviewPageState extends State<LocalConfigPreviewPage> {
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surfaceContainerLowest,
-      appBar: AppBar(
-        title: Text(
-          i18n('local_config_preview'),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        elevation: 0,
-        scrolledUnderElevation: 1,
-      ),
+      appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.configPreview, elevation: 0, scrolledUnderElevation: 1),
       body: LayoutBuilder(
         builder: (context, viewportConstraints) {
           final rawPreviewHeight = (viewportConstraints.maxHeight * 0.7).clamp(320.0, 720.0).toDouble();

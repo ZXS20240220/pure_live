@@ -9,6 +9,7 @@ import 'package:syncfusion_flutter_sliders/sliders.dart';
 import 'package:flex_color_picker/flex_color_picker.dart';
 import 'package:pure_live/common/widgets/count_button.dart';
 import 'package:flame_barrage/flame_barrage.dart';
+import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 
 class PipDanmakuSettingsPage extends StatelessWidget {
   const PipDanmakuSettingsPage({super.key});
@@ -16,8 +17,8 @@ class PipDanmakuSettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(i18n('pip_danmaku')),
+      appBar: SettingsBreadcrumbAppBar(
+        node: SettingsCrumbs.pipDanmaku,
         actions: [
           IconButton(
             tooltip: i18n('pip_danmaku_reset'),
