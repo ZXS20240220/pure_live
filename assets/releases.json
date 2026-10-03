@@ -3,6 +3,50 @@
     {
       "assets": [
         {
+          "apiUrl": "https://api.github.com/repos/ZXS20240220/pure_live/releases/assets/608364554",
+          "contentType": "application/json",
+          "createdAt": "2026-10-03T19:05:02Z",
+          "digest": "sha256:8361c579de048d36bc231bca1992a3308fe4568fcf317bf804d1aa32874f9e7f",
+          "downloadCount": 0,
+          "id": "RA_kwDOUTPDUc4kQugK",
+          "label": "",
+          "name": "BUILD_METADATA.json",
+          "size": 600,
+          "state": "uploaded",
+          "updatedAt": "2026-10-03T19:05:02Z",
+          "url": "https://github.com/ZXS20240220/pure_live/releases/download/v1.0.5/BUILD_METADATA.json"
+        },
+        {
+          "apiUrl": "https://api.github.com/repos/ZXS20240220/pure_live/releases/assets/608364549",
+          "contentType": "application/zip",
+          "createdAt": "2026-10-03T19:05:02Z",
+          "digest": "sha256:f71d2852229268e086234970f67d35d0113e3d4713e3f9331f26e66f2cd80179",
+          "downloadCount": 0,
+          "id": "RA_kwDOUTPDUc4kQugF",
+          "label": "",
+          "name": "PureLive-dev-1.0.5-314-windows-x64-portable.zip",
+          "size": 70669435,
+          "state": "uploaded",
+          "updatedAt": "2026-10-03T19:05:05Z",
+          "url": "https://github.com/ZXS20240220/pure_live/releases/download/v1.0.5/PureLive-dev-1.0.5-314-windows-x64-portable.zip"
+        }
+      ],
+      "author": {
+        "id": "MDM6Qm90NDE4OTgyODI=",
+        "login": "github-actions[bot]",
+        "avatar": "https://avatars.githubusercontent.com/in/15368?v=4"
+      },
+      "body": "# 纯粹直播-dev v1.0.5\n\n### 🖥️ Windows 便携版\n\n- **Portable ZIP**：解压即用，无需安装\n- 适配：Windows 10/11 x64\n\n### 🔧 Build Metadata\n\n[BUILD_METADATA.json](https://github.com/ZXS20240220/pure_live/releases/download/v1.0.5/BUILD_METADATA.json)\n\n### 📝 本次更新\n\nversion: 1.0.5 (build 314)\n\n- 优化备份导出逻辑，在已设置备份目录的前提下，创建备份不再重复要求选择目录。未设置目录时弹出提示\n- 修复设置页和播放栏的响应式状态更新问题，保证”热更新“\n- 为设置页面集成面包屑导航组件\n- 去除设置页中重复的小窗弹幕设置\n- 新增完整备份与恢复功能，支持备份设置、IPTV数据库和已下载字体\n",
+      "isDraft": false,
+      "isPrerelease": false,
+      "name": "v1.0.5",
+      "publishedAt": "2026-10-03T19:05:05Z",
+      "tagName": "v1.0.5",
+      "url": "https://github.com/ZXS20240220/pure_live/releases/tag/v1.0.5"
+    },
+    {
+      "assets": [
+        {
           "apiUrl": "https://api.github.com/repos/ZXS20240220/pure_live/releases/assets/607906458",
           "contentType": "application/json",
           "createdAt": "2026-10-03T14:03:07Z",
@@ -21,7 +65,7 @@
           "contentType": "application/zip",
           "createdAt": "2026-10-03T14:03:07Z",
           "digest": "sha256:d2a00701e938897f755fdff43dc9d7f4a8cc37e14482b77c0daba0c643819c48",
-          "downloadCount": 2,
+          "downloadCount": 4,
           "id": "RA_kwDOUTPDUc4kO-qc",
           "label": "",
           "name": "PureLive-dev-1.0.4-314-windows-x64-portable.zip",
