@@ -23,7 +23,11 @@ class MiniPipSlot {
   }
 
   /// 房间标识与元数据（标题/昵称/弹幕参数随卡片一起带入）。
-  final LiveRoom room;
+  ///
+  /// 非 final：侧栏卡片只携带列表级数据，缺少仅详情接口才下发的弹幕连接
+  /// 参数（danmakuData）。该参数在用户首次开启弹幕时由 getRoomDetail 惰性
+  /// 拉取并原地回填（不挂在起播路径上）；回填前后 platform/roomId 身份一致。
+  LiveRoom room;
 
   /// 解析/起播纪元：顶替、关闭、重试都会推进，迟到的异步结果必须以此自检。
   int epoch = 0;
@@ -45,6 +49,10 @@ class MiniPipSlot {
 
   /// 弹幕显隐：默认跟随"小窗弹幕"开关；左上角按钮可逐窗切换。
   final RxBool danmakuEnabled = false.obs;
+
+  /// 首次开启弹幕时的详情补全是否在途：等待 getRoomDetail 期间按钮状态
+  /// 尚未翻转，用于吞掉用户连点，避免重复详情请求与重复建连。
+  bool danmakuEnriching = false;
 
   /// 默认静音；可由音量条或静音按钮手动取消。
   final RxBool muted = true.obs;
@@ -295,14 +303,63 @@ class MiniPipController {
     return main.roomId == room.roomId && main.platform == room.platform;
   }
 
-  /// 切换弹幕显隐；首次开启时惰性创建弹幕会话与渲染控制器。
+  /// 拉取房间完整详情并回填到槽位（弹幕能力的惰性补充）。
+  ///
+  /// 侧栏卡片只有列表元数据，而 B站/虎牙等平台的弹幕连接参数（danmakuData：
+  /// token、真实房间号、WebSocket 地址等）仅由 getRoomDetail 下发。不回填时
+  /// [MultiviewDanmakuSession.supportsRoom] 恒为 false，弹幕显隐按钮会被
+  /// [toggleDanmaku] 直接拒绝开启——表现为"按钮无效"。
+  ///
+  /// 仅在用户**首次开启弹幕**时调用，不挂在起播路径上，避免为默认关闭的
+  /// 弹幕能力让每次开小窗都多付一次详情请求与首帧延迟。已携带弹幕参数
+  /// （如主窗口曾进入过该房间）时直接跳过，不重复请求。
+  ///
+  /// 失败时保留卡片房间（仅弹幕不可用），由调用方决定按钮状态。
+  Future<void> _enrichRoomDetail(MiniPipSlot slot) async {
+    final room = slot.room;
+    final platform = room.platform;
+    final roomId = room.roomId;
+    if (platform == null || roomId == null || roomId.isEmpty) return;
+    // 卡片房间已带弹幕参数（主窗口进过、或此前已回填）：无需再请求。
+    if (MultiviewDanmakuSession.supportsRoom(room)) return;
+    try {
+      final detail = await Sites.of(platform).liveSite.getRoomDetail(roomId: roomId, platform: platform);
+      // 只接受身份一致的详情，避免异常的短号/别名映射污染槽位身份。
+      if (slots.contains(slot) && detail.hasIdentity(platform: platform, roomId: roomId)) {
+        slot.room = detail;
+      }
+    } catch (error, stackTrace) {
+      developer.log(
+        'MiniPip: room detail enrich failed for $platform/$roomId',
+        name: 'MiniPip',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  /// 切换弹幕显隐；首次开启时惰性拉取房间详情并创建弹幕会话。
   Future<void> toggleDanmaku(MiniPipSlot slot) async {
     if (_disposed || !slots.contains(slot)) return;
     final enable = !slot.danmakuEnabled.value;
     if (enable && !MultiviewDanmakuSession.supportsRoom(slot.room)) {
-      // 该平台无弹幕实现：保持关闭态，避免按钮状态与实际表现不一致。
-      slot.danmakuEnabled.value = false;
-      return;
+      // 上一次点击的详情补全仍在途：忽略连点，按钮会随在途流程翻转。
+      if (slot.danmakuEnriching) return;
+      slot.danmakuEnriching = true;
+      // 卡片房间缺少弹幕连接参数：惰性拉取一次完整详情。只在此时付费，
+      // 起播路径不增加任何请求；主窗口进过该房间时 supportsRoom 直接放行。
+      try {
+        await _enrichRoomDetail(slot);
+      } finally {
+        slot.danmakuEnriching = false;
+      }
+      if (_disposed || !slots.contains(slot)) return;
+      if (!MultiviewDanmakuSession.supportsRoom(slot.room)) {
+        // 平台本身无弹幕实现，或详情拉取后仍无可用参数：保持关闭态，
+        // 避免按钮状态与实际表现不一致。
+        slot.danmakuEnabled.value = false;
+        return;
+      }
     }
     slot.danmakuEnabled.value = enable;
     if (!enable) {
