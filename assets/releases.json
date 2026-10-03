@@ -3,6 +3,50 @@
     {
       "assets": [
         {
+          "apiUrl": "https://api.github.com/repos/ZXS20240220/pure_live/releases/assets/607906458",
+          "contentType": "application/json",
+          "createdAt": "2026-10-03T14:03:07Z",
+          "digest": "sha256:6e4a9c4d59426a04cb8fd3e180271d49e50312742809c6cf07081740a95bac04",
+          "downloadCount": 0,
+          "id": "RA_kwDOUTPDUc4kO-qa",
+          "label": "",
+          "name": "BUILD_METADATA.json",
+          "size": 600,
+          "state": "uploaded",
+          "updatedAt": "2026-10-03T14:03:07Z",
+          "url": "https://github.com/ZXS20240220/pure_live/releases/download/v1.0.4/BUILD_METADATA.json"
+        },
+        {
+          "apiUrl": "https://api.github.com/repos/ZXS20240220/pure_live/releases/assets/607906460",
+          "contentType": "application/zip",
+          "createdAt": "2026-10-03T14:03:07Z",
+          "digest": "sha256:d2a00701e938897f755fdff43dc9d7f4a8cc37e14482b77c0daba0c643819c48",
+          "downloadCount": 0,
+          "id": "RA_kwDOUTPDUc4kO-qc",
+          "label": "",
+          "name": "PureLive-dev-1.0.4-314-windows-x64-portable.zip",
+          "size": 70580192,
+          "state": "uploaded",
+          "updatedAt": "2026-10-03T14:03:09Z",
+          "url": "https://github.com/ZXS20240220/pure_live/releases/download/v1.0.4/PureLive-dev-1.0.4-314-windows-x64-portable.zip"
+        }
+      ],
+      "author": {
+        "id": "MDM6Qm90NDE4OTgyODI=",
+        "login": "github-actions[bot]",
+        "avatar": "https://avatars.githubusercontent.com/in/15368?v=4"
+      },
+      "body": "# 纯粹直播-dev v1.0.4\n\n### 🖥️ Windows 便携版\n\n- **Portable ZIP**：解压即用，无需安装\n- 适配：Windows 10/11 x64\n\n### 🔧 Build Metadata\n\n[BUILD_METADATA.json](https://github.com/ZXS20240220/pure_live/releases/download/v1.0.4/BUILD_METADATA.json)\n\n### 📝 本次更新\n\nversion: 1.0.4 (build 314)\n\n- 添加定时同步 release 数据的工作流\n- 更新应用名称为 PureLive dev，调整相关构建和发布配置\n- 修复<显示页码跳转>开关无效的问题\n- **画中画**<弹幕字体大小>和<弹幕上限数量>的调整范围对齐**普通窗口**\n- 画中画弹幕复用全局密度模式并同步主界面效果\n- 画中画增加置顶、静音功能按钮，限制最小尺寸\n- 为画中画/悬浮窗添加鼠标滚轮调节音量和音量条功能\n- 新增视频画面Ctrl+滚轮缩放和Ctrl+拖拽平移功能\n- 新增进程内小窗（mini PiP）功能，支持通过 Ctrl+点击侧栏房间卡片在小窗中打开直播间，双击小窗可将房间提升至主窗口。同时新增了小窗相关功能，包括显示/隐藏弹幕、音量与透明度调节、关闭小窗等。此外，还实现了小窗与主窗口的交互逻辑，如小窗打开时禁用画中画功能，动态调整主窗口最小尺寸等。\n- 关注页/热门页/分区页中，Ctrl+点击直播间卡片出现悬浮小窗，支持位置和尺寸调整，以及音量和弹幕显隐控制\n- 补充快捷键帮助内容\n- 注：所有小窗播放均不计入观看时长记录\n",
+      "isDraft": false,
+      "isPrerelease": false,
+      "name": "v1.0.4",
+      "publishedAt": "2026-10-03T14:03:09Z",
+      "tagName": "v1.0.4",
+      "url": "https://github.com/ZXS20240220/pure_live/releases/tag/v1.0.4"
+    },
+    {
+      "assets": [
+        {
           "apiUrl": "https://api.github.com/repos/ZXS20240220/pure_live/releases/assets/601402754",
           "contentType": "application/json",
           "createdAt": "2026-09-30T17:00:51Z",

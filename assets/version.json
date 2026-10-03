@@ -1,18 +1,18 @@
 {
-  "version": "1.0.3",
+  "version": "1.0.4",
   "build_number": 314,
-  "version_num": 10003314,
-  "version_desc": "version: 1.0.3 (build 314)\n\n- 修复release历史版本更新记录无法显示的问题\n- 修复托盘菜单不正确消失的问题\n- 托盘菜单添加应用重启功能\n- 优化 build+release 工作流，细化功能控制，保证版本号和 prerelease 的一致性",
+  "version_num": 10004314,
+  "version_desc": "version: 1.0.4 (build 314)\n\n- 添加定时同步 release 数据的工作流\n- 更新应用名称为 PureLive dev，调整相关构建和发布配置\n- 修复<显示页码跳转>开关无效的问题\n- **画中画**<弹幕字体大小>和<弹幕上限数量>的调整范围对齐**普通窗口**\n- 画中画弹幕复用全局密度模式并同步主界面效果\n- 画中画增加置顶、静音功能按钮，限制最小尺寸\n- 为画中画/悬浮窗添加鼠标滚轮调节音量和音量条功能\n- 新增视频画面Ctrl+滚轮缩放和Ctrl+拖拽平移功能\n- 新增进程内小窗（mini PiP）功能，支持通过 Ctrl+点击侧栏房间卡片在小窗中打开直播间，双击小窗可将房间提升至主窗口。同时新增了小窗相关功能，包括显示/隐藏弹幕、音量与透明度调节、关闭小窗等。此外，还实现了小窗与主窗口的交互逻辑，如小窗打开时禁用画中画功能，动态调整主窗口最小尺寸等。\n- 关注页/热门页/分区页中，Ctrl+点击直播间卡片出现悬浮小窗，支持位置和尺寸调整，以及音量和弹幕显隐控制\n- 补充快捷键帮助内容\n- 注：所有小窗播放均不计入观看时长记录",
   "prerelease": false,
   "download_url": "https://github.com/ZXS20240220/pure_live/releases",
   "platforms": {
     "windows": {
       "windows_setup_available": false,
       "windows_msix_available": false,
-      "version": "1.0.3",
+      "version": "1.0.4",
       "build_number": 314,
-      "version_num": 10003314,
-      "version_desc": "version: 1.0.3 (build 314)\n\n- 修复release历史版本更新记录无法显示的问题\n- 修复托盘菜单不正确消失的问题\n- 托盘菜单添加应用重启功能\n- 优化 build+release 工作流，细化功能控制，保证版本号和 prerelease 的一致性",
+      "version_num": 10004314,
+      "version_desc": "version: 1.0.4 (build 314)\n\n- 添加定时同步 release 数据的工作流\n- 更新应用名称为 PureLive dev，调整相关构建和发布配置\n- 修复<显示页码跳转>开关无效的问题\n- **画中画**<弹幕字体大小>和<弹幕上限数量>的调整范围对齐**普通窗口**\n- 画中画弹幕复用全局密度模式并同步主界面效果\n- 画中画增加置顶、静音功能按钮，限制最小尺寸\n- 为画中画/悬浮窗添加鼠标滚轮调节音量和音量条功能\n- 新增视频画面Ctrl+滚轮缩放和Ctrl+拖拽平移功能\n- 新增进程内小窗（mini PiP）功能，支持通过 Ctrl+点击侧栏房间卡片在小窗中打开直播间，双击小窗可将房间提升至主窗口。同时新增了小窗相关功能，包括显示/隐藏弹幕、音量与透明度调节、关闭小窗等。此外，还实现了小窗与主窗口的交互逻辑，如小窗打开时禁用画中画功能，动态调整主窗口最小尺寸等。\n- 关注页/热门页/分区页中，Ctrl+点击直播间卡片出现悬浮小窗，支持位置和尺寸调整，以及音量和弹幕显隐控制\n- 补充快捷键帮助内容\n- 注：所有小窗播放均不计入观看时长记录",
       "prerelease": false,
       "download_url": "https://github.com/ZXS20240220/pure_live/releases"
     }
