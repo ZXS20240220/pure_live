@@ -370,10 +370,6 @@ class _KeyboardShortcutsDialog extends StatelessWidget {
               _ShortcutItem(keys: const ['Ctrl', 'Click'], desc: '按住 Ctrl 点击侧栏直播间卡片，在小窗中打开'),
               _ShortcutItem(keys: const ['Ctrl', 'Mouse Wheel'], desc: '在小窗上按住 Ctrl 滚轮缩放小窗尺寸'),
               _ShortcutItem(keys: const ['Double Click'], desc: '双击小窗将该直播间切换到主窗口并关闭小窗'),
-              _ShortcutItem(
-                keys: const ['Ctrl', 'Mouse Wheel'],
-                desc: '在悬浮窗或 Windows 画中画上按住 Ctrl 滚轮缩放窗口；也可直接拖拽悬浮窗边缘或四角改变尺寸',
-              ),
               _ShortcutItem(keys: const ['Esc'], desc: '退出全屏 / 关闭页面'),
             ],
           )
@@ -403,12 +399,6 @@ class _KeyboardShortcutsDialog extends StatelessWidget {
               _ShortcutItem(
                 keys: const ['Double Click'],
                 desc: 'Double-click a mini window to move that room to the main player and close it',
-              ),
-              _ShortcutItem(
-                keys: const ['Ctrl', 'Mouse Wheel'],
-                desc:
-                    'Ctrl-scroll over the floating window or Windows PiP to resize it; '
-                    'you can also drag the floating window edges or corners',
               ),
               _ShortcutItem(keys: const ['Esc'], desc: 'Exit fullscreen / Close page'),
             ],

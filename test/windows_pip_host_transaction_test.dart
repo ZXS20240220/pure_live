@@ -290,6 +290,7 @@ class _FakeWindowsPipHost {
   bool minimized = false;
   bool maximized = false;
   bool fullScreen = false;
+  double aspectRatio = 0;
   final List<String> calls = [];
   final Map<String, int> _failures = {};
   Completer<void>? setSizeGate;
@@ -370,6 +371,11 @@ class _FakeWindowsPipHost {
         _throwIfRequested('setPosition');
         position = value;
         if (setPositionGate != null) await setPositionGate!.future;
+      },
+      setAspectRatio: (value) async {
+        calls.add('setAspectRatio:$value');
+        _throwIfRequested('setAspectRatio');
+        aspectRatio = value;
       },
     );
   }

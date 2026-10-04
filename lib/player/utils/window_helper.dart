@@ -56,6 +56,7 @@ class WindowsPipHost {
     required this.setMinimumSize,
     required this.setSize,
     required this.setPosition,
+    required this.setAspectRatio,
   });
 
   factory WindowsPipHost.system() {
@@ -73,6 +74,7 @@ class WindowsPipHost {
       setMinimumSize: windowManager.setMinimumSize,
       setSize: windowManager.setSize,
       setPosition: windowManager.setPosition,
+      setAspectRatio: windowManager.setAspectRatio,
     );
   }
 
@@ -88,6 +90,7 @@ class WindowsPipHost {
   final Future<void> Function(Size size) setMinimumSize;
   final Future<void> Function(Size size) setSize;
   final Future<void> Function(Offset position) setPosition;
+  final Future<void> Function(double aspectRatio) setAspectRatio;
 }
 
 typedef WindowsPipPreferencesReader = WindowsPipPreferences Function();
@@ -223,6 +226,9 @@ class WindowHelper {
   Future<void> _hostQueue = Future<void>.value();
   Future<void>? _pipTransition;
 
+  /// 当前 PiP 窗口锁定的宽高比；非 PiP 模式下为 null。
+  double? _pipAspectRatio;
+
   Future<void> togglePiP(double videoRatio) async {
     if (!_isWindows) return;
 
@@ -339,6 +345,8 @@ class WindowHelper {
       await _host.setMinimumSize(pipMinSize);
       await _host.setSize(effectiveSize);
       await _host.setPosition(bounds.topLeft);
+      // 锁定窗口宽高比，使拖拽边缘调整大小时保持画面比例（0 表示不约束）。
+      await _host.setAspectRatio(ratio);
 
       if (rememberPosition) {
         final resolvedDisplay = _findDisplayForPosition(displays, bounds.topLeft) ?? currentDisplay;
@@ -356,6 +364,7 @@ class WindowHelper {
 
     _savedSize = normalSize;
     _savedPosition = normalPosition;
+    _pipAspectRatio = ratio;
     currentMode = WindowLayoutMode.pip;
   }
 
@@ -386,6 +395,8 @@ class WindowHelper {
       await _host.setMinimumSize(const Size(WindowSizeController.minWindowWidth, WindowSizeController.minWindowHeight));
       await _host.setSize(_savedSize);
       await _host.setPosition(_savedPosition);
+      // 退出 PiP 后解除宽高比锁定，恢复普通窗口的自由缩放。
+      await _host.setAspectRatio(0);
     } catch (error, stackTrace) {
       await _restoreHostWindow(
         alwaysOnTop: pipAlwaysOnTop,
@@ -396,6 +407,7 @@ class WindowHelper {
       Error.throwWithStackTrace(error, stackTrace);
     }
 
+    _pipAspectRatio = null;
     currentMode = WindowLayoutMode.normal;
   }
 
@@ -407,6 +419,21 @@ class WindowHelper {
     return _serializeHostOperation(() async {
       if (currentMode != WindowLayoutMode.pip) return;
       await _host.setAlwaysOnTop(value);
+    });
+  }
+
+  /// 运行时更新 PiP 窗口的宽高比锁定（例如切换为竖屏直播流时）。
+  /// 仅在 PiP 模式下生效；ratio 非法时回退到 16:9。
+  Future<void> updatePiPAspectRatio(double videoRatio) {
+    if (!_isWindows || currentMode != WindowLayoutMode.pip) {
+      return Future<void>.value();
+    }
+    final ratio = videoRatio.isFinite && videoRatio > 0 ? videoRatio : 16 / 9;
+    return _serializeHostOperation(() async {
+      if (currentMode != WindowLayoutMode.pip) return;
+      if ((_pipAspectRatio ?? 0) == ratio) return;
+      await _host.setAspectRatio(ratio);
+      _pipAspectRatio = ratio;
     });
   }
 
@@ -475,6 +502,8 @@ class WindowHelper {
       () => _host.setSize(size),
       () => _host.setPosition(position),
       () => _host.setAlwaysOnTop(alwaysOnTop),
+      // 回滚时一并解除宽高比锁定，避免约束泄漏到普通窗口。
+      () => _host.setAspectRatio(0),
     ];
     for (final restore in restoreOperations) {
       try {

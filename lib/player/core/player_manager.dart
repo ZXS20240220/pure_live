@@ -1342,8 +1342,18 @@ class PlayerManager {
         final controller = _videoController;
         if (controller != null) unawaited(controller.applyFullscreenOrientationPolicy());
       }
-      if (isInPip.value) unawaited(_updateActiveAndroidPip());
+      if (isInPip.value) {
+        unawaited(_updateActiveAndroidPip());
+        unawaited(_updateActiveWindowsPipAspectRatio());
+      }
     }
+  }
+
+  /// Windows PiP：视频比例变化时同步更新窗口宽高比锁定，保证拖拽边缘
+  /// 缩放时始终贴合当前画面比例（横屏/竖屏切换均生效）。
+  Future<void> _updateActiveWindowsPipAspectRatio() async {
+    if (!_usesWindowsPip || !isInPip.value || _pipTransitionInFlight) return;
+    await WindowHelper.instance.updatePiPAspectRatio(currentVideoRatio);
   }
 
   Future<void> _updateActiveAndroidPip() async {
@@ -4225,7 +4235,8 @@ class PlayerManager {
       builder: (context) => Listener(
         onPointerSignal: (event) {
           if (event is! PointerScrollEvent || event.scrollDelta.dy == 0) return;
-          // Ctrl + 滚轮：固定比例缩放窗口（app floating / Windows PiP 通用）。
+          // Ctrl + 滚轮：固定比例缩放窗口（仅 app floating；Windows PiP 已
+          // 移除此快捷键，统一使用拖拽边缘按比例缩放）。
           if (HardwareKeyboard.instance.isControlPressed) {
             unawaited(_adjustCompactSizeByWheel(event.scrollDelta.dy));
             return;
@@ -4245,33 +4256,20 @@ class PlayerManager {
     );
   }
 
-  /// Ctrl+滚轮固定比例缩放紧凑窗口。
+  /// Ctrl+滚轮固定比例缩放紧凑窗口（仅 app floating）。
+  /// Windows PiP 不再响应此快捷键：拖拽窗口边缘即可按锁定的画面比例缩放。
   /// - app floating：先向 flutter_floating 下发 setWAndH（插件会在同一帧
   ///   布局前完成尺寸与位置调整），再更新 [floatingLongSide] 触发 Obx 重建，
   ///   避免“新尺寸先在旧位置渲染一帧、下一帧才跳位”的卡顿。
-  /// - Windows PiP：直接调用 windowManager.setSize，按当前比例缩放。
   /// 步进取 14（鼠标一格约 100px delta），并按滚轮 delta 大小线性缩放，
   /// 触控板的小幅度平滑滚动因此更连续、跟手。
   Future<void> _adjustCompactSizeByWheel(double scrollDy) async {
     if (!Platform.isWindows || scrollDy == 0) return;
+    // Windows PiP 模式下忽略 Ctrl+滚轮缩放，仅保留 app floating 的缩放。
+    if (isInPip.value) return;
     const baseStep = 14.0;
     final factor = (scrollDy.abs() / 100.0).clamp(0.15, 2.0);
     final delta = -scrollDy.sign * baseStep * factor; // 向上滚放大，向下滚缩小
-    if (isInPip.value) {
-      // Windows PiP：按当前视频比例缩放窗口尺寸。
-      final bounds = await windowManager.getBounds();
-      final current = bounds.size;
-      final ratio = current.width / current.height;
-      var longSide = (current.longestSide + delta).clamp(floatingMinLongSide, floatingMaxLongSide);
-      final Size newSize;
-      if (current.width >= current.height) {
-        newSize = Size(longSide, longSide / ratio);
-      } else {
-        newSize = Size(longSide * ratio, longSide);
-      }
-      await windowManager.setSize(newSize);
-      return;
-    }
 
     final controller = _floatingOverlayController;
     final next = (floatingLongSide.value + delta).clamp(floatingMinLongSide, floatingMaxLongSide).toDouble();
