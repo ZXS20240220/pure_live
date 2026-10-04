@@ -267,48 +267,57 @@ class _MiniPipWindowState extends State<_MiniPipWindow> {
         onExit: (_) => slot.hovered.value = false,
         child: Obx(() {
           // 基础透明度由左下角控制条决定（0.3~1.0）；拖拽时再叠加 0.8 系数。
+          // 注意：透明度仅作用于视频画面/弹幕/黑底层，顶部/底部控制条、状态层、
+          // 缩放手柄始终保持 100% 不透明，避免控件随视频一起变淡而难以操作。
           final baseOpacity = slot.opacity.value;
           final effectiveOpacity = (_dragging ? baseOpacity * 0.8 : baseOpacity)
               .clamp(MiniPipController.minOpacity, MiniPipController.maxOpacity)
               .toDouble();
-          return AnimatedOpacity(
-            opacity: effectiveOpacity,
-            duration: const Duration(milliseconds: 120),
-            // 阴影保留（外边框已移除，避免与边缘拖拽命中区冲突）。
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.45), blurRadius: 12, offset: const Offset(0, 4)),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    const ColoredBox(color: Colors.black),
-                    _buildVideo(),
-                    _buildDanmaku(),
-                    // 整个视频面：拖拽（Listener 原始事件） + 双击提升到主窗（手势）。
-                    // 置于状态层与按钮层之下，确保重试/关闭等按钮优先命中。
-                    Positioned.fill(
-                      child: Listener(
-                        onPointerDown: _startDrag,
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onDoubleTap: () => widget.manager.promoteToMain(slot),
-                          child: const SizedBox.expand(),
+          // 阴影保留在最外层（外边框已移除，避免与边缘拖拽命中区冲突）。
+          return DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withValues(alpha: 0.45), blurRadius: 12, offset: const Offset(0, 4)),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // 透明层：黑底 + 视频 + 弹幕 + 视频面拖拽/双击手势。
+                  AnimatedOpacity(
+                    opacity: effectiveOpacity,
+                    duration: const Duration(milliseconds: 120),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        const ColoredBox(color: Colors.black),
+                        _buildVideo(),
+                        _buildDanmaku(),
+                        // 整个视频面：拖拽（Listener 原始事件） + 双击提升到主窗（手势）。
+                        // 置于状态层与按钮层之下，确保重试/关闭等按钮优先命中。
+                        Positioned.fill(
+                          child: Listener(
+                            onPointerDown: _startDrag,
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onDoubleTap: () => widget.manager.promoteToMain(slot),
+                              child: const SizedBox.expand(),
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                    _buildStatusOverlay(),
-                    _buildTopChrome(),
-                    _buildBottomControls(),
-                    // 边缘缩放手柄置于最上层，仅占用边缘 6px 区域。
-                    ..._buildResizeHandles(),
-                  ],
-                ),
+                  ),
+                  // 以下控件始终不透明，叠在视频层之上。
+                  _buildStatusOverlay(),
+                  _buildTopChrome(),
+                  _buildBottomControls(),
+                  // 边缘缩放手柄置于最上层，仅占用边缘 6px 区域。
+                  ..._buildResizeHandles(),
+                ],
               ),
             ),
           );

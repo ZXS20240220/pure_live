@@ -98,7 +98,7 @@ class MiniPipController {
   static const Size maxSize = Size(640, 360);
 
   /// 窗口透明度条范围：0.3（半透明）~ 1.0（完全不透明）。
-  static const double minOpacity = 0.3;
+  static const double minOpacity = 0.0;
   static const double maxOpacity = 1.0;
 
   /// 与主画面一致的滚轮手感：每格滚轮约 24px 宽，尺寸始终保持 16:9。
