@@ -38,6 +38,13 @@ class DouyuUtils {
   static const String _apiDouyuEnc = 'https://www.douyu.com/wgapi/livenc/liveweb/websec/getEncryption';
   static const int _expirySafetySeconds = 30;
   static const int _maximumCacheAgeSeconds = 5 * 60;
+
+  /// 签名 MD5 迭代次数上限。
+  ///
+  /// 斗鱼登录态返回的 `enc_time` 可达 1000（游客为 1），硬编码 `<= 16`
+  /// 会把有效描述符误判为过期，导致「无法读取视频信息」。设为 4096 既
+  /// 覆盖当前值，又防止异常大值耗尽 CPU。
+  static const int _maxEncTime = 4096;
   static const String userAgent =
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
       'AppleWebKit/537.36 (KHTML, like Gecko) '
@@ -145,7 +152,7 @@ class DouyuUtils {
         expiresAt > nowSeconds + safetySeconds &&
         encTime != null &&
         encTime > 0 &&
-        encTime <= 16 &&
+        encTime <= _maxEncTime &&
         _nonEmpty(value['key']) &&
         _nonEmpty(value['rand_str']) &&
         _nonEmpty(value['enc_data']);

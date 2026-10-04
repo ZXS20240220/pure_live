@@ -98,8 +98,9 @@ class _DouyuCookieTip extends StatelessWidget {
         const SizedBox(height: 8),
         Text(i18n('douyu_cookie_tip_step1'), style: body),
         const SizedBox(height: 8),
-        // 手动粘贴的字段排除清单：passport 会话字段进入播放请求会被 403，
-        // 而「自动获取」在组装时已剔除，只有手动路径需要读者自己动手。
+        // 手动粘贴说明：passport 会话字段（acf_stk 等）不会触发风控，
+        // 但仅含这些字段、不含登录态（dy_auth）的 Cookie 不是登录 Cookie，
+        // 程序会自动识别为凭证 Cookie 而非登录态。
         Text(i18n('douyu_cookie_tip_exclude'), style: body),
         const SizedBox(height: 8),
         Text(i18n('douyu_cookie_tip_step2'), style: body),

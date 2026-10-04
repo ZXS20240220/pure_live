@@ -2390,7 +2390,7 @@
   "douyu_cookie_refresh_ok": "Renewed: the new cookie is saved and in use (valid until about {time})",
   "douyu_cookie_refresh_no_change": "The renewal returned no new cookie: check that LTP0 and dy_did come from the same passport request",
   "douyu_cookie_tip_auto_capture": "Recommended: press \"Auto capture\" above and sign in once in the built-in browser — the page cookie and whatever renewal credentials (LTP0 / dy_did) were issued are filled in for you, no manual copying. The built-in browser signs out automatically afterwards; that is expected.",
-  "douyu_cookie_tip_exclude": "If pasting manually, first delete the passport session fields acf_stk, acf_ccn, acf_ltkid and acf_ssid — keeping them steers playback requests into Douyu's edge 403. Everything else can stay as-is.",
+  "douyu_cookie_tip_exclude": "If pasting manually, copy the full Cookie as-is — the passport session fields (acf_stk, acf_ccn, acf_ltkid, acf_ssid) do not affect playback and need not be removed. A Cookie containing only these fields (no dy_auth) is automatically recognised as renewal credentials rather than a login session.",
   "douyu_cookie_tip_step1": "Step 1 · Page cookie: open any Douyu page, press F12 and copy the whole cookie from any request (it contains dy_auth, good for about 7 days).",
   "douyu_cookie_tip_step2": "Step 2 · Renewal credentials: in the Network tab search passport.douyu.com, open that request and copy LTP0 and dy_did from its cookie — pasting it below fills both fields automatically.",
   "douyu_cookie_tip_lifetime": "The cookie lasts 7 days; once LTP0 and dy_did are set it is renewed before it expires, so there is nothing to paste again. Press \"Renew now\" to verify. The cookie is stored on this device only.",

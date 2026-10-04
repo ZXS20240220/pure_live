@@ -77,9 +77,10 @@ class DouyuCookieController extends GetxController {
     final keepsStoredSession = stored.isNotEmpty && DouyuUtils.sessionToken(stored) != null;
 
     // A cookie with renewal credentials but no session of its own is the
-    // passport request's cookie. It is not a login cookie, and sending its
-    // fields (`acf_stk`, `acf_ccn`, `acf_ssid`, ...) to the play endpoints is
-    // what Douyu's edge answers with a bare 403 — so it is never stored as one.
+    // passport request's cookie. It is not a login cookie, so it must not
+    // replace a stored login. The passport-only fields (acf_stk, acf_ccn,
+    // acf_ssid, ...) are harmless to send but identify this paste as a
+    // credential set rather than a session.
     final isCredentialPaste = !pastedIsSession && _hasCredentialFields(normalized);
 
     final ltp0 = ltp0Controller.text.trim();

@@ -29,9 +29,11 @@ class CookieCaptureTarget {
 
   /// 抓取结果中剔除的 Cookie 名。
   ///
-  /// 按域名后缀过滤会连登录流程顺带下发的其他子域 Cookie 一起收进来；
-  /// 有的平台（如斗鱼）passport 会话字段混进请求头会直接被边缘节点
-  /// 拒绝（裸 403），因此这些字段在组装时就要丢掉。
+  /// 按域名后缀过滤会连登录流程顺带下发的其他子域 Cookie 一起收进来。
+  /// 这里仅剔除真正会触发风控的字段（如斗鱼 `LTP0` 属于 passport 域的
+  /// 续期密钥，发给播放端点会被边缘节点裸 403）。普通 passport 会话字段
+  /// （acf_stk / acf_ccn / acf_ltkid / acf_ssid）经实测不会触发风控，
+  /// 无需剔除。
   final Set<String> excludeCookieNames;
 
   /// 额外查询 Cookie 的 URL（登录页之外）。
@@ -62,8 +64,9 @@ const Map<String, CookieCaptureTarget> kCookieCaptureTargets = {
   'soop': CookieCaptureTarget(platform: 'soop', loginUrl: 'https://www.sooplive.co.kr/', domains: ['sooplive.co.kr']),
   'twitch': CookieCaptureTarget(platform: 'twitch', loginUrl: 'https://www.twitch.tv/login', domains: ['twitch.tv']),
   // 斗鱼 Web 版：会话令牌是 dy_auth（不透明、七天），没有 LTP0 可续期，
-  // 抓到什么就用什么。passport 会话字段（acf_stk 等）不属于登录态，混进
-  // Cookie 头会被播放接口的边缘节点裸 403，按域名后缀抓取时必须剔除；
+  // 抓到什么就用什么。LTP0 是 passport.douyu.com 的 host-only 续期密钥，
+  // 发给播放端点会被边缘节点裸 403，抓取时剔除；其余 passport 会话字段
+  // （acf_stk / acf_ccn / acf_ltkid / acf_ssid）经实测不会触发风控，保留。
   // LTP0/dy_did 若登录流程有下发则保留——它们正是续期需要的凭证。
   // LTP0 是 passport.douyu.com 的 host-only Cookie，查登录页拿不到，
   // 需要对 passport 域再查一次（Web 登录页本身就在该域，cookie 一定存在）。
@@ -73,7 +76,7 @@ const Map<String, CookieCaptureTarget> kCookieCaptureTargets = {
     platform: 'douyu',
     loginUrl: 'https://www.douyu.com/',
     domains: ['douyu.com'],
-    excludeCookieNames: {'acf_stk', 'acf_ccn', 'acf_ltkid', 'acf_ssid'},
+    excludeCookieNames: {'ltp0'},
     extraCookieUrls: ['https://passport.douyu.com/'],
     clearAfterCapture: true,
   ),

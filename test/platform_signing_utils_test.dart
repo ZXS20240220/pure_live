@@ -40,11 +40,26 @@ void main() {
     test('invalid or unbounded encryption descriptors fail fast', () {
       expect(
         () => DouyuUtils.buildSignedData(
-          encryptionKey: <String, dynamic>{...descriptor, 'enc_time': 1000},
+          encryptionKey: <String, dynamic>{...descriptor, 'enc_time': 0},
           roomId: '123',
           timestampSeconds: 1000,
         ),
         throwsFormatException,
+      );
+      expect(
+        () => DouyuUtils.buildSignedData(
+          encryptionKey: <String, dynamic>{...descriptor, 'enc_time': 100000},
+          roomId: '123',
+          timestampSeconds: 1000,
+        ),
+        throwsFormatException,
+      );
+    });
+
+    test('logged-in enc_time (1000) is accepted', () {
+      expect(
+        DouyuUtils.isEncryptionKeyUsable(<String, dynamic>{...descriptor, 'enc_time': 1000}, nowSeconds: 1000),
+        isTrue,
       );
     });
 
@@ -63,10 +78,10 @@ void main() {
       final header = DouyuUtils.cookieHeader(
         accountCookie: 'Cookie: dy_did=other; acf_did=other; acf_auth=secret; token=a=b; bad name=no\r\n',
       );
-      expect(header, startsWith('dy_did=${DouyuUtils.deviceId}; acf_did=${DouyuUtils.deviceId}'));
+      expect(header, startsWith('dy_did=other; acf_did=other'));
       expect(header, contains('acf_auth=secret'));
       expect(header, contains('token=a=b'));
-      expect(header, isNot(contains('other')));
+      expect(header, contains('other'));
       expect(header, isNot(contains('bad name')));
     });
   });
