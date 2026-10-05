@@ -398,9 +398,23 @@ jobs:
           desc_path = Path("assets/version_desc.md")
           if not desc_path.is_file():
               raise SystemExit("找不到 assets/version_desc.md")
-          version_desc = desc_path.read_text(encoding="utf-8").strip()
-          if not version_desc:
+          raw_desc = desc_path.read_text(encoding="utf-8").strip()
+          if not raw_desc:
               raise SystemExit("assets/version_desc.md 为空")
+
+          # version_desc.md 同时是 GitHub Release 页正文（含标题、便携版说明、
+          # Build Metadata 等模板内容），但应用内更新弹窗只需要「本次更新」小节。
+          marker = re.search(r'^###\s+.*本次更新\s*$', raw_desc, re.MULTILINE)
+          changelog = raw_desc[marker.end():].strip() if marker else raw_desc
+
+          # 丢弃小节内手写的 version 行（可能带有 [Pre-release] 等标记），
+          # 统一由 pubspec 版本号生成，保持应用内弹窗的历史格式。
+          changelog = re.sub(
+              r'^version:.*$(?:\r?\n)?', '', changelog, count=1, flags=re.MULTILINE
+          ).strip()
+          version_desc = f"version: {version} (build {build})"
+          if changelog:
+              version_desc += f"\n\n{changelog}"
 
           existing = json.loads(Path("assets/version.json").read_text(encoding="utf-8"))
           prerelease = os.environ.get("PRERELEASE", "false").lower() == "true"
