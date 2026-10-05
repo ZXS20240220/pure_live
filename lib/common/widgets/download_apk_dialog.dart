@@ -141,6 +141,11 @@ class _DownloadApkDialogState extends State<DownloadApkDialog> {
     return DownloadRuntimePlatform.other;
   }
 
+  /// Android 完成后打开安装包进入系统安装流程；桌面端打开所在目录。
+  String get _openingStatusKey => _runtimePlatform == DownloadRuntimePlatform.android
+      ? 'download_complete_opening'
+      : 'download_complete_open_folder';
+
   @override
   void initState() {
     super.initState();
@@ -187,7 +192,7 @@ class _DownloadApkDialogState extends State<DownloadApkDialog> {
         _hasKnownTotal = true;
         _isDownloading = false;
         _isOpening = false;
-        _statusText = i18n('download_complete_opening');
+        _statusText = i18n(_openingStatusKey);
       });
 
       if (_runtimePlatform == DownloadRuntimePlatform.android && _resolvedFileName.toLowerCase().endsWith('.apk')) {
@@ -254,7 +259,7 @@ class _DownloadApkDialogState extends State<DownloadApkDialog> {
     setState(() {
       _isOpening = true;
       _openFailure = null;
-      _statusText = i18n('download_complete_opening');
+      _statusText = i18n(_openingStatusKey);
     });
     final result = await _openDownloadedFile(file.path);
     if (!mounted) return;
@@ -281,7 +286,9 @@ class _DownloadApkDialogState extends State<DownloadApkDialog> {
         final opened = await FileUtils.openFileOrUrl(filePath);
         return opened ? const DownloadedFileOpenResult.opened() : const DownloadedFileOpenResult.failed();
       }
-      final result = await OpenFilex.open(filePath);
+      // 桌面端下载完成后打开文件所在目录，而不是直接打开安装包文件；
+      // exe/msix/zip 交给用户自行处理。
+      final result = await OpenFilex.open(path.dirname(filePath));
       return result.type == ResultType.done
           ? const DownloadedFileOpenResult.opened()
           : DownloadedFileOpenResult.failed(result.message);
@@ -498,7 +505,7 @@ class _DownloadApkDialogState extends State<DownloadApkDialog> {
       return FilledButton.icon(
         onPressed: null,
         icon: const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2)),
-        label: Text(i18n('download_complete_opening'), textAlign: TextAlign.center),
+        label: Text(i18n(_openingStatusKey), textAlign: TextAlign.center),
       );
     }
     if (_openFailure != null) {

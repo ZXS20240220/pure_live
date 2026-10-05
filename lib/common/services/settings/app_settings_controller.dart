@@ -73,6 +73,8 @@ class AppSettingsController extends GetxController {
   final RxBool preferRealOnlineCounts = hiveBool('preferRealOnlineCounts', false);
   // 直播截图保存目录（Windows 文件名字符安全，目录本身不做限制）
   final RxString screenshotDirectory = hiveString('screenshotDirectory', '');
+  // 更新包下载目录：为空时下载前弹文件夹选择窗口，选择结果持久化为默认目录
+  final RxString downloadDirectory = hiveString('downloadDirectory', '');
   late final RxList<String> realOnlinePlatforms = hiveStringList('realOnlinePlatforms', defaultRealOnlinePlatforms);
   final RxInt audienceMetricMigration = hiveInt('audienceMetricMigration', 0);
   // These entry points existed before they became configurable upstream.
@@ -245,6 +247,7 @@ class AppSettingsController extends GetxController {
       'enableMultiView': enableMultiView.v,
       'enableNewWindowPlay': enableNewWindowPlay.v,
       'screenshotDirectory': screenshotDirectory.v,
+      'downloadDirectory': downloadDirectory.v,
     };
   }
 
@@ -276,6 +279,7 @@ class AppSettingsController extends GetxController {
       'enableMultiView': typed<bool>(json['enableMultiView'] ?? true),
       'enableNewWindowPlay': typed<bool>(json['enableNewWindowPlay'] ?? true),
       'screenshotDirectory': typed<String>(json['screenshotDirectory'] ?? ''),
+      'downloadDirectory': typed<String>(json['downloadDirectory'] ?? ''),
     };
   }
 
@@ -300,6 +304,11 @@ class AppSettingsController extends GetxController {
     enableMultiView.v = parsed['enableMultiView'];
     enableNewWindowPlay.v = parsed['enableNewWindowPlay'];
     screenshotDirectory.v = parsed['screenshotDirectory'];
+    // 旧版本备份缺失该字段时保持当前值，避免恢复旧备份清空已设置的下载目录；
+    // 新版本备份携带该字段时正常应用。
+    if (json.containsKey('downloadDirectory')) {
+      downloadDirectory.v = parsed['downloadDirectory'];
+    }
   }
 
   static Map<String, dynamic> extractConfig(Map<String, dynamic>? rootConfig) {
@@ -329,6 +338,7 @@ class AppSettingsController extends GetxController {
       'enableMultiView': app['enableMultiView'] ?? true,
       'enableNewWindowPlay': app['enableNewWindowPlay'] ?? true,
       'screenshotDirectory': app['screenshotDirectory'] ?? '',
+      'downloadDirectory': app['downloadDirectory'] ?? '',
     };
   }
 

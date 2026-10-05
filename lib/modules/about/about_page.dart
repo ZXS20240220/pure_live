@@ -1,5 +1,6 @@
 import 'widgets/version_dialog.dart';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:markdown_widget/config/configs.dart';
@@ -99,6 +100,16 @@ class _AboutPageState extends State<AboutPage> {
               stackTrailingOnNarrow: true,
               onTap: () => Get.toNamed(RoutePath.kVersionPage),
             ),
+            Obx(() {
+              final downloadDirectory = SettingsService.to.app.downloadDirectory.v;
+              return context.buildTile(
+                icon: Remix.folder_open_line,
+                title: i18n("download_directory"),
+                subtitle: downloadDirectory.isEmpty ? i18n("please_set_download_directory") : downloadDirectory,
+                isLong: true,
+                onTap: _pickDownloadDirectory,
+              );
+            }),
             context.buildTile(
               icon: Remix.refresh_line,
               title: i18n("check_update"),
@@ -153,6 +164,16 @@ class _AboutPageState extends State<AboutPage> {
         ],
       ),
     );
+  }
+
+  /// 设置更新包默认下载目录，实现方式与截图目录设置一致
+  /// （FilePicker 选目录后持久化到 AppSettingsController）。
+  Future<void> _pickDownloadDirectory() async {
+    final controller = SettingsService.to.app;
+    final current = controller.downloadDirectory.v;
+    final selected = await FilePicker.getDirectoryPath(initialDirectory: current.isEmpty ? null : current);
+    if (selected == null || selected.isEmpty) return;
+    controller.downloadDirectory.v = selected;
   }
 
   void showCheckUpdateDialog(BuildContext context) async {

@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/widgets/download_apk_dialog.dart';
 import 'package:pure_live/plugins/file_utils.dart';
@@ -30,12 +33,27 @@ List<String> getMirrorUrls(String apkUrl, {bool githubOriginOnly = false}) {
   return mirrorsUrl.toSet().toList(growable: false);
 }
 
+/// 解析更新包下载目录：已设置时直接复用；未设置时弹出文件夹选择窗口，
+/// 用户取消选择则返回 null 中止下载，选择结果持久化为默认下载目录。
+Future<String?> _resolveDownloadDirectory() async {
+  final app = SettingsService.to.app;
+  final saved = app.downloadDirectory.v;
+  if (saved.isNotEmpty) return saved;
+
+  final selected = await FilePicker.getDirectoryPath();
+  if (selected == null || selected.isEmpty) return null;
+  app.downloadDirectory.v = selected;
+  return selected;
+}
+
 Future<void> downloadAndInstallApk(String apkUrl, {String? fileName}) async {
   final uri = updateDownloadUri(apkUrl);
   if (uri == null) {
     ToastUtil.show(i18n('download_failed'));
     return;
   }
+  final downloadDirectory = await _resolveDownloadDirectory();
+  if (downloadDirectory == null) return;
   final resolvedFileName = safeDownloadFileName(uri.toString(), suggestedName: fileName);
   ToastUtil.show(
     fileName == null
@@ -47,6 +65,7 @@ Future<void> downloadAndInstallApk(String apkUrl, {String? fileName}) async {
       apkUrl: uri.toString(),
       version: VersionUtil.latestVersion,
       fileName: fileName == null ? null : resolvedFileName,
+      downloadDirectoryProvider: () async => Directory(downloadDirectory),
     ),
     barrierDismissible: false,
   );

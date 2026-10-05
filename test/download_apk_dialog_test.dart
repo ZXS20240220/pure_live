@@ -232,6 +232,7 @@ void main() {
     final english = jsonDecode(File('assets/translations/en.json').readAsStringSync()) as Map<String, dynamic>;
     final chinese = jsonDecode(File('assets/translations/zh.json').readAsStringSync()) as Map<String, dynamic>;
     const keys = {
+      'download_complete_open_folder',
       'download_complete_opening',
       'download_open_again',
       'download_open_failed',
@@ -308,6 +309,7 @@ class _Translations extends AssetLoader {
   Future<Map<String, dynamic>> load(String path, Locale locale) async => const {
     'cancel': 'Cancel',
     'close': 'Close',
+    'download_complete_open_folder': 'Download complete. Opening folder...',
     'download_complete_opening': 'Download complete. Opening file...',
     'download_failed': 'Download failed. Please try again.',
     'download_open_again': 'Open again',

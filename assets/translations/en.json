@@ -1,5 +1,5 @@
 {
-  "about": "About",
+  "about": "About and Updates",
   "account_verifying": "Verifying account…",
   "add": "Add",
   "app_legalese": "© 2026 PureLive Open-Source Project. This program is a pure local client application that directly requests the official public APIs of media platforms. The project itself does not store, host, reproduce, or distribute any audio/video resources. The developer solemnly pledges that this application does not collect, process, or retain any user personal data or privacy information. All operational parameters, local configurations, and synchronized metadata are exclusively retained and controlled by the end-user. Users shall assume all legal responsibilities arising from the use of this testing tool.",
@@ -188,7 +188,10 @@
   "douyin_cookie_hint": "Enter Douyin live cookie",
   "douyin_cookie_tip": "After logging in, enter the live room. Press F12 in the browser, copy the Cookie from the request header of the same URL (usually the first one), paste it into the input box below, and click the Set button to configure the Douyin Live Cookie.",
   "download_complete_installing": "Download complete, installing...",
+  "download_complete_open_folder": "Download complete. Opening folder...",
   "download_complete_opening": "Download complete. Opening file...",
+  "download_directory": "Update Package Download Directory",
+  "please_set_download_directory": "Not set. You will be asked to choose one when downloading.",
   "download_open_again": "Open again",
   "download_open_failed": "The file was downloaded, but opening failed.",
   "download_open_failed_detail": "The file was downloaded. Opening it failed: {message}",
