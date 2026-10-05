@@ -223,6 +223,7 @@ class WindowHelper {
 
   Size _savedSize = const Size(1280, 720);
   Offset _savedPosition = Offset.zero;
+  bool _savedAlwaysOnTop = false;
   Future<void> _hostQueue = Future<void>.value();
   Future<void>? _pipTransition;
 
@@ -364,6 +365,7 @@ class WindowHelper {
 
     _savedSize = normalSize;
     _savedPosition = normalPosition;
+    _savedAlwaysOnTop = normalAlwaysOnTop;
     _pipAspectRatio = ratio;
     currentMode = WindowLayoutMode.pip;
   }
@@ -391,7 +393,9 @@ class WindowHelper {
     final pipAlwaysOnTop = await _host.isAlwaysOnTop();
 
     try {
-      await _host.setAlwaysOnTop(false);
+      // 恢复进入 PiP 前的窗口置顶状态（可能是直播间播放页的置顶开关），
+      // 而非强制关闭，避免退出小窗后丢失用户的置顶偏好。
+      await _host.setAlwaysOnTop(_savedAlwaysOnTop);
       await _host.setMinimumSize(const Size(WindowSizeController.minWindowWidth, WindowSizeController.minWindowHeight));
       await _host.setSize(_savedSize);
       await _host.setPosition(_savedPosition);

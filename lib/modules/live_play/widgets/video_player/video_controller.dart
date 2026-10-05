@@ -372,6 +372,10 @@ class VideoController with ChangeNotifier implements DanmakuSettingsBinding {
   final batteryLevel = 100.obs;
   final currentVolume = 1.0.obs;
 
+  /// 直播间播放窗口是否置顶（非持久化，退出播放页后恢复进入前的状态）。
+  /// 换台时新 VideoController 会从窗口真实状态同步，因此页内切换不重置。
+  final isWindowAlwaysOnTop = false.obs;
+
   /// 画面缩放/平移（桌面端 Ctrl+滚轮缩放、Ctrl+拖拽平移）。
   /// [videoScale] 为相对适配画面的等比倍率，1.0 即原始大小（可缩小露出黑边）；
   /// [videoPan] 为变换矩阵原点（表面左上角）下的逻辑像素偏移。
@@ -590,6 +594,9 @@ class VideoController with ChangeNotifier implements DanmakuSettingsBinding {
   // 播放器初始化
   Future<void> initVideoController() async {
     _setStatus(PlayerStatus.loading);
+    // 换台后新 VideoController 从窗口真实置顶状态同步按钮显示，
+    // 页内切换不会重置用户的置顶选择（恢复由 LivePlayController.onClose 负责）。
+    await _syncWindowAlwaysOnTopFromHost();
     // Bind before opening the source. Native open/decode failures can arrive
     // synchronously while PlayerManager.play is still awaiting the adapter;
     // binding afterwards silently lost that only terminal event and then
@@ -1353,6 +1360,35 @@ class VideoController with ChangeNotifier implements DanmakuSettingsBinding {
     }
   }
 
+  /// 切换直播间播放窗口的置顶状态。
+  /// 仅在桌面端生效；进入播放页时由 LivePlayController 记录窗口原有的置顶状态，
+  /// 退出/返回播放页时恢复（不持久化），页内切房不会重置该状态。
+  Future<void> toggleWindowAlwaysOnTop() async {
+    if (!Platform.isWindows && !Platform.isMacOS && !Platform.isLinux) return;
+    final next = !isWindowAlwaysOnTop.value;
+    try {
+      await windowManager.setAlwaysOnTop(next);
+      isWindowAlwaysOnTop.value = next;
+    } catch (error, stackTrace) {
+      log('Toggle window always-on-top failed: $error', name: 'VideoController', error: error, stackTrace: stackTrace);
+    }
+  }
+
+  /// 从窗口真实状态同步置顶按钮显示（换台后新 VideoController 调用）。
+  Future<void> _syncWindowAlwaysOnTopFromHost() async {
+    if (!Platform.isWindows && !Platform.isMacOS && !Platform.isLinux) return;
+    try {
+      isWindowAlwaysOnTop.value = await windowManager.isAlwaysOnTop();
+    } catch (error, stackTrace) {
+      log(
+        'Sync window always-on-top state failed: $error',
+        name: 'VideoController',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
   void retryRoom() async {
     var liveRoom = await Sites.of(room.platform!).liveSite
         .getRoomDetail(roomId: room.roomId!, platform: room.platform!);
@@ -1577,6 +1613,8 @@ class VideoController with ChangeNotifier implements DanmakuSettingsBinding {
     if (_resourcesDestroyed) return;
     _resourcesDestroyed = true;
 
+    // 窗口置顶状态由 LivePlayController.onClose 在退出播放页时统一恢复，
+    // 此处不处理，避免换台时误重置用户的置顶选择。
     if (allowScreenKeepOn) await WakelockPlus.disable();
   }
 

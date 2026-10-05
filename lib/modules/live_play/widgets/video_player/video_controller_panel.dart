@@ -34,7 +34,7 @@ import 'package:pure_live/modules/live_play/widgets/local_interaction/local_inte
 enum TopActionLeadingSlot { back, datetime, battery }
 
 @visibleForTesting
-enum TopActionTrailingSlot { roomHistory, datetime, battery, audioOnly, cast, pip }
+enum TopActionTrailingSlot { roomHistory, datetime, battery, alwaysOnTop, audioOnly, cast, pip }
 
 /// Resolves the fixed order of the fullscreen leading actions. On Android the
 /// clock and battery sit beside Back; PiP moves to the opposite corner so the
@@ -61,6 +61,7 @@ List<TopActionTrailingSlot> resolveTopActionTrailingSlots({
     if (fullscreen) TopActionTrailingSlot.roomHistory,
     if (fullscreen && !android) TopActionTrailingSlot.datetime,
     if (fullscreen && !android) TopActionTrailingSlot.battery,
+    if (windows) TopActionTrailingSlot.alwaysOnTop,
     TopActionTrailingSlot.audioOnly,
     if (android) TopActionTrailingSlot.cast,
     if (android || windows) TopActionTrailingSlot.pip,
@@ -485,6 +486,10 @@ class TopActionBar extends StatelessWidget {
                     ),
                     TopActionTrailingSlot.datetime => const DatetimeInfo(),
                     TopActionTrailingSlot.battery => BatteryInfo(controller: controller),
+                    TopActionTrailingSlot.alwaysOnTop => AlwaysOnTopButton(
+                      key: const ValueKey('playback-action-always-on-top'),
+                      controller: controller,
+                    ),
                     TopActionTrailingSlot.audioOnly => AudioOnlyButton(
                       key: const ValueKey('playback-action-audio-only'),
                       controller: controller,
@@ -2497,6 +2502,30 @@ class ExpandButton extends StatelessWidget {
             ),
           ),
         ),
+      );
+    });
+  }
+}
+
+class AlwaysOnTopButton extends StatelessWidget {
+  const AlwaysOnTopButton({super.key, required this.controller});
+
+  final VideoController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final onTop = controller.isWindowAlwaysOnTop.value;
+      return IconButton(
+        tooltip: i18n(onTop ? 'playback_window_cancel_always_on_top' : 'playback_window_always_on_top'),
+        visualDensity: VisualDensity.compact,
+        iconSize: 21,
+        color: onTop ? const Color(0xFFFFD166) : Colors.white,
+        onPressed: () {
+          controller.enableController();
+          unawaited(controller.toggleWindowAlwaysOnTop());
+        },
+        icon: Icon(onTop ? Remix.pushpin_fill : Remix.pushpin_line),
       );
     });
   }

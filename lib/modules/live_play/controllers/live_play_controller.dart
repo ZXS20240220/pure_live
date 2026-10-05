@@ -103,6 +103,9 @@ class LivePlayController extends GetxController
   bool _childControllersReleased = false;
   bool _reactiveStateClosed = false;
   bool _suppressAppFloatingOnNextPop = false;
+
+  /// 进入播放页前窗口的置顶状态，退出播放页时恢复（不持久化，也不随换台重置）。
+  bool? _windowAlwaysOnTopBeforePlay;
   int _roomLoadEpoch = 0;
   int _iptvPlaybackEpoch = 0;
   bool _asmrSessionActive = false;
@@ -143,6 +146,8 @@ class LivePlayController extends GetxController
     _controllerTag = '${identityHashCode(this)}';
     currentSite = Sites.of(site);
     _localMessageDeliveryQueue = LocalMessageDeliveryQueue(onDeliver: _deliverLocalMessage);
+    // 记录进入播放页前窗口的置顶状态，退出播放页时恢复（换台不重置）。
+    unawaited(_captureWindowAlwaysOnTopBeforePlay());
 
     final manager = GlobalPlayerService.instance.player;
     _reentrySession = manager.consumeRoomSessionReentry(room);
@@ -1319,12 +1324,34 @@ class LivePlayController extends GetxController
     state.close();
   }
 
+  Future<void> _captureWindowAlwaysOnTopBeforePlay() async {
+    if (!Platform.isWindows && !Platform.isMacOS && !Platform.isLinux) return;
+    try {
+      _windowAlwaysOnTopBeforePlay = await windowManager.isAlwaysOnTop();
+    } catch (error, stackTrace) {
+      debugPrint('Capture window always-on-top state failed: $error\n$stackTrace');
+    }
+  }
+
+  Future<void> _restoreWindowAlwaysOnTopBeforePlay() async {
+    final previous = _windowAlwaysOnTopBeforePlay;
+    if (previous == null) return;
+    _windowAlwaysOnTopBeforePlay = null;
+    try {
+      await windowManager.setAlwaysOnTop(previous);
+    } catch (error, stackTrace) {
+      debugPrint('Restore window always-on-top state failed: $error\n$stackTrace');
+    }
+  }
+
   @override
   void onClose() {
     _ownerClosed = true;
     _roomLoadEpoch++;
     _iptvPlaybackEpoch++;
     WidgetsBinding.instance.removeObserver(this);
+    // 退出/返回播放页：恢复进入前的窗口置顶状态（不持久化，换台时不触发）。
+    unawaited(_restoreWindowAlwaysOnTopBeforePlay());
     // 退出/返回播放页：所有进程内小窗与其独立播放器/弹幕会话一并销毁。
     miniPip.disposeAll();
     _pipStateWorker?.dispose();

@@ -1626,6 +1626,8 @@
   "windows_pip_always_on_top_apply_failed": "更新 Windows 小窗层级失败，请重试",
   "pip_always_on_top": "置顶显示",
   "pip_cancel_always_on_top": "取消置顶",
+  "playback_window_always_on_top": "窗口置顶",
+  "playback_window_cancel_always_on_top": "取消置顶",
   "pip_enter_failed": "打开画中画失败，请重试",
   "windows_pip_exit_failed": "恢复主窗口失败，请重试",
   "windows_pip_remember_position": "记住小窗位置和大小",

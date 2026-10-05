@@ -1626,6 +1626,8 @@
   "windows_pip_always_on_top_apply_failed": "Could not update mini player stacking. Try again.",
   "pip_always_on_top": "Keep on top",
   "pip_cancel_always_on_top": "Don't keep on top",
+  "playback_window_always_on_top": "Keep window on top",
+  "playback_window_cancel_always_on_top": "Don't keep window on top",
   "pip_enter_failed": "Could not open picture-in-picture. Try again.",
   "windows_pip_exit_failed": "Could not restore the main window. Try again.",
   "windows_pip_remember_position": "Remember PiP position and size",
