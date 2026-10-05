@@ -12,6 +12,7 @@ import 'dart:developer' as developer;
 import 'package:flutter/scheduler.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/core/common/core_log.dart';
+import 'package:pure_live/core/site/douyu/douyu_superchat_cache.dart';
 import 'package:pure_live/common/services/settings/app_settings_controller.dart';
 import 'package:pure_live/common/services/settings/window_size_controller.dart';
 import 'package:pure_live/plugins/event_bus.dart';
@@ -408,6 +409,16 @@ class LivePlayController extends GetxController
     }
   }
 
+  /// 斗鱼：进入/重载房间时，把进程内缓存的未到期 SC 恢复到当前列表。
+  /// 缓存为空则什么都不做（历史 SC 只能通过手动刷新获取）。恢复走的仍是
+  /// 合并路径，与实时推送/历史回填互不覆盖。
+  void _restoreDouyuSuperChatFromCache(String roomId) {
+    final cached = DouyuSuperChatCache.get(roomId);
+    if (cached.isEmpty) return;
+    CoreLog.i('Douyu SC cache: restored ${cached.length} items, room=$roomId');
+    addBatchSuperChat(cached);
+  }
+
   Future<void> getSuperChatMessage(String roomId, {required String? platform, required int loadEpoch}) async {
     if (!_isRoomLoadCurrent(loadEpoch, roomId, platform)) return;
     final liveSite = currentSite.liveSite;
@@ -490,29 +501,20 @@ class LivePlayController extends GetxController
   void _mergeSuperChats(List<LiveSuperChatMessage> incoming) {
     final merged = List<LiveSuperChatMessage>.of(superChats);
     for (final item in incoming) {
-      final index = merged.indexWhere((existing) => existing == item);
-      if (index == -1) {
-        merged.add(item);
-        continue;
-      }
-      final existing = merged[index];
-      final listCandidates = <int>[
-        existing.price,
-        item.price,
-        if (existing.listPrice != null) existing.listPrice!,
-        if (item.listPrice != null) item.listPrice!,
-      ];
-      final mergedListPrice = listCandidates.reduce(math.max);
-      merged[index] = existing.copyWith(
-        price: math.min(existing.price, item.price),
-        listPrice: mergedListPrice,
-        endTime: item.endTime.isAfter(existing.endTime) ? item.endTime : existing.endTime,
-        face: existing.face.isEmpty ? item.face : existing.face,
-      );
+      // 与本地缓存共用同一套合并规则，保证两边展示与留存一致。
+      DouyuSuperChatCache.mergeItem(merged, item);
     }
     _sortSuperChatsByStartTimeDesc(merged);
     superChats.assignAll(merged);
     _scheduleSuperChatExpiry();
+    // 斗鱼：把新到的 SC（实时推送/历史回填）同步进进程内缓存，退出直播间
+    // 后只要未到期就继续保留。远程请求失败走空列表路径，不会进入这里，
+    // 缓存原样保留。
+    final detail = state.value.room.detail;
+    final roomId = detail?.roomId;
+    if (roomId != null && detail?.platform == Sites.douyuSite) {
+      DouyuSuperChatCache.merge(roomId, incoming);
+    }
   }
 
   void clearSuperChats() {
@@ -984,9 +986,12 @@ class LivePlayController extends GetxController
         // Only fetch the paid-message history for rooms that are actually
         // live; addBatchSuperChat merges by messageId so retries are safe.
         // Douyu is excluded: its history SC fetch is deferred until a
-        // voice_trlt packet arrives and the user manually refreshes.
+        // voice_trlt packet arrives and the user manually refreshes; on
+        // entry/reload the in-process SC cache is shown instead.
         if (requestedPlatform != Sites.douyuSite) {
           unawaited(getSuperChatMessage(roomId, platform: requestedPlatform, loadEpoch: loadEpoch));
+        } else {
+          _restoreDouyuSuperChatFromCache(roomId);
         }
         await _handleLiveRoom(liveRoom, loadEpoch: loadEpoch);
       } else {
