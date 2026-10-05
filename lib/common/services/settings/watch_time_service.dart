@@ -92,7 +92,9 @@ class WatchTimeService extends GetxService with WidgetsBindingObserver {
       return;
     }
 
-    if (player.isCompactModeActive) {
+    // Windows PiP 计入观看时长；其他紧凑模式（app 悬浮窗、mini PiP）不计入。
+    // 暂停和未关注的房间依然不计入（由后续 isPlayingNow / isFavorite 检查保证）。
+    if (player.isCompactModeActive && !player.isInPip.value) {
       if (_unflushedSeconds > 0) unawaited(_flush());
       return;
     }
