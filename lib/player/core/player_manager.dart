@@ -4088,7 +4088,7 @@ class PlayerManager {
   /// Fixed width of the compact volume track. The pill shrink-wraps its Row,
   /// so pointer ratios must be derived from this constant, not layout
   /// constraints (which are unbounded under MainAxisSize.min).
-  static const double _compactVolumeTrackWidth = 124;
+  static const double _compactVolumeTrackWidth = 104;
 
   /// Currently effective compact volume: the session override while one
   /// exists, otherwise the room's saved volume.

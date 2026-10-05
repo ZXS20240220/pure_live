@@ -124,7 +124,7 @@ void _writeWindowsPipGeometry(Size size, Offset position, String displayId) {
 /// dragging cannot shrink a Windows mini player below the compact baseline.
 @visibleForTesting
 Size resolveWindowsPipMinSize(double aspectRatio) {
-  const minLongEdge = 350.0;
+  const minLongEdge = 370.0;
   const minShortEdge = 120.0;
   final ratio = aspectRatio.isFinite && aspectRatio > 0 ? aspectRatio : 16 / 9;
   if (ratio >= 1) return Size(minLongEdge, minLongEdge / ratio);

@@ -138,7 +138,7 @@ class LivePlayContent extends StatelessWidget {
 
     if (isInPip) {
       return Theme(
-        data: ThemeData.dark(),
+        data: Theme.of(context).copyWith(brightness: Brightness.dark),
         child: Container(key: const ValueKey('pip'), color: Colors.transparent, child: manager.buildPiPOverlay()),
       );
     }
