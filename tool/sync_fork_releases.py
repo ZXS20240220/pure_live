@@ -10,8 +10,8 @@ import urllib.request
 #
 # 输出严格沿用 build_portable&release.yml 中 `gh release view --json`
 # 生成的 camelCase 结构（{"releases": [...]}），客户端 ReleaseModel
-# 无需新增任何解析分支；唯一扩展是 author.avatar（REST API 可提供，
-# gh release view 不返回该字段）。
+# 无需新增任何解析分支；扩展字段为 author.avatar（REST API 可提供，
+# gh release view 不返回）与 isLatest（取自 /releases/latest）。
 REPOSITORY = os.environ.get("GITHUB_REPOSITORY", "ZXS20240220/pure_live")
 OUTPUT_FILE = "assets/releases.json"
 PAGE_SIZE = 100
@@ -67,8 +67,10 @@ def convert_asset(asset):
     }
 
 
-def convert_release(release):
+def convert_release(release, latest_tag):
     author = release.get("author") or {}
+    tag_name = release.get("tag_name")
+    is_prerelease = bool(release.get("prerelease", False))
     return {
         "assets": [convert_asset(asset) for asset in release.get("assets", [])],
         "author": {
@@ -80,12 +82,42 @@ def convert_release(release):
         },
         "body": release.get("body") or "",
         "isDraft": False,
-        "isPrerelease": release.get("prerelease", False),
+        "isPrerelease": is_prerelease,
+        # GitHub 的 Latest 标记只属于一个非预发布 Release，以
+        # /releases/latest 返回的 tag 为准，避免仅凭发布时间猜测。
+        "isLatest": bool(latest_tag and tag_name == latest_tag and not is_prerelease),
         "name": release.get("name"),
         "publishedAt": release.get("published_at"),
-        "tagName": release.get("tag_name"),
+        "tagName": tag_name,
         "url": release.get("html_url"),
     }
+
+
+def fetch_latest_tag(token):
+    """返回 GitHub 标记为 Latest 的 Release tag；尚无正式版（404）时返回 None。"""
+    url = f"https://api.github.com/repos/{REPOSITORY}/releases/latest"
+    headers = {
+        "User-Agent": "PureLive-Fork-Release-Sync",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    req = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=30) as response:
+            data = json.loads(response.read().decode("utf-8"))
+        return data.get("tag_name")
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            print("ℹ️ 仓库当前没有 Latest（正式版）Release，isLatest 将全部为 false。")
+            return None
+        # Latest 端点异常不应阻断整个 feed 同步，降级为无 Latest 标记。
+        print(f"⚠️ 获取 Latest Release 失败：[{e.code}] {e.reason}，本次不写 isLatest。", file=sys.stderr)
+        return None
+    except urllib.error.URLError as e:
+        print(f"⚠️ 获取 Latest Release 网络失败：{e.reason}，本次不写 isLatest。", file=sys.stderr)
+        return None
 
 
 def main():
@@ -119,7 +151,8 @@ def main():
         sys.exit(1)
 
     published.sort(key=lambda release: release.get("published_at") or "", reverse=True)
-    result = {"releases": [convert_release(release) for release in published]}
+    latest_tag = fetch_latest_tag(token)
+    result = {"releases": [convert_release(release, latest_tag) for release in published]}
 
     os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)
     # newline="\n" 强制 LF：仓库内 JSON 统一使用 LF，避免在 Windows

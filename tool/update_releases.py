@@ -71,6 +71,32 @@ def fetch_data(url, *, allow_empty=False):
         sys.exit(1)
 
 
+def fetch_latest_tag(repository):
+    """返回 GitHub 标记为 Latest 的 Release tag；失败或无正式版时返回 None。"""
+    url = f"https://api.github.com/repos/{repository}/releases/latest"
+    headers = {
+        "User-Agent": "PureLive-Release-Updater",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    req = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=30) as response:
+            return json.loads(response.read().decode("utf-8")).get("tag_name")
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            print("ℹ️ 当前没有 Latest（正式版）Release，latest 将全部为 false。")
+            return None
+        print(f"⚠️ 获取 Latest Release 失败：[{e.code}] {e.reason}，本次不写 latest。", file=sys.stderr)
+        return None
+    except urllib.error.URLError as e:
+        print(f"⚠️ 获取 Latest Release 网络失败：{e.reason}，本次不写 latest。", file=sys.stderr)
+        return None
+
+
 def fetch_all_releases(repository):
     """Fetch every release page instead of silently dropping old versions."""
     releases = []
@@ -93,11 +119,12 @@ def fetch_all_releases(repository):
 def main():
     # 核心修改：网络获取与严格校验
     data = fetch_all_releases(REPOSITORY)
+    latest_tag = fetch_latest_tag(REPOSITORY)
+    current_tags = {release.get("tag_name") for release in data}
 
     # 维护分支保留上游旧版本记录；同名标签优先使用当前仓库的 Release。
     if REPOSITORY != UPSTREAM_REPOSITORY:
         upstream_data = fetch_all_releases(UPSTREAM_REPOSITORY)
-        current_tags = {release.get("tag_name") for release in data}
         data.extend(release for release in upstream_data if release.get("tag_name") not in current_tags)
         data.sort(key=lambda release: release.get("published_at") or "", reverse=True)
 
@@ -107,11 +134,19 @@ def main():
     result = []
     for release in data:
         author = release.get("author", {})
+        tag_name = release.get("tag_name")
+        is_prerelease = bool(release.get("prerelease", False))
+        # Latest 只标记当前仓库的 Release，避免同名 tag 的上游记录被误标。
+        is_latest = bool(
+            latest_tag and tag_name == latest_tag and not is_prerelease and tag_name in current_tags
+        )
         item = {
-            "version": release.get("tag_name", "").replace("v", ""),
+            "version": (tag_name or "").replace("v", ""),
             "title": release.get("name"),
             "date": release.get("published_at", "")[:10],
             "github": release.get("html_url"),
+            "prerelease": is_prerelease,
+            "latest": is_latest,
             "author": {
                 "name": author.get("login"),
                 "avatar": author.get("avatar_url"),

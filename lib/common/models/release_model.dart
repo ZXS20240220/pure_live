@@ -6,6 +6,8 @@ class ReleaseModel {
   final AuthorModel author;
   final String changelog;
   final List<ReleaseFileModel> files;
+  final bool isPrerelease;
+  final bool isLatest;
 
   ReleaseModel({
     required this.version,
@@ -15,6 +17,8 @@ class ReleaseModel {
     required this.author,
     required this.changelog,
     required this.files,
+    this.isPrerelease = false,
+    this.isLatest = false,
   });
 
   factory ReleaseModel.fromJson(Map<String, dynamic> json) {
@@ -38,6 +42,10 @@ class ReleaseModel {
         profile: authorData['profile'] ?? authorData['html_url'] ?? '',
       ),
       changelog: json['changelog'] ?? json['body'] ?? '',
+      // 同时兼容 fork feed（isPrerelease/isLatest）与旧脚本 feed（prerelease/latest），
+      // 字段缺失的旧 feed 默认 false，不影响历史版本展示。
+      isPrerelease: json['isPrerelease'] == true || json['prerelease'] == true,
+      isLatest: json['isLatest'] == true || json['latest'] == true,
       files: filesData.map<ReleaseFileModel>((e) {
         final rawSize = e['size'];
         final sizeText = switch (rawSize) {
@@ -63,6 +71,8 @@ class ReleaseModel {
       'github': github,
       'author': author.toJson(),
       'changelog': changelog,
+      'isPrerelease': isPrerelease,
+      'isLatest': isLatest,
       'files': files.map((e) => e.toJson()).toList(),
     };
   }

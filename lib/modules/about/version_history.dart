@@ -244,14 +244,22 @@ class _VersionHistoryPageState extends State<VersionHistoryPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'v${_stripVPrefix(item.version)}',
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: isCurrent ? theme.colorScheme.primary : theme.colorScheme.onSurface,
-                                ),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 4,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  Text(
+                                    'v${_stripVPrefix(item.version)}',
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: isCurrent ? theme.colorScheme.primary : theme.colorScheme.onSurface,
+                                    ),
+                                  ),
+                                  if (item.isLatest || item.isPrerelease) _ReleaseStatusBadges(item: item),
+                                ],
                               ),
                               const SizedBox(height: 2),
                               Text(
@@ -325,7 +333,7 @@ class _VersionHistoryPageState extends State<VersionHistoryPage> {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(child: _VersionBadge(version: item.version)),
+                          Expanded(child: _VersionIdentity(item: item)),
                           const SizedBox(width: 8),
                           Icon(Remix.arrow_right_s_line, size: 18, color: theme.colorScheme.outline),
                         ],
@@ -344,7 +352,7 @@ class _VersionHistoryPageState extends State<VersionHistoryPage> {
                 }
                 return Row(
                   children: [
-                    _VersionBadge(version: item.version),
+                    _VersionIdentity(item: item),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(
@@ -541,6 +549,92 @@ class _VersionBadge extends StatelessWidget {
   }
 }
 
+/// 移动端列表中的版本标识：版本号徽标 + Latest / Pre-release 状态徽标。
+class _VersionIdentity extends StatelessWidget {
+  const _VersionIdentity({required this.item});
+
+  final ReleaseModel item;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        _VersionBadge(version: item.version),
+        if (item.isLatest || item.isPrerelease) _ReleaseStatusBadges(item: item),
+      ],
+    );
+  }
+}
+
+/// GitHub Release 状态徽标组（Latest 绿色、Pre-release 橙色）。
+class _ReleaseStatusBadges extends StatelessWidget {
+  const _ReleaseStatusBadges({required this.item});
+
+  // 与 GitHub Release 页一致的语义色：Latest 绿、Pre-release 橙。
+  static const Color _latestColor = Color(0xFF2DA44E);
+  static const Color _prereleaseColor = Color(0xFFD29922);
+
+  final ReleaseModel item;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 6,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        if (item.isLatest)
+          const _ReleaseStatusBadge(
+            labelKey: 'release_badge_latest',
+            icon: Icons.verified_rounded,
+            color: _latestColor,
+          ),
+        if (item.isPrerelease)
+          const _ReleaseStatusBadge(
+            labelKey: 'release_badge_prerelease',
+            icon: Icons.science_rounded,
+            color: _prereleaseColor,
+          ),
+      ],
+    );
+  }
+}
+
+class _ReleaseStatusBadge extends StatelessWidget {
+  const _ReleaseStatusBadge({required this.labelKey, required this.icon, required this.color});
+
+  final String labelKey;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.55), width: 0.8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Text(
+            i18n(labelKey),
+            style: Theme.of(context).textTheme.labelSmall
+                ?.copyWith(color: color, fontWeight: FontWeight.w600, height: 1.2),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DesktopChangelogDetailPanel extends StatelessWidget {
   const _DesktopChangelogDetailPanel({
     super.key,
@@ -611,12 +705,21 @@ class _VersionAuthorHeaderWidget extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'v${_stripVPrefix(item.version)}',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    'v${_stripVPrefix(item.version)}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  if (item.isLatest || item.isPrerelease) _ReleaseStatusBadges(item: item),
+                ],
               ),
+              const SizedBox(height: 2),
               Text(
                 i18n('version_published_at', args: {'date': _formatReleaseDate(item.date)}),
                 style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
