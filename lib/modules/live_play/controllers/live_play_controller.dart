@@ -334,6 +334,14 @@ class LivePlayController extends GetxController
     }
 
     updateRoom(detail: session.room, isLiving: session.isLiving, success: true, isLoading: false, loadError: null);
+    // 从 app 悬浮窗/小窗恢复到大窗时，同样需要计入观看历史并更新收藏信息，
+    // 与正常进入直播间（_handleLiveRoom）的行为保持一致。小窗本身不计入历史，
+    // 但从小窗打开大窗意味着用户正式进入了直播间页面。
+    if (session.room.platform != Sites.iptvSite) {
+      SettingsService.to.history.addRoomToHistory(session.room);
+      SettingsService.to.fav.updateRoom(session.room);
+      EventBus.instance.emit('refresh_room_changed', true);
+    }
     await _syncDanmakuConnection(session.room);
     unawaited(_refreshResumedRoomMetadata(session.room));
   }
