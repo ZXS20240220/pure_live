@@ -100,6 +100,12 @@ class _AboutPageState extends State<AboutPage> {
               onTap: () => Get.toNamed(RoutePath.kVersionPage),
             ),
             context.buildTile(
+              icon: Remix.refresh_line,
+              title: i18n("check_update"),
+              subtitle: i18n("check_update_desc"),
+              onTap: () => showCheckUpdateDialog(context),
+            ),
+            context.buildTile(
               icon: Remix.history_line,
               title: i18n("history"),
               subtitle: i18n("history_desc"),
@@ -126,10 +132,7 @@ class _AboutPageState extends State<AboutPage> {
               subtitle: 'https://github.com/liuchuancong/pure_live',
               isLong: true,
               onTap: () {
-                launchUrl(
-                  Uri.parse('https://github.com/liuchuancong/pure_live'),
-                  mode: LaunchMode.externalApplication,
-                );
+                launchUrl(Uri.parse('https://github.com/liuchuancong/pure_live'), mode: LaunchMode.externalApplication);
               },
             ),
             context.buildTile(
@@ -153,6 +156,30 @@ class _AboutPageState extends State<AboutPage> {
   }
 
   void showCheckUpdateDialog(BuildContext context) async {
+    // 与启动时的检查更新一致：成功拉取到更新源且有新版本时弹出更新提示，
+    // 否则提示已是最新；网络异常时给出失败提示。
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        content: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.5))],
+        ),
+      ),
+    );
+    bool succeeded = false;
+    try {
+      succeeded = await VersionUtil().checkUpdate();
+    } catch (_) {
+      succeeded = false;
+    }
+    if (!context.mounted) return;
+    Navigator.of(context, rootNavigator: true).pop();
+    if (!succeeded) {
+      SmartDialog.showToast(i18n("check_update_failed"));
+      return;
+    }
     showDialog(
       context: Get.context!,
       builder: (context) => VersionUtil.hasNewVersion() ? NewVersionDialog() : NoNewVersionDialog(),

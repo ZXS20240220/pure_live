@@ -292,7 +292,7 @@ extension AppLayoutFactory on BuildContext {
   }) {
     final theme = Theme.of(this);
     final rawValueString = valueMap[value] ?? "$value";
-    final displayValue = rawValueString.tr;
+    final displayValue = i18n(rawValueString);
 
     return buildTile(
       title: title,
@@ -350,7 +350,7 @@ extension AppLayoutFactory on BuildContext {
             },
             child: buildModernCard(
               valueMap.entries.map<Widget>((entry) {
-                final itemDisplayText = (entry.value).tr;
+                final itemDisplayText = i18n(entry.value);
                 final isSelected = entry.key == value;
                 return RadioListTile<T>(
                   value: entry.key,

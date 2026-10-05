@@ -41,6 +41,23 @@ class AppSettingsController extends GetxController {
     return _legacyRefreshRateMode(HivePrefUtil.getBool('enableHighRefreshRate')).storageValue;
   }
 
+  static AutoCheckUpdateMode _legacyAutoCheckUpdateMode(Object? enabled) {
+    return enabled == false ? AutoCheckUpdateMode.off : AutoCheckUpdateMode.all;
+  }
+
+  static AutoCheckUpdateMode autoCheckUpdateModeFromConfig(Map<String, dynamic> json) {
+    if (json.containsKey('autoCheckUpdateMode')) {
+      return AutoCheckUpdateMode.parse(json['autoCheckUpdateMode']);
+    }
+    return _legacyAutoCheckUpdateMode(json['enableAutoCheckUpdate']);
+  }
+
+  static String _initialAutoCheckUpdateMode() {
+    final stored = HivePrefUtil.getString('autoCheckUpdateMode');
+    if (stored != null) return AutoCheckUpdateMode.parse(stored).storageValue;
+    return _legacyAutoCheckUpdateMode(HivePrefUtil.getBool('enableAutoCheckUpdate')).storageValue;
+  }
+
   final RxInt autoRefreshTime = hiveInt('autoRefreshTime', 3);
   final RxBool enableDenseFavorites = hiveBool('enableDenseFavorites', true);
   final RxBool enableBackgroundPlay = hiveBool('enableBackgroundPlay', false);
@@ -48,11 +65,11 @@ class AppSettingsController extends GetxController {
   final RxInt asmrSleepMinutes = hiveInt('asmrSleepMinutes', 60);
   final RxBool enableRotateScreen = hiveBool('enableRotateScreen', false);
   final RxBool enableScreenKeepOn = hiveBool('enableScreenKeepOn', true);
-  final RxBool enableAutoCheckUpdate = hiveBool('enableAutoCheckUpdate', true);
   final RxBool useGitHubOriginForUpdates = hiveBool('useGitHubOriginForUpdates', false);
   final RxBool enableFullScreenDefault = hiveBool('enableFullScreenDefault', false);
   final RxBool showSplashPage = hiveBool('showSplashPage', true);
   late final RxString refreshRateModeName = hiveString('refreshRateMode', _initialRefreshRateMode());
+  late final RxString autoCheckUpdateModeName = hiveString('autoCheckUpdateMode', _initialAutoCheckUpdateMode());
   final RxBool preferRealOnlineCounts = hiveBool('preferRealOnlineCounts', false);
   // 直播截图保存目录（Windows 文件名字符安全，目录本身不做限制）
   final RxString screenshotDirectory = hiveString('screenshotDirectory', '');
@@ -68,6 +85,12 @@ class AppSettingsController extends GetxController {
 
   void setRefreshRateMode(AppRefreshRateMode mode) {
     refreshRateModeName.v = mode.storageValue;
+  }
+
+  AutoCheckUpdateMode get autoCheckUpdateMode => AutoCheckUpdateMode.parse(autoCheckUpdateModeName.v);
+
+  void setAutoCheckUpdateMode(AutoCheckUpdateMode mode) {
+    autoCheckUpdateModeName.v = mode.storageValue;
   }
 
   late final RxList<String> savedMenuIds = hiveStringList('savedMenuIds', HomeMenu.values.map((e) => e.id).toList());
@@ -113,6 +136,11 @@ class AppSettingsController extends GetxController {
       // starts in power-saving mode.
       if (!HivePrefUtil.containsKey('refreshRateMode')) {
         unawaited(HivePrefUtil.setString('refreshRateMode', refreshRateMode.storageValue));
+      }
+      // Persist the migrated value once so later upgrades no longer depend on
+      // the legacy boolean. Existing `false` maps to off; anything else to all.
+      if (!HivePrefUtil.containsKey('autoCheckUpdateMode')) {
+        unawaited(HivePrefUtil.setString('autoCheckUpdateMode', autoCheckUpdateMode.storageValue));
       }
     }
     if (Platform.isAndroid) {
@@ -204,7 +232,8 @@ class AppSettingsController extends GetxController {
       'asmrSleepMinutes': asmrSleepMinutes.v,
       'enableRotateScreen': enableRotateScreen.v,
       'enableScreenKeepOn': enableScreenKeepOn.v,
-      'enableAutoCheckUpdate': enableAutoCheckUpdate.v,
+      'autoCheckUpdateMode': autoCheckUpdateMode.storageValue,
+      'enableAutoCheckUpdate': autoCheckUpdateMode != AutoCheckUpdateMode.off,
       'useGitHubOriginForUpdates': useGitHubOriginForUpdates.v,
       'enableFullScreenDefault': enableFullScreenDefault.v,
       'showSplashPage': showSplashPage.v,
@@ -233,7 +262,7 @@ class AppSettingsController extends GetxController {
       ),
       'enableRotateScreen': typed<bool>(json['enableRotateScreen'] ?? false),
       'enableScreenKeepOn': typed<bool>(json['enableScreenKeepOn'] ?? true),
-      'enableAutoCheckUpdate': typed<bool>(json['enableAutoCheckUpdate'] ?? true),
+      'autoCheckUpdateMode': autoCheckUpdateModeFromConfig(json),
       'useGitHubOriginForUpdates': typed<bool>(json['useGitHubOriginForUpdates'] ?? false),
       'enableFullScreenDefault': typed<bool>(json['enableFullScreenDefault'] ?? false),
       'showSplashPage': typed<bool>(json['showSplashPage'] ?? true),
@@ -259,7 +288,7 @@ class AppSettingsController extends GetxController {
     asmrSleepMinutes.v = parsed['asmrSleepMinutes'];
     enableRotateScreen.v = parsed['enableRotateScreen'];
     enableScreenKeepOn.v = parsed['enableScreenKeepOn'];
-    enableAutoCheckUpdate.v = parsed['enableAutoCheckUpdate'];
+    setAutoCheckUpdateMode(parsed['autoCheckUpdateMode']);
     useGitHubOriginForUpdates.v = parsed['useGitHubOriginForUpdates'];
     enableFullScreenDefault.v = parsed['enableFullScreenDefault'];
     showSplashPage.v = parsed['showSplashPage'];
@@ -283,7 +312,8 @@ class AppSettingsController extends GetxController {
       'asmrSleepMinutes': (((app['asmrSleepMinutes'] as num?)?.toInt() ?? 60).clamp(1, maxSleepMinutes)).toInt(),
       'enableRotateScreen': app['enableRotateScreen'] ?? false,
       'enableScreenKeepOn': app['enableScreenKeepOn'] ?? true,
-      'enableAutoCheckUpdate': app['enableAutoCheckUpdate'] ?? true,
+      'autoCheckUpdateMode': autoCheckUpdateModeFromConfig(app).storageValue,
+      'enableAutoCheckUpdate': autoCheckUpdateModeFromConfig(app) != AutoCheckUpdateMode.off,
       'useGitHubOriginForUpdates': app['useGitHubOriginForUpdates'] ?? false,
       'enableFullScreenDefault': app['enableFullScreenDefault'] ?? false,
       'showSplashPage': app['showSplashPage'] ?? true,

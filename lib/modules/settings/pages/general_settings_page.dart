@@ -68,11 +68,19 @@ class GeneralSettingsPage extends GetView<SettingsService> {
               value: SettingsService.to.app.showSplashPage,
               icon: Remix.rocket_2_line,
             ),
-            context.buildSwitchTile(
-              title: i18n('enable_auto_check_update'),
-              subtitle: "",
-              value: SettingsService.to.app.enableAutoCheckUpdate,
-              icon: Remix.refresh_line,
+            Obx(
+              () => context.buildMenuTile<AutoCheckUpdateMode>(
+                title: i18n('enable_auto_check_update'),
+                subtitle: i18n('enable_auto_check_update_subtitle'),
+                icon: Remix.refresh_line,
+                value: SettingsService.to.app.autoCheckUpdateMode,
+                valueMap: const {
+                  AutoCheckUpdateMode.off: 'auto_check_update_mode_off',
+                  AutoCheckUpdateMode.all: 'auto_check_update_mode_all',
+                  AutoCheckUpdateMode.stableOnly: 'auto_check_update_mode_stable_only',
+                },
+                onChanged: SettingsService.to.app.setAutoCheckUpdateMode,
+              ),
             ),
             context.buildSwitchTile(
               title: i18n('use_github_origin_for_updates'),

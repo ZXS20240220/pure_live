@@ -4,3 +4,4 @@ export 'live_room.dart';
 export 'live_area.dart';
 export './live_message.dart';
 export 'app_refresh_rate_mode.dart';
+export 'auto_check_update_mode.dart';
