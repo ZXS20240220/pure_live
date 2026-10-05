@@ -878,30 +878,27 @@ class PlayerManager {
       return;
     }
 
-    // 关闭已有悬浮窗（若在播其他房间）。必须 await，避免新旧播放器重叠。
-    if (isOverlayActive()) {
-      await closeAppFloating();
-    }
-    if (isStale()) return;
+    // 记录是否已有悬浮窗在播，用于新房间打开失败时的兜底：
+    // 保留旧悬浮窗继续播放，避免出现"窗口消失但旧音频仍在后台播放"。
+    final hadExistingOverlay = isOverlayActive();
 
     final site = Sites.of(platform);
     final liveSite = site.liveSite;
+    // 是否已创建新悬浮窗（用于 catch 中决定是否需要清理）。
+    var newOverlayCreated = false;
     try {
-      // 先准备并显示悬浮窗（黑色占位），让用户立即看到反馈，
-      // 视频流在后台异步解析完成后自动渲染。
-      prepareAppFloating(onClose: () async {}, session: null);
-      showAppFloating();
-
+      // 先在后台解析新房间，暂不关闭已有悬浮窗。
+      // 新房间无法播放时，旧悬浮窗保持可见、继续播放。
       final detail = await liveSite.getRoomDetail(roomId: roomId, platform: platform);
       if (isStale()) return;
       if (!detail.isPlayableNow) {
-        await closeAppFloating();
+        ToastUtil.show(i18n('room_offline'));
         return;
       }
       final qualities = await liveSite.discoverPlayQualities(detail: detail);
       if (isStale()) return;
       if (qualities.isEmpty) {
-        await closeAppFloating();
+        ToastUtil.show(i18n('room_offline'));
         return;
       }
       // 悬浮窗尺寸小，取最低清晰度省流量。
@@ -910,7 +907,7 @@ class PlayerManager {
       if (isStale()) return;
       final urls = resolution.urls;
       if (urls.isEmpty) {
-        await closeAppFloating();
+        ToastUtil.show(i18n('room_offline'));
         return;
       }
       final headers = await PlaybackHeaderResolver.resolve(
@@ -918,6 +915,19 @@ class PlayerManager {
         roomId: roomId,
         roomHeaders: detail.httpHeaders,
       );
+      if (isStale()) return;
+
+      // 新房间验证通过：关闭旧悬浮窗（若有），再打开新的。
+      if (hadExistingOverlay) {
+        await closeAppFloating();
+        if (isStale()) return;
+      }
+
+      // 准备并显示悬浮窗（黑色占位），视频流起播后自动渲染。
+      prepareAppFloating(onClose: () async {}, session: null);
+      showAppFloating();
+      newOverlayCreated = true;
+
       if (isStale() || !isOverlayActive()) return;
       await play(urls.first, urls, headers, room: detail);
       if (isStale() || !isOverlayActive()) return;
@@ -950,7 +960,12 @@ class PlayerManager {
     } catch (error, stackTrace) {
       if (isStale()) return;
       log('openAppFloatingFromRoom failed', name: 'PlayerManager', error: error, stackTrace: stackTrace);
-      await closeAppFloating();
+      // 新悬浮窗已创建但起播失败：关闭它，避免留下黑色空窗。
+      // 若已有旧悬浮窗，此时它仍在（未被关闭），继续播放。
+      if (newOverlayCreated) {
+        await closeAppFloating();
+      }
+      ToastUtil.show(i18n('room_offline'));
     }
   }
 
