@@ -17,6 +17,7 @@ version: 1.0.6 (build 314) [Pre-release]
 - Windows PiP 小窗在调整尺寸时会保持宽高比
 - 添加窗口置顶功能，支持在播放页切换窗口置顶状态
 - 添加自动检查更新模式，支持仅正式版/所有版本/关闭
+- 现在可以在关于页中手动检查更新
 - 斗鱼 cookie 不再排除 passport 会话字段
 - 斗鱼历史 SC 无法保证稳定获取([上游v2.6.0平台边界](https://github.com/liuchuancong/pure_live/blob/master/docs/STAGE_UPDATE_2_6_0.md)曾提及)。为防止风控等风险，现在不再自动获取斗鱼历史 SC，只有用户手动刷新 SC 面板时才尝试获取 [需验证]
 - 新增斗鱼直播间 SC 进程内本地缓存，退出/切换直播间、手动刷新不会丢失 SC 记录 [需验证]
