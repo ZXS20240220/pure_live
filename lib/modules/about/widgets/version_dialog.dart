@@ -3,14 +3,20 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:markdown_widget/config/configs.dart';
 import 'package:markdown_widget/widget/markdown_block.dart';
 
+double _clamp(double value, {double min = 0, required double max}) {
+  return value < min ? min : (value > max ? max : value);
+}
+
 class NoNewVersionDialog extends StatelessWidget {
   const NoNewVersionDialog({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final windowSize = MediaQuery.of(context).size;
     return AlertDialog(
       title: Text(i18n("check_update")),
       content: Text(i18n("no_new_version_info")),
+      constraints: BoxConstraints(maxWidth: _clamp(windowSize.width * 0.5, max: 560)),
       actions: <Widget>[
         TextButton(
           child: Text(i18n("confirm")),
@@ -32,10 +38,15 @@ class NewVersionDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final config = Get.isDarkMode ? MarkdownConfig.darkConfig : MarkdownConfig.defaultConfig;
+    final windowSize = MediaQuery.of(context).size;
     return AlertDialog(
       key: const ValueKey('new-version-dialog'),
       scrollable: true,
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      constraints: BoxConstraints(
+        maxWidth: _clamp(windowSize.width * 0.72, max: 1600),
+        maxHeight: _clamp(windowSize.height * 0.72, max: 900),
+      ),
       title: Text(i18n("check_update")),
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
