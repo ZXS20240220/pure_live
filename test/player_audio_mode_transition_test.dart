@@ -248,7 +248,7 @@ void main() {
     var exitCalls = 0;
     final manager = _createManager(
       _FakePlayer(),
-      windowsPipEnter: (_) {
+      windowsPipEnter: (_, {int? videoWidth, int? videoHeight}) {
         enterCalls++;
         return enterCalls == 1 ? firstEnter.future : Future<void>.value();
       },
@@ -303,7 +303,7 @@ void main() {
     var exitCalls = 0;
     final manager = _createManager(
       _FakePlayer(),
-      windowsPipEnter: (_) => nativeEntry.future,
+      windowsPipEnter: (_, {int? videoWidth, int? videoHeight}) => nativeEntry.future,
       windowsPipExit: () async {
         exitCalls++;
       },
@@ -329,7 +329,7 @@ void main() {
     var exitCalls = 0;
     final manager = _createManager(
       _FakePlayer(),
-      windowsPipEnter: (_) async {
+      windowsPipEnter: (_, {int? videoWidth, int? videoHeight}) async {
         enterCalls++;
       },
       windowsPipExit: () async {
@@ -353,7 +353,7 @@ void main() {
     var exitCalls = 0;
     final manager = _createManager(
       _FakePlayer(),
-      windowsPipEnter: (_) async {},
+      windowsPipEnter: (_, {int? videoWidth, int? videoHeight}) async {},
       windowsPipExit: () async {
         exitCalls++;
       },
@@ -371,7 +371,7 @@ void main() {
   test('Windows PiP exit adopts a committed host exit when presentation rollback also fails', () async {
     final manager = _createManager(
       _FakePlayer(),
-      windowsPipEnter: (_) async {},
+      windowsPipEnter: (_, {int? videoWidth, int? videoHeight}) async {},
       windowsPipExit: () async {
         throw WindowsPipExitFailure(
           cause: StateError('presentation fixture failure'),

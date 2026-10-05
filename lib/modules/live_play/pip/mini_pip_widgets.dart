@@ -102,7 +102,16 @@ class _PositionedMiniPip extends StatelessWidget {
       // _startDrag 读到 null 会用 Offset.zero，导致窗口瞬移到左上角。
       var position = slot.position.value;
       position ??= _initialPosition(index < 0 ? 0 : index, hostSize, winSize);
-      if (slot.position.value == null) {
+      // 尺寸变化（如视频比例自动调整）后，把位置钳回宿主可视区域，
+      // 避免窗口长高后底部越界。仅在越界时写回，避免无谓重建。
+      if (!hostSize.isEmpty) {
+        final clamped = Offset(
+          position.dx.clamp(0.0, math.max(0.0, hostSize.width - winSize.width)).toDouble(),
+          position.dy.clamp(0.0, math.max(0.0, hostSize.height - winSize.height)).toDouble(),
+        );
+        if (clamped != position) position = clamped;
+      }
+      if (slot.position.value != position) {
         slot.position.value = position;
       }
       return Positioned(
@@ -131,8 +140,8 @@ class _MiniPipWindowState extends State<_MiniPipWindow> {
   /// 拖拽中：窗口整体透明度降至 0.8（与旧悬浮窗 dragOpacity 一致）。
   bool _dragging = false;
 
-  /// 八方向边缘缩放：按下即锁定起始几何，指针移动时按方向更新尺寸（保持 16:9）。
-  /// [handle] 用位标记组合表示命中的边（left/right/top/bottom）。
+  /// 八方向边缘缩放：按下即锁定起始几何，指针移动时按方向更新尺寸
+  /// （保持视频实际宽高比）。[handle] 用位标记组合表示命中的边。
   void _startResize(PointerDownEvent event, int handle) {
     widget.manager.focus(widget.slot);
     final startPos = widget.slot.position.value ?? Offset.zero;
@@ -151,28 +160,31 @@ class _MiniPipWindowState extends State<_MiniPipWindow> {
         var newTop = startPos.dy;
         var newWidth = startSize.width;
         var newHeight = startSize.height;
-        const aspect = 16.0 / 9.0;
+        final aspect = widget.slot.videoAspectRatio.value;
+
+        // 按长边约束上下界，再结合当前比例推导出对应短边范围。
+        final minLong = MiniPipController.minLongSide;
+        final maxLong = MiniPipController.maxLongSide;
+        final isWide = aspect >= 1;
+        final minWidth = isWide ? minLong : minLong * aspect;
+        final maxWidth = isWide ? maxLong : maxLong * aspect;
+        final minHeight = isWide ? minLong / aspect : minLong;
+        final maxHeight = isWide ? maxLong / aspect : maxLong;
 
         if ((handle & _edgeRight) != 0) {
-          newWidth = (startSize.width + accDx).clamp(MiniPipController.minSize.width, MiniPipController.maxSize.width);
+          newWidth = (startSize.width + accDx).clamp(minWidth, maxWidth);
         }
         if ((handle & _edgeLeft) != 0) {
-          newWidth = (startSize.width - accDx).clamp(MiniPipController.minSize.width, MiniPipController.maxSize.width);
+          newWidth = (startSize.width - accDx).clamp(minWidth, maxWidth);
         }
         if ((handle & _edgeBottom) != 0) {
-          newHeight = (startSize.height + accDy).clamp(
-            MiniPipController.minSize.height,
-            MiniPipController.maxSize.height,
-          );
+          newHeight = (startSize.height + accDy).clamp(minHeight, maxHeight);
         }
         if ((handle & _edgeTop) != 0) {
-          newHeight = (startSize.height - accDy).clamp(
-            MiniPipController.minSize.height,
-            MiniPipController.maxSize.height,
-          );
+          newHeight = (startSize.height - accDy).clamp(minHeight, maxHeight);
         }
 
-        // 保持 16:9。
+        // 保持视频实际比例。
         if ((handle & (_edgeLeft | _edgeRight)) != 0 && (handle & (_edgeTop | _edgeBottom)) != 0) {
           if (newWidth / aspect >= newHeight) {
             newHeight = newWidth / aspect;
@@ -238,18 +250,20 @@ class _MiniPipWindowState extends State<_MiniPipWindow> {
     router.addRoute(pointer, route);
   }
 
-  /// Ctrl+滚轮缩放窗口尺寸（保持 16:9）；不处理普通滚轮，
+  /// Ctrl+滚轮缩放窗口尺寸（保持视频实际宽高比）；不处理普通滚轮，
   /// 避免与播放页音量等其他滚轮语义冲突。
   void _handlePointerSignal(PointerSignalEvent event) {
     if (event is! PointerScrollEvent) return;
     if (!HardwareKeyboard.instance.isControlPressed) return;
     final dy = event.scrollDelta.dy;
     if (dy == 0) return;
-    final oldWidth = widget.slot.size.value.width;
-    final newWidth = (oldWidth + (-dy / 120.0) * MiniPipController.wheelWidthStep)
-        .clamp(MiniPipController.minSize.width, MiniPipController.maxSize.width)
+    final current = widget.slot.size.value;
+    final aspect = widget.slot.videoAspectRatio.value;
+    final longSide = current.width > current.height ? current.width : current.height;
+    final newLongSide = (longSide + (-dy / 120.0) * MiniPipController.wheelWidthStep)
+        .clamp(MiniPipController.minLongSide, MiniPipController.maxLongSide)
         .toDouble();
-    final newSize = Size(newWidth, newWidth * 9.0 / 16.0);
+    final newSize = MiniPipController.sizeForAspectRatio(aspect, newLongSide);
     widget.manager.updateSize(widget.slot, newSize);
     final position = widget.slot.position.value;
     if (position != null) {

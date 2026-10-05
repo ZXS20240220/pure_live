@@ -31,7 +31,7 @@ void main() {
     var enterCalls = 0;
     var hostActive = false;
     final service = WindowService.test(
-      enterHostPip: (_) async {
+      enterHostPip: (_, {int? videoWidth, int? videoHeight}) async {
         enterCalls++;
         if (enterCalls == 1) throw StateError('enter fixture failure');
         hostActive = true;
@@ -66,7 +66,7 @@ void main() {
     var exitCalls = 0;
     var hostActive = false;
     final service = WindowService.test(
-      enterHostPip: (_) async {
+      enterHostPip: (_, {int? videoWidth, int? videoHeight}) async {
         enterCalls++;
         hostActive = true;
       },
@@ -106,7 +106,7 @@ void main() {
     var exitCalls = 0;
     var restoreCalls = 0;
     final service = WindowService.test(
-      enterHostPip: (_) async {
+      enterHostPip: (_, {int? videoWidth, int? videoHeight}) async {
         enterCalls++;
         if (enterCalls == 2) throw StateError('host rollback fixture failure');
       },
@@ -144,7 +144,7 @@ void main() {
     var enterCalls = 0;
     var exitCalls = 0;
     final service = WindowService.test(
-      enterHostPip: (_) async {
+      enterHostPip: (_, {int? videoWidth, int? videoHeight}) async {
         enterCalls++;
         await enterGate.future;
       },

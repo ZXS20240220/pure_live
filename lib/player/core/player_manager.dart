@@ -62,7 +62,7 @@ import 'package:pure_live/modules/multiview/danmaku/multiview_danmaku_session.da
 import 'package:pure_live/player/core/flv_splice_relay.dart';
 
 typedef UnifiedPlayerCreator = FutureOr<UnifiedPlayer> Function(PlayerEngine engine);
-typedef WindowsPipEnter = Future<void> Function(double videoRatio);
+typedef WindowsPipEnter = Future<void> Function(double videoRatio, {int? videoWidth, int? videoHeight});
 typedef WindowsPipExit = Future<void> Function();
 
 @immutable
@@ -3363,7 +3363,11 @@ class PlayerManager {
       _pipTransitionInFlight = true;
       isPipPreparing.value = true;
       try {
-        await _windowsPipEnter(currentVideoRatio);
+        await _windowsPipEnter(
+          currentVideoRatio,
+          videoWidth: videoGeometry.value.width,
+          videoHeight: videoGeometry.value.height,
+        );
         if (!ownsTransition()) {
           if (!_pipTransitionInFlight && !isInPip.value) {
             await _restoreWindowsMainWindow();
@@ -4395,8 +4399,19 @@ class PlayerManager {
                   onDoubleTap: isPipPreparing.value ? null : _exitPipFromControl,
                   child: Obx(
                     () => getVideoWidget(
-                      SettingsService.to.player.videoFitIndex.v,
-                      fitList: SettingsService.to.player.videoFitArray,
+                      0,
+                      // Windows PiP 窗口保留 resize 边框，客户区比例与视频存在
+                      // sub-pixel 偏差，BoxFit.contain 会出现细黑边。悬浮窗因
+                      // 无边框故无此问题。这里对 contain 改用 cover，裁剪量 <1px
+                      // 肉眼不可见，保证 PiP 画面铺满无黑边；用户显式选择的
+                      // cover/fill 保持不变。
+                      fitList: [
+                        () {
+                          final fit =
+                              SettingsService.to.player.videoFitArray[SettingsService.to.player.resolvedVideoFitIndex];
+                          return fit == BoxFit.contain ? BoxFit.cover : fit;
+                        }(),
+                      ],
                       trackPipSource: true,
                     ),
                   ),

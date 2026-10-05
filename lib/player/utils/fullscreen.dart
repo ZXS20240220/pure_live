@@ -119,7 +119,7 @@ class WindowService {
   @visibleForTesting
   factory WindowService.test({
     bool isWindows = true,
-    required Future<void> Function(double videoRatio) enterHostPip,
+    required Future<void> Function(double videoRatio, {int? videoWidth, int? videoHeight}) enterHostPip,
     required Future<void> Function() exitHostPip,
     required WindowPresentationCapture capturePresentation,
     required WindowPresentationPrepare preparePresentation,
@@ -145,7 +145,7 @@ class WindowService {
   );
 
   final bool _isWindows;
-  final Future<void> Function(double videoRatio) _enterHostPip;
+  final Future<void> Function(double videoRatio, {int? videoWidth, int? videoHeight}) _enterHostPip;
   final Future<void> Function() _exitHostPip;
   final WindowPresentationCapture _capturePresentation;
   final WindowPresentationPrepare _preparePresentation;
@@ -168,27 +168,27 @@ class WindowService {
     return supportsOrientationLockForLogicalDisplay(logicalSize);
   }
 
-  Future<void> enterWinPiP(double videoRatio) {
+  Future<void> enterWinPiP(double videoRatio, {int? videoWidth, int? videoHeight}) {
     if (!_isWindows) return Future<void>.value();
     final activeTransition = _windowsPipTransition;
     if (activeTransition != null) return activeTransition;
     if (_windowsPipActive) return Future<void>.value();
 
     late final Future<void> transition;
-    transition = _enterWindowsPip(videoRatio).whenComplete(() {
+    transition = _enterWindowsPip(videoRatio, videoWidth: videoWidth, videoHeight: videoHeight).whenComplete(() {
       if (identical(_windowsPipTransition, transition)) _windowsPipTransition = null;
     });
     _windowsPipTransition = transition;
     return transition;
   }
 
-  Future<void> _enterWindowsPip(double videoRatio) async {
+  Future<void> _enterWindowsPip(double videoRatio, {int? videoWidth, int? videoHeight}) async {
     final presentation = _presentationBeforePip ?? _capturePresentation();
     _presentationBeforePip = presentation;
     final resolvedRatio = videoRatio.isFinite && videoRatio > 0 ? videoRatio : 16 / 9;
     try {
       await _preparePresentation();
-      await _enterHostPip(resolvedRatio);
+      await _enterHostPip(resolvedRatio, videoWidth: videoWidth, videoHeight: videoHeight);
     } catch (error, stackTrace) {
       if (await _tryRestorePresentation(presentation)) {
         _presentationBeforePip = null;

@@ -189,6 +189,36 @@ Rect resolveWindowsPipBounds({
   return Rect.fromLTWH(left, top, width, height);
 }
 
+/// 根据视频实际像素尺寸计算宽高比完全一致的整数窗口尺寸。
+///
+/// 原生窗口尺寸必须为整数像素；若按浮点比例乘出再取整，宽高比会有 1px 级
+/// 偏差，BoxFit.contain 下出现细黑边。这里用 GCD 将视频尺寸约分到最简比，
+/// 再按目标长边取整数倍，保证窗口比例与视频逐像素一致。
+@visibleForTesting
+({int width, int height}) exactIntegerSizeForRatio({
+  required int videoWidth,
+  required int videoHeight,
+  required double targetLongSide,
+}) {
+  if (videoWidth <= 0 || videoHeight <= 0) {
+    return (width: 160, height: 90);
+  }
+  var a = videoWidth;
+  var b = videoHeight;
+  while (b != 0) {
+    final t = a % b;
+    a = b;
+    b = t;
+  }
+  final gcd = a;
+  final baseW = videoWidth ~/ gcd;
+  final baseH = videoHeight ~/ gcd;
+  final longBase = baseW >= baseH ? baseW : baseH;
+  final safeTarget = targetLongSide > 0 ? targetLongSide : 360.0;
+  final k = (safeTarget / longBase).round().clamp(1, 1 << 20);
+  return (width: baseW * k, height: baseH * k);
+}
+
 class WindowHelper {
   static final WindowHelper instance = WindowHelper._internal();
 
@@ -240,7 +270,7 @@ class WindowHelper {
     }
   }
 
-  Future<void> enterPiP(double videoRatio) {
+  Future<void> enterPiP(double videoRatio, {int? videoWidth, int? videoHeight}) {
     final activeTransition = _pipTransition;
     if (activeTransition != null) return activeTransition;
     if (currentMode == WindowLayoutMode.pip) return Future<void>.value();
@@ -249,7 +279,7 @@ class WindowHelper {
     transition =
         _serializeHostOperation(() async {
           if (currentMode == WindowLayoutMode.pip) return;
-          await _enterPiP(videoRatio);
+          await _enterPiP(videoRatio, videoWidth: videoWidth, videoHeight: videoHeight);
         }).whenComplete(() {
           if (identical(_pipTransition, transition)) _pipTransition = null;
         });
@@ -257,7 +287,7 @@ class WindowHelper {
     return transition;
   }
 
-  Future<void> _enterPiP(double videoRatio) async {
+  Future<void> _enterPiP(double videoRatio, {int? videoWidth, int? videoHeight}) async {
     final normalSize = await _host.getSize();
     final normalPosition = await _host.getPosition();
     final normalAlwaysOnTop = await _host.isAlwaysOnTop();
@@ -277,7 +307,19 @@ class WindowHelper {
     double w;
     double h;
 
-    if (ratio > 1.05) {
+    // 优先用视频实际像素尺寸通过 GCD 约分，得到宽高比完全一致的整数窗口尺寸。
+    // 原生窗口尺寸必须为整数像素，若直接用浮点比例乘出再取整，会产生 1px 级
+    // 比例偏差，BoxFit.contain 下表现为上下/左右细黑边。
+    final hasExactDims = videoWidth != null && videoHeight != null && videoWidth > 0 && videoHeight > 0;
+    if (hasExactDims) {
+      final exact = exactIntegerSizeForRatio(
+        videoWidth: videoWidth,
+        videoHeight: videoHeight,
+        targetLongSide: ratio >= 1 ? 360.0 : 380.0,
+      );
+      w = exact.width.toDouble();
+      h = exact.height.toDouble();
+    } else if (ratio > 1.05) {
       const maxSide = 360.0;
 
       w = maxSide;
@@ -325,12 +367,44 @@ class WindowHelper {
         })
         .toList(growable: false);
 
-    final bounds = resolveWindowsPipBounds(
+    var bounds = resolveWindowsPipBounds(
       defaultSize: Size(w, h),
       primaryWorkArea: Rect.fromLTWH(safeOffset.dx, safeOffset.dy, safeSize.width, safeSize.height),
       workAreas: workAreas,
       savedBounds: savedBounds,
     );
+
+    // 保存的窗口尺寸可能来自上一次不同比例的会话（如横屏直播保存后，
+    // 竖屏直播再次进入）。若沿用旧尺寸会导致画面比例错乱（横屏窗口
+    // 播放竖屏视频）。此时用当前视频比例重算尺寸，保留保存的左上角位置。
+    final boundsRatio = bounds.height > 0 ? bounds.width / bounds.height : ratio;
+    if ((boundsRatio - ratio).abs() > 0.05) {
+      // 按当前视频比例的精确整数尺寸（已在上方通过 GCD 计算）。
+      final ratioWidth = w;
+      final ratioHeight = h;
+      // 找到包含该窗口左上角的工作区，用于钳制尺寸与位置避免超出屏幕。
+      var areaLeft = safeOffset.dx;
+      var areaTop = safeOffset.dy;
+      var areaWidth = safeSize.width;
+      var areaHeight = safeSize.height;
+      for (final area in workAreas) {
+        if (bounds.left >= area.left &&
+            bounds.left < area.right &&
+            bounds.top >= area.top &&
+            bounds.top < area.bottom) {
+          areaLeft = area.left;
+          areaTop = area.top;
+          areaWidth = area.width;
+          areaHeight = area.height;
+          break;
+        }
+      }
+      final clampedWidth = ratioWidth.clamp(0.0, areaWidth).toDouble();
+      final clampedHeight = ratioHeight.clamp(0.0, areaHeight).toDouble();
+      final clampedLeft = bounds.left.clamp(areaLeft, areaLeft + areaWidth - clampedWidth).toDouble();
+      final clampedTop = bounds.top.clamp(areaTop, areaTop + areaHeight - clampedHeight).toDouble();
+      bounds = Rect.fromLTWH(clampedLeft, clampedTop, clampedWidth, clampedHeight);
+    }
 
     // A remembered size from an older release (or the square-entry branch)
     // can be smaller than the compact baseline; enlarge it when applying so
@@ -437,6 +511,13 @@ class WindowHelper {
       if (currentMode != WindowLayoutMode.pip) return;
       if ((_pipAspectRatio ?? 0) == ratio) return;
       await _host.setAspectRatio(ratio);
+      // setAspectRatio 仅锁定比例不立即改尺寸；若视频比例切换（如横→竖），
+      // 必须同步调整窗口大小，否则旧比例窗口内会出现黑边。保持长边不变。
+      final currentSize = await _host.getSize();
+      final longSide = currentSize.width > currentSize.height ? currentSize.width : currentSize.height;
+      final newWidth = ratio >= 1.0 ? longSide : longSide * ratio;
+      final newHeight = ratio >= 1.0 ? longSide / ratio : longSide;
+      await _host.setSize(Size(newWidth, newHeight));
       _pipAspectRatio = ratio;
     });
   }

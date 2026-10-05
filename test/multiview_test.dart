@@ -73,6 +73,12 @@ class _RecordingPlayer implements MultiviewCellPlayerHandle, MultiviewNativeInpu
   @override
   Stream<bool> get playingStream => _playingController.stream;
 
+  @override
+  Stream<int?> get videoWidthStream => const Stream.empty();
+
+  @override
+  Stream<int?> get videoHeightStream => const Stream.empty();
+
   void _setPlaying(bool value) {
     playing = value;
     _playingController.add(value);

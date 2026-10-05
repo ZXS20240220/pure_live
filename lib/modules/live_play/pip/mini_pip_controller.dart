@@ -70,10 +70,18 @@ class MiniPipSlot {
   /// 指针悬停：工具栏淡入淡出。
   final RxBool hovered = false.obs;
 
+  /// 解码视频的实际宽高比（宽/高）；未知时为 16:9。
+  /// 由控制器在收到视频尺寸流后更新，视图据此决定窗口比例与缩放约束。
+  final RxDouble videoAspectRatio = (16.0 / 9.0).obs;
+
   MultiviewDanmakuSession? _danmakuSession;
   BarrageController? barrageController;
   StreamSubscription<void>? _sourceEndSub;
   StreamSubscription<bool>? _playingSub;
+  StreamSubscription<int?>? _videoWidthSub;
+  StreamSubscription<int?>? _videoHeightSub;
+  int? lastVideoWidth;
+  int? lastVideoHeight;
   String? errorDetail;
 
   bool isSameRoom(LiveRoom other) => other.roomId == room.roomId && other.platform == room.platform;
@@ -92,10 +100,25 @@ class MiniPipController {
   /// 同时存在的小窗上限（主窗之外的额外 libmpv 实例数）。
   static const int maxWindows = 3;
 
-  // 与 Windows PiP 对齐：最小长边 350，16:9 下最小高度约 197。
+  // 尺寸按"长边"约束，窗口比例跟随解码视频的实际宽高比，避免竖屏直播
+  // 被强制塞进 16:9 窗口而出现上下黑边。16:9 下：长边 350→高约 197，
+  // 长边 640→高 360；竖屏 9:16 下：长边 360→宽 202.5，长边 640→宽 360。
+  static const double minLongSide = 350.0;
+  static const double maxLongSide = 640.0;
   static const Size initialSize = Size(360, 202.5);
+
+  @Deprecated('Use minLongSide/maxLongSide with slot.videoAspectRatio instead.')
   static const Size minSize = Size(350, 350 * 9 / 16);
+  @Deprecated('Use minLongSide/maxLongSide with slot.videoAspectRatio instead.')
   static const Size maxSize = Size(640, 360);
+
+  /// 给定视频宽高比与长边，计算窗口逻辑尺寸。
+  static Size sizeForAspectRatio(double aspectRatio, double longSide) {
+    final ratio = aspectRatio.isFinite && aspectRatio > 0 ? aspectRatio : 16 / 9;
+    final side = longSide.clamp(minLongSide, maxLongSide).toDouble();
+    if (ratio >= 1) return Size(side, side / ratio);
+    return Size(side * ratio, side);
+  }
 
   /// 窗口透明度条范围：0.3（半透明）~ 1.0（完全不透明）。
   static const double minOpacity = 0.0;
@@ -199,6 +222,9 @@ class MiniPipController {
       if (isStale()) return;
       slot.status.value = MiniPipStatus.playing;
       _applySlotStateToPlayer(slot);
+      // 播放器已创建，现在订阅解码视频尺寸流；此时流才是真实的
+      // （_player 在 start() 中才实例化，之前订阅只会拿到空流）。
+      _bindVideoDimensions(slot, handle);
     } on MultiviewRoomOffline {
       if (isStale()) return;
       slot.status.value = MiniPipStatus.offline;
@@ -253,6 +279,8 @@ class MiniPipController {
       if (isStale()) return;
       slot.status.value = MiniPipStatus.playing;
       _applySlotStateToPlayer(slot);
+      // 播放器已创建，此时订阅解码视频尺寸流才能拿到真实数据。
+      _bindVideoDimensions(slot, handle);
     } on MultiviewRoomOffline {
       if (isStale()) return;
       slot.status.value = MiniPipStatus.offline;
@@ -467,6 +495,42 @@ class MiniPipController {
     _refreshMaxSlotSize();
   }
 
+  /// 订阅播放器的解码视频宽高流，首帧到达后按实际比例调整窗口尺寸。
+  ///
+  /// 窗口比例跟随视频而非固定 16:9，竖屏直播不再出现上下黑边。尺寸保持
+  /// 当前长边（用户已调整的大小），仅钳制到 [minLongSide]/[maxLongSide]。
+  void _bindVideoDimensions(MiniPipSlot slot, MultiviewCellPlayerHandle handle) {
+    slot.lastVideoWidth = null;
+    slot.lastVideoHeight = null;
+    slot._videoWidthSub = handle.videoWidthStream.distinct().listen((width) {
+      if (_disposed || !slots.contains(slot)) return;
+      slot.lastVideoWidth = width;
+      _applyVideoAspectRatio(slot);
+    });
+    slot._videoHeightSub = handle.videoHeightStream.distinct().listen((height) {
+      if (_disposed || !slots.contains(slot)) return;
+      slot.lastVideoHeight = height;
+      _applyVideoAspectRatio(slot);
+    });
+  }
+
+  /// 已获得视频宽高时，按实际比例重算窗口尺寸并更新。
+  void _applyVideoAspectRatio(MiniPipSlot slot) {
+    final width = slot.lastVideoWidth;
+    final height = slot.lastVideoHeight;
+    if (width == null || height == null || width <= 0 || height <= 0) return;
+    final ratio = width / height;
+    slot.videoAspectRatio.value = ratio;
+    final current = slot.size.value;
+    final longSide = current.width > current.height ? current.width : current.height;
+    final next = sizeForAspectRatio(ratio, longSide);
+    // 比例变化或尺寸差异明显时才更新，避免流抖动导致的反复重建。
+    if ((next.width - current.width).abs() > 0.5 || (next.height - current.height).abs() > 0.5) {
+      slot.size.value = next;
+      _refreshMaxSlotSize();
+    }
+  }
+
   /// 播放页退出/返回：拆除所有小窗，释放全部 libmpv 与弹幕会话。
   void disposeAll() {
     if (_disposed) return;
@@ -488,6 +552,12 @@ class MiniPipController {
     slot._sourceEndSub = null;
     slot._playingSub?.cancel();
     slot._playingSub = null;
+    slot._videoWidthSub?.cancel();
+    slot._videoWidthSub = null;
+    slot._videoHeightSub?.cancel();
+    slot._videoHeightSub = null;
+    slot.lastVideoWidth = null;
+    slot.lastVideoHeight = null;
     slot.isPlaying.value = false;
     try {
       await slot._danmakuSession?.disconnect();

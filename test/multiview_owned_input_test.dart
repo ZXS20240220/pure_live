@@ -66,6 +66,10 @@ class _Backend implements MultiviewCellPlayerHandle, MultiviewNativeInputRouting
   @override
   Stream<bool> get playingStream => const Stream.empty();
   @override
+  Stream<int?> get videoWidthStream => const Stream.empty();
+  @override
+  Stream<int?> get videoHeightStream => const Stream.empty();
+  @override
   void setPrivateInput(bool value) => privateInput = value;
   Future<void> _input(String url, Map<String, String> headers) async {
     inputs.add((url, headers, privateInput));

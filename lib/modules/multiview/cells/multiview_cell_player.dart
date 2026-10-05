@@ -56,6 +56,12 @@ abstract interface class MultiviewCellPlayerHandle {
   /// 播放状态流；未起播时为空流。UI 订阅以驱动按钮态。
   Stream<bool> get playingStream;
 
+  /// 解码视频的原始宽度流；未起播或未知时为 null。
+  Stream<int?> get videoWidthStream;
+
+  /// 解码视频的原始高度流；未起播或未知时为 null。
+  Stream<int?> get videoHeightStream;
+
   /// 在既有播放内核上换流（每格清晰度切换）：同 Player 重新 open，
   /// 纹理保持附着、不重建实例；mpv 音量属性跨加载保留，静音状态不丢失。
   /// 未起播前调用属编程错误，实现必须 Fail Fast。
@@ -155,6 +161,20 @@ class _MediaKitCellPlayer implements MultiviewCellPlayerHandle, MultiviewNativeI
     final player = _player;
     if (player == null) return const Stream.empty();
     return player.stream.completed.where((completed) => completed);
+  }
+
+  @override
+  Stream<int?> get videoWidthStream {
+    final player = _player;
+    if (player == null) return const Stream.empty();
+    return player.stream.width;
+  }
+
+  @override
+  Stream<int?> get videoHeightStream {
+    final player = _player;
+    if (player == null) return const Stream.empty();
+    return player.stream.height;
   }
 
   @override
@@ -320,6 +340,10 @@ class MultiviewCellPlayer
   double get volume => _backend.volume;
   @override
   Stream<bool> get playingStream => _backend.playingStream;
+  @override
+  Stream<int?> get videoWidthStream => _backend.videoWidthStream;
+  @override
+  Stream<int?> get videoHeightStream => _backend.videoHeightStream;
   @override
   Stream<void> get sourceEnded =>
       _backend is MultiviewSourceEndHandle ? (_backend as MultiviewSourceEndHandle).sourceEnded : const Stream.empty();
