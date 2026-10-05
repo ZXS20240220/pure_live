@@ -1,19 +1,19 @@
 {
-  "version": "1.0.5",
+  "version": "1.0.6",
   "build_number": 314,
-  "version_num": 10005314,
-  "version_desc": "version: 1.0.5 (build 314)\n\n- 优化备份导出逻辑，在已设置备份目录的前提下，创建备份不再重复要求选择目录。未设置目录时弹出提示\n- 修复设置页和播放栏的响应式状态更新问题，保证”热更新“\n- 为设置页面集成面包屑导航组件\n- 去除设置页中重复的小窗弹幕设置\n- 新增完整备份与恢复功能，支持备份设置、IPTV数据库和已下载字体",
-  "prerelease": false,
+  "version_num": 10006314,
+  "version_desc": "version: 1.0.6 (build 314)\n\n- 播放页内小窗 (mini PiP) 透明度范围调整、控件保持不透明\n- Windows PiP 小窗在调整尺寸时会保持宽高比\n- 添加窗口置顶功能，支持在播放页切换窗口置顶状态\n- 添加自动检查更新模式，支持仅正式版/所有版本/关闭\n- 现在可以在关于页中手动检查更新\n- 斗鱼 cookie 不再排除 passport 会话字段\n- 斗鱼历史 SC 无法保证稳定获取([上游v2.6.0平台边界](https://github.com/liuchuancong/pure_live/blob/master/docs/STAGE_UPDATE_2_6_0.md)曾提及)。为防止风控等风险，现在不再自动获取斗鱼历史 SC，只有用户手动刷新 SC 面板时才尝试获取 [需验证]\n- 新增斗鱼直播间 SC 进程内本地缓存，退出/切换直播间、手动刷新不会丢失 SC 记录 [需验证]\n- (保留了斗鱼 SC 相关的本地日志以供后续验证，若未启用本地日志则无影响)",
+  "prerelease": true,
   "download_url": "https://github.com/ZXS20240220/pure_live/releases",
   "platforms": {
     "windows": {
       "windows_setup_available": false,
       "windows_msix_available": false,
-      "version": "1.0.5",
+      "version": "1.0.6",
       "build_number": 314,
-      "version_num": 10005314,
-      "version_desc": "version: 1.0.5 (build 314)\n\n- 优化备份导出逻辑，在已设置备份目录的前提下，创建备份不再重复要求选择目录。未设置目录时弹出提示\n- 修复设置页和播放栏的响应式状态更新问题，保证”热更新“\n- 为设置页面集成面包屑导航组件\n- 去除设置页中重复的小窗弹幕设置\n- 新增完整备份与恢复功能，支持备份设置、IPTV数据库和已下载字体",
-      "prerelease": false,
+      "version_num": 10006314,
+      "version_desc": "version: 1.0.6 (build 314)\n\n- 播放页内小窗 (mini PiP) 透明度范围调整、控件保持不透明\n- Windows PiP 小窗在调整尺寸时会保持宽高比\n- 添加窗口置顶功能，支持在播放页切换窗口置顶状态\n- 添加自动检查更新模式，支持仅正式版/所有版本/关闭\n- 现在可以在关于页中手动检查更新\n- 斗鱼 cookie 不再排除 passport 会话字段\n- 斗鱼历史 SC 无法保证稳定获取([上游v2.6.0平台边界](https://github.com/liuchuancong/pure_live/blob/master/docs/STAGE_UPDATE_2_6_0.md)曾提及)。为防止风控等风险，现在不再自动获取斗鱼历史 SC，只有用户手动刷新 SC 面板时才尝试获取 [需验证]\n- 新增斗鱼直播间 SC 进程内本地缓存，退出/切换直播间、手动刷新不会丢失 SC 记录 [需验证]\n- (保留了斗鱼 SC 相关的本地日志以供后续验证，若未启用本地日志则无影响)",
+      "prerelease": true,
       "download_url": "https://github.com/ZXS20240220/pure_live/releases"
     }
   }

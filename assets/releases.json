@@ -3,6 +3,50 @@
     {
       "assets": [
         {
+          "apiUrl": "https://api.github.com/repos/ZXS20240220/pure_live/releases/assets/612488257",
+          "contentType": "application/json",
+          "createdAt": "2026-10-05T12:16:15Z",
+          "digest": "sha256:957d2908d9b8d273ef66940cb4708c0d4fc88bc1c7b2d51bfca4d1f421a121b5",
+          "downloadCount": 0,
+          "id": "RA_kwDOUTPDUc4kgdRB",
+          "label": "",
+          "name": "BUILD_METADATA.json",
+          "size": 600,
+          "state": "uploaded",
+          "updatedAt": "2026-10-05T12:16:15Z",
+          "url": "https://github.com/ZXS20240220/pure_live/releases/download/v1.0.6/BUILD_METADATA.json"
+        },
+        {
+          "apiUrl": "https://api.github.com/repos/ZXS20240220/pure_live/releases/assets/612488259",
+          "contentType": "application/zip",
+          "createdAt": "2026-10-05T12:16:15Z",
+          "digest": "sha256:d101f07ecfe6951ff4e310234018933f4b926ccedefb1baaab9be95ce3f0c73d",
+          "downloadCount": 0,
+          "id": "RA_kwDOUTPDUc4kgdRD",
+          "label": "",
+          "name": "PureLive-dev-1.0.6-314-windows-x64-portable.zip",
+          "size": 70673535,
+          "state": "uploaded",
+          "updatedAt": "2026-10-05T12:16:19Z",
+          "url": "https://github.com/ZXS20240220/pure_live/releases/download/v1.0.6/PureLive-dev-1.0.6-314-windows-x64-portable.zip"
+        }
+      ],
+      "author": {
+        "id": "MDM6Qm90NDE4OTgyODI=",
+        "login": "github-actions[bot]",
+        "avatar": "https://avatars.githubusercontent.com/in/15368?v=4"
+      },
+      "body": "# 纯粹直播-dev\n\n### 🖥️ Windows 便携版\n\n- **Portable ZIP**：解压即用，无需安装\n- 适配：Windows 10/11 x64\n\n### 🔧 Build Metadata\n\n[BUILD_METADATA.json](https://github.com/ZXS20240220/pure_live/releases/download/v1.0.6/BUILD_METADATA.json)\n\n### 📝 本次更新\n\nversion: 1.0.6 (build 314) [Pre-release]\n\n- 播放页内小窗 (mini PiP) 透明度范围调整、控件保持不透明\n- Windows PiP 小窗在调整尺寸时会保持宽高比\n- 添加窗口置顶功能，支持在播放页切换窗口置顶状态\n- 添加自动检查更新模式，支持仅正式版/所有版本/关闭\n- 现在可以在关于页中手动检查更新\n- 斗鱼 cookie 不再排除 passport 会话字段\n- 斗鱼历史 SC 无法保证稳定获取([上游v2.6.0平台边界](https://github.com/liuchuancong/pure_live/blob/master/docs/STAGE_UPDATE_2_6_0.md)曾提及)。为防止风控等风险，现在不再自动获取斗鱼历史 SC，只有用户手动刷新 SC 面板时才尝试获取 [需验证]\n- 新增斗鱼直播间 SC 进程内本地缓存，退出/切换直播间、手动刷新不会丢失 SC 记录 [需验证]\n- (保留了斗鱼 SC 相关的本地日志以供后续验证，若未启用本地日志则无影响)\n",
+      "isDraft": false,
+      "isPrerelease": true,
+      "name": "v1.0.6",
+      "publishedAt": "2026-10-05T12:16:14Z",
+      "tagName": "v1.0.6",
+      "url": "https://github.com/ZXS20240220/pure_live/releases/tag/v1.0.6"
+    },
+    {
+      "assets": [
+        {
           "apiUrl": "https://api.github.com/repos/ZXS20240220/pure_live/releases/assets/608364554",
           "contentType": "application/json",
           "createdAt": "2026-10-03T19:05:02Z",
@@ -21,7 +65,7 @@
           "contentType": "application/zip",
           "createdAt": "2026-10-03T19:05:02Z",
           "digest": "sha256:f71d2852229268e086234970f67d35d0113e3d4713e3f9331f26e66f2cd80179",
-          "downloadCount": 6,
+          "downloadCount": 7,
           "id": "RA_kwDOUTPDUc4kQugF",
           "label": "",
           "name": "PureLive-dev-1.0.5-314-windows-x64-portable.zip",
@@ -65,7 +109,7 @@
           "contentType": "application/zip",
           "createdAt": "2026-10-03T14:03:07Z",
           "digest": "sha256:d2a00701e938897f755fdff43dc9d7f4a8cc37e14482b77c0daba0c643819c48",
-          "downloadCount": 4,
+          "downloadCount": 5,
           "id": "RA_kwDOUTPDUc4kO-qc",
           "label": "",
           "name": "PureLive-dev-1.0.4-314-windows-x64-portable.zip",
