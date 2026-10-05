@@ -128,6 +128,10 @@ class VersionUtil {
     latestBuildNumber = parsedBuildNumber;
     latestUpdateLog = selected['version_desc']?.toString() ?? '';
     prerelease = selected['prerelease'] == true;
+    // 预发布版本正常提示更新，但在更新日志前注明其预发布身份。
+    if (prerelease && latestUpdateLog.isNotEmpty) {
+      latestUpdateLog = '> **预发布版本**：此为 Pre-release 测试版，包含未充分验证的改动，请谨慎升级。\n\n$latestUpdateLog';
+    }
     downloadUrl = selected['download_url']?.toString() ?? '';
     latestWindowsMsixAvailable = selected['windows_msix_available'] == true;
     latestWindowsSetupAvailable = selected['windows_setup_available'] == true;

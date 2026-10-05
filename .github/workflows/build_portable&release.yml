@@ -336,25 +336,11 @@ jobs:
           if not desc_path.is_file():
               raise SystemExit(f"找不到 {desc_path}")
 
-          version_desc = desc_path.read_text(encoding="utf-8").strip()
-          if not version_desc:
+          template = desc_path.read_text(encoding="utf-8").strip()
+          if not template:
               raise SystemExit("assets/version_desc.md 为空")
 
-          body = f"""# 纯粹直播-dev {tag}
-
-          ### 🖥️ Windows 便携版
-
-          - **Portable ZIP**：解压即用，无需安装
-          - 适配：Windows 10/11 x64
-
-          ### 🔧 Build Metadata
-
-          [BUILD_METADATA.json](https://github.com/{repo}/releases/download/{tag}/BUILD_METADATA.json)
-
-          ### 📝 本次更新
-
-          {version_desc}
-          """.strip()
+          body = template.replace("{tag}", tag).replace("{repo}", repo)
 
           body_file = Path("release_body.txt")
           body_file.write_text(body + "\n", encoding="utf-8")

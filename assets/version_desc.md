@@ -1,4 +1,17 @@
-version: 1.0.6 (build 314)
+# 纯粹直播-dev
+
+### 🖥️ Windows 便携版
+
+- **Portable ZIP**：解压即用，无需安装
+- 适配：Windows 10/11 x64
+
+### 🔧 Build Metadata
+
+[BUILD_METADATA.json](https://github.com/{repo}/releases/download/{tag}/BUILD_METADATA.json)
+
+### 📝 本次更新
+
+version: 1.0.6 (build 314) [Pre-release]
 
 - 播放页内小窗 (mini PiP) 透明度范围调整、控件保持不透明
 - Windows PiP 小窗在调整尺寸时会保持宽高比
