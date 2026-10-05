@@ -11,6 +11,7 @@ import 'dart:developer' as developer;
 
 import 'package:flutter/scheduler.dart';
 import 'package:pure_live/common/index.dart';
+import 'package:pure_live/core/common/core_log.dart';
 import 'package:pure_live/common/services/settings/app_settings_controller.dart';
 import 'package:pure_live/common/services/settings/window_size_controller.dart';
 import 'package:pure_live/plugins/event_bus.dart';
@@ -359,6 +360,54 @@ class LivePlayController extends GetxController
     }
   }
 
+  /// Whether a Douyu voice_trlt packet has been received for the current
+  /// session. The history SC fetch is only meaningful after the server has
+  /// pushed the current SC state via WebSocket.
+  bool _douyuVoiceTrltReceived = false;
+
+  /// Whether the user has manually requested a history SC refresh for the
+  /// current session. Manual refresh is the only way to trigger the fetch.
+  bool _douyuManualScRefreshRequested = false;
+
+  @override
+  void onVoiceTrltReceived() {
+    if (!_douyuVoiceTrltReceived) {
+      CoreLog.i('Douyu SC history: voice_trlt received, room=${state.value.room.detail?.roomId}');
+    }
+    _douyuVoiceTrltReceived = true;
+    if (_douyuManualScRefreshRequested) {
+      _douyuManualScRefreshRequested = false;
+      _triggerDouyuHistoryScFetch();
+    }
+  }
+
+  void _triggerDouyuHistoryScFetch() {
+    final detail = state.value.room.detail;
+    final roomId = detail?.roomId;
+    final platform = detail?.platform;
+    if (roomId == null || platform == null) return;
+    CoreLog.i('Douyu SC history: triggering fetch, room=$roomId');
+    final loadEpoch = _roomLoadEpoch;
+    unawaited(getSuperChatMessage(roomId, platform: platform, loadEpoch: loadEpoch));
+  }
+
+  /// Manually refreshes the history SC list. For Douyu, the actual HTTP
+  /// request is deferred until a voice_trlt packet has been received, because
+  /// the queryQueue endpoint expects the WebSocket session to be established
+  /// first. Returns immediately if already pending.
+  Future<void> manualRefreshDouyuHistorySc() async {
+    final detail = state.value.room.detail;
+    if (detail?.platform != Sites.douyuSite) return;
+    CoreLog.i(
+      'Douyu SC history: manual refresh requested, room=${detail?.roomId}, voiceTrltReceived=$_douyuVoiceTrltReceived',
+    );
+    if (_douyuVoiceTrltReceived) {
+      _triggerDouyuHistoryScFetch();
+    } else {
+      _douyuManualScRefreshRequested = true;
+    }
+  }
+
   Future<void> getSuperChatMessage(String roomId, {required String? platform, required int loadEpoch}) async {
     if (!_isRoomLoadCurrent(loadEpoch, roomId, platform)) return;
     final liveSite = currentSite.liveSite;
@@ -472,6 +521,8 @@ class LivePlayController extends GetxController
     _cancelAiHighlightRefresh();
     if (superChats.isNotEmpty) superChats.clear();
     if (lockedSuperChatIds.isNotEmpty) lockedSuperChatIds.clear();
+    _douyuVoiceTrltReceived = false;
+    _douyuManualScRefreshRequested = false;
   }
 
   /// 切换某条 SC 的锁定状态。
@@ -574,7 +625,13 @@ class LivePlayController extends GetxController
       var liveRoom = fetchedRoom.withAudienceFallbackFrom(detail!);
       liveRoom = liveRoom.fillFromDetail(detail);
       updateRoom(detail: liveRoom);
-      unawaited(getSuperChatMessage(roomId, platform: platform, loadEpoch: loadEpoch));
+      // Douyu history SC is deferred until voice_trlt arrives; other platforms
+      // fetch immediately as before.
+      if (platform != Sites.douyuSite) {
+        unawaited(getSuperChatMessage(roomId, platform: platform, loadEpoch: loadEpoch));
+      } else {
+        await manualRefreshDouyuHistorySc();
+      }
       _scheduleAiHighlightRefresh();
     } catch (e) {
       if (!_isRoomLoadCurrent(loadEpoch, roomId, platform)) return;
@@ -926,7 +983,11 @@ class LivePlayController extends GetxController
       if (liveStatus) {
         // Only fetch the paid-message history for rooms that are actually
         // live; addBatchSuperChat merges by messageId so retries are safe.
-        unawaited(getSuperChatMessage(roomId, platform: requestedPlatform, loadEpoch: loadEpoch));
+        // Douyu is excluded: its history SC fetch is deferred until a
+        // voice_trlt packet arrives and the user manually refreshes.
+        if (requestedPlatform != Sites.douyuSite) {
+          unawaited(getSuperChatMessage(roomId, platform: requestedPlatform, loadEpoch: loadEpoch));
+        }
         await _handleLiveRoom(liveRoom, loadEpoch: loadEpoch);
       } else {
         _handleNotLiveRoom(liveRoom);

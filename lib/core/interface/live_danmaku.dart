@@ -39,3 +39,11 @@ abstract class LiveDanmaku {
     return Future.value();
   }
 }
+
+/// Optional mixin for platforms that support Douyu-style voice_trlt-based
+/// history SC coordination. Only DouyuDanmaku needs to implement this.
+mixin DouyuVoiceTrltAware implements LiveDanmaku {
+  /// Called when a voice_trlt packet arrives, indicating the server-side
+  /// SC state has been pushed.
+  Function()? onVoiceTrltReceived;
+}

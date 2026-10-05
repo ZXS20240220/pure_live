@@ -213,6 +213,9 @@ class _TestDanmakuHost implements DanmakuSessionHost {
 
   @override
   void addAddSuperChat(LiveMessage msg) {}
+
+  @override
+  void onVoiceTrltReceived() {}
 }
 
 class _StalledStartDanmaku extends LiveDanmaku {

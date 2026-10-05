@@ -814,10 +814,17 @@ class DouyuSite
     // Step 0: 暖机房间页风控 Cookie（进程首次，或重试时刷新）。
     await _warmupScCookies(roomId);
 
+    CoreLog.i('Douyu SC history: start fetch, room=$roomId');
     final queueResp = await _fetchScQueueWithRetry(roomId);
-    if (queueResp is! Map || queueResp['error'] != 0) return const <LiveSuperChatMessage>[];
+    if (queueResp is! Map || queueResp['error'] != 0) {
+      CoreLog.i('Douyu SC history: queryQueue failed or rejected, room=$roomId, resp=$queueResp');
+      return const <LiveSuperChatMessage>[];
+    }
     final queue = queueResp['data'];
-    if (queue is! List || queue.isEmpty) return const <LiveSuperChatMessage>[];
+    if (queue is! List || queue.isEmpty) {
+      CoreLog.i('Douyu SC history: queryQueue returned empty, room=$roomId');
+      return const <LiveSuperChatMessage>[];
+    }
 
     final ids = <String>[];
     for (final item in queue) {
@@ -825,13 +832,23 @@ class DouyuSite
       final id = item['voiceRecordId']?.toString() ?? '';
       if (id.isNotEmpty) ids.add(id);
     }
-    if (ids.isEmpty) return const <LiveSuperChatMessage>[];
+    if (ids.isEmpty) {
+      CoreLog.i('Douyu SC history: no valid voiceRecordId in queue, room=$roomId, queueLength=${queue.length}');
+      return const <LiveSuperChatMessage>[];
+    }
+    CoreLog.i('Douyu SC history: queryQueue returned ${ids.length} ids, room=$roomId');
 
     // Step 2: POST batch details，同样带暖机 Cookie 与重试。
     final detailResp = await _fetchScDetailWithRetry(roomId, ids);
-    if (detailResp is! Map || detailResp['error'] != 0) return const <LiveSuperChatMessage>[];
+    if (detailResp is! Map || detailResp['error'] != 0) {
+      CoreLog.i('Douyu SC history: batchVoiceDetail failed or rejected, room=$roomId, ids=${ids.length}');
+      return const <LiveSuperChatMessage>[];
+    }
     final recordList = detailResp['data'] is Map ? detailResp['data']['recordList'] : null;
-    if (recordList is! List) return const <LiveSuperChatMessage>[];
+    if (recordList is! List) {
+      CoreLog.i('Douyu SC history: batchVoiceDetail missing recordList, room=$roomId');
+      return const <LiveSuperChatMessage>[];
+    }
 
     final messages = <LiveSuperChatMessage>[];
     for (final item in recordList) {
@@ -868,6 +885,7 @@ class DouyuSite
         ),
       );
     }
+    CoreLog.i('Douyu SC history: fetched ${messages.length} messages, room=$roomId');
     return messages;
   }
 
@@ -914,7 +932,7 @@ class DouyuSite
       try {
         return await request();
       } catch (e) {
-        CoreLog.d('Douyu SC request failed (attempt ${attempt + 1}/$maxAttempts): $e');
+        CoreLog.i('Douyu SC history: request failed (attempt ${attempt + 1}/$maxAttempts), room=$roomId, error=$e');
         if (attempt == maxAttempts - 1) return null;
         await Future<void>.delayed(_scRetryDelay * (attempt + 1));
         await _warmupScCookies(roomId, force: true);

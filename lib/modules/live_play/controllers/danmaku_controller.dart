@@ -264,6 +264,13 @@ class DanmakuController extends GetxController {
       _main.updateDanmakuRoomId(null);
     };
 
+    if (engine is DouyuVoiceTrltAware) {
+      engine.onVoiceTrltReceived = () {
+        if (!_acceptsCallback(engine, key, token)) return;
+        _main.onVoiceTrltReceived();
+      };
+    }
+
     engine.onReady = () {
       if (!_acceptsCallback(engine, key, token)) return;
       _connectingKey = null;

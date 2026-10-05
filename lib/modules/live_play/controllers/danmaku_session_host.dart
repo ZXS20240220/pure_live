@@ -20,4 +20,8 @@ abstract interface class DanmakuSessionHost {
   void clearRenderedDanmaku();
 
   void addAddSuperChat(LiveMessage msg) {}
+
+  /// Called when a Douyu voice_trlt packet arrives, allowing the host to
+  /// decide whether to trigger a history SC fetch.
+  void onVoiceTrltReceived() {}
 }

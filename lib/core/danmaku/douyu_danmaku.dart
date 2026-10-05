@@ -12,7 +12,7 @@ import 'package:pure_live/core/common/web_socket_util.dart';
 import 'package:pure_live/core/interface/live_danmaku.dart';
 import 'package:pure_live/core/site/douyu/douyu_utils.dart';
 
-class DouyuDanmaku implements LiveDanmaku {
+class DouyuDanmaku with DouyuVoiceTrltAware implements LiveDanmaku {
   DouyuDanmaku({bool Function()? filterSuspectedAutomatedMessages, bool Function()? filterActivityMessages})
     : _filterSuspectedAutomatedMessages = filterSuspectedAutomatedMessages ?? (() => true),
       _filterActivityMessages = filterActivityMessages ?? (() => true);
@@ -178,6 +178,7 @@ class DouyuDanmaku implements LiveDanmaku {
         } else if (type == "voice_trlt") {
           liveMsg = _parseVoiceSuperChat(jsonData);
           isRealPriceSuperChat = true;
+          onVoiceTrltReceived?.call();
         }
         if (liveMsg == null) continue;
         if (liveMsg.type == LiveMessageType.superChat) {
