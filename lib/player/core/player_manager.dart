@@ -3361,12 +3361,7 @@ class PlayerManager {
         }
       }
     } else if (_usesWindowsPip) {
-      if (_pipTransitionInFlight ||
-          _disposed ||
-          _isClosing ||
-          (_playbackIntentEstablished && !_playbackRequested) ||
-          _currentPlayer == null ||
-          !isInitialized.value) {
+      if (_pipTransitionInFlight || _disposed || _isClosing || _currentPlayer == null || !isInitialized.value) {
         return;
       }
       if (isInPip.value) return;
