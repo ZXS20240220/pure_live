@@ -11,9 +11,7 @@
 
 ### 📝 本次更新
 
-##### version: 1.0.6 (build 314) [Pre-release]
-
-> *虽然本次更新存在仍需验证的内容，但建议更新*
+version: 1.0.6 (build 314) [Pre-release]
 
 - 播放页内小窗 (mini PiP) 透明度范围调整、控件保持不透明
 - Windows PiP 小窗在调整尺寸时会保持宽高比
