@@ -1130,6 +1130,7 @@ class RoomCard extends StatelessWidget {
                           AudienceMetricType.unknown => 'audience_count',
                         };
                         final displayValue = value.isEmpty ? i18n('audience_waiting') : readableCount(value);
+                        final tooltipValue = value.isEmpty ? i18n('audience_waiting') : value;
                         return CoverMetricBadge(
                           key: const ValueKey('cover-audience-metric'),
                           icon: switch (type) {
@@ -1139,7 +1140,7 @@ class RoomCard extends StatelessWidget {
                             _ => Icons.whatshot_rounded,
                           },
                           value: displayValue,
-                          semanticLabel: '${i18n(labelKey)} $displayValue',
+                          semanticLabel: '${i18n(labelKey)} $tooltipValue',
                           dense: dense,
                         );
                       }),

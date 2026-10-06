@@ -225,12 +225,13 @@ class RoomCardCompact extends StatelessWidget {
         preferRealOnline: app.preferRealOnlineCounts.v,
         platformEnabled: app.isRealOnlineEnabledFor(room.platform),
       );
-      final text = value.isEmpty ? i18n('audience_unknown') : readableCount(value);
+      final displayText = value.isEmpty ? i18n('audience_unknown') : readableCount(value);
+      final tooltipText = value.isEmpty ? i18n('audience_unknown') : value;
       return Tooltip(
-        message: text,
+        message: tooltipText,
         waitDuration: const Duration(milliseconds: 400),
         child: Text(
-          text,
+          displayText,
           maxLines: 1,
           overflow: TextOverflow.fade,
           softWrap: false,

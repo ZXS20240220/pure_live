@@ -881,6 +881,11 @@ class _RoomSwitchCard extends StatelessWidget {
         : audience.isEmpty
         ? i18n('audience_unknown')
         : readableCount(audience);
+    final metaTooltip = history
+        ? meta
+        : audience.isEmpty
+        ? i18n('audience_unknown')
+        : audience;
 
     return Material(
       color: Colors.transparent,
@@ -898,15 +903,15 @@ class _RoomSwitchCard extends StatelessWidget {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: compact
-                ? _buildCompactLayout(context, title, nick, meta)
-                : _buildLargeLayout(context, title, nick, meta),
+                ? _buildCompactLayout(context, title, nick, meta, metaTooltip)
+                : _buildLargeLayout(context, title, nick, meta, metaTooltip),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildLargeLayout(BuildContext context, String title, String nick, String meta) {
+  Widget _buildLargeLayout(BuildContext context, String title, String nick, String meta, String metaTooltip) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     return Column(
@@ -915,6 +920,7 @@ class _RoomSwitchCard extends StatelessWidget {
           child: _RoomSwitchCover(
             room: room,
             meta: meta,
+            metaTooltip: metaTooltip,
             isPinned: _isPinned,
             showDelete: _effectiveShowDelete,
             onDelete: onRemoveFromHistory,
@@ -974,7 +980,7 @@ class _RoomSwitchCard extends StatelessWidget {
   /// 历史 tab：中间主播名 + 观看时间（不显示标题），右侧平台徽章居上、
   /// 删除按钮居下，两者靠右对齐。
   /// 所有文本统一渐隐截断（TextOverflow.fade）。不受房间卡片设置控制，样式固定。
-  Widget _buildCompactLayout(BuildContext context, String title, String nick, String meta) {
+  Widget _buildCompactLayout(BuildContext context, String title, String nick, String meta, String metaTooltip) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final nickText = nick.isEmpty ? i18n('unknown') : nick;
@@ -1092,7 +1098,7 @@ class _RoomSwitchCard extends StatelessWidget {
                 badgesRow,
                 const SizedBox(height: 6),
                 Tooltip(
-                  message: meta,
+                  message: metaTooltip,
                   waitDuration: const Duration(milliseconds: 400),
                   child: Text(
                     meta,
@@ -1119,12 +1125,14 @@ class _RoomSwitchCover extends StatelessWidget {
   const _RoomSwitchCover({
     required this.room,
     required this.meta,
+    required this.metaTooltip,
     this.isPinned = false,
     this.showDelete = false,
     this.onDelete,
   });
   final LiveRoom room;
   final String meta;
+  final String metaTooltip;
   final bool isPinned;
   final bool showDelete;
   final VoidCallback? onDelete;
@@ -1226,7 +1234,7 @@ class _RoomSwitchCover extends StatelessWidget {
               ),
             ),
             child: Tooltip(
-              message: meta,
+              message: metaTooltip,
               waitDuration: const Duration(milliseconds: 400),
               child: Text(
                 meta,
