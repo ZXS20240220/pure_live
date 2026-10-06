@@ -457,7 +457,11 @@ jobs:
           result = dict(current_release)
 
           def fetch_stable_from_github():
-              """从 GitHub API 查找最新稳定版，并拉取其 version.json 作为 latest_stable。"""
+              """从 GitHub Release API 构造最新稳定版信息。
+
+              注意：不能从稳定版 tag 拉取 version.json，因为 sync job 在 tag 创建
+              之后才提交更新，tag 处的 version.json 永远滞后一版。因此直接从
+              Release API 响应解析版本号、build_number 和更新日志。"""
               token = os.environ.get("GITHUB_TOKEN", "")
               repo = os.environ.get("GITHUB_REPOSITORY", "ZXS20240220/pure_live")
               headers = {
@@ -477,47 +481,82 @@ jobs:
                   print(f"⚠️ 无法获取 releases 列表，跳过 latest_stable 自动填充: {e}", file=sys.stderr)
                   return None
 
-              stable_tag = None
+              stable_rel = None
               for rel in releases:
                   if not rel.get("prerelease", False):
-                      stable_tag = rel.get("tag_name")
+                      stable_rel = rel
                       break
-              if not stable_tag:
+              if not stable_rel:
                   print("⚠️ 未找到稳定版 Release，跳过 latest_stable 自动填充", file=sys.stderr)
                   return None
 
-              raw_url = f"https://raw.githubusercontent.com/{repo}/{stable_tag}/assets/version.json"
-              raw_req = urllib.request.Request(raw_url, headers={"User-Agent": "PureLive-Release-Feed"})
-              try:
-                  with urllib.request.urlopen(raw_req, timeout=20) as resp:
-                      stable_feed = json.loads(resp.read().decode("utf-8"))
-              except (urllib.error.URLError, json.JSONDecodeError) as e:
-                  print(f"⚠️ 无法拉取稳定版 version.json ({stable_tag})，跳过 latest_stable: {e}", file=sys.stderr)
+              tag_name = stable_rel.get("tag_name", "")
+              tag_ver = re.match(r'^v?(\d+\.\d+\.\d+)', tag_name)
+              if not tag_ver:
+                  print(f"⚠️ 稳定版 tag 格式无法解析版本号: {tag_name}", file=sys.stderr)
+                  return None
+              sv = tag_ver.group(1)
+
+              # 从便携包资产名解析 build_number：PureLive-dev-{version}-{build}-windows-x64-portable.zip
+              sb = None
+              for asset in stable_rel.get("assets", []):
+                  aname = asset.get("name", "")
+                  m = re.search(rf'^PureLive-dev-{re.escape(sv)}-(\d+)-windows-x64-portable\.zip$', aname)
+                  if m:
+                      sb = int(m.group(1))
+                      break
+              if sb is None:
+                  print(f"⚠️ 无法从稳定版资产名解析 build_number: {tag_name}", file=sys.stderr)
                   return None
 
-              if not isinstance(stable_feed, dict):
-                  return None
-              sv = stable_feed.get("version", "")
-              sb = stable_feed.get("build_number")
-              if not sv or not sb:
-                  return None
-              print(f"✓ 从 {stable_tag} 拉取稳定版 {sv}+{sb} 作为 latest_stable")
+              # 从 release body 解析更新日志（与 version_desc.md 相同的处理逻辑）
+              body = stable_rel.get("body", "") or ""
+              marker = re.search(r'^###\s+.*本次更新\s*$', body, re.MULTILINE)
+              changelog = body[marker.end():].strip() if marker else body.strip()
+              changelog = re.sub(r'^version:.*$(?:\r?\n)?', '', changelog, count=1, flags=re.MULTILINE).strip()
+              sdesc = f"version: {sv} (build {sb})"
+              if changelog:
+                  sdesc += f"\n\n{changelog}"
+
+              # 复用当前发布的 platforms.windows 结构，仅替换版本字段
+              win_tpl = platforms.get("windows", {})
+              stable_win = dict(win_tpl)
+              stable_win.update({
+                  "version": sv,
+                  "build_number": sb,
+                  "version_num": ver_num(sv, sb),
+                  "version_desc": sdesc,
+                  "prerelease": False,
+                  "download_url": download_url,
+              })
+
+              stable_feed = {
+                  "version": sv,
+                  "build_number": sb,
+                  "version_num": ver_num(sv, sb),
+                  "version_desc": sdesc,
+                  "prerelease": False,
+                  "download_url": download_url,
+                  "platforms": {"windows": stable_win},
+              }
+              print(f"✓ 从 Release API 构造稳定版 {sv}+{sb} ({tag_name}) 作为 latest_stable")
               return stable_feed
 
           # latest_stable 维护最新稳定版信息，供客户端 stableOnly 模式使用：
           # - 发布稳定版（prerelease=false）时，latest_stable 更新为本次发布；
-          # - 发布预发布版时，优先保留已有 latest_stable；若缺失，则从 GitHub
-          #   自动检索最新稳定版 Release 并拉取其 version.json 填充。
+          # - 发布预发布版时，始终从 GitHub 重新检索最新稳定版 Release，
+          #   拉取其 version.json 填充 latest_stable，确保信息不陈旧；
+          #   仅在拉取失败时回退到已有的 latest_stable（若存在）。
           if not prerelease:
               result["latest_stable"] = dict(current_release)
           else:
-              existing_stable = existing.get("latest_stable")
-              if isinstance(existing_stable, dict) and existing_stable.get("version"):
-                  result["latest_stable"] = existing_stable
+              fetched = fetch_stable_from_github()
+              if fetched is not None:
+                  result["latest_stable"] = fetched
               else:
-                  fetched = fetch_stable_from_github()
-                  if fetched is not None:
-                      result["latest_stable"] = fetched
+                  existing_stable = existing.get("latest_stable")
+                  if isinstance(existing_stable, dict) and existing_stable.get("version"):
+                      result["latest_stable"] = existing_stable
 
           Path("assets/version.json").write_text(
               json.dumps(result, ensure_ascii=False, indent=2) + "\n",
