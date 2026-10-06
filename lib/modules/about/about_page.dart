@@ -191,7 +191,7 @@ class _AboutPageState extends State<AboutPage> {
     );
     bool succeeded = false;
     try {
-      succeeded = await VersionUtil().checkUpdate();
+      succeeded = await VersionUtil().checkUpdate(forceRefresh: true);
     } catch (_) {
       succeeded = false;
     }

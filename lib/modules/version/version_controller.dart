@@ -93,7 +93,7 @@ class VersionController extends GetxController {
     error.value = false;
     _clearReleaseState();
     try {
-      final updateSucceeded = await (updateChecker?.call() ?? VersionUtil().checkUpdate());
+      final updateSucceeded = await (updateChecker?.call() ?? VersionUtil().checkUpdate(forceRefresh: true));
       if (!updateSucceeded) throw StateError('Update feed request failed');
       await getPackageInfo();
 

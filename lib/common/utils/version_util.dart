@@ -103,7 +103,10 @@ class VersionUtil {
   /// 完整版本标识，例如 3.1.4+4200；无 build 号时回退为 3.1.4。
   static String get fullVersion => buildNumber > 0 ? '$version+$buildNumber' : version;
 
-  Future<bool> checkUpdate() async {
+  Future<bool> checkUpdate({bool forceRefresh = false}) async {
+    if (forceRefresh) {
+      _cachedVersionJson = null;
+    }
     if (_cachedVersionJson != null) {
       try {
         _applyVersionData(_cachedVersionJson!);
