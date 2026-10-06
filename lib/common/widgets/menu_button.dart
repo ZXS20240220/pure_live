@@ -110,8 +110,7 @@ class MenuButton extends StatelessWidget {
   }
 
   void _showKeyboardShortcuts(BuildContext context) {
-    final rootContext = Navigator.of(context, rootNavigator: true).context;
-    showDialog(context: rootContext, builder: (ctx) => const _KeyboardShortcutsDialog());
+    showKeyboardShortcutsDialog(context);
   }
 
   @override
@@ -302,8 +301,8 @@ class MenuListTile extends StatelessWidget {
   }
 }
 
-class _KeyboardShortcutsDialog extends StatelessWidget {
-  const _KeyboardShortcutsDialog();
+class KeyboardShortcutsDialog extends StatelessWidget {
+  const KeyboardShortcutsDialog({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -354,6 +353,7 @@ class _KeyboardShortcutsDialog extends StatelessWidget {
               _ShortcutItem(keys: const ['Ctrl', 'F'], desc: '窗口全屏切换'),
               _ShortcutItem(keys: const ['Ctrl', 'E'], desc: '跳到当前直播进度'),
               _ShortcutItem(keys: const ['Ctrl', 'S'], desc: '截取当前画面并保存'),
+              _ShortcutItem(keys: const ['Ctrl', 'D'], desc: '弹幕显示开关'),
               _ShortcutItem(keys: const ['Ctrl', 'W'], desc: '全局静音开关'),
               _ShortcutItem(keys: const ['1'], desc: '切换到上一个直播间'),
               _ShortcutItem(keys: const ['2'], desc: '切换到下一个直播间'),
@@ -381,6 +381,7 @@ class _KeyboardShortcutsDialog extends StatelessWidget {
               _ShortcutItem(keys: const ['Ctrl', 'F'], desc: 'Toggle fullscreen'),
               _ShortcutItem(keys: const ['Ctrl', 'E'], desc: 'Seek to live edge'),
               _ShortcutItem(keys: const ['Ctrl', 'S'], desc: 'Take screenshot'),
+              _ShortcutItem(keys: const ['Ctrl', 'D'], desc: 'Toggle danmaku display'),
               _ShortcutItem(keys: const ['1'], desc: 'Previous room'),
               _ShortcutItem(keys: const ['2'], desc: 'Next room'),
               _ShortcutItem(keys: const ['↑'], desc: 'Volume +5%'),
@@ -572,4 +573,9 @@ class _KeyCombo extends StatelessWidget {
       ],
     );
   }
+}
+
+void showKeyboardShortcutsDialog(BuildContext context) {
+  final rootContext = Navigator.of(context, rootNavigator: true).context;
+  showDialog(context: rootContext, builder: (ctx) => const KeyboardShortcutsDialog());
 }

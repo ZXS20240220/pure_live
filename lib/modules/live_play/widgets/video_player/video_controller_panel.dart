@@ -34,7 +34,7 @@ import 'package:pure_live/modules/live_play/widgets/local_interaction/local_inte
 enum TopActionLeadingSlot { back, datetime, battery }
 
 @visibleForTesting
-enum TopActionTrailingSlot { roomHistory, datetime, battery, alwaysOnTop, audioOnly, cast, pip }
+enum TopActionTrailingSlot { roomHistory, datetime, battery, keyboardShortcuts, alwaysOnTop, audioOnly, cast, pip }
 
 /// Resolves the fixed order of the fullscreen leading actions. On Android the
 /// clock and battery sit beside Back; PiP moves to the opposite corner so the
@@ -61,6 +61,7 @@ List<TopActionTrailingSlot> resolveTopActionTrailingSlots({
     if (fullscreen) TopActionTrailingSlot.roomHistory,
     if (fullscreen && !android) TopActionTrailingSlot.datetime,
     if (fullscreen && !android) TopActionTrailingSlot.battery,
+    if (windows) TopActionTrailingSlot.keyboardShortcuts,
     if (windows) TopActionTrailingSlot.alwaysOnTop,
     TopActionTrailingSlot.audioOnly,
     if (android) TopActionTrailingSlot.cast,
@@ -486,6 +487,18 @@ class TopActionBar extends StatelessWidget {
                     ),
                     TopActionTrailingSlot.datetime => const DatetimeInfo(),
                     TopActionTrailingSlot.battery => BatteryInfo(controller: controller),
+                    TopActionTrailingSlot.keyboardShortcuts => IconButton(
+                      key: const ValueKey('playback-action-keyboard-shortcuts'),
+                      icon: const Icon(Icons.keyboard_rounded),
+                      tooltip: i18n('keyboard_shortcuts'),
+                      visualDensity: VisualDensity.compact,
+                      iconSize: 21,
+                      color: Colors.white,
+                      onPressed: () {
+                        controller.enableController();
+                        showKeyboardShortcutsDialog(context);
+                      },
+                    ),
                     TopActionTrailingSlot.alwaysOnTop => AlwaysOnTopButton(
                       key: const ValueKey('playback-action-always-on-top'),
                       controller: controller,

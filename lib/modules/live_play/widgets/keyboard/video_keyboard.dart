@@ -148,6 +148,11 @@ class _VideoKeyboardShortcutsState extends State<VideoKeyboardShortcuts> {
         unawaited(controller.takeScreenshot());
         return true;
       }
+      // Ctrl+D：弹幕显示开关
+      if (ctrlOrCmd && event.logicalKey == LogicalKeyboardKey.keyD) {
+        controller.hideDanmaku.toggle();
+        return true;
+      }
       if (ctrlOrCmd && event.logicalKey == LogicalKeyboardKey.keyW) {
         final v = SettingsService.to.vol;
         v.globalVolumeMute.v = !v.globalVolumeMute.v;
