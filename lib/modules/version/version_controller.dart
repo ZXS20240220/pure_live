@@ -97,19 +97,19 @@ class VersionController extends GetxController {
       if (!updateSucceeded) throw StateError('Update feed request failed');
       await getPackageInfo();
 
-      final latestVersion = VersionUtil.latestVersion.trim();
+      final latestVersion = VersionUtil.effectiveLatestVersion.trim();
       final newVersion = VersionUtil.isNewerVersion(latestVersion, packageInfo.version);
       final assets = ReleaseAssetUrls(
         projectUrl: VersionUtil.projectUrl,
         version: latestVersion,
-        buildNumber: VersionUtil.latestBuildNumber ?? 0,
+        buildNumber: VersionUtil.effectiveLatestBuildNumber ?? 0,
       );
       if (!assets.isValid) throw const FormatException('Incomplete release identity');
 
       hasNewVersion.value = newVersion;
-      updateLog.value = VersionUtil.latestUpdateLog;
-      windowsSetupUrl.value = VersionUtil.latestWindowsSetupAvailable ? assets.windowsSetup : '';
-      windowsMsixUrl.value = VersionUtil.latestWindowsMsixAvailable ? assets.windowsMsix : '';
+      updateLog.value = VersionUtil.effectiveLatestUpdateLog;
+      windowsSetupUrl.value = VersionUtil.effectiveWindowsSetupAvailable ? assets.windowsSetup : '';
+      windowsMsixUrl.value = VersionUtil.effectiveWindowsMsixAvailable ? assets.windowsMsix : '';
       windowsPortableUrl.value = assets.windowsPortable;
       macosUrl.value = assets.macosUniversal;
     } catch (_) {

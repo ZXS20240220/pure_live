@@ -50,6 +50,35 @@ class VersionUtil {
   static String downloadUrl = '';
   static bool latestWindowsMsixAvailable = false;
   static bool latestWindowsSetupAvailable = false;
+
+  // 最新稳定版信息（stableOnly 模式下使用），由 version.json 的 latest_stable 字段提供。
+  static String latestStableVersion = '';
+  static int? latestStableBuildNumber;
+  static int latestStableVersionNum = 0;
+  static String latestStableUpdateLog = '';
+  static bool latestStablePrerelease = false;
+  static String latestStableDownloadUrl = '';
+  static bool latestStableWindowsMsixAvailable = false;
+  static bool latestStableWindowsSetupAvailable = false;
+
+  static bool get _isStableOnlyMode {
+    try {
+      return SettingsService.to.app.autoCheckUpdateMode == AutoCheckUpdateMode.stableOnly;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static String get effectiveLatestVersion => _isStableOnlyMode ? latestStableVersion : latestVersion;
+  static int? get effectiveLatestBuildNumber => _isStableOnlyMode ? latestStableBuildNumber : latestBuildNumber;
+  static int get effectiveLatestVersionNum => _isStableOnlyMode ? latestStableVersionNum : latestVersionNum;
+  static String get effectiveLatestUpdateLog => _isStableOnlyMode ? latestStableUpdateLog : latestUpdateLog;
+  static bool get effectivePrerelease => _isStableOnlyMode ? latestStablePrerelease : prerelease;
+  static String get effectiveDownloadUrl => _isStableOnlyMode ? latestStableDownloadUrl : downloadUrl;
+  static bool get effectiveWindowsMsixAvailable =>
+      _isStableOnlyMode ? latestStableWindowsMsixAvailable : latestWindowsMsixAvailable;
+  static bool get effectiveWindowsSetupAvailable =>
+      _isStableOnlyMode ? latestStableWindowsSetupAvailable : latestWindowsSetupAvailable;
   var allReleased = [].obs;
 
   static Map<String, dynamic>? _cachedVersionJson;
@@ -135,6 +164,42 @@ class VersionUtil {
     downloadUrl = selected['download_url']?.toString() ?? '';
     latestWindowsMsixAvailable = selected['windows_msix_available'] == true;
     latestWindowsSetupAvailable = selected['windows_setup_available'] == true;
+
+    // 解析 latest_stable（若存在），供 stableOnly 模式使用。
+    final latestStable = data['latest_stable'];
+    if (latestStable is Map) {
+      final stableSelected = selectPlatformVersionData(
+        Map<String, dynamic>.from(latestStable),
+        platform: _currentPlatformKey,
+      );
+      final stableVersion = stableSelected['version']?.toString().trim() ?? '';
+      final stableBuildNumber = _versionInt(stableSelected['build_number']);
+      if (stableVersion.isNotEmpty && stableBuildNumber != null && stableBuildNumber > 0) {
+        latestStableVersion = stableVersion;
+        latestStableVersionNum = _versionInt(stableSelected['version_num']) ?? 0;
+        latestStableBuildNumber = stableBuildNumber;
+        latestStableUpdateLog = stableSelected['version_desc']?.toString() ?? '';
+        latestStablePrerelease = stableSelected['prerelease'] == true;
+        latestStableDownloadUrl = stableSelected['download_url']?.toString() ?? '';
+        latestStableWindowsMsixAvailable = stableSelected['windows_msix_available'] == true;
+        latestStableWindowsSetupAvailable = stableSelected['windows_setup_available'] == true;
+      } else {
+        _resetStableFields();
+      }
+    } else {
+      _resetStableFields();
+    }
+  }
+
+  static void _resetStableFields() {
+    latestStableVersion = '';
+    latestStableBuildNumber = null;
+    latestStableVersionNum = 0;
+    latestStableUpdateLog = '';
+    latestStablePrerelease = false;
+    latestStableDownloadUrl = '';
+    latestStableWindowsMsixAvailable = false;
+    latestStableWindowsSetupAvailable = false;
   }
 
   /// Keeps update announcements aligned with the artifacts that were really
@@ -156,13 +221,27 @@ class VersionUtil {
     return 'default';
   }
 
+  /// 根据当前自动检查更新模式判断是否有新版本。
+  /// - all 模式：对比最新版本（可能为预发布版）
+  /// - stableOnly 模式：对比最新稳定版
   static bool hasNewVersion() {
-    if (isNewerVersion(latestVersion, version)) return true;
+    if (_isStableOnlyMode) return hasNewStableVersion();
+    return _hasNewVersionAgainst(latestVersion, latestBuildNumber);
+  }
+
+  /// 判断是否有比当前版本更新的稳定版。
+  static bool hasNewStableVersion() {
+    if (latestStableVersion.isEmpty) return false;
+    return _hasNewVersionAgainst(latestStableVersion, latestStableBuildNumber);
+  }
+
+  static bool _hasNewVersionAgainst(String targetVersion, int? targetBuildNumber) {
+    if (isNewerVersion(targetVersion, version)) return true;
     // 语义版本相同（独立分支在同一语义版本上按 build 号迭代，如
     // 3.1.4+4103 → 3.1.4+4200）时，回退比较构建号。
-    final latestBuild = latestBuildNumber;
-    if (latestBuild != null && buildNumber > 0 && _normalizeVersion(latestVersion) == _normalizeVersion(version)) {
-      return latestBuild > buildNumber;
+    final targetBuild = targetBuildNumber;
+    if (targetBuild != null && buildNumber > 0 && _normalizeVersion(targetVersion) == _normalizeVersion(version)) {
+      return targetBuild > buildNumber;
     }
     return false;
   }
@@ -213,6 +292,7 @@ class VersionUtil {
     downloadUrl = '';
     latestWindowsMsixAvailable = false;
     latestWindowsSetupAvailable = false;
+    _resetStableFields();
     isHasNewVersion.value = false;
   }
 }

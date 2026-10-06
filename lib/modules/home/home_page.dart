@@ -209,10 +209,9 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin,
       final succeeded = await checkForUpdate();
       final hasNewVersion = widget.hasNewVersion ?? VersionUtil.hasNewVersion;
       final autoCheckMode = SettingsService.to.app.autoCheckUpdateMode;
-      final skippedByMode =
-          autoCheckMode == AutoCheckUpdateMode.off ||
-          (autoCheckMode == AutoCheckUpdateMode.stableOnly && VersionUtil.prerelease);
-      if (!mounted || !succeeded || skippedByMode || !hasNewVersion()) {
+      // off 模式直接跳过；all / stableOnly 由 hasNewVersion() 内部按模式判断
+      // （stableOnly 模式下仅对比最新稳定版 latest_stable）。
+      if (!mounted || !succeeded || autoCheckMode == AutoCheckUpdateMode.off || !hasNewVersion()) {
         return;
       }
       await showDialog<void>(

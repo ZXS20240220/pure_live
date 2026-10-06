@@ -57,13 +57,13 @@ Future<void> downloadAndInstallApk(String apkUrl, {String? fileName}) async {
   final resolvedFileName = safeDownloadFileName(uri.toString(), suggestedName: fileName);
   ToastUtil.show(
     fileName == null
-        ? i18n('downloading_apk', args: {'version': VersionUtil.latestVersion})
+        ? i18n('downloading_apk', args: {'version': VersionUtil.effectiveLatestVersion})
         : i18n('downloading_app', args: {'app': resolvedFileName}),
   );
   Get.dialog(
     DownloadApkDialog(
       apkUrl: uri.toString(),
-      version: VersionUtil.latestVersion,
+      version: VersionUtil.effectiveLatestVersion,
       fileName: fileName == null ? null : resolvedFileName,
       downloadDirectoryProvider: () async => Directory(downloadDirectory),
     ),
