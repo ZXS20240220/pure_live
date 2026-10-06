@@ -2,7 +2,7 @@
   "version": "1.0.6",
   "build_number": 314,
   "version_num": 10006314,
-  "version_desc": "version: 1.0.6 (build 314)\n\n- 播放页内小窗 (mini PiP) 透明度范围调整、控件保持不透明\n- Windows PiP 小窗在调整尺寸时会保持宽高比\n- 添加窗口置顶功能，支持在播放页切换窗口置顶状态\n- 添加自动检查更新模式，支持仅正式版/所有版本/关闭\n- 现在可以在关于页中手动检查更新\n- 斗鱼 cookie 不再排除 passport 会话字段\n- 斗鱼历史 SC 无法保证稳定获取([上游v2.6.0平台边界](https://github.com/liuchuancong/pure_live/blob/master/docs/STAGE_UPDATE_2_6_0.md)曾提及)。为防止风控等风险，现在不再自动获取斗鱼历史 SC，只有用户手动刷新 SC 面板时才尝试获取 [需验证]\n- 新增斗鱼直播间 SC 进程内本地缓存，退出/切换直播间、手动刷新不会丢失 SC 记录 [需验证]\n- (保留了斗鱼 SC 相关的本地日志以供后续验证，若未启用本地日志则无影响)",
+  "version_desc": "version: 1.0.6 (build 314)\n\n- 播放页内小窗 (mini PiP) 透明度范围调整、控件保持不透明\n- Windows PiP 小窗在调整尺寸时会保持宽高比\n- 现在所有的小窗都会根据实际直播画面自动调整窗口比例\n- 现在 Windows PiP 小窗观看会计入观看时长 (其他小窗仍不计入)\n- 添加窗口置顶功能，支持在播放页切换窗口置顶状态\n- 添加自动检查更新模式，支持仅正式版/所有版本/关闭\n- 现在可以在关于页中手动检查更新，<关于>更名为<关于与更新>\n- 下载更新时的目录可以设置并持久化保存\n- 斗鱼 cookie 不再排除 passport 会话字段\n- 斗鱼历史 SC 无法保证稳定获取([上游v2.6.0平台边界](https://github.com/liuchuancong/pure_live/blob/master/docs/STAGE_UPDATE_2_6_0.md)曾提及)。**为防止风控等风险，现在不再自动获取斗鱼历史 SC**，只有用户手动刷新 SC 面板时才尝试获取 [需验证]\n- 新增斗鱼直播间 SC 进程内本地缓存，退出/切换直播间、手动刷新不会丢失 SC 记录 [需验证]\n- (保留了斗鱼 SC 相关的本地日志以供后续验证，若未启用本地日志则无影响)",
   "prerelease": true,
   "download_url": "https://github.com/ZXS20240220/pure_live/releases",
   "platforms": {
@@ -12,9 +12,29 @@
       "version": "1.0.6",
       "build_number": 314,
       "version_num": 10006314,
-      "version_desc": "version: 1.0.6 (build 314)\n\n- 播放页内小窗 (mini PiP) 透明度范围调整、控件保持不透明\n- Windows PiP 小窗在调整尺寸时会保持宽高比\n- 添加窗口置顶功能，支持在播放页切换窗口置顶状态\n- 添加自动检查更新模式，支持仅正式版/所有版本/关闭\n- 现在可以在关于页中手动检查更新\n- 斗鱼 cookie 不再排除 passport 会话字段\n- 斗鱼历史 SC 无法保证稳定获取([上游v2.6.0平台边界](https://github.com/liuchuancong/pure_live/blob/master/docs/STAGE_UPDATE_2_6_0.md)曾提及)。为防止风控等风险，现在不再自动获取斗鱼历史 SC，只有用户手动刷新 SC 面板时才尝试获取 [需验证]\n- 新增斗鱼直播间 SC 进程内本地缓存，退出/切换直播间、手动刷新不会丢失 SC 记录 [需验证]\n- (保留了斗鱼 SC 相关的本地日志以供后续验证，若未启用本地日志则无影响)",
+      "version_desc": "version: 1.0.6 (build 314)\n\n- 播放页内小窗 (mini PiP) 透明度范围调整、控件保持不透明\n- Windows PiP 小窗在调整尺寸时会保持宽高比\n- 现在所有的小窗都会根据实际直播画面自动调整窗口比例\n- 现在 Windows PiP 小窗观看会计入观看时长 (其他小窗仍不计入)\n- 添加窗口置顶功能，支持在播放页切换窗口置顶状态\n- 添加自动检查更新模式，支持仅正式版/所有版本/关闭\n- 现在可以在关于页中手动检查更新，<关于>更名为<关于与更新>\n- 下载更新时的目录可以设置并持久化保存\n- 斗鱼 cookie 不再排除 passport 会话字段\n- 斗鱼历史 SC 无法保证稳定获取([上游v2.6.0平台边界](https://github.com/liuchuancong/pure_live/blob/master/docs/STAGE_UPDATE_2_6_0.md)曾提及)。**为防止风控等风险，现在不再自动获取斗鱼历史 SC**，只有用户手动刷新 SC 面板时才尝试获取 [需验证]\n- 新增斗鱼直播间 SC 进程内本地缓存，退出/切换直播间、手动刷新不会丢失 SC 记录 [需验证]\n- (保留了斗鱼 SC 相关的本地日志以供后续验证，若未启用本地日志则无影响)",
       "prerelease": true,
       "download_url": "https://github.com/ZXS20240220/pure_live/releases"
+    }
+  },
+  "latest_stable": {
+    "version": "1.0.4",
+    "build_number": 314,
+    "version_num": 10004314,
+    "version_desc": "version: 1.0.4 (build 314)\n\n- 添加定时同步 release 数据的工作流\n- 更新应用名称为 PureLive dev，调整相关构建和发布配置\n- 修复<显示页码跳转>开关无效的问题\n- **画中画**<弹幕字体大小>和<弹幕上限数量>的调整范围对齐**普通窗口**\n- 画中画弹幕复用全局密度模式并同步主界面效果\n- 画中画增加置顶、静音功能按钮，限制最小尺寸\n- 为画中画/悬浮窗添加鼠标滚轮调节音量和音量条功能\n- 新增视频画面Ctrl+滚轮缩放和Ctrl+拖拽平移功能\n- 新增进程内小窗（mini PiP）功能，支持通过 Ctrl+点击侧栏房间卡片在小窗中打开直播间，双击小窗可将房间提升至主窗口。同时新增了小窗相关功能，包括显示/隐藏弹幕、音量与透明度调节、关闭小窗等。此外，还实现了小窗与主窗口的交互逻辑，如小窗打开时禁用画中画功能，动态调整主窗口最小尺寸等。\n- 关注页/热门页/分区页中，Ctrl+点击直播间卡片出现悬浮小窗，支持位置和尺寸调整，以及音量和弹幕显隐控制\n- 补充快捷键帮助内容\n- 注：所有小窗播放均不计入观看时长记录",
+    "prerelease": false,
+    "download_url": "https://github.com/ZXS20240220/pure_live/releases",
+    "platforms": {
+      "windows": {
+        "windows_setup_available": false,
+        "windows_msix_available": false,
+        "version": "1.0.4",
+        "build_number": 314,
+        "version_num": 10004314,
+        "version_desc": "version: 1.0.4 (build 314)\n\n- 添加定时同步 release 数据的工作流\n- 更新应用名称为 PureLive dev，调整相关构建和发布配置\n- 修复<显示页码跳转>开关无效的问题\n- **画中画**<弹幕字体大小>和<弹幕上限数量>的调整范围对齐**普通窗口**\n- 画中画弹幕复用全局密度模式并同步主界面效果\n- 画中画增加置顶、静音功能按钮，限制最小尺寸\n- 为画中画/悬浮窗添加鼠标滚轮调节音量和音量条功能\n- 新增视频画面Ctrl+滚轮缩放和Ctrl+拖拽平移功能\n- 新增进程内小窗（mini PiP）功能，支持通过 Ctrl+点击侧栏房间卡片在小窗中打开直播间，双击小窗可将房间提升至主窗口。同时新增了小窗相关功能，包括显示/隐藏弹幕、音量与透明度调节、关闭小窗等。此外，还实现了小窗与主窗口的交互逻辑，如小窗打开时禁用画中画功能，动态调整主窗口最小尺寸等。\n- 关注页/热门页/分区页中，Ctrl+点击直播间卡片出现悬浮小窗，支持位置和尺寸调整，以及音量和弹幕显隐控制\n- 补充快捷键帮助内容\n- 注：所有小窗播放均不计入观看时长记录",
+        "prerelease": false,
+        "download_url": "https://github.com/ZXS20240220/pure_live/releases"
+      }
     }
   }
 }
