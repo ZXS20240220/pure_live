@@ -2,7 +2,10 @@ import 'dart:async';
 import 'dart:math';
 import 'dart:ui';
 
+import 'package:flutter/material.dart';
+import 'package:pure_live/get/get.dart';
 import 'package:pure_live/model/live_play_quality.dart';
+import 'package:pure_live/plugins/locale_helper.dart';
 
 enum _QualityTier {
   original(99999),
@@ -38,11 +41,15 @@ class _ParsedQuality {
 class SmartQualitySelector {
   static const String sentinel = '__smart__';
 
+  /// 当前进程内用户选择的显示器 ID，不持久化。
+  static int? _cachedDisplayId;
+  static int? _cachedDisplayCount;
+
   static Future<int> select({required List<LivePlayQuality> qualities}) async {
     if (qualities.isEmpty) return -1;
     if (qualities.length == 1) return 0;
 
-    final targetHeight = await _deviceShortEdgeHeight();
+    final targetHeight = await _resolveTargetHeight();
     if (targetHeight <= 0) return 0;
 
     final parsed = qualities.map(_parseQuality).toList(growable: false);
@@ -53,7 +60,7 @@ class SmartQualitySelector {
     if (qualities.isEmpty) return -1;
     if (qualities.length == 1) return 0;
 
-    final targetHeight = targetHeightOverride > 0 ? targetHeightOverride : _deviceShortEdgeHeightSync();
+    final targetHeight = targetHeightOverride > 0 ? targetHeightOverride : _resolveTargetHeightSync();
 
     final parsed = qualities.map(_parseQuality).toList(growable: false);
     return _pickIndex(parsed, targetHeight);
@@ -150,22 +157,119 @@ class SmartQualitySelector {
     return false;
   }
 
-  static Future<int> _deviceShortEdgeHeight() async => _deviceShortEdgeHeightSync();
-
-  static int _deviceShortEdgeHeightSync() {
+  /// 异步解析目标清晰度高度。多显示器时会弹窗让用户选择。
+  static Future<int> _resolveTargetHeight() async {
     try {
-      final displays = PlatformDispatcher.instance.displays;
+      final displays = PlatformDispatcher.instance.displays.toList();
       if (displays.isEmpty) return 1080;
-      int maxShort = 0;
-      for (final d in displays) {
-        final w = d.size.width.round();
-        final h = d.size.height.round();
-        final shortSide = min(w, h);
-        if (shortSide > maxShort) maxShort = shortSide;
+
+      final cached = _validCachedDisplay(displays);
+      if (cached != null) return _shortEdge(cached);
+
+      if (displays.length == 1) {
+        _rememberDisplay(displays.first, displays.length);
+        return _shortEdge(displays.first);
       }
-      return maxShort > 0 ? maxShort : 1080;
+
+      final picked = await _showDisplayPicker(displays);
+      final chosen = picked ?? displays.first;
+      _rememberDisplay(chosen, displays.length);
+      return _shortEdge(chosen);
     } catch (_) {
       return 1080;
     }
+  }
+
+  /// 同步解析目标清晰度高度。无法弹窗，多显示器且无缓存时回退到取最大短边。
+  static int _resolveTargetHeightSync() {
+    try {
+      final displays = PlatformDispatcher.instance.displays.toList();
+      if (displays.isEmpty) return 1080;
+
+      final cached = _validCachedDisplay(displays);
+      if (cached != null) return _shortEdge(cached);
+
+      if (displays.length == 1) {
+        _rememberDisplay(displays.first, displays.length);
+        return _shortEdge(displays.first);
+      }
+
+      return _maxShortEdge(displays);
+    } catch (_) {
+      return 1080;
+    }
+  }
+
+  /// 缓存有效的条件：选中的显示器仍在列表中，且显示器数量没有增加。
+  static Display? _validCachedDisplay(List<Display> displays) {
+    if (_cachedDisplayId == null || _cachedDisplayCount == null) return null;
+    if (displays.length > _cachedDisplayCount!) return null;
+    for (final d in displays) {
+      if (d.id == _cachedDisplayId) return d;
+    }
+    return null;
+  }
+
+  static void _rememberDisplay(Display display, int count) {
+    _cachedDisplayId = display.id;
+    _cachedDisplayCount = count;
+  }
+
+  static int _shortEdge(Display display) {
+    final w = display.size.width.round();
+    final h = display.size.height.round();
+    final short = min(w, h);
+    return short > 0 ? short : 1080;
+  }
+
+  static int _maxShortEdge(List<Display> displays) {
+    int maxShort = 0;
+    for (final d in displays) {
+      final s = _shortEdge(d);
+      if (s > maxShort) maxShort = s;
+    }
+    return maxShort > 0 ? maxShort : 1080;
+  }
+
+  static Future<Display?> _showDisplayPicker(List<Display> displays) async {
+    try {
+      return await Get.dialog<Display>(
+        Builder(
+          builder: (context) => AlertDialog(
+            title: Text(i18nOr('smart_quality_display_picker_title', '选择用于清晰度匹配的显示器')),
+            contentPadding: const EdgeInsets.symmetric(vertical: 12),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var i = 0; i < displays.length; i++)
+                    SimpleDialogOption(
+                      onPressed: () => Navigator.of(context).pop<Display>(displays[i]),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Text(_displayLabel(displays[i], i), style: const TextStyle(fontSize: 15)),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        barrierDismissible: false,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static String _displayLabel(Display display, int index) {
+    final w = display.size.width.round();
+    final h = display.size.height.round();
+    const key = 'smart_quality_display_picker_item';
+    if (i18nExists(key)) {
+      return i18n(key, args: {'n': '${index + 1}', 'w': '$w', 'h': '$h'});
+    }
+    return '显示器 ${index + 1}  ($w × $h)';
   }
 }

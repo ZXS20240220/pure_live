@@ -459,6 +459,8 @@
   "prefer_resolution_option_smooth": "Smooth",
   "prefer_resolution_option_super_hd": "Super HD",
   "prefer_resolution_subtitle": "When enter live play, first resolution choice",
+  "smart_quality_display_picker_title": "Select a display for quality matching",
+  "smart_quality_display_picker_item": "Display {n}  ({w} × {h})",
   "project": "Project",
   "project_alert": "Project Alert",
   "upstream_repository": "Upstream Repository",

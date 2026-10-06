@@ -460,6 +460,8 @@
   "prefer_resolution_option_smooth": "流畅",
   "prefer_resolution_option_super_hd": "超清",
   "prefer_resolution_subtitle": "根据设备分辨率自动选择最合适的画质（选最低够用）",
+  "smart_quality_display_picker_title": "选择用于清晰度匹配的显示器",
+  "smart_quality_display_picker_item": "显示器 {n}  ({w} × {h})",
   "project": "项目",
   "project_alert": "项目声明",
   "upstream_repository": "上游仓库",
