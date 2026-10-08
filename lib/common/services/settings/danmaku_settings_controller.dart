@@ -38,6 +38,14 @@ class DanmakuSettingsController extends GetxController {
   static const bool defaultEnableDanmakuSimilarityFilter = false;
   static const int defaultDanmakuMaxVisibleCount = 48;
 
+  /// 海量(实时)模式下的同屏弹幕上限，对齐上游 realtime 模式。
+  static const int massModeMaxVisibleCount = 1000;
+
+  /// 海量模式下的排队等待上限。普通模式渲染侧排队上限为 120，若不放大，弹幕
+  /// 会在进入轨道前就被丢弃，导致 [massModeMaxVisibleCount] 的同屏上限失去意义。
+  static const int massModeMaxPendingCount = 1200;
+  static const double defaultDanmakuLetterSpacing = 0.0;
+
   /// 0 = normal, 1 = dense (half safe gap), 2 = overlap (dense + allow
   /// overlapping lanes + reduced opacity), mirroring bilibili's presets.
   static const int defaultDanmakuDensityMode = 0;
@@ -80,6 +88,21 @@ class DanmakuSettingsController extends GetxController {
   final RxInt repeatedDanmakuWindowSeconds = hiveInt('repeatedDanmakuWindowSeconds', 5);
   final RxBool aggregateRepeatedDanmaku = hiveBool('aggregateRepeatedDanmaku', defaultAggregateRepeatedDanmaku);
   final RxInt danmakuMaxVisibleCount = hiveInt('danmakuMaxVisibleCount', defaultDanmakuMaxVisibleCount);
+
+  /// 海量(实时)模式：超大火爆直播间尽量不漏弹幕，同屏上限提升到
+  /// [massModeMaxVisibleCount]。存储键沿用上游 `danmakuRealtimeMode` 以兼容
+  /// 备份互通；默认关闭，开启会显著增加布局与绘制开销。
+  final RxBool danmakuMassMode = hiveBool('danmakuRealtimeMode', false);
+
+  /// 弹幕文字字间距（逻辑像素，-2~8）。
+  final RxDouble danmakuLetterSpacing = hiveDouble('danmakuLetterSpacing', defaultDanmakuLetterSpacing);
+
+  /// 主画面渲染实际采用的同屏弹幕上限：海量模式下用高上限，否则用用户设定值。
+  int get effectiveMaxVisibleCount => danmakuMassMode.v ? massModeMaxVisibleCount : danmakuMaxVisibleCount.v;
+
+  /// 主画面渲染实际采用的排队等待上限。
+  int get effectiveMaxPendingCount => danmakuMassMode.v ? massModeMaxPendingCount : 120;
+
   final RxInt danmakuDensityMode = hiveInt('danmakuDensityMode', defaultDanmakuDensityMode);
   final RxBool danmakuWidthAdaptiveSpeed = hiveBool('danmakuWidthAdaptiveSpeed', defaultDanmakuWidthAdaptiveSpeed);
   final RxInt danmakuInteractionMigration = hiveInt('danmakuInteractionMigration', 0);
@@ -141,6 +164,12 @@ class DanmakuSettingsController extends GetxController {
       fallback: defaultDanmakuMaxVisibleCount,
       min: 10,
       max: 200,
+    );
+    danmakuLetterSpacing.v = _boundedDouble(
+      danmakuLetterSpacing.v,
+      fallback: defaultDanmakuLetterSpacing,
+      min: -2,
+      max: 8,
     );
     danmakuDensityMode.v = _boundedInt(danmakuDensityMode.v, fallback: defaultDanmakuDensityMode, min: 0, max: 2);
     pipDanmakuFontWeight.v = normalizeFontWeight(pipDanmakuFontWeight.v);
@@ -221,6 +250,8 @@ class DanmakuSettingsController extends GetxController {
       'repeatedDanmakuWindowSeconds': repeatedDanmakuWindowSeconds.v,
       'aggregateRepeatedDanmaku': aggregateRepeatedDanmaku.v,
       'danmakuMaxVisibleCount': danmakuMaxVisibleCount.v,
+      'danmakuRealtimeMode': danmakuMassMode.v,
+      'danmakuLetterSpacing': danmakuLetterSpacing.v,
       'danmakuDensityMode': danmakuDensityMode.v,
       'danmakuWidthAdaptiveSpeed': danmakuWidthAdaptiveSpeed.v,
       'savedDanmakuTemplate': savedDanmakuTemplate.v,
@@ -287,6 +318,10 @@ class DanmakuSettingsController extends GetxController {
       'aggregateRepeatedDanmaku': typed<bool>(json['aggregateRepeatedDanmaku'] ?? defaultAggregateRepeatedDanmaku),
       'danmakuMaxVisibleCount': typed<int>(
         _boundedInt(json['danmakuMaxVisibleCount'], fallback: defaultDanmakuMaxVisibleCount, min: 10, max: 200),
+      ),
+      'danmakuRealtimeMode': typed<bool>(json['danmakuRealtimeMode'] ?? false),
+      'danmakuLetterSpacing': typed<double>(
+        _boundedDouble(json['danmakuLetterSpacing'], fallback: defaultDanmakuLetterSpacing, min: -2, max: 8),
       ),
       'danmakuDensityMode': typed<int>(
         _boundedInt(json['danmakuDensityMode'], fallback: defaultDanmakuDensityMode, min: 0, max: 2),
@@ -367,6 +402,8 @@ class DanmakuSettingsController extends GetxController {
     repeatedDanmakuWindowSeconds.v = parsed['repeatedDanmakuWindowSeconds'];
     aggregateRepeatedDanmaku.v = parsed['aggregateRepeatedDanmaku'];
     danmakuMaxVisibleCount.v = parsed['danmakuMaxVisibleCount'];
+    danmakuMassMode.v = parsed['danmakuRealtimeMode'];
+    danmakuLetterSpacing.v = parsed['danmakuLetterSpacing'];
     danmakuDensityMode.v = parsed['danmakuDensityMode'];
     danmakuWidthAdaptiveSpeed.v = parsed['danmakuWidthAdaptiveSpeed'];
     savedDanmakuTemplate.v = parsed['savedDanmakuTemplate'];
@@ -430,6 +467,13 @@ class DanmakuSettingsController extends GetxController {
         fallback: defaultDanmakuMaxVisibleCount,
         min: 10,
         max: 200,
+      ),
+      'danmakuRealtimeMode': danmaku['danmakuRealtimeMode'] ?? false,
+      'danmakuLetterSpacing': _boundedDouble(
+        danmaku['danmakuLetterSpacing'],
+        fallback: defaultDanmakuLetterSpacing,
+        min: -2,
+        max: 8,
       ),
       'danmakuDensityMode': _boundedInt(
         danmaku['danmakuDensityMode'],
