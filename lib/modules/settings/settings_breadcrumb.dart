@@ -50,6 +50,7 @@ import 'package:pure_live/modules/settings/pages/renderer_settings.dart';
 import 'package:pure_live/modules/settings/pages/room_card_settings_page.dart';
 import 'package:pure_live/modules/settings/pages/theme_settings_page.dart';
 import 'package:pure_live/modules/settings/pages/video_settings_page.dart';
+import 'package:pure_live/modules/wallpaper/pages/wallpaper_settings_page.dart';
 import 'package:pure_live/modules/settings/settings_page.dart';
 import 'package:pure_live/modules/shield/danmu_shield_page.dart';
 import 'package:pure_live/modules/shield/danmu_shield_binding.dart';
@@ -201,6 +202,14 @@ class SettingsCrumbs {
     labelKey: 'theme_customization',
     routeName: '/settings/theme',
     pageBuilder: ThemeSettingsPage.new,
+    parents: [root],
+  );
+  // —— 设置 > 壁纸 ——
+  static final SettingsCrumb wallpaper = SettingsCrumb(
+    labelKey: 'wallpaper_settings',
+    labelText: '壁纸设置',
+    routeName: '/settings/wallpaper',
+    pageBuilder: WallpaperSettingsPage.new,
     parents: [root],
   );
   static final SettingsCrumb loading = SettingsCrumb(

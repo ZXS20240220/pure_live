@@ -119,6 +119,7 @@ class _HomeTabletViewState extends State<HomeTabletView> {
                       builder: (context, constraints) {
                         final isShortWindow = constraints.maxHeight < 400;
                         return NavigationRail(
+                          backgroundColor: Colors.transparent,
                           groupAlignment: isShortWindow ? -1 : 0.9,
                           labelType: NavigationRailLabelType.all,
                           scrollable: true,

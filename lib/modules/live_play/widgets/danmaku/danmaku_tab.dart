@@ -16,6 +16,8 @@ class DanmakuTabView extends GetView<LivePlayController> {
   Widget build(BuildContext context) {
     return Obx(() {
       final state = controller.state.value;
+      final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+      final surface = Theme.of(context).colorScheme.surface;
       if (state.room.detail == null) {
         return const AppStatusView(type: AppStatusType.loading, title: '', subtitle: '');
       }
@@ -24,7 +26,7 @@ class DanmakuTabView extends GetView<LivePlayController> {
       final settingsBinding = state.player.videoController ?? MultiviewDanmakuSettingsBinding();
 
       return ColoredBox(
-        color: Theme.of(context).colorScheme.surface,
+        color: wallpaperActive ? Colors.transparent : surface,
         child: Column(
           children: [
             DanmakuSectionTabBar(controller: controller.tabController, tabs: controller.tabs),
@@ -73,26 +75,30 @@ class DanmakuSectionTabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Theme.of(context).colorScheme.surface,
-      child: Listener(
-        onPointerSignal: (event) {
-          if (event is! PointerScrollEvent) return;
-          if (controller == null || controller!.length == 0) return;
-          final dir = event.scrollDelta.dy > 0 ? 1 : -1;
-          final next = (controller!.index + dir) % controller!.length;
-          controller!.animateTo(next);
-        },
-        child: TabBar(
-          key: const ValueKey('live-danmaku-section-tabs'),
-          isScrollable: false,
-          tabAlignment: TabAlignment.fill,
-          physics: const PureLiveBoundedScrollPhysics(),
-          labelPadding: const EdgeInsets.symmetric(horizontal: 4),
-          controller: controller,
-          tabs: tabs.map((name) => Tab(text: name)).toList(growable: false),
+    return Obx(() {
+      final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+      final surface = Theme.of(context).colorScheme.surface;
+      return Container(
+        color: wallpaperActive ? Colors.transparent : surface,
+        child: Listener(
+          onPointerSignal: (event) {
+            if (event is! PointerScrollEvent) return;
+            if (controller == null || controller!.length == 0) return;
+            final dir = event.scrollDelta.dy > 0 ? 1 : -1;
+            final next = (controller!.index + dir) % controller!.length;
+            controller!.animateTo(next);
+          },
+          child: TabBar(
+            key: const ValueKey('live-danmaku-section-tabs'),
+            isScrollable: false,
+            tabAlignment: TabAlignment.fill,
+            physics: const PureLiveBoundedScrollPhysics(),
+            labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+            controller: controller,
+            tabs: tabs.map((name) => Tab(text: name)).toList(growable: false),
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 }

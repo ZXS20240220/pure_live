@@ -23,6 +23,7 @@ import 'package:pure_live/common/services/settings/volume_settings_controller.da
 import 'package:pure_live/common/services/settings/danmaku_settings_controller.dart';
 import 'package:pure_live/common/services/settings/room_card_settings_controller.dart';
 import 'package:pure_live/common/services/settings/panel_size_controller.dart';
+import 'package:pure_live/modules/wallpaper/controllers/wallpaper_settings_controller.dart';
 
 class SettingsService extends GetxService {
   static SettingsService get to => Get.find<SettingsService>();
@@ -50,6 +51,7 @@ class SettingsService extends GetxService {
   PageSettingsController get page => Get.find<PageSettingsController>();
   LogController get log => Get.find<LogController>();
   TagManagementController get tagManagement => Get.find<TagManagementController>();
+  WallpaperSettingsController get wallpaper => Get.find<WallpaperSettingsController>();
 
   @override
   void onInit() {
@@ -80,6 +82,7 @@ class SettingsService extends GetxService {
     Get.lazyPut(() => FontSettingsController(), fenix: true);
     Get.lazyPut(() => PanelSizeController(), fenix: true);
     Get.lazyPut(() => LogController(), fenix: true);
+    Get.lazyPut(() => WallpaperSettingsController(), fenix: true);
 
     Get.put(ExitSettingsController(), permanent: true);
   }

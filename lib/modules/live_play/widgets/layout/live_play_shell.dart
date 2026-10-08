@@ -423,8 +423,9 @@ class _LivePlayShellState extends State<LivePlayShell> with SingleTickerProvider
   }
 
   Widget _buildPanelContent() {
+    final surfaceColor = Theme.of(context).colorScheme.surface;
     return Material(
-      color: Theme.of(context).colorScheme.surface,
+      color: surfaceColor,
       elevation: 18,
       shadowColor: Colors.black.withValues(alpha: 0.5),
       child: PanelPopupScope(

@@ -50,6 +50,12 @@ class SettingsPage extends GetView<SettingsService> {
               subtitle: i18n("theme_customization_desc"),
               onTap: () => SettingsNavigator.open(SettingsCrumbs.theme),
             ),
+            context.buildTile(
+              icon: Remix.image_line,
+              title: '壁纸设置',
+              subtitle: '自定义全局壁纸背景（图片/视频）',
+              onTap: () => SettingsNavigator.open(SettingsCrumbs.wallpaper),
+            ),
           ]),
 
           context.buildGroupTitle(i18n("general_settings")),

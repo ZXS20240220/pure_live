@@ -16,6 +16,7 @@ import 'package:pure_live/common/utils/share_command_handler.dart';
 import 'package:pure_live/core/iptv/services/epg_import_manager.dart';
 import 'package:pure_live/common/global/platform/desktop_manager.dart';
 import 'package:pure_live/core/iptv/services/iptv_import_manager.dart';
+import 'package:pure_live/modules/wallpaper/widgets/app_background.dart';
 
 void main(List<String> args) async {
   // Flutter abbreviates every framework error after the first one. In release
@@ -136,18 +137,29 @@ class _MyAppState extends State<MyApp> with DesktopWindowMixin {
       }
 
       final brightness = Theme.of(context).brightness;
+      final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+      final scaffoldBg = wallpaperActive ? Colors.transparent : null;
 
+      ThemeData themeToApply;
       if (SettingsService.to.theme.enableDynamicTheme.v && lightDynamic != null && darkDynamic != null) {
         final scheme = brightness == Brightness.dark
             ? toFlutterColorScheme(darkDynamic)
             : toFlutterColorScheme(lightDynamic);
 
         final theme = MyTheme(colorScheme: scheme);
-
-        Get.changeTheme(brightness == Brightness.dark ? theme.darkThemeData : theme.lightThemeData);
+        themeToApply = brightness == Brightness.dark ? theme.darkThemeData : theme.lightThemeData;
       } else {
-        Get.changeTheme(brightness == Brightness.dark ? darkThemeData : lightThemeData);
+        themeToApply = brightness == Brightness.dark ? darkThemeData : lightThemeData;
       }
+
+      if (scaffoldBg != null) {
+        themeToApply = themeToApply.copyWith(
+          scaffoldBackgroundColor: scaffoldBg,
+          appBarTheme: AppBarTheme(surfaceTintColor: Colors.transparent, backgroundColor: scaffoldBg),
+        );
+      }
+
+      Get.changeTheme(themeToApply);
     });
   }
 
@@ -159,6 +171,8 @@ class _MyAppState extends State<MyApp> with DesktopWindowMixin {
           final themeColor = SettingsService.to.theme.themeColor;
           final showSplashPage = SettingsService.to.app.showSplashPage.v;
           final currentFactor = SettingsService.to.font.textScaleFactor.v;
+          final wallpaper = SettingsService.to.wallpaper;
+          final wallpaperActive = wallpaper.hasWallpaper;
 
           ThemeData lightTheme;
           ThemeData darkTheme;
@@ -172,6 +186,12 @@ class _MyAppState extends State<MyApp> with DesktopWindowMixin {
           }
           _applyDynamicTheme(lightDynamic, darkDynamic, lightTheme, darkTheme);
 
+          // 壁纸激活时让全局 Scaffold 背景透明，露出底层 AppBackground。
+          // 注意：由于 GetX 的 GetRootState.didUpdateWidget 被注释，
+          // theme 属性的变化不会传播到 MaterialApp，实际透明效果由
+          // builder 中的 Theme widget 覆盖实现。
+          final scaffoldBg = wallpaperActive ? Colors.transparent : null;
+
           return GetMaterialApp(
             // The localized title is rendered by CustomTitleBar. A stable
             // application title avoids asking EasyLocalization for a key
@@ -180,32 +200,68 @@ class _MyAppState extends State<MyApp> with DesktopWindowMixin {
             navigatorKey: appNavigatorKey,
             scrollBehavior: MyCustomScrollBehavior(),
             debugShowCheckedModeBanner: false,
+            // 窗口背景设为透明，避免路由切换时闪现黑色（露出底层 AppBackground 壁纸）
+            color: Colors.transparent,
             themeMode: SettingsService.to.theme.themeMode,
             theme: lightTheme.copyWith(
-              appBarTheme: const AppBarTheme(surfaceTintColor: Colors.transparent),
+              scaffoldBackgroundColor: scaffoldBg,
+              appBarTheme: AppBarTheme(surfaceTintColor: Colors.transparent, backgroundColor: scaffoldBg),
               pageTransitionsTheme: appPageTransitionsTheme,
             ),
             darkTheme: darkTheme.copyWith(
-              appBarTheme: const AppBarTheme(surfaceTintColor: Colors.transparent),
+              scaffoldBackgroundColor: scaffoldBg,
+              appBarTheme: AppBarTheme(surfaceTintColor: Colors.transparent, backgroundColor: scaffoldBg),
               pageTransitionsTheme: appPageTransitionsTheme,
             ),
             locale: context.locale,
             navigatorObservers: [FlutterSmartDialog.observer, LiveRouteObserver(), PopupRouteTracker.instance],
             builder: FlutterSmartDialog.init(
               builder: (context, child) {
-                Widget resultWidget = child ?? const SizedBox.shrink();
-                if (PlatformUtils.isDesktopNotMac) {
-                  resultWidget = DesktopManager.buildWithTitleBar(resultWidget);
-                } else if (Platform.isAndroid) {
-                  resultWidget = AdaptiveRefreshRateScope(
-                    mode: SettingsService.to.app.refreshRateMode,
-                    child: resultWidget,
+                return Obx(() {
+                  Widget resultWidget = child ?? const SizedBox.shrink();
+                  if (PlatformUtils.isDesktopNotMac) {
+                    resultWidget = DesktopManager.buildWithTitleBar(resultWidget);
+                  } else if (Platform.isAndroid) {
+                    resultWidget = AdaptiveRefreshRateScope(
+                      mode: SettingsService.to.app.refreshRateMode,
+                      child: resultWidget,
+                    );
+                  }
+
+                  final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+                  final baseTheme = Theme.of(context);
+                  final restoredScaffoldBg = baseTheme.colorScheme.surface;
+                  final effectiveTheme = wallpaperActive
+                      ? baseTheme.copyWith(
+                          scaffoldBackgroundColor: Colors.transparent,
+                          appBarTheme: baseTheme.appBarTheme.copyWith(
+                            backgroundColor: Colors.transparent,
+                            surfaceTintColor: Colors.transparent,
+                          ),
+                        )
+                      : baseTheme.copyWith(
+                          scaffoldBackgroundColor: restoredScaffoldBg,
+                          appBarTheme: baseTheme.appBarTheme.copyWith(
+                            backgroundColor: restoredScaffoldBg,
+                            surfaceTintColor: Colors.transparent,
+                          ),
+                        );
+
+                  return Theme(
+                    data: effectiveTheme,
+                    child: MediaQuery(
+                      data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(currentFactor)),
+                      child: MaterialUiThemeBridge(
+                        child: Stack(
+                          children: [
+                            const Positioned.fill(child: AppBackground()),
+                            Positioned.fill(child: resultWidget),
+                          ],
+                        ),
+                      ),
+                    ),
                   );
-                }
-                return MediaQuery(
-                  data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(currentFactor)),
-                  child: MaterialUiThemeBridge(child: resultWidget),
-                );
+                });
               },
             ),
             supportedLocales: context.supportedLocales,

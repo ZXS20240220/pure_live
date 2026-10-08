@@ -13,6 +13,7 @@ class ToolBoxPage extends GetView<ToolBoxController> {
       if (context.mounted) unawaited(controller.autoCheckClipboard(context: context));
     });
     return Scaffold(
+      backgroundColor: SettingsService.to.wallpaper.hasWallpaper ? Colors.transparent : null,
       appBar: AppBar(title: Text(i18n("toolbox_title")), centerTitle: true, elevation: 0),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),

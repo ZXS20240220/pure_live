@@ -317,7 +317,10 @@ class CustomTitleBar extends StatelessWidget {
 
     return Obx(() {
       final isFullscreen = GlobalPlayerState.to.isWindowFullscreen.value;
-      final bgColor = isFullscreen || isDark ? Colors.black : theme.scaffoldBackgroundColor;
+      final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+      final bgColor = isFullscreen
+          ? Colors.black
+          : (wallpaperActive ? Colors.transparent : (isDark ? Colors.black : theme.scaffoldBackgroundColor));
       final iconColor = isFullscreen || isDark ? Colors.white.withValues(alpha: 0.75) : Colors.black;
       final currentRoute = RouteObserverController.to.currentRoute.value;
       final currentRouteIskSplash = currentRoute == RoutePath.kSplash;

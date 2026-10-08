@@ -324,223 +324,234 @@ class DanmakuListViewState extends State<DanmakuListView> {
       builder: (context, constraints) {
         final edgeToEdge = useEdgeToEdgeDanmakuList(constraints.maxWidth);
         final radius = edgeToEdge ? BorderRadius.zero : BorderRadius.circular(10);
-        return Container(
-          key: const ValueKey('danmaku-list-surface'),
-          margin: edgeToEdge ? EdgeInsets.zero : const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            borderRadius: radius,
-            border: edgeToEdge
-                ? null
-                : Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.35), width: 0.5),
-            boxShadow: edgeToEdge
-                ? null
-                : [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, 4))],
-          ),
-          child: ClipRRect(
-            borderRadius: radius,
-            child: Column(
-              children: [
-                Expanded(
-                  child: MouseRegion(
-                    onEnter: (_) {
-                      if (!_mouseInside) setState(() => _mouseInside = true);
-                    },
-                    onExit: (_) {
-                      if (_mouseInside) setState(() => _mouseInside = false);
-                    },
-                    child: Stack(
-                      children: [
-                        Listener(
-                          onPointerDown: (_) {
-                            _activeScrollPointers++;
-                            // Cancel a queued live-tail jump at pointer-down, before
-                            // touch slop delays the first ScrollStartNotification.
-                            _tailFollowGuard.invalidate();
-                          },
-                          onPointerUp: (_) => _removeActiveScrollPointer(),
-                          onPointerCancel: (_) => _removeActiveScrollPointer(),
-                          child: NotificationListener<ScrollNotification>(
-                            onNotification: (notification) {
-                              onScrollNotification(notification);
-                              return false;
+        return Obx(() {
+          final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+          final surfaceColor = theme.colorScheme.surface;
+          return Container(
+            key: const ValueKey('danmaku-list-surface'),
+            margin: edgeToEdge ? EdgeInsets.zero : const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: wallpaperActive ? Colors.transparent : surfaceColor,
+              borderRadius: radius,
+              border: edgeToEdge
+                  ? null
+                  : Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.35), width: 0.5),
+              boxShadow: edgeToEdge
+                  ? null
+                  : [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.06),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+            ),
+            child: ClipRRect(
+              borderRadius: radius,
+              child: Column(
+                children: [
+                  Expanded(
+                    child: MouseRegion(
+                      onEnter: (_) {
+                        if (!_mouseInside) setState(() => _mouseInside = true);
+                      },
+                      onExit: (_) {
+                        if (_mouseInside) setState(() => _mouseInside = false);
+                      },
+                      child: Stack(
+                        children: [
+                          Listener(
+                            onPointerDown: (_) {
+                              _activeScrollPointers++;
+                              // Cancel a queued live-tail jump at pointer-down, before
+                              // touch slop delays the first ScrollStartNotification.
+                              _tailFollowGuard.invalidate();
                             },
-                            child: ScrollConfiguration(
-                              behavior: const _DanmakuListScrollBehavior(),
-                              child: ListView.builder(
-                                key: const ValueKey('danmaku-message-list'),
-                                addAutomaticKeepAlives: false,
-                                addRepaintBoundaries: false,
-                                controller: _scrollController,
-                                reverse: true,
-                                dragStartBehavior: DragStartBehavior.down,
-                                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                                physics: const PureLiveScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-                                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-                                scrollCacheExtent: const ScrollCacheExtent.pixels(360),
-                                itemCount: _visibleMessages.length,
-                                itemBuilder: (_, index) {
-                                  final msg = _visibleMessages[_visibleMessages.length - 1 - index];
-                                  return _itemFor(msg);
-                                },
-                              ),
-                            ),
-                          ),
-                        ),
-                        if (_mouseInside)
-                          Positioned(
-                            right: 10,
-                            top: 10,
-                            child: IconButton.filled(
-                              key: const ValueKey('danmaku-clear'),
-                              tooltip: i18n('danmaku_clear'),
-                              style: IconButton.styleFrom(
-                                backgroundColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.92),
-                                foregroundColor: theme.colorScheme.onSurface,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              ),
-                              onPressed: _clearMessages,
-                              icon: const Icon(Icons.cleaning_services_rounded, size: 18),
-                            ),
-                          ),
-                        // Transparency for engine-side drops: the flame
-                        // renderer discards over-age/overflow items the chat
-                        // list never sees, so surface the count here.
-                        Obx(() {
-                          final dropped = controller.state.value.player.videoController?.droppedDanmakuCount.value ?? 0;
-                          if (dropped <= 0) return const SizedBox.shrink();
-                          return Positioned(
-                            left: 10,
-                            top: 10,
-                            child: IgnorePointer(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.85),
-                                  borderRadius: BorderRadius.circular(10),
+                            onPointerUp: (_) => _removeActiveScrollPointer(),
+                            onPointerCancel: (_) => _removeActiveScrollPointer(),
+                            child: NotificationListener<ScrollNotification>(
+                              onNotification: (notification) {
+                                onScrollNotification(notification);
+                                return false;
+                              },
+                              child: ScrollConfiguration(
+                                behavior: const _DanmakuListScrollBehavior(),
+                                child: ListView.builder(
+                                  key: const ValueKey('danmaku-message-list'),
+                                  addAutomaticKeepAlives: false,
+                                  addRepaintBoundaries: false,
+                                  controller: _scrollController,
+                                  reverse: true,
+                                  dragStartBehavior: DragStartBehavior.down,
+                                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                                  physics: const PureLiveScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                                  scrollCacheExtent: const ScrollCacheExtent.pixels(360),
+                                  itemCount: _visibleMessages.length,
+                                  itemBuilder: (_, index) {
+                                    final msg = _visibleMessages[_visibleMessages.length - 1 - index];
+                                    return _itemFor(msg);
+                                  },
                                 ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.visibility_off_outlined,
-                                      size: 13,
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      i18n('danmaku_dropped_hidden', args: {'count': '$dropped'}),
-                                      style: theme.textTheme.labelSmall?.copyWith(
+                              ),
+                            ),
+                          ),
+                          if (_mouseInside)
+                            Positioned(
+                              right: 10,
+                              top: 10,
+                              child: IconButton.filled(
+                                key: const ValueKey('danmaku-clear'),
+                                tooltip: i18n('danmaku_clear'),
+                                style: IconButton.styleFrom(
+                                  backgroundColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.92),
+                                  foregroundColor: theme.colorScheme.onSurface,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                                onPressed: _clearMessages,
+                                icon: const Icon(Icons.cleaning_services_rounded, size: 18),
+                              ),
+                            ),
+                          // Transparency for engine-side drops: the flame
+                          // renderer discards over-age/overflow items the chat
+                          // list never sees, so surface the count here.
+                          Obx(() {
+                            final dropped =
+                                controller.state.value.player.videoController?.droppedDanmakuCount.value ?? 0;
+                            if (dropped <= 0) return const SizedBox.shrink();
+                            return Positioned(
+                              left: 10,
+                              top: 10,
+                              child: IgnorePointer(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.85),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.visibility_off_outlined,
+                                        size: 13,
                                         color: theme.colorScheme.onSurfaceVariant,
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        }),
-                        if (userScrolling)
-                          Positioned(
-                            left: 12,
-                            right: 12,
-                            bottom: 12,
-                            child: Align(
-                              alignment: Alignment.bottomRight,
-                              child: FilledButton.icon(
-                                key: const ValueKey('danmaku-resume-live'),
-                                style: FilledButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                  backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.92),
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                ),
-                                icon: const Icon(Icons.arrow_downward_rounded, size: 18),
-                                label: ValueListenableBuilder<int>(
-                                  valueListenable: _pendingMessageCount,
-                                  builder: (context, count, _) => Text(
-                                    count > 0
-                                        ? i18n('danmaku_new_messages', args: {'count': '$count'})
-                                        : i18n('scroll_to_bottom'),
-                                    style: const TextStyle(fontWeight: FontWeight.w600),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.fade,
-                                  ),
-                                ),
-                                onPressed: _resumeAutoScroll,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-                Obx(() {
-                  if (!controller.localInteractionController.enabled.v) return const SizedBox.shrink();
-                  final state = controller.state.value;
-                  final screenMode = state.ui.screenMode;
-                  return Material(
-                    color: Theme.of(context).colorScheme.surfaceContainerLow,
-                    child: SafeArea(
-                      top: false,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _composerController,
-                                textInputAction: TextInputAction.send,
-                                onSubmitted: (_) => _sendLocalMessage(),
-                                decoration: InputDecoration(
-                                  isDense: true,
-                                  hintText: i18n('local_message_hint'),
-                                  prefixIcon: IconButton(
-                                    key: const ValueKey('portrait-local-interaction'),
-                                    tooltip: i18n('local_interaction_title'),
-                                    onPressed: () {
-                                      final detail = controller.state.value.room.detail;
-                                      showModalBottomSheet<void>(
-                                        context: context,
-                                        isScrollControlled: true,
-                                        showDragHandle: true,
-                                        builder: (sheetContext) => LocalInteractionSheet(
-                                          controller: controller.localInteractionController,
-                                          platform: detail?.platform ?? controller.site,
-                                          onMessage: (message, showAsDanmaku) {
-                                            controller.emitLocalMessage(message, showAsDanmaku: showAsDanmaku);
-                                          },
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        i18n('danmaku_dropped_hidden', args: {'count': '$dropped'}),
+                                        style: theme.textTheme.labelSmall?.copyWith(
+                                          color: theme.colorScheme.onSurfaceVariant,
                                         ),
-                                      );
-                                    },
-                                    icon: Icon(
-                                      Icons.auto_awesome_rounded,
-                                      size: 19,
-                                      color: screenMode == VideoMode.normal
-                                          ? Theme.of(context).primaryColor
-                                          : Color(controller.localInteractionController.danmakuColor.v),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          }),
+                          if (userScrolling)
+                            Positioned(
+                              left: 12,
+                              right: 12,
+                              bottom: 12,
+                              child: Align(
+                                alignment: Alignment.bottomRight,
+                                child: FilledButton.icon(
+                                  key: const ValueKey('danmaku-resume-live'),
+                                  style: FilledButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                    backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.92),
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                  ),
+                                  icon: const Icon(Icons.arrow_downward_rounded, size: 18),
+                                  label: ValueListenableBuilder<int>(
+                                    valueListenable: _pendingMessageCount,
+                                    builder: (context, count, _) => Text(
+                                      count > 0
+                                          ? i18n('danmaku_new_messages', args: {'count': '$count'})
+                                          : i18n('scroll_to_bottom'),
+                                      style: const TextStyle(fontWeight: FontWeight.w600),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.fade,
                                     ),
                                   ),
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(22)),
+                                  onPressed: _resumeAutoScroll,
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 6),
-                            IconButton.filled(
-                              tooltip: i18n('local_send_message'),
-                              onPressed: _sendLocalMessage,
-                              icon: const Icon(Icons.send_rounded),
-                            ),
-                          ],
-                        ),
+                        ],
                       ),
                     ),
-                  );
-                }),
-              ],
+                  ),
+                  Obx(() {
+                    if (!controller.localInteractionController.enabled.v) return const SizedBox.shrink();
+                    final state = controller.state.value;
+                    final screenMode = state.ui.screenMode;
+                    return Material(
+                      color: Theme.of(context).colorScheme.surfaceContainerLow,
+                      child: SafeArea(
+                        top: false,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _composerController,
+                                  textInputAction: TextInputAction.send,
+                                  onSubmitted: (_) => _sendLocalMessage(),
+                                  decoration: InputDecoration(
+                                    isDense: true,
+                                    hintText: i18n('local_message_hint'),
+                                    prefixIcon: IconButton(
+                                      key: const ValueKey('portrait-local-interaction'),
+                                      tooltip: i18n('local_interaction_title'),
+                                      onPressed: () {
+                                        final detail = controller.state.value.room.detail;
+                                        showModalBottomSheet<void>(
+                                          context: context,
+                                          isScrollControlled: true,
+                                          showDragHandle: true,
+                                          builder: (sheetContext) => LocalInteractionSheet(
+                                            controller: controller.localInteractionController,
+                                            platform: detail?.platform ?? controller.site,
+                                            onMessage: (message, showAsDanmaku) {
+                                              controller.emitLocalMessage(message, showAsDanmaku: showAsDanmaku);
+                                            },
+                                          ),
+                                        );
+                                      },
+                                      icon: Icon(
+                                        Icons.auto_awesome_rounded,
+                                        size: 19,
+                                        color: screenMode == VideoMode.normal
+                                            ? Theme.of(context).primaryColor
+                                            : Color(controller.localInteractionController.danmakuColor.v),
+                                      ),
+                                    ),
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(22)),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              IconButton.filled(
+                                tooltip: i18n('local_send_message'),
+                                onPressed: _sendLocalMessage,
+                                icon: const Icon(Icons.send_rounded),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              ),
             ),
-          ),
-        );
+          );
+        });
       },
     );
   }

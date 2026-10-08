@@ -80,7 +80,14 @@ class _LivePlayNormalLayoutState extends State<LivePlayNormalLayout> {
               const Divider(height: 1),
               Expanded(
                 key: const ValueKey('live-play-portrait-danmaku'),
-                child: ColoredBox(color: Theme.of(context).colorScheme.surface, child: widget.danmaku),
+                child: Obx(() {
+                  final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+                  final surface = Theme.of(context).colorScheme.surface;
+                  return ColoredBox(
+                    color: wallpaperActive ? surface.withValues(alpha: 0.8) : surface,
+                    child: widget.danmaku,
+                  );
+                }),
               ),
             ],
           );
@@ -89,7 +96,7 @@ class _LivePlayNormalLayoutState extends State<LivePlayNormalLayout> {
         return ValueListenableBuilder<double>(
           valueListenable: _panelWidthNotifier,
           builder: (context, panelWidth, _) {
-            final panelColor = Theme.of(context).colorScheme.surface;
+            final surface = Theme.of(context).colorScheme.surface;
             final screenWidth = MediaQuery.sizeOf(context).width;
             return Row(
               key: const ValueKey('live-play-desktop-split'),
@@ -108,16 +115,19 @@ class _LivePlayNormalLayoutState extends State<LivePlayNormalLayout> {
                 SizedBox(
                   key: const ValueKey('live-play-desktop-panel'),
                   width: panelWidth,
-                  child: ColoredBox(
-                    color: panelColor,
-                    child: Column(
-                      children: [
-                        widget.resolution,
-                        const Divider(height: 1),
-                        Expanded(child: widget.danmaku),
-                      ],
-                    ),
-                  ),
+                  child: Obx(() {
+                    final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+                    return ColoredBox(
+                      color: wallpaperActive ? surface.withValues(alpha: 0.8) : surface,
+                      child: Column(
+                        children: [
+                          widget.resolution,
+                          const Divider(height: 1),
+                          Expanded(child: widget.danmaku),
+                        ],
+                      ),
+                    );
+                  }),
                 ),
               ],
             );

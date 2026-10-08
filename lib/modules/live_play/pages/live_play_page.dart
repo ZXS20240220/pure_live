@@ -39,18 +39,21 @@ class LivePlayPage extends GetView<LivePlayController> {
       // nothing on exactly those failure states.
       final page = VideoKeyboardShortcuts(
         controller: videoController,
-        child: Container(
-          color: Colors.black,
-          width: double.infinity,
-          height: double.infinity,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              content,
-              if (!immersiveActive) const Positioned.fill(child: MiniPipHost()),
-            ],
-          ),
-        ),
+        child: Obx(() {
+          final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+          return Container(
+            color: wallpaperActive ? Colors.transparent : Colors.black,
+            width: double.infinity,
+            height: double.infinity,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                content,
+                if (!immersiveActive) const Positioned.fill(child: MiniPipHost()),
+              ],
+            ),
+          );
+        }),
       );
 
       return LivePlayBackScope(

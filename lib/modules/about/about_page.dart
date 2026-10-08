@@ -208,15 +208,32 @@ class _AboutPageState extends State<AboutPage> {
   }
 
   void openLicensePage() {
-    showLicensePage(
-      context: Get.context!,
-      applicationName: i18n("app_name"),
-      applicationLegalese: i18n("app_legalese"),
-      applicationVersion: 'v${VersionUtil.fullVersion}',
-      useRootNavigator: true,
-      applicationIcon: Padding(
-        padding: const EdgeInsets.all(12),
-        child: SizedBox(width: 60, child: Center(child: Image.asset('assets/icons/icon.png'))),
+    final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+    Navigator.of(Get.context!, rootNavigator: true).push(
+      MaterialPageRoute(
+        builder: (context) {
+          final baseTheme = Theme.of(context);
+          return Theme(
+            data: wallpaperActive
+                ? baseTheme.copyWith(
+                    scaffoldBackgroundColor: Colors.transparent,
+                    appBarTheme: baseTheme.appBarTheme.copyWith(
+                      backgroundColor: Colors.transparent,
+                      surfaceTintColor: Colors.transparent,
+                    ),
+                  )
+                : baseTheme,
+            child: LicensePage(
+              applicationName: i18n("app_name"),
+              applicationLegalese: i18n("app_legalese"),
+              applicationVersion: 'v${VersionUtil.fullVersion}',
+              applicationIcon: Padding(
+                padding: const EdgeInsets.all(12),
+                child: SizedBox(width: 60, child: Center(child: Image.asset('assets/icons/icon.png'))),
+              ),
+            ),
+          );
+        },
       ),
     );
   }

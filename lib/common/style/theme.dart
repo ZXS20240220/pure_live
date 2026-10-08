@@ -7,8 +7,8 @@ const PageTransitionsTheme appPageTransitionsTheme = PageTransitionsTheme(
     // through Navigator's regular pop path. Flutter's gesture-owned shared
     // element transition can retain input after its visual commit on some
     // Android/ColorOS versions (Pure Live #852; Flutter #153577).
-    TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
-    TargetPlatform.windows: FadeForwardsPageTransitionsBuilder(),
+    TargetPlatform.android: FadeForwardsPageTransitionsBuilder(backgroundColor: Colors.transparent),
+    TargetPlatform.windows: FadeForwardsPageTransitionsBuilder(backgroundColor: Colors.transparent),
   },
 );
 

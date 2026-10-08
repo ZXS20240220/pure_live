@@ -144,7 +144,7 @@ class _VersionHistoryPageState extends State<VersionHistoryPage> {
     final toolbarHeight = textScale <= 1.5 ? kToolbarHeight : math.min(152.0, 44 + 36 * textScale);
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
+      backgroundColor: SettingsService.to.wallpaper.hasWallpaper ? Colors.transparent : theme.colorScheme.surface,
       appBar: AppBar(
         toolbarHeight: toolbarHeight,
         title: Text(i18n('version_history_desc'), maxLines: 2, overflow: TextOverflow.ellipsis),

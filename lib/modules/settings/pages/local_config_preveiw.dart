@@ -69,11 +69,12 @@ class _LocalConfigPreviewPageState extends State<LocalConfigPreviewPage> {
       );
     }
 
+    final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
     final backupVersion = _configData['backupVersion'] ?? 0;
     final moduleCount = BackupController.countConfigSections(_configData);
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.surfaceContainerLowest,
+      backgroundColor: wallpaperActive ? Colors.transparent : theme.colorScheme.surfaceContainerLowest,
       appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.configPreview, elevation: 0, scrolledUnderElevation: 1),
       body: LayoutBuilder(
         builder: (context, viewportConstraints) {

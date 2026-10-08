@@ -26,6 +26,7 @@ class AppPathManager {
   static const String dirImageCache = 'IMAGE_CACHE';
   static const String dirRecords = 'RECORDS';
   static const String dirEmojiCache = 'EMOJI_CACHE';
+  static const String dirWallpaper = 'WALLPAPER';
   static const String dirMigrationBackup = 'MIGRATION_BACKUP';
 
   /// Canonical directory used by [FontDownloadManager] for downloaded fonts.
