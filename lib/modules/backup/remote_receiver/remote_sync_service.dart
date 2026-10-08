@@ -25,9 +25,10 @@ class RemoteSyncService extends GetxController {
   final RxString localIp = ''.obs;
   final RxInt localPort = RemoteSyncProtocol.defaultHttpPort.obs;
 
-  /// 本次服务会话的配对码，服务启动时随机生成、停止时清空。
-  /// 对方必须在 x-purelive-pairing 头中携带此码才能读/写本机设置。
-  final RxString pairingCode = ''.obs;
+  /// 现场审批回调：当远端请求读取('export')或覆盖('import')本机设置时调用，
+  /// 由同步页面挂载为弹窗询问。回调为 null（页面未打开/已销毁）、服务已释放
+  /// 或回调抛异常时一律拒绝（fail-closed），与官方 v3.1.18 行为一致。
+  Future<bool> Function(String action, String remoteAddress)? confirmRequest;
 
   /// 本机作为被读取/发送方时，是否允许登录 Cookie 离开本机，默认不允许。
   final RxBool includeAccounts = false.obs;
@@ -106,11 +107,11 @@ class RemoteSyncService extends GetxController {
   }
 
   String get qrData {
-    if (localIp.value.isEmpty || pairingCode.value.isEmpty) {
+    if (localIp.value.isEmpty) {
       return '';
     }
 
-    return RemoteSyncProtocol.createQrUri(ip: localIp.value, port: localPort.value, code: pairingCode.value).toString();
+    return RemoteSyncProtocol.createQrUri(ip: localIp.value, port: localPort.value).toString();
   }
 
   String get broadcastName {
@@ -180,8 +181,8 @@ class RemoteSyncService extends GetxController {
   Future<void> stop() async {
     _running = false;
 
-    // 配对码只在当前会话有效，停止后立即作废，重启会生成新码。
-    pairingCode.value = '';
+    // 服务停止后不再可能有页面承接审批，断开回调，保证后续请求被拒绝。
+    confirmRequest = null;
 
     _broadcastTimer?.cancel();
     _broadcastTimer = null;
@@ -419,9 +420,6 @@ class RemoteSyncService extends GetxController {
     localPort.value = port;
     isServerRunning.value = true;
 
-    // 每次绑定成功都重新生成会话配对码（端口可能因占用而递增）。
-    pairingCode.value = RemoteSyncProtocol.newPairingCode();
-
     server.listen(
       _handleRequest,
       onError: (_) {
@@ -511,16 +509,19 @@ class RemoteSyncService extends GetxController {
   // ---------------------------------------------------------------------------
 
   Future<void> _handleSettings(HttpRequest request) async {
-    // GET/POST 都必须携带与本机会话一致的配对码，且校验必须在方法分派
-    // 之前完成：读取设置不会触发任何界面提示，POST 的暂存预览提示也只
-    // 在通过校验后出现。
-    if (!RemoteSyncProtocol.pairingCodesMatch(
-      pairingCode.value,
-      request.headers.value(RemoteSyncProtocol.pairingHeader),
-    )) {
+    // 不再使用配对码：任何能访问到该端口的请求，仍必须在本机屏幕上被现场
+    // 批准后才能触碰设置。GET=读取(导出)，POST=覆盖(导入)；审批在方法分派前
+    // 完成，读取不弹界面、POST 暂存预览等动作都只在批准后发生。
+    final action = switch (request.method) {
+      'GET' => 'export',
+      'POST' => 'import',
+      _ => null,
+    };
+
+    if (action != null && !await _confirm(action, request)) {
       request.response.statusCode = HttpStatus.forbidden;
 
-      await _writeResponse(request.response, {'code': 403, 'msg': 'Pairing code required', 'data': false});
+      await _writeResponse(request.response, {'code': 403, 'msg': 'Rejected on the device', 'data': false});
 
       return;
     }
@@ -536,6 +537,24 @@ class RemoteSyncService extends GetxController {
 
       default:
         await _writeMethodNotAllowed(request.response);
+    }
+  }
+
+  /// 请求设备所有者现场审批。任何不确定路径（页面未挂载回调、服务已释放、
+  /// 弹窗异常）都返回 false——默认拒绝。
+  Future<bool> _confirm(String action, HttpRequest request) async {
+    final ask = confirmRequest;
+
+    if (ask == null || _disposed) {
+      return false;
+    }
+
+    final remote = request.connectionInfo?.remoteAddress.address ?? '';
+
+    try {
+      return await ask(action, remote);
+    } catch (_) {
+      return false;
     }
   }
 
@@ -980,11 +999,11 @@ class RemoteSyncService extends GetxController {
   // Send settings
   // ---------------------------------------------------------------------------
 
-  Future<bool> syncToDevice(RemoteSyncDevice device, String code) {
-    return syncToAddress(device.ip, device.port, code);
+  Future<bool> syncToDevice(RemoteSyncDevice device) {
+    return syncToAddress(device.ip, device.port);
   }
 
-  Future<bool> syncToAddress(String ip, int port, String code) async {
+  Future<bool> syncToAddress(String ip, int port) async {
     if (_disposed || isSyncing.value) {
       return false;
     }
@@ -1007,7 +1026,6 @@ class RemoteSyncService extends GetxController {
         );
 
         request.headers.contentType = ContentType('application', 'json', charset: 'utf-8');
-        request.headers.set(RemoteSyncProtocol.pairingHeader, RemoteSyncProtocol.normalizePairingCode(code));
 
         request.write(jsonEncode(RemoteSyncProtocol.settingsPacket(settings: settings)));
 
@@ -1036,7 +1054,7 @@ class RemoteSyncService extends GetxController {
   // Push caller-supplied settings (bypasses exportAllSettings).
   // Used by the preview/edit flow where the user manually curated the payload.
 
-  Future<bool> pushSettings(String ip, int port, String code, Map<String, dynamic> settings) async {
+  Future<bool> pushSettings(String ip, int port, Map<String, dynamic> settings) async {
     if (_disposed || isSyncing.value) {
       return false;
     }
@@ -1055,7 +1073,6 @@ class RemoteSyncService extends GetxController {
         );
 
         request.headers.contentType = ContentType('application', 'json', charset: 'utf-8');
-        request.headers.set(RemoteSyncProtocol.pairingHeader, RemoteSyncProtocol.normalizePairingCode(code));
 
         request.write(jsonEncode(RemoteSyncProtocol.settingsPacket(settings: settings)));
 
@@ -1126,7 +1143,7 @@ class RemoteSyncService extends GetxController {
   // This uses GET /settings, not GET /status.
   // ---------------------------------------------------------------------------
 
-  Future<Map<String, dynamic>?> getRemoteSettings(String ip, int port, String code) async {
+  Future<Map<String, dynamic>?> getRemoteSettings(String ip, int port) async {
     if (_disposed) {
       return null;
     }
@@ -1141,8 +1158,6 @@ class RemoteSyncService extends GetxController {
             '${RemoteSyncProtocol.apiSettings}',
           ),
         );
-
-        request.headers.set(RemoteSyncProtocol.pairingHeader, RemoteSyncProtocol.normalizePairingCode(code));
 
         final response = await request.close();
 
@@ -1181,13 +1196,13 @@ class RemoteSyncService extends GetxController {
   // Address / QR
   // ---------------------------------------------------------------------------
 
-  Future<bool> syncByAddress(String value, String code) async {
+  Future<bool> syncByAddress(String value) async {
     final parsed = RemoteSyncProtocol.parseHttpAddress(value);
 
     if (parsed == null) {
       return false;
     }
 
-    return syncToAddress(parsed.ip, parsed.port, code);
+    return syncToAddress(parsed.ip, parsed.port);
   }
 }

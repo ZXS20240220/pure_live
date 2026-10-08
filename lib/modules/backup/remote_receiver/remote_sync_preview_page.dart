@@ -6,7 +6,6 @@ import 'package:pure_live/common/services/settings/backup_controller.dart';
 import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 import 'package:pure_live/modules/backup/remote_receiver/remote_sync_data_merger.dart';
 import 'package:pure_live/modules/backup/remote_receiver/remote_sync_json_tree.dart';
-import 'package:pure_live/modules/backup/remote_receiver/remote_sync_protocol.dart';
 import 'package:pure_live/modules/backup/remote_receiver/remote_sync_service.dart';
 
 /// 编辑对话框的保存结果；cancelled 为 false 时 value 为用户确认的新值
@@ -44,18 +43,9 @@ class RemoteSyncPreviewPage extends StatefulWidget {
   final String ip;
   final int port;
 
-  /// 对方设备的配对码，“返回配置给对方”时必须携带。
-  final String code;
-
   final Map<String, dynamic> settings;
 
-  const RemoteSyncPreviewPage({
-    super.key,
-    required this.ip,
-    required this.port,
-    required this.code,
-    required this.settings,
-  });
+  const RemoteSyncPreviewPage({super.key, required this.ip, required this.port, required this.settings});
 
   @override
   State<RemoteSyncPreviewPage> createState() => _RemoteSyncPreviewPageState();
@@ -449,38 +439,6 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
   // 返回配置给对方（模式动作：以右侧"原始 JSON（返回内容）"当前内容为准）
   // ---------------------------------------------------------------------------
 
-  /// 弹窗输入对方设备上显示的 6 位配对码，取消返回 null。
-  Future<String?> _askPairingCode() async {
-    final controller = TextEditingController();
-
-    final code = await Get.dialog<String>(
-      AlertDialog(
-        title: Text(i18n('remote_sync_pairing_code')),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          keyboardType: TextInputType.number,
-          maxLength: RemoteSyncProtocol.pairingCodeLength,
-          decoration: InputDecoration(hintText: i18n('remote_sync_pairing_code_hint')),
-          onSubmitted: (value) => Navigator.of(context).pop(value),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(i18n('cancel'))),
-          FilledButton(onPressed: () => Navigator.of(context).pop(controller.text), child: Text(i18n('confirm'))),
-        ],
-      ),
-    );
-
-    final normalized = RemoteSyncProtocol.normalizePairingCode(code);
-
-    if (normalized.length != RemoteSyncProtocol.pairingCodeLength) {
-      ToastUtil.show(i18n('remote_sync_pairing_code_invalid'));
-      return null;
-    }
-
-    return normalized;
-  }
-
   Future<void> _pushBackSelected() async {
     if (_mode != _PreviewMode.pushBack) {
       return;
@@ -510,22 +468,13 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
       return;
     }
 
-    // 拉取流程进入本页时已知对方配对码；由“对方主动推送”的暂存数据进入时
-    // （widget.code 为空）需要现场询问对方设备上显示的配对码。
-    var code = widget.code;
-    if (code.isEmpty) {
-      code = await _askPairingCode() ?? '';
-      if (code.isEmpty) {
-        return;
-      }
-    }
-
     setState(() => _isPushing = true);
 
     try {
       final service = Get.find<RemoteSyncService>();
       final payload = RemoteSyncDataMerger.deepCopy(_payload) as Map<String, dynamic>;
-      final success = await service.pushSettings(widget.ip, widget.port, code, payload);
+      // 对方设备收到推送后会在其屏幕上现场审批，无需再携带配对码。
+      final success = await service.pushSettings(widget.ip, widget.port, payload);
 
       if (!mounted) return;
 
@@ -557,7 +506,7 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
     return Scaffold(
       appBar: SettingsBreadcrumbAppBar(
         node: SettingsCrumbs.remoteSyncPreview.withPage(
-          () => RemoteSyncPreviewPage(ip: widget.ip, port: widget.port, code: widget.code, settings: widget.settings),
+          () => RemoteSyncPreviewPage(ip: widget.ip, port: widget.port, settings: widget.settings),
         ),
       ),
       body: Column(

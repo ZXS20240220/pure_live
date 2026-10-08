@@ -1,5 +1,3 @@
-import 'dart:math';
-
 class RemoteSyncProtocol {
   static const int defaultHttpPort = 39888;
   static const int discoveryPort = 39889;
@@ -10,32 +8,14 @@ class RemoteSyncProtocol {
   static const String apiStatus = '/api/remote-sync/status';
   static const String apiSettings = '/api/remote-sync/settings';
 
-  /// 每个设置请求必须携带对方屏幕上显示的配对码，否则目标设备返回 403。
-  /// 设置中可能包含登录 Cookie，因此"同处一个局域网"不能构成授权。
-  static const String pairingHeader = 'x-purelive-pairing';
-  static const int pairingCodeLength = 6;
-
-  static String newPairingCode([Random? random]) {
-    final generator = random ?? Random.secure();
-    return List.generate(pairingCodeLength, (_) => generator.nextInt(10)).join();
-  }
-
-  static String normalizePairingCode(String? value) => (value ?? '').replaceAll(RegExp(r'\s'), '');
-
-  /// 常量时间比较，避免响应耗时差异泄露配对码。
-  static bool pairingCodesMatch(String? expected, String? provided) {
-    final a = normalizePairingCode(expected);
-    final b = normalizePairingCode(provided);
-    if (a.length != pairingCodeLength || b.length != a.length) return false;
-    var diff = 0;
-    for (var i = 0; i < a.length; i++) {
-      diff |= a.codeUnitAt(i) ^ b.codeUnitAt(i);
-    }
-    return diff == 0;
-  }
-
-  static Uri createQrUri({required String ip, required int port, required String code}) {
-    return Uri(scheme: 'purelive', host: ip, port: port, path: '/sync', queryParameters: {'code': code});
+  /// 本设备同步端点二维码：只含地址与端口。
+  ///
+  /// 历史上这里还携带一个 6 位配对码，现已有意移除（与官方 v3.1.18 对齐）：
+  /// 数据的拥有方在自己设备上对每个请求做现场审批（见
+  /// `RemoteSyncService.confirmRequest`），扫二维码与手输地址走同一道门，
+  /// 也避免配对码显示在屏幕/二维码上后在服务运行期内被重复使用。
+  static Uri createQrUri({required String ip, required int port}) {
+    return Uri(scheme: 'purelive', host: ip, port: port, path: '/sync');
   }
 
   static Map<String, dynamic> discoveryPacket({
@@ -87,17 +67,17 @@ class RemoteSyncProtocol {
     }
   }
 
-  /// 解析同步二维码。纯地址二维码的配对码为 null，需要另行向用户索取。
-  static ({String ip, int port, String? code})? parseQr(String value) {
+  /// 解析同步二维码。旧版本二维码会多带一个 `code` 查询参数，这里直接忽略，
+  /// 因此新旧两种二维码都解析为同一个端点；授权改由接收端现场审批完成。
+  static ({String ip, int port})? parseQr(String value) {
     final text = value.trim();
     if (text.isEmpty) return null;
     if (text.startsWith('purelive:')) {
       final uri = Uri.tryParse(text);
       if (uri == null || uri.host.isEmpty || !uri.hasPort) return null;
-      final code = normalizePairingCode(uri.queryParameters['code']);
-      return (ip: uri.host, port: uri.port, code: code.length == pairingCodeLength ? code : null);
+      return (ip: uri.host, port: uri.port);
     }
     final address = parseHttpAddress(text);
-    return address == null ? null : (ip: address.ip, port: address.port, code: null);
+    return address == null ? null : (ip: address.ip, port: address.port);
   }
 }
