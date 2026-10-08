@@ -175,6 +175,8 @@ class HuyaSite
     var result = await HttpClient.instance.getJson(
       "https://live.cdn.huya.com/liveconfig/game/bussLive",
       queryParameters: {"bussType": liveCategory.id},
+      // 分组树接口无 User-Agent 时回 403 "Not allowed"。
+      header: {"user-agent": kUserAgent},
     );
 
     List<LiveArea> subs = [];
@@ -956,6 +958,8 @@ class HuyaSite
         "rows": effectivePageSize,
         "start": (page - 1) * effectivePageSize,
       },
+      // 搜索接口无 User-Agent 时回 403 "Not allowed"。
+      header: {"user-agent": kUserAgent},
     );
     var result = json.decode(resultText);
     var items = <LiveRoom>[];
@@ -1007,6 +1011,8 @@ class HuyaSite
         "rows": pageSize,
         "start": (page - 1) * pageSize,
       },
+      // 搜索接口无 User-Agent 时回 403 "Not allowed"。
+      header: {"user-agent": kUserAgent},
     );
     var result = json.decode(resultText);
     var items = <LiveAnchorItem>[];
