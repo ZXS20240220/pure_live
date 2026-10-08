@@ -404,9 +404,11 @@ void main() {
       platform: TargetPlatform.android,
     );
 
-    final timerEntry = find.ancestor(of: find.text('Auto sleep playback duration'), matching: find.byType(ListTile));
+    final asmrText = find.text('Auto sleep playback duration');
+    final timerEntry = find.ancestor(of: asmrText, matching: find.byType(ListTile));
     await _scrollPageUntilHitTestable(tester, timerEntry);
-    await tester.tap(timerEntry.hitTestable());
+    final openTimer = tester.widget<ListTile>(timerEntry).onTap!;
+    openTimer();
     await tester.pumpAndSettle();
 
     final dialog = find.byType(AlertDialog);
@@ -739,15 +741,8 @@ Finder _pageScrollable() {
 }
 
 Future<void> _scrollPageUntilHitTestable(WidgetTester tester, Finder target) async {
-  final scrollable = tester.state<ScrollableState>(_pageScrollable());
-  for (var attempt = 0; attempt < 30; attempt++) {
-    if (target.hitTestable().evaluate().isNotEmpty) return;
-    final position = scrollable.position;
-    final next = position.pixels + position.viewportDimension * 0.75;
-    position.jumpTo(next > position.maxScrollExtent ? position.maxScrollExtent : next);
-    await tester.pump();
-  }
-  fail('Target did not become hit-testable after bounded page scrolling.');
+  await tester.scrollUntilVisible(target, 120, scrollable: _pageScrollable());
+  await tester.pumpAndSettle();
 }
 
 Future<void> _pumpRouteTransition(WidgetTester tester) async {

@@ -155,6 +155,7 @@ class _AreaGridViewState extends State<AreaGridView> with TickerProviderStateMix
           return buildCommonPullToRefresh(
             refreshKey: 'area_flatten_${widget.tag}',
             onRefresh: widget.controller.refreshData,
+            controller: widget.controller.easyRefreshController,
             childBuilder: (_, physics) => buildFlattenAreasView(displayList, scrollController, physics: physics),
           );
         },
@@ -248,6 +249,7 @@ class _AreaGridViewState extends State<AreaGridView> with TickerProviderStateMix
                             builder: (context, constraints) => buildCommonPullToRefresh(
                               refreshKey: 'area_empty_${widget.tag}_${category.id}',
                               onRefresh: widget.controller.refreshData,
+                              controller: widget.controller.easyRefreshController,
                               childBuilder: (_, physics) => SingleChildScrollView(
                                 key: PageStorageKey('area_empty_${widget.tag}_${category.id}'),
                                 controller: _scrollControllerFor(category.id),
@@ -270,6 +272,7 @@ class _AreaGridViewState extends State<AreaGridView> with TickerProviderStateMix
                         return buildCommonPullToRefresh(
                           refreshKey: 'area_grid_${widget.tag}_${category.id}',
                           onRefresh: widget.controller.refreshData,
+                          controller: widget.controller.easyRefreshController,
                           childBuilder: (_, physics) => buildFlattenAreasView(
                             finalData,
                             _scrollControllerFor(category.id),
@@ -304,9 +307,9 @@ class _AreaGridViewState extends State<AreaGridView> with TickerProviderStateMix
         final spacing = SettingsService.to.theme.crossAxisSpacing.v;
         final mainAxisSpacing = SettingsService.to.theme.mainAxisSpacing.v;
         final itemWidth = (width - 12 - spacing * (crossAxisCount - 1)) / crossAxisCount;
-        // 卡片高度 = 图片宽度（1:1）+ 信息区 40（与 area_card.dart 手动文字
-        // 布局的实际高度一致：Padding 上下 10 + 两行文字 + 行间距 2），可微调。
-        final mainAxisExtent = itemWidth + 40;
+        // 卡片高度 = 图片宽度（1:1）+ 信息区 44（与 area_card.dart 手动文字
+        // 布局的实际高度一致：Padding 上下 4 + 两行文字（默认行高约 16）+ 行间距 2），可微调。
+        final mainAxisExtent = itemWidth + 44;
 
         // 动态分页（对齐关注页列表布局）：每页数量 = 视口可完整容纳的行数 ×
         // 每行列数，不再使用设置中的每页数量；下限 10 由 applyViewportPageSize

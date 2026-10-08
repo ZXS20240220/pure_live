@@ -96,6 +96,7 @@ Future<_Favorite> _mount(WidgetTester tester, {bool desktop = true, DateTime Fun
   Get.put(SettingsService(), permanent: true);
   SettingsService.to.fav.favoriteRooms.v = [_room()];
   SettingsService.to.fav.hotAreasList.assignAll(['bilibili']);
+  SettingsService.to.refreshConfig.successCooldownSeconds.value = 0;
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = Size(desktop ? 900 : 400, 640);
   addTearDown(tester.view.resetPhysicalSize);

@@ -39,7 +39,7 @@ void main() {
     );
 
     final refresh = tester.widget<EasyRefresh>(find.byType(EasyRefresh));
-    expect(refresh.key, const ValueKey('favorite_pull_to_refresh_bilibili'));
+    expect(refresh.key, const ValueKey('pull_to_refresh_favorite_bilibili'));
     expect(refresh.childBuilder, isNotNull);
     expect(installedPhysics, isNotNull, reason: 'the scrollable must use EasyRefresh-owned physics');
 

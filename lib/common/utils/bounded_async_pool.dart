@@ -14,20 +14,19 @@ Future<List<R?>> boundedAsyncMap<T, R>(
   final workerCount = math.min(math.max(1, maxConcurrent), source.length);
   var nextIndex = 0;
 
-  final cancelSignal = StreamController<void>.broadcast(sync: true);
-  StreamSubscription<void>? cancelListener;
+  final cancelSignal = Completer<void>.sync();
+  Timer? cancelPoller;
   if (shouldCancel != null) {
     final cancelFn = shouldCancel;
-    cancelListener = Stream.periodic(const Duration(milliseconds: 30))
-        .takeWhile((_) => !cancelFn())
-        .listen(
-          null,
-          onDone: () {
-            if (cancelFn() && !cancelSignal.isClosed) {
-              cancelSignal.add(null);
-            }
-          },
-        );
+    void poll() {
+      if (cancelFn()) {
+        if (!cancelSignal.isCompleted) cancelSignal.complete();
+        return;
+      }
+      cancelPoller = Timer(const Duration(milliseconds: 30), poll);
+    }
+
+    poll();
   }
 
   Future<void> worker() async {
@@ -40,10 +39,9 @@ Future<List<R?>> boundedAsyncMap<T, R>(
         results[index] = await taskFuture;
       } else {
         final taskDone = taskFuture.then((_) => true);
-        final cancelled = cancelSignal.stream.first.then((_) => false);
+        final cancelled = cancelSignal.future.then((_) => false);
         final wasCancelled = !(await Future.any([taskDone, cancelled]));
         if (wasCancelled) return;
-        if (shouldCancel()) return;
         results[index] = await taskFuture;
       }
     }
@@ -52,8 +50,8 @@ Future<List<R?>> boundedAsyncMap<T, R>(
   try {
     await Future.wait(List<Future<void>>.generate(workerCount, (_) => worker()));
   } finally {
-    await cancelListener?.cancel();
-    await cancelSignal.close();
+    cancelPoller?.cancel();
+    if (!cancelSignal.isCompleted) cancelSignal.complete();
   }
   return results;
 }

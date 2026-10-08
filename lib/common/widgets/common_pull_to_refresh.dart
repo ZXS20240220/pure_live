@@ -13,9 +13,11 @@ Widget buildCommonPullToRefresh({
   required String refreshKey,
   required Future<void> Function() onRefresh,
   required ERChildBuilder childBuilder,
+  EasyRefreshController? controller,
 }) {
   return EasyRefresh.builder(
     key: ValueKey('pull_to_refresh_$refreshKey'),
+    controller: controller,
     header: MaterialHeader(
       key: ValueKey('pull_to_refresh_indicator_$refreshKey'),
       triggerOffset: 72,

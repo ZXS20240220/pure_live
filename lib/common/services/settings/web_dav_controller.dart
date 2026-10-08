@@ -50,8 +50,13 @@ class WebDavController extends GetxController {
 
   void fromJson(Map<String, dynamic> json) {
     final parsed = parseConfig(json);
-    currentWebDavConfig.v = parsed['currentWebDavConfig'];
+    currentWebDavConfig.v = _mergeCredential(currentWebDavConfig.v, parsed['currentWebDavConfig']);
     webDavConfigs.v = parsed['webDavConfigs'];
+  }
+
+  static String _mergeCredential(String current, String incoming) {
+    if (incoming.isNotEmpty) return incoming;
+    return current;
   }
 
   static Map<String, dynamic> parseConfig(Map<String, dynamic> json) {

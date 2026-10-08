@@ -45,6 +45,9 @@ class _Favorite extends GetxController implements FavoriteController {
   final tabBottomIndex = 0.obs;
 
   @override
+  final showRefreshShield = false.obs;
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 

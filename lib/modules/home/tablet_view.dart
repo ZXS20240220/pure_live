@@ -112,59 +112,72 @@ class _HomeTabletViewState extends State<HomeTabletView> {
 
             return Row(
               children: [
-                Listener(
-                  onPointerSignal: (event) => _handleRailPointerSignal(event, virtualToRealMap),
-                  child: NavigationRail(
-                    groupAlignment: 0.9,
-                    labelType: NavigationRailLabelType.all,
-                    leading: Column(
-                      key: _leadingKey,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Padding(padding: EdgeInsets.all(12), child: MenuButton()),
-                        Obx(
-                          () => SettingsService.to.app.enableMultiView.v
-                              ? Padding(
+                PrimaryScrollController.none(
+                  child: Listener(
+                    onPointerSignal: (event) => _handleRailPointerSignal(event, virtualToRealMap),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isShortWindow = constraints.maxHeight < 400;
+                        return NavigationRail(
+                          groupAlignment: isShortWindow ? -1 : 0.9,
+                          labelType: NavigationRailLabelType.all,
+                          scrollable: true,
+                          leadingAtTop: !isShortWindow,
+                          leading: Column(
+                            key: _leadingKey,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Padding(padding: EdgeInsets.all(12), child: MenuButton()),
+                              ValueListenableBuilder<bool>(
+                                valueListenable: SettingsService.to.app.enableMultiView,
+                                builder: (context, value, child) => value
+                                    ? Padding(
+                                        padding: const EdgeInsets.only(top: 0, bottom: 12, left: 12, right: 12),
+                                        child: IconButton(
+                                          onPressed: AppNavigator.toMultiview,
+                                          tooltip: i18n('multiview_title'),
+                                          icon: const Icon(Remix.layout_grid_line),
+                                        ),
+                                      )
+                                    : const SizedBox.shrink(),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.only(top: 0, bottom: 12, left: 12, right: 12),
+                                child: IconButton(
+                                  onPressed: () => Get.toNamed(RoutePath.kToolbox),
+                                  tooltip: i18n('toolbox_title'),
+                                  icon: const Icon(Remix.link),
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.only(top: 0, bottom: 12, left: 12, right: 12),
+                                child: IconButton(
+                                  onPressed: () => Get.toNamed(RoutePath.kSearch),
+                                  tooltip: i18n('search_live'),
+                                  icon: const Icon(CustomIcons.search),
+                                ),
+                              ),
+                              if (widget.showRecord)
+                                Padding(
                                   padding: const EdgeInsets.only(top: 0, bottom: 12, left: 12, right: 12),
                                   child: IconButton(
-                                    onPressed: AppNavigator.toMultiview,
-                                    tooltip: i18n('multiview_title'),
-                                    icon: const Icon(Remix.layout_grid_line),
+                                    onPressed: () => Get.toNamed(RoutePath.kRecordPage),
+                                    tooltip: i18n('record_center'),
+                                    icon: const Icon(Remix.download_2_line),
                                   ),
-                                )
-                              : const SizedBox.shrink(),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(top: 0, bottom: 12, left: 12, right: 12),
-                          child: IconButton(
-                            onPressed: () => Get.toNamed(RoutePath.kToolbox),
-                            icon: const Icon(Remix.link),
+                                ),
+                            ],
                           ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(top: 0, bottom: 12, left: 12, right: 12),
-                          child: IconButton(
-                            onPressed: () => Get.toNamed(RoutePath.kSearch),
-                            icon: const Icon(CustomIcons.search),
-                          ),
-                        ),
-                        if (widget.showRecord)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 0, bottom: 12, left: 12, right: 12),
-                            child: IconButton(
-                              onPressed: () => Get.toNamed(RoutePath.kRecordPage),
-                              icon: const Icon(Remix.download_2_line),
-                            ),
-                          ),
-                      ],
+                          destinations: destinations,
+                          selectedIndex: activeSelectedIndex,
+                          onDestinationSelected: (int virtualIndex) {
+                            if (virtualIndex >= 0 && virtualIndex < virtualToRealMap.length) {
+                              widget.onDestinationSelected(virtualToRealMap[virtualIndex]);
+                            }
+                          },
+                        );
+                      },
                     ),
-                    destinations: destinations,
-                    selectedIndex: activeSelectedIndex,
-                    onDestinationSelected: (int virtualIndex) {
-                      if (virtualIndex >= 0 && virtualIndex < virtualToRealMap.length) {
-                        widget.onDestinationSelected(virtualToRealMap[virtualIndex]);
-                      }
-                    },
                   ),
                 ),
                 const VerticalDivider(width: 1),

@@ -387,9 +387,7 @@ class AppDatabase extends _$AppDatabase {
       final channelIds = (await (select(
         channels,
       )..where((t) => t.providerId.equals(providerId))).get()).map((channel) => channel.id).toList(growable: false);
-      await (delete(epgMappings)..where((t) => t.providerId.equals(providerId))).go();
       for (final ids in _deleteReferenceBatches(channelIds)) {
-        await (delete(epgMappings)..where((t) => t.channelId.isIn(ids))).go();
         await (delete(favoriteListChannels)..where((t) => t.channelId.isIn(ids))).go();
         await (delete(failoverGroupChannels)..where((t) => t.channelId.isIn(ids))).go();
         await (delete(epgReminders)..where((t) => t.channelId.isIn(ids))).go();

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:pure_live/common/services/settings/cache_controller.dart';
+import 'package:pure_live/common/services/settings/app_settings_controller.dart';
 import 'package:pure_live/common/services/settings/font_settings_controller.dart';
 import 'package:pure_live/common/services/settings_service.dart';
 import 'package:pure_live/common/utils/hive_pref_util.dart';
@@ -33,6 +34,7 @@ void main() {
     Get.testMode = true;
     Get.reset();
     cache = _TestCacheController();
+    cache.cacheSizeMB.value = 12.34;
     Get.put<SettingsService>(_TestSettingsService(cache));
   });
 
@@ -46,6 +48,10 @@ void main() {
   testWidgets('narrow very-large text keeps cache size and every action reachable', (tester) async {
     await _pumpPage(tester, english);
 
+    for (var i = 0; i < 10 && find.text('12.34 MB').evaluate().isEmpty; i++) {
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, -400));
+      await tester.pump();
+    }
     expect(find.text('12.34 MB'), findsOneWidget);
     for (final label in ['Refresh live thumbnails', 'Clear Local Cache']) {
       final target = find.text(label);
@@ -92,6 +98,10 @@ void main() {
   testWidgets('cache clear confirmation and active clear share one transaction', (tester) async {
     cache.clearCompleter = Completer<CacheClearResult>();
     await _pumpPage(tester, english);
+    for (var i = 0; i < 10 && find.text('Clear Local Cache').evaluate().isEmpty; i++) {
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, -400));
+      await tester.pump();
+    }
     final tile = find.ancestor(of: find.text('Clear Local Cache'), matching: find.byType(ListTile));
     final staleOnTap = tester.widget<ListTile>(tile).onTap!;
 
@@ -118,8 +128,13 @@ void main() {
   });
 }
 
-Future<void> _pumpPage(WidgetTester tester, Map<String, dynamic> english) async {
-  tester.view.physicalSize = const Size(320, 480);
+Future<void> _pumpPage(
+  WidgetTester tester,
+  Map<String, dynamic> english, {
+  double textScale = 3,
+  Size viewSize = const Size(320, 480),
+}) async {
+  tester.view.physicalSize = viewSize;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
@@ -142,7 +157,7 @@ Future<void> _pumpPage(WidgetTester tester, Map<String, dynamic> english) async 
           localizationsDelegates: context.localizationDelegates,
           supportedLocales: context.supportedLocales,
           builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(context).copyWith(textScaler: const TextScaler.linear(3)),
+            data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(textScale)),
             child: child!,
           ),
           home: const CacheDataSettingsPage(),
@@ -157,7 +172,7 @@ Future<void> _pumpPage(WidgetTester tester, Map<String, dynamic> english) async 
 Future<void> _scrollUntilHitTestable(WidgetTester tester, Finder target) async {
   for (var attempt = 0; attempt < 20; attempt++) {
     if (target.hitTestable().evaluate().isNotEmpty) return;
-    await tester.drag(find.byType(Scrollable).first, const Offset(0, -100));
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -400));
     await tester.pump();
   }
   fail('Cache action did not become hit-testable after bounded scrolling.');
@@ -209,10 +224,14 @@ class _TestCacheController extends CacheController {
 }
 
 class _TestSettingsService extends SettingsService {
-  _TestSettingsService(this._cache) : _font = FontSettingsController();
+  _TestSettingsService(this._cache) : _app = AppSettingsController(), _font = FontSettingsController();
 
   final CacheController _cache;
+  final AppSettingsController _app;
   final FontSettingsController _font;
+
+  @override
+  AppSettingsController get app => _app;
 
   @override
   CacheController get cache => _cache;

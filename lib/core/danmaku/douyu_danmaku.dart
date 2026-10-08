@@ -264,6 +264,7 @@ class DouyuDanmaku with DouyuVoiceTrltAware implements LiveDanmaku {
       userName: "SUPER_CHAT_MESSAGE",
       message: "SUPER_CHAT_MESSAGE",
       color: LiveMessageColor.white,
+      messageId: data.messageId,
       data: data,
     );
   }

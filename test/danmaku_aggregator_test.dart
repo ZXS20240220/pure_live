@@ -85,7 +85,8 @@ void main() {
 
     expireWindows(timers);
     expect(emitted, hasLength(1));
-    expect(emitted.single.message, '666 ×3');
+    expect(emitted.single.message, '666');
+    expect(emitted.single.repeatCount, 3);
     expect(emitted.single.userName, 'u1');
     expect(emitted.single.isLocal, isFalse);
   });
@@ -102,7 +103,8 @@ void main() {
     expireWindows(timers);
 
     expect(emitted, hasLength(1));
-    expect(emitted.single.message, '666 ×2');
+    expect(emitted.single.message, '666');
+    expect(emitted.single.repeatCount, 2);
   });
 
   test('local messages bypass aggregation and disabled state passes through', () {
@@ -132,7 +134,8 @@ void main() {
     // Only the group with real duplicates produces a summary; the singleton
     // was already visible.
     expect(emitted, hasLength(1));
-    expect(emitted.single.message, 'a ×2');
+    expect(emitted.single.message, 'a');
+    expect(emitted.single.repeatCount, 2);
     expect(aggregator.pendingKeyCount, 0);
     expect(timers.where((timer) => timer.isActive), isEmpty);
   });

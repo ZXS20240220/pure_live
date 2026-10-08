@@ -8,9 +8,12 @@ import 'package:pure_live/modules/version/version_controller.dart';
 
 void main() {
   test('maintained build reads updates and release assets from the same repository', () {
-    expect(VersionUtil.projectUrl, 'https://github.com/liuchuancong/pure_live');
+    expect(VersionUtil.projectUrl, 'https://github.com/${VersionUtil.updateOwner}/${VersionUtil.updateRepository}');
     expect(VersionUtil.issuesUrl, '${VersionUtil.projectUrl}/issues');
-    expect(VersionUtil.releaseUrl, contains('/repos/liuchuancong/pure_live/releases'));
+    expect(
+      VersionUtil.releaseUrl,
+      contains('/repos/${VersionUtil.updateOwner}/${VersionUtil.updateRepository}/releases'),
+    );
   });
 
   test('release URLs match locally produced artifact names', () {
@@ -20,10 +23,10 @@ void main() {
       buildNumber: 52,
     );
 
-    expect(urls.windowsSetup, endsWith('/PureLive-2.1.4-52-windows-x64-setup.exe'));
-    expect(urls.windowsMsix, endsWith('/PureLive-2.1.4-52-windows-x64.msix'));
-    expect(urls.windowsPortable, endsWith('/PureLive-2.1.4-52-windows-x64-portable.zip'));
-    expect(urls.macosUniversal, endsWith('/PureLive-2.1.4-52-macos-universal.zip'));
+    expect(urls.windowsSetup, endsWith('/PureLive-dev-2.1.4-52-windows-x64-setup.exe'));
+    expect(urls.windowsMsix, endsWith('/PureLive-dev-2.1.4-52-windows-x64.msix'));
+    expect(urls.windowsPortable, endsWith('/PureLive-dev-2.1.4-52-windows-x64-portable.zip'));
+    expect(urls.macosUniversal, endsWith('/PureLive-dev-2.1.4-52-macos-universal.zip'));
   });
 
   test('incomplete release identity never produces broken download links', () {

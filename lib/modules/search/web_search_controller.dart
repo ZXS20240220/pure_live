@@ -230,7 +230,8 @@ class WebSearchController extends GetxController {
       await browser.load(uri);
     } catch (error) {
       if (!_closed && identical(_browser, browser) && _isCurrent(generation)) {
-        debugPrint('[WebSearch] Page load threw (non-fatal): $error');
+        debugPrint('[WebSearch] Page load threw: $error');
+        _setFailure('web_search_load_failed', disposeBrowser: false);
       }
     }
   }
@@ -615,14 +616,16 @@ class WebSearchController extends GetxController {
     loadProgress.value = 0;
   }
 
-  void _setFailure(String localizationKey) {
+  void _setFailure(String localizationKey, {bool disposeBrowser = true}) {
     errorMessageKey.value = localizationKey;
     viewStatus.value = WebSearchViewStatus.failed;
-    // 失败界面取代网页区域（页面结构不再用覆盖层盖住 WebView），必须同步
-    // 卸载浏览器：控件已移出控件树，旧 controller 已销毁，若保留 _browser
-    // 引用，retry 会 reload 到已 dispose 的实例并再次失败，形成失败循环。
     showWebView.value = false;
-    unawaited(_disposeBrowser());
+    if (disposeBrowser) {
+      // 失败界面取代网页区域（页面结构不再用覆盖层盖住 WebView），必须同步
+      // 卸载浏览器：控件已移出控件树，旧 controller 已销毁，若保留 _browser
+      // 引用，retry 会 reload 到已 dispose 的实例并再次失败，形成失败循环。
+      unawaited(_disposeBrowser());
+    }
   }
 
   /// 校验事件是否来自当前 WebView。

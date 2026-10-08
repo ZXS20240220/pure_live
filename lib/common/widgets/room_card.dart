@@ -1151,16 +1151,18 @@ class RoomCard extends StatelessWidget {
                       key: const ValueKey('room-card-watchtime-badge'),
                       left: 8,
                       bottom: 8,
-                      child: Obx(() {
-                        final seconds = WatchTimeService.secondsFor(room.identityKey);
-                        if (seconds <= 0) return const SizedBox.shrink();
-                        return CoverMetricBadge(
-                          icon: Icons.schedule_rounded,
-                          value: WatchTimeService.formatCompact(seconds),
-                          semanticLabel: '${i18n('watch_time_total')} ${WatchTimeService.formatFull(seconds)}',
-                          dense: dense,
-                        );
-                      }),
+                      child: Get.isRegistered<WatchTimeService>()
+                          ? Obx(() {
+                              final seconds = WatchTimeService.secondsFor(room.identityKey);
+                              if (seconds <= 0) return const SizedBox.shrink();
+                              return CoverMetricBadge(
+                                icon: Icons.schedule_rounded,
+                                value: WatchTimeService.formatCompact(seconds),
+                                semanticLabel: '${i18n('watch_time_total')} ${WatchTimeService.formatFull(seconds)}',
+                                dense: dense,
+                              );
+                            })
+                          : const SizedBox.shrink(),
                     ),
                   if (effectiveShowDelete)
                     Positioned(
@@ -1325,6 +1327,7 @@ class CountChip extends StatelessWidget {
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: dense ? 10 : 12, vertical: dense ? 4 : 6),
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, color: Colors.white, size: dense ? 16 : 18),
             const SizedBox(width: 4),

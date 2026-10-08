@@ -85,7 +85,7 @@ void main() {
     final detail = await site.getRoomDetail(roomId: 'fixture_101', platform: Sites.pandaLiveSite);
     expect(detail.effectiveLiveStatus, LiveStatus.live);
     expect(detail.onlineViewers, '127');
-    expect(detail.totalViewers, isNull);
+    expect(detail.totalViewers, isEmpty);
     final qualities = await site.getPlayQualites(detail: detail);
     expect(qualities.map((quality) => quality.selectionId), ['1080p60', '720p60', '480p30']);
     final resolution = await site.resolvePlayUrlsRaw(detail: detail, quality: qualities[1]);

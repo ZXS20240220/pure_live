@@ -282,6 +282,8 @@ class _ControlledStreams implements mk.PlayerStream {
   final loadingEvents = StreamController<bool>.broadcast(sync: true);
   final videoEvents = StreamController<mk.VideoParams>.broadcast(sync: true);
   final audioEvents = StreamController<mk.AudioParams>.broadcast(sync: true);
+  final positionEvents = StreamController<Duration>.broadcast(sync: true);
+  final durationEvents = StreamController<Duration>.broadcast(sync: true);
   @override
   Stream<bool> get playing => playingEvents.stream;
   @override
@@ -291,12 +293,23 @@ class _ControlledStreams implements mk.PlayerStream {
   @override
   Stream<mk.AudioParams> get audioParams => audioEvents.stream;
   @override
+  Stream<Duration> get position => positionEvents.stream;
+  @override
+  Stream<Duration> get duration => durationEvents.stream;
+  @override
   Stream<bool> get completed => const Stream.empty();
   @override
   Stream<String> get error => const Stream.empty();
 
   Future<void> close() async {
-    await Future.wait([playingEvents.close(), loadingEvents.close(), videoEvents.close(), audioEvents.close()]);
+    await Future.wait([
+      playingEvents.close(),
+      loadingEvents.close(),
+      videoEvents.close(),
+      audioEvents.close(),
+      positionEvents.close(),
+      durationEvents.close(),
+    ]);
   }
 
   @override

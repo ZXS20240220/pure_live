@@ -7,7 +7,6 @@ import 'package:pure_live/common/utils/hive_pref_util.dart';
 import 'package:pure_live/get/get.dart';
 import 'package:pure_live/common/services/settings/player_settings_controller.dart';
 import 'package:pure_live/player/utils/mpv_platform_profile.dart';
-import 'package:pure_live/player/utils/player_consts.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -205,7 +204,7 @@ void main() {
       expect(PlayerSettingsController.normalizeVideoFitIndex(5), 5);
       expect(PlayerSettingsController.normalizeVideoFitIndex(6), 0);
       expect(PlayerSettingsController.normalizePreferredResolution('流畅'), '流畅');
-      expect(PlayerSettingsController.normalizePreferredResolution('retired-quality'), PlayerConsts.resolutions.first);
+      expect(PlayerSettingsController.normalizePreferredResolution('retired-quality'), '原画');
 
       final parsed = PlayerSettingsController.parseConfig({
         'videoFitIndex': 99,
@@ -217,10 +216,10 @@ void main() {
       });
 
       expect(parsed['videoFitIndex'], 0);
-      expect(parsed['preferResolution'], PlayerConsts.resolutions.first);
-      expect(parsed['preferResolutionCellular'], PlayerConsts.resolutions.first);
+      expect(parsed['preferResolution'], '原画');
+      expect(parsed['preferResolutionCellular'], '原画');
       expect(extracted['videoFitIndex'], 0);
-      expect(extracted['preferResolution'], PlayerConsts.resolutions.first);
+      expect(extracted['preferResolution'], '原画');
       expect(extracted['preferResolutionCellular'], '流畅');
       expect(() => PlayerSettingsController.parseConfig({'videoFitIndex': '5'}), throwsA(isA<TypeError>()));
       expect(() => PlayerSettingsController.parseConfig({'preferResolution': 42}), throwsA(isA<TypeError>()));
@@ -235,16 +234,16 @@ void main() {
 
       expect(settings.videoFitIndex.value, 0);
       expect(settings.resolvedVideoFitIndex, 0);
-      expect(settings.preferResolution.value, PlayerConsts.resolutions.first);
-      expect(settings.resolvedPreferResolution, PlayerConsts.resolutions.first);
-      expect(settings.preferResolutionCellular.value, PlayerConsts.resolutions.first);
-      expect(settings.resolvedPreferResolutionCellular, PlayerConsts.resolutions.first);
+      expect(settings.preferResolution.value, '原画');
+      expect(settings.resolvedPreferResolution, '原画');
+      expect(settings.preferResolutionCellular.value, '原画');
+      expect(settings.resolvedPreferResolutionCellular, '原画');
 
       await Future<void>.delayed(Duration.zero);
       await HivePrefUtil.flush();
       expect(HivePrefUtil.getInt('videoFitIndex'), 0);
-      expect(HivePrefUtil.getString('preferResolution'), PlayerConsts.resolutions.first);
-      expect(HivePrefUtil.getString('preferResolutionCellular'), PlayerConsts.resolutions.first);
+      expect(HivePrefUtil.getString('preferResolution'), '原画');
+      expect(HivePrefUtil.getString('preferResolutionCellular'), '原画');
     });
 
     test('repairs direct runtime writes and exports only canonical playback preferences', () async {
@@ -256,11 +255,11 @@ void main() {
 
       expect(settings.resolvedVideoFitIndex, 0);
       expect(settings.resolvedVideoFitDescriptionKey, 'video_fit_default');
-      expect(settings.resolvedPreferResolution, PlayerConsts.resolutions.first);
-      expect(settings.resolvedPreferResolutionCellular, PlayerConsts.resolutions.first);
+      expect(settings.resolvedPreferResolution, '原画');
+      expect(settings.resolvedPreferResolutionCellular, '原画');
       expect(settings.toJson(), containsPair('videoFitIndex', 0));
-      expect(settings.toJson(), containsPair('preferResolution', PlayerConsts.resolutions.first));
-      expect(settings.toJson(), containsPair('preferResolutionCellular', PlayerConsts.resolutions.first));
+      expect(settings.toJson(), containsPair('preferResolution', '原画'));
+      expect(settings.toJson(), containsPair('preferResolutionCellular', '原画'));
       expect(settings.advanceVideoFitIndex(), 1);
       expect(settings.videoFitIndex.value, 1);
       settings.videoFitIndex.value = 5;
@@ -268,12 +267,12 @@ void main() {
 
       await Future<void>.delayed(Duration.zero);
       expect(settings.videoFitIndex.value, 0);
-      expect(settings.preferResolution.value, PlayerConsts.resolutions.first);
-      expect(settings.preferResolutionCellular.value, PlayerConsts.resolutions.first);
+      expect(settings.preferResolution.value, '原画');
+      expect(settings.preferResolutionCellular.value, '原画');
       await HivePrefUtil.flush();
       expect(HivePrefUtil.getInt('videoFitIndex'), 0);
-      expect(HivePrefUtil.getString('preferResolution'), PlayerConsts.resolutions.first);
-      expect(HivePrefUtil.getString('preferResolutionCellular'), PlayerConsts.resolutions.first);
+      expect(HivePrefUtil.getString('preferResolution'), '原画');
+      expect(HivePrefUtil.getString('preferResolutionCellular'), '原画');
     });
   });
 }

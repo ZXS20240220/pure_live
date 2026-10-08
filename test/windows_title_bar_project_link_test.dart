@@ -17,7 +17,7 @@ void main() {
     expect(projectLinkSource, contains('link: true'));
     expect(projectLinkSource, contains('enabled: !_busy'));
     expect(projectLinkSource, contains('mode: LaunchMode.externalApplication'));
-    expect(source, contains("'external_browser_not_opened'"));
+    expect(projectLinkSource, contains('Text(widget.failureMessage)'));
   });
 
   testWidgets('project link exposes its purpose, focus and keyboard action', (tester) async {

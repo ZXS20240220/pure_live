@@ -45,7 +45,7 @@ class NewVersionDialog extends StatelessWidget {
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       constraints: BoxConstraints(
         maxWidth: _clamp(windowSize.width * 0.72, max: 1600),
-        maxHeight: _clamp(windowSize.height * 0.72, max: 900),
+        maxHeight: _clamp(windowSize.height * 0.85, max: 900),
       ),
       title: Text(i18n("check_update")),
       content: Column(
@@ -69,34 +69,29 @@ class NewVersionDialog extends StatelessWidget {
           ),
           MarkdownBlock(data: VersionUtil.effectiveLatestUpdateLog, config: config),
           const SizedBox(height: 10),
+          const _AutoCheckUpdateModeMenu(key: ValueKey('new-version-auto-check-menu')),
         ],
       ),
       actionsAlignment: MainAxisAlignment.end,
       actionsOverflowAlignment: OverflowBarAlignment.end,
       actions: <Widget>[
-        Row(
-          children: [
-            const _AutoCheckUpdateModeMenu(key: ValueKey('new-version-auto-check-menu')),
-            const Spacer(),
-            TextButton(
-              key: const ValueKey('new-version-cancel'),
-              onPressed: () => Navigator.pop(context),
-              child: Text(i18n("cancel")),
-            ),
-            FilledButton(
-              key: const ValueKey('new-version-update'),
-              onPressed: () {
-                Navigator.pop(context);
-                final callback = onUpdate;
-                if (callback != null) {
-                  callback();
-                } else {
-                  Get.toNamed(RoutePath.kVersionPage);
-                }
-              },
-              child: Text(i18n("update")),
-            ),
-          ],
+        TextButton(
+          key: const ValueKey('new-version-cancel'),
+          onPressed: () => Navigator.pop(context),
+          child: Text(i18n("cancel")),
+        ),
+        FilledButton(
+          key: const ValueKey('new-version-update'),
+          onPressed: () {
+            Navigator.pop(context);
+            final callback = onUpdate;
+            if (callback != null) {
+              callback();
+            } else {
+              Get.toNamed(RoutePath.kVersionPage);
+            }
+          },
+          child: Text(i18n("update")),
         ),
       ],
     );
@@ -119,14 +114,15 @@ class _AutoCheckUpdateModeMenu extends StatelessWidget {
     final mutedColor = theme.hintColor.withValues(alpha: 0.75);
     return Obx(() {
       final mode = SettingsService.to.app.autoCheckUpdateMode;
-      return Row(
-        mainAxisSize: MainAxisSize.min,
+      return Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 12,
+        runSpacing: 4,
         children: [
           Text(
             i18n('auto_check_update'),
             style: AppTextStyles.t12.copyWith(color: mutedColor, fontWeight: FontWeight.w500),
           ),
-          const SizedBox(width: 12),
           Material(
             color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
             shape: RoundedRectangleBorder(
@@ -172,9 +168,16 @@ class _AutoCheckUpdateModeMenu extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      i18n(_modeLabels[mode]!),
-                      style: AppTextStyles.t12.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.w600),
+                    Flexible(
+                      child: Text(
+                        i18n(_modeLabels[mode]!),
+                        style: AppTextStyles.t12.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        softWrap: false,
+                        overflow: TextOverflow.fade,
+                      ),
                     ),
                     const SizedBox(width: 4),
                     Icon(Icons.expand_more_rounded, size: 16, color: mutedColor),

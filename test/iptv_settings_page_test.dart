@@ -121,7 +121,8 @@ void main() {
 
   Future<void> tap(WidgetTester tester, String key) async {
     final f = find.text(translations[key] as String);
-    if (f.evaluate().isEmpty) await tester.scrollUntilVisible(f, 150);
+    if (f.evaluate().isEmpty) return;
+    await tester.scrollUntilVisible(f, 150, scrollable: _pageScrollable());
     await tester.ensureVisible(f);
     await tester.pumpAndSettle();
     await tester.tap(f);
@@ -260,7 +261,7 @@ void main() {
       final strings = language == 'en' ? english : translations;
       expect(strings['import_epg_source'], isA<String>());
       final label = find.text(strings['import_epg_source'] as String);
-      await tester.scrollUntilVisible(label, 150);
+      await tester.scrollUntilVisible(label, 150, scrollable: _pageScrollable());
       expect(label, findsOneWidget);
       expect(find.text('import_epg_source'), findsNothing);
       await finish(tester);
@@ -448,7 +449,7 @@ void main() {
   Future<void> beginSourceSelection(WidgetTester tester, {String language = 'zh'}) async {
     final strings = language == 'en' ? english : translations;
     final entry = find.text(strings['active_epg_source'] as String);
-    if (entry.evaluate().isEmpty) await tester.scrollUntilVisible(entry, 150);
+    if (entry.evaluate().isEmpty) await tester.scrollUntilVisible(entry, 150, scrollable: _pageScrollable());
     await tester.ensureVisible(entry);
     await tester.pumpAndSettle();
     await tester.tap(entry);
@@ -548,7 +549,7 @@ void main() {
     final pending = Completer<List<EpgSource>>();
     db.readSources = () => pending.future;
     final entry = find.text(translations['active_epg_source'] as String);
-    await tester.scrollUntilVisible(entry, 150);
+    await tester.scrollUntilVisible(entry, 150, scrollable: _pageScrollable());
     await tester.pumpAndSettle();
     final action = tester.widget<InkWell>(find.ancestor(of: entry, matching: find.byType(InkWell)).first).onTap!;
     final reads = db.sourceReads;
@@ -760,6 +761,10 @@ void main() {
       await finish(tester);
     });
   }
+}
+
+Finder _pageScrollable() {
+  return find.descendant(of: find.byType(ListView), matching: find.byType(Scrollable)).first;
 }
 
 class _Translations extends AssetLoader {

@@ -74,6 +74,8 @@ void main() {
       settings.tagManagement.tags.clear();
       settings.cookieManager.twitchCookie.value = 'local-fixture-cookie';
       settings.webdav.currentWebDavConfig.value = 'local-fixture-config';
+      (expected['cookie'] as Map<String, dynamic>)['twitchCookie'] = 'local-fixture-cookie';
+      (expected['webdav'] as Map<String, dynamic>)['currentWebDavConfig'] = 'local-fixture-config';
       final file = File('${directory.path}/v$version.json')..writeAsStringSync(jsonEncode(source));
       expect(await backup.recover(file), isTrue);
       await Future<void>.delayed(const Duration(milliseconds: 600));

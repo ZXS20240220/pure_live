@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pure_live/common/global/app_path_manager.dart';
 import 'package:pure_live/common/services/settings/cache_controller.dart';
+import 'package:pure_live/core/utils/web_view2_environment.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -19,7 +20,11 @@ void main() {
   });
 
   test('cache scope contains only app-owned temporary directory names', () {
-    expect(CacheStoragePolicy.localDirectoryNames, [AppPathManager.dirImageCache, AppPathManager.dirEmojiCache]);
+    expect(CacheStoragePolicy.localDirectoryNames, [
+      AppPathManager.dirImageCache,
+      AppPathManager.dirEmojiCache,
+      AppWebView2Environment.dirName,
+    ]);
     expect(CacheStoragePolicy.localDirectoryNames, isNot(contains(AppPathManager.dirRecords)));
     expect(CacheStoragePolicy.localDirectoryNames, isNot(contains(AppPathManager.dirDownload)));
     expect(CacheStoragePolicy.localDirectoryNames, isNot(contains(AppPathManager.dirIptvCache)));

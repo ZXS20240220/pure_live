@@ -45,24 +45,18 @@ class _PanelResizeDividerState extends State<PanelResizeDivider> {
         onHorizontalDragStart: _onDragStart,
         onHorizontalDragUpdate: _onDragUpdate,
         onHorizontalDragEnd: _onDragEnd,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
-          width: _isHovering || _isDragging ? 4.0 : 2.0,
-          color: _isDragging
-              ? dragColor
-              : _isHovering
-              ? hoverColor
-              : idleColor,
-          child: Stack(
-            children: [
-              Positioned(
-                top: 0,
-                bottom: 0,
-                left: (_dividerWidth - 4) / 2,
-                right: (_dividerWidth - 4) / 2,
-                child: const ColoredBox(color: Colors.transparent),
-              ),
-            ],
+        child: SizedBox(
+          width: _dividerWidth,
+          child: Center(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 120),
+              width: _isHovering || _isDragging ? 4.0 : 2.0,
+              color: _isDragging
+                  ? dragColor
+                  : _isHovering
+                  ? hoverColor
+                  : idleColor,
+            ),
           ),
         ),
       ),

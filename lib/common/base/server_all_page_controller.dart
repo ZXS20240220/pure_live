@@ -57,6 +57,11 @@ abstract class ServerAllPageController<T> extends BasePageScrollAndStateBone<T> 
   }
 
   @override
+  void onLayoutChanged() {
+    processLocalPaging();
+  }
+
+  @override
   Future<void> loadData() async {
     final active = _activeLoad;
     if (active != null) return active;

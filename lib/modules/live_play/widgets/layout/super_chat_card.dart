@@ -163,7 +163,12 @@ class _SuperChatCardState extends State<SuperChatCard> {
               primaryText: headerText,
               secondaryText: headerSubText,
             ),
-            _buildMessageBody(message: message, backgroundColor: messageColor, textColor: messageText),
+            _buildMessageBody(
+              context: context,
+              message: message,
+              backgroundColor: messageColor,
+              textColor: messageText,
+            ),
           ],
         ),
       ),
@@ -388,13 +393,15 @@ class _SuperChatCardState extends State<SuperChatCard> {
   }
 
   Widget _buildMessageBody({
+    required BuildContext context,
     required LiveSuperChatMessage message,
     required Color backgroundColor,
     required Color textColor,
   }) {
-    const collapsedLines = 3;
+    final textScale = MediaQuery.textScalerOf(context).scale(14);
+    final collapsedLines = textScale > 28 ? 1 : (textScale > 21 ? 2 : 3);
 
-    // 普通 Text 不支持选择与拖拽；收起时截断 3 行，左键点击展开/收起完整内容。
+    // 普通 Text 不支持选择与拖拽；收起时截断行数随字号缩放，左键点击展开/收起完整内容。
     final body = Material(
       color: backgroundColor,
       child: InkWell(

@@ -151,6 +151,11 @@ abstract class LocalReactivePageController<T> extends BasePageScrollAndStateBone
   }
 
   @override
+  void onLayoutChanged() {
+    _processDataDistribution();
+  }
+
+  @override
   Future<void> loadData() async {
     if (isClosed) return;
     _processDataDistribution();

@@ -41,8 +41,32 @@ void main() {
       'xiaohongshu',
       'niconico',
       'weibo',
+      'showroom',
+      'chzzk',
+      'kick',
+      '17live',
+      'liveme',
+      'tiktok',
+      'youtube',
+      'bigo',
+      'pandalive',
+      'popkontv',
+      'shopeelive',
+      'vkvideolive',
+      'nimotv',
+      'dailymotion',
+      'rumble',
+      'goodgame',
+      'fc2live',
+      'steambroadcast',
+      'jdlive',
+      'taobaolive',
+      'kugoulive',
+      'baidulive',
+      'sixroom',
+      'looklive',
     ]);
-    expect(settings.siteCatalogMigration.value, 14);
+    expect(settings.siteCatalogMigration.value, 38);
     settings.hotAreasList.remove('kilakila');
     settings.onInit();
     expect(settings.hotAreasList, [
@@ -54,13 +78,38 @@ void main() {
       'xiaohongshu',
       'niconico',
       'weibo',
+      'showroom',
+      'chzzk',
+      'kick',
+      '17live',
+      'liveme',
+      'tiktok',
+      'youtube',
+      'bigo',
+      'pandalive',
+      'popkontv',
+      'shopeelive',
+      'vkvideolive',
+      'nimotv',
+      'dailymotion',
+      'rumble',
+      'goodgame',
+      'fc2live',
+      'steambroadcast',
+      'jdlive',
+      'taobaolive',
+      'kugoulive',
+      'baidulive',
+      'sixroom',
+      'looklive',
     ]);
+    await Future<void>.delayed(Duration.zero);
     await Hive.box<dynamic>('app_settings').flush();
     Get.reset();
     await Hive.close();
     await HivePrefUtil.init();
     final reopened = Get.put(FavoriteRoomController());
-    expect(reopened.siteCatalogMigration.value, 14);
+    expect(reopened.siteCatalogMigration.value, 38);
     expect(reopened.hotAreasList, [
       'huya',
       'inke',
@@ -70,6 +119,30 @@ void main() {
       'xiaohongshu',
       'niconico',
       'weibo',
+      'showroom',
+      'chzzk',
+      'kick',
+      '17live',
+      'liveme',
+      'tiktok',
+      'youtube',
+      'bigo',
+      'pandalive',
+      'popkontv',
+      'shopeelive',
+      'vkvideolive',
+      'nimotv',
+      'dailymotion',
+      'rumble',
+      'goodgame',
+      'fc2live',
+      'steambroadcast',
+      'jdlive',
+      'taobaolive',
+      'kugoulive',
+      'baidulive',
+      'sixroom',
+      'looklive',
     ]);
   });
 
@@ -94,11 +167,11 @@ void main() {
       controller.index.value = controller.sites.indexWhere((site) => site.id == 'kilakila') + 1;
       expect(controller.index.value, greaterThan(0));
       expect(controller.canOpenWebSearch, isFalse);
-      expect(controller.capabilityText, 'search_coverage_unavailable');
+      expect(controller.capabilityText, 'search_coverage_kilakila');
       expect(() => controller.buildSearchUrl('kilakila', 'example'), throwsStateError);
       controller.searchController.text = 'example';
       await controller.doSearch();
-      expect(controller.errorMessage.value, 'search_coverage_unavailable');
+      expect(controller.errorMessage.value, isEmpty);
       expect(controller.loading.value, isFalse);
       expect(controller.pendingSiteCount.value, 0);
       expect(controller.hasMore.value, isFalse);

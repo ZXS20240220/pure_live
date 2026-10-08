@@ -133,6 +133,7 @@ Future<_Controller> _mount(
                   errorBuilder: errorBuilder,
                   showScrollToTopBtn: false,
                   showPageSizeSelector: true,
+                  showGotoButton: true,
                   pageSizeOptions: const [20, 40, 80],
                   contentBuilder: (context, rows, scrollController) => ListView.builder(
                     key: const ValueKey('retained-list'),

@@ -36,8 +36,39 @@ void main() {
     await HivePrefUtil.setStringList('realOnlinePlatforms', ['twitch']);
     final favorites = Get.put(FavoriteRoomController());
     final app = Get.put(AppSettingsController());
-    expect(favorites.hotAreasList, ['huya', 'openrec', 'ttinglive', 'xiaohongshu', 'niconico', 'weibo']);
-    expect(favorites.siteCatalogMigration.value, 14);
+    expect(favorites.hotAreasList, [
+      'huya',
+      'openrec',
+      'ttinglive',
+      'xiaohongshu',
+      'niconico',
+      'weibo',
+      'showroom',
+      'chzzk',
+      'kick',
+      '17live',
+      'liveme',
+      'tiktok',
+      'youtube',
+      'bigo',
+      'pandalive',
+      'popkontv',
+      'shopeelive',
+      'vkvideolive',
+      'nimotv',
+      'dailymotion',
+      'rumble',
+      'goodgame',
+      'fc2live',
+      'steambroadcast',
+      'jdlive',
+      'taobaolive',
+      'kugoulive',
+      'baidulive',
+      'sixroom',
+      'looklive',
+    ]);
+    expect(favorites.siteCatalogMigration.value, 38);
     expect(app.realOnlinePlatforms, ['twitch', 'openrec', 'ttinglive']);
     expect(app.audienceMetricMigration.value, 7);
     favorites.hotAreasList.remove('openrec');
@@ -46,7 +77,37 @@ void main() {
     Get.reset();
     await Hive.close();
     await HivePrefUtil.init();
-    expect(Get.put(FavoriteRoomController()).hotAreasList, ['huya', 'ttinglive', 'xiaohongshu', 'niconico', 'weibo']);
+    expect(Get.put(FavoriteRoomController()).hotAreasList, [
+      'huya',
+      'ttinglive',
+      'xiaohongshu',
+      'niconico',
+      'weibo',
+      'showroom',
+      'chzzk',
+      'kick',
+      '17live',
+      'liveme',
+      'tiktok',
+      'youtube',
+      'bigo',
+      'pandalive',
+      'popkontv',
+      'shopeelive',
+      'vkvideolive',
+      'nimotv',
+      'dailymotion',
+      'rumble',
+      'goodgame',
+      'fc2live',
+      'steambroadcast',
+      'jdlive',
+      'taobaolive',
+      'kugoulive',
+      'baidulive',
+      'sixroom',
+      'looklive',
+    ]);
     expect(Get.put(AppSettingsController()).realOnlinePlatforms, ['twitch', 'ttinglive']);
   });
   test('backup preserves pinned owner case, numeric ID, tags and platform order', () {
@@ -77,7 +138,7 @@ void main() {
       expect(() => controller.buildSearchUrl('openrec', 'fixture'), throwsStateError);
       controller.searchController.text = 'fixture';
       await controller.doSearch();
-      expect(controller.errorMessage.value, 'search_coverage_unavailable');
+      expect(controller.errorMessage.value, 'search_partial_failure');
       expect(controller.loading.value, isFalse);
       expect(controller.hasMore.value, isFalse);
     } finally {

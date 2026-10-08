@@ -17,6 +17,7 @@ import 'package:pure_live/common/services/settings/font_settings_controller.dart
 import 'package:pure_live/common/services/settings/danmaku_settings_controller.dart';
 import 'package:pure_live/modules/live_play/widgets/danmaku/danmaku_viewing_preset.dart';
 import 'package:pure_live/modules/live_play/widgets/danmaku/danmaku_settings_binding.dart';
+import 'package:pure_live/modules/live_play/widgets/local_interaction/local_interaction_controller.dart';
 import 'package:pure_live/modules/live_play/widgets/video_player/video_controller_panel.dart';
 
 void main() {
@@ -36,6 +37,7 @@ void main() {
     Get.reset();
     await HivePrefUtil.clear();
     Get.put<SettingsService>(_TestSettingsService(DanmakuSettingsController()));
+    Get.put<LocalInteractionController>(LocalInteractionController());
   });
 
   tearDown(Get.reset);

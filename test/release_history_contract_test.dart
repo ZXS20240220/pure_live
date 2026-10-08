@@ -28,7 +28,7 @@ void main() {
       expect(release.version, '3.2');
       expect(release.title, '320');
       expect(release.author.name, '123');
-      expect(release.files.single.size, '2048');
+      expect(release.files.single.size, '2.00 KB');
       expect(release.files.single.downloads, 17);
     });
 
@@ -64,12 +64,26 @@ void main() {
     });
 
     test('bundled maintained release history is completely parseable', () {
-      final raw = jsonDecode(File('assets/releases.json').readAsStringSync()) as List<dynamic>;
-      final releases = parseReleaseHistoryPayload(raw);
+      final decoded = jsonDecode(File('assets/releases.json').readAsStringSync());
+      final raw = (decoded is Map && decoded['releases'] is List)
+          ? decoded['releases'] as List<dynamic>
+          : decoded as List<dynamic>;
+      final releases = parseReleaseHistoryPayload(decoded);
 
       expect(releases, hasLength(raw.length));
-      expect(releases.first.version, '3.1.8');
       expect(releases.every((release) => release.version.isNotEmpty), isTrue);
+
+      final rawSorted = raw.whereType<Map>().toList()
+        ..sort((left, right) {
+          final leftDate = (left['date'] ?? left['publishedAt'] ?? '').toString();
+          final rightDate = (right['date'] ?? right['publishedAt'] ?? '').toString();
+          final byDate = rightDate.compareTo(leftDate);
+          if (byDate != 0) return byDate;
+          final leftVersion = (left['version'] ?? left['tagName'] ?? '').toString();
+          final rightVersion = (right['version'] ?? right['tagName'] ?? '').toString();
+          return rightVersion.compareTo(leftVersion);
+        });
+      expect(releases.first.version, (rawSorted.first['version'] ?? rawSorted.first['tagName'] ?? '').toString());
     });
 
     test('release actions share the normalized complete HTTP target contract', () {

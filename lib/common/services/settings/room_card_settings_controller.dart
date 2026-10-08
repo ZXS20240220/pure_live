@@ -252,13 +252,42 @@ class RoomCardSettingsController extends GetxController {
     // 旧格式：优先 desktopConfig，fallback mobileConfig → standard
     final desktopJson = _readConfigMap(source, 'desktopConfig', legacyKey: 'room_card_desktop_config');
     final mobileJson = _readConfigMap(source, 'mobileConfig', legacyKey: 'room_card_mobile_config');
-    final appearance = (desktopJson ?? mobileJson) == null
-        ? RoomCardAppearance.standard
-        : RoomCardAppearance.fromJson(desktopJson ?? mobileJson!, fallback: RoomCardAppearance.standard, strict: true);
-    return {'config': appearance};
+    if (desktopJson != null || mobileJson != null) {
+      final appearance = RoomCardAppearance.fromJson(
+        desktopJson ?? mobileJson!,
+        fallback: RoomCardAppearance.standard,
+        strict: true,
+      );
+      return {'config': appearance};
+    }
+
+    // 新备份格式：roomCard 直接平铺 appearance 字段（showAvatar / cornerRadius 等）。
+    if (source.keys.any((k) => _appearanceKeys.contains(k))) {
+      final appearance = RoomCardAppearance.fromJson(source, fallback: RoomCardAppearance.standard, strict: false);
+      return {'config': appearance};
+    }
+
+    return {'config': RoomCardAppearance.standard};
   }
 
   // ---------- 辅助 ----------
+
+  static const Set<String> _appearanceKeys = {
+    'showAvatar',
+    'showAnchorName',
+    'showSubtitle',
+    'showPlatformBadge',
+    'showPlatform',
+    'automaticPlatformBadge',
+    'showAudience',
+    'showReplayBadge',
+    'showRecordBadge',
+    'showPinBadge',
+    'showWatchTimeBadge',
+    'showLastLiveTime',
+    'cornerRadius',
+    'cardBorderRadius',
+  };
 
   static Map<String, dynamic>? _readConfigMap(Map<String, dynamic> json, String key, {required String legacyKey}) {
     final value = json.containsKey(key) ? json[key] : json[legacyKey];

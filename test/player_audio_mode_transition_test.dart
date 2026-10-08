@@ -1,12 +1,20 @@
 import 'package:pure_live/core/common/hls_source_query_policy.dart';
 
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:floating/floating.dart';
 
 import 'package:flutter/material.dart';
+import 'package:hive_ce/hive.dart';
+import 'package:pure_live/common/services/settings/app_settings_controller.dart';
+import 'package:pure_live/common/services/settings/danmaku_settings_controller.dart';
+import 'package:pure_live/common/services/settings/proxy_settings_controller.dart';
+import 'package:pure_live/common/services/settings/volume_settings_controller.dart';
+import 'package:pure_live/common/services/settings/window_size_controller.dart';
 import 'package:pure_live/common/services/settings_service.dart';
 import 'package:pure_live/common/services/settings/player_settings_controller.dart';
+import 'package:pure_live/common/utils/hive_pref_util.dart';
 import 'package:pure_live/get/get.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -27,16 +35,28 @@ import 'package:pure_live/modules/live_play/states/player_state.dart' as room_st
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  setUp(() {
+  setUpAll(() async {
+    await Hive.openBox<dynamic>('app_settings', bytes: Uint8List(0));
+    await HivePrefUtil.init();
+  });
+
+  tearDownAll(Hive.close);
+
+  setUp(() async {
     Get.testMode = true;
     Get.put(GlobalPlayerState());
+    Get.put(AppSettingsController());
+    Get.put(DanmakuSettingsController());
+    Get.put(ProxySettingsController());
+    Get.put(VolumeSettingsController());
+    Get.put(WindowSizeController());
+    Get.put<SettingsService>(_FloatingSettings());
   });
 
   tearDown(Get.reset);
 
   for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
     testWidgets('app floating controls can be revealed and closed after timeout on $platform', (tester) async {
-      Get.put<SettingsService>(_FloatingSettings());
       final manager = _createManager(_FakePlayer());
       await manager.initialize(engine: PlayerEngine.mediaKit);
       await tester.pumpWidget(GetMaterialApp(home: const Scaffold(body: SizedBox.expand())));
@@ -69,7 +89,6 @@ void main() {
   }
 
   testWidgets('closing app floating cancels its control timer before the next presentation', (tester) async {
-    Get.put<SettingsService>(_FloatingSettings());
     final manager = _createManager(_FakePlayer());
     await manager.initialize(engine: PlayerEngine.mediaKit);
     await tester.pumpWidget(GetMaterialApp(home: const Scaffold(body: SizedBox.expand())));
@@ -345,7 +364,7 @@ void main() {
     expect(exitCalls, 1);
     expect(manager.isInPip.value, isFalse);
     await manager.enablePip();
-    expect(enterCalls, 1);
+    expect(enterCalls, 2);
     await manager.dispose();
   });
 
@@ -1228,9 +1247,31 @@ class _FloatingPlayerSettings implements PlayerSettingsController {
   @override
   final videoFitIndex = 0.obs;
   @override
+  final videoPlayerKey = 'mpv'.obs;
+  @override
   final enablePortraitStreamAdaptation = true.obs;
   @override
   final portraitPipFollowSource = true.obs;
+  @override
+  final windowsPipAlwaysOnTop = false.obs;
+  @override
+  final useHardStopOnExit = false.obs;
+  @override
+  final customPlayerOutput = false.obs;
+  @override
+  final audioOutputDriver = 'auto'.obs;
+  @override
+  final videoOutputDriver = 'auto'.obs;
+  @override
+  final videoHardwareDecoder = 'auto'.obs;
+  @override
+  final enableCodec = true.obs;
+  @override
+  final playerCompatMode = false.obs;
+  @override
+  final enableRtxVsr = false.obs;
+  @override
+  int get resolvedVideoFitIndex => 0;
   @override
   List<BoxFit> get videoFitArray => const [BoxFit.contain];
   @override

@@ -495,11 +495,11 @@ void main() {
       await tester.pump();
       await operation;
       await tester.pumpAndSettle();
-      expect(duringMode, desktop);
-      expect(duringSize, 2);
+      expect(duringMode, !desktop, reason: '断点跨越立即提交分页模式，不等待外部快照');
+      expect(duringSize, desktop ? 20 : SettingsService.to.page.defaultPageSize.v);
       expect(c.usesDesktopPagination, !desktop);
-      expect(source.calls, 2);
-      expect(source.sizes, [2, c.pageSize.value]);
+      expect(source.calls, 1, reason: '窗口宽度变化不触发额外网络刷新');
+      expect(source.sizes, [2]);
       expect(c.list.length, desktop ? 40 : c.pageSize.value.clamp(1, 40));
       expect(c.list.first.roomId, '0');
       expect(find.byKey(const ValueKey('local-rows')), findsOneWidget);

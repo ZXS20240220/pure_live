@@ -30,8 +30,24 @@ Future<void> _settle() => Future<void>.delayed(const Duration(milliseconds: 20))
 
 void main() {
   late Directory dir;
+  final services = <RecordingDanmakuService>[];
   setUp(() async => dir = await Directory.systemTemp.createTemp('rec-danmaku-'));
-  tearDown(() async => dir.delete(recursive: true));
+  tearDown(() async {
+    for (final s in services) {
+      try {
+        await s.dispose();
+      } catch (_) {}
+    }
+    services.clear();
+    for (var i = 0; i < 10; i++) {
+      try {
+        await dir.delete(recursive: true);
+        return;
+      } on PathAccessException {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      }
+    }
+  });
 
   test('writes each attempt to <prefix>.xml with attempt-relative times', () async {
     var now = DateTime(2026, 9, 25, 12, 0, 0);
@@ -45,6 +61,7 @@ void main() {
         return RecordingDanmakuConnection(stop: () async => stops++);
       },
     );
+    services.add(service);
     final task = _task(now, dir.path)..status = RecordStatus.running;
     service.sync([task]);
     await _settle();
@@ -96,6 +113,7 @@ void main() {
         return null;
       },
     );
+    services.add(service);
     service.sync([_task(DateTime.now(), dir.path)..status = RecordStatus.running]);
     await _settle();
     expect(connects, 0);
@@ -113,6 +131,7 @@ void main() {
         throw StateError('offline');
       },
     );
+    services.add(service);
     final task = _task(now, dir.path)..status = RecordStatus.running;
     service.sync([task]);
     await _settle();
@@ -123,6 +142,5 @@ void main() {
     service.sync([task]);
     await _settle();
     expect(connects, 2);
-    await service.dispose();
   });
 }

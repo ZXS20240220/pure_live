@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:pure_live/common/services/settings/volume_settings_controller.dart';
 import 'package:pure_live/common/services/utils/hive_rx.dart';
 import 'package:pure_live/common/services/settings_service.dart';
+import 'package:pure_live/get/get.dart';
 
 class LiveRoomVolumeManager {
   static String _getVolumeKey(String platform, String roomId) {
@@ -10,6 +11,9 @@ class LiveRoomVolumeManager {
   }
 
   static double getRoomVolume(String platform, String roomId) {
+    if (!Get.isRegistered<SettingsService>()) {
+      return Platform.isAndroid || Platform.isIOS ? 0.5 : 1.0;
+    }
     // 全局静音
     if (SettingsService.to.vol.globalVolumeMute.v) return 0.0;
 

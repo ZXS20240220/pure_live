@@ -22,44 +22,53 @@ class ReleaseModel {
   });
 
   factory ReleaseModel.fromJson(Map<String, dynamic> json) {
-    final version = json['version'] ?? json['tagName'] ?? '';
+    final version = json['version'] ?? json['tagName'];
+    final title = json['title'] ?? json['name'];
 
     final filesData = json['files'] ?? json['assets'] ?? [];
 
-    final authorData = json['author'] ?? {};
-    final authorName = authorData['name'] ?? authorData['login'] ?? '';
+    final authorData = json['author'];
+    final authorMap = authorData is Map ? authorData : const <String, dynamic>{};
+    final authorName = authorMap['name'] ?? authorMap['login'];
 
     final date = json['date'] ?? json['publishedAt'] ?? '';
 
     return ReleaseModel(
-      version: version,
-      title: json['title'] ?? json['name'] ?? '',
-      date: date,
-      github: json['github'] ?? json['url'] ?? '',
+      version: version?.toString() ?? '',
+      title: title?.toString() ?? '',
+      date: date?.toString() ?? '',
+      github: (json['github'] ?? json['url'] ?? '').toString(),
       author: AuthorModel(
-        name: authorName,
-        avatar: authorData['avatar'] ?? '',
-        profile: authorData['profile'] ?? authorData['html_url'] ?? '',
+        name: authorName?.toString() ?? '',
+        avatar: (authorMap['avatar'] ?? '').toString(),
+        profile: (authorMap['profile'] ?? authorMap['html_url'] ?? '').toString(),
       ),
-      changelog: json['changelog'] ?? json['body'] ?? '',
-      // 同时兼容 fork feed（isPrerelease/isLatest）与旧脚本 feed（prerelease/latest），
-      // 字段缺失的旧 feed 默认 false，不影响历史版本展示。
+      changelog: (json['changelog'] ?? json['body'] ?? '').toString(),
       isPrerelease: json['isPrerelease'] == true || json['prerelease'] == true,
       isLatest: json['isLatest'] == true || json['latest'] == true,
-      files: filesData.map<ReleaseFileModel>((e) {
-        final rawSize = e['size'];
-        final sizeText = switch (rawSize) {
-          String text => text,
-          num n => _formatByteSize(n.toInt()),
-          _ => '0 B',
-        };
-        return ReleaseFileModel(
-          name: e['name'] ?? '',
-          size: sizeText,
-          downloads: (e['downloads'] ?? e['downloadCount'] ?? 0) as int,
-          url: e['url'] ?? '',
-        );
-      }).toList(),
+      files: filesData is List
+          ? filesData.whereType<Map>().map<ReleaseFileModel>((e) {
+              final rawSize = e['size'];
+              final sizeText = switch (rawSize) {
+                String text => text,
+                num n => _formatByteSize(n.toInt()),
+                _ => '0 B',
+              };
+              final rawDownloads = e['downloads'] ?? e['downloadCount'];
+              final downloads = switch (rawDownloads) {
+                int i => i,
+                num n => n.toInt(),
+                String s => int.tryParse(s) ?? 0,
+                _ => 0,
+              };
+              return ReleaseFileModel(
+                name: (e['name'] ?? '').toString(),
+                size: sizeText,
+                downloads: downloads,
+                url: (e['url'] ?? '').toString(),
+              );
+            }).toList()
+          : const [],
     );
   }
 

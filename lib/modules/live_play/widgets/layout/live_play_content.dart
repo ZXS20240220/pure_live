@@ -41,14 +41,17 @@ class LivePlayNormalLayout extends StatefulWidget {
 
 class _LivePlayNormalLayoutState extends State<LivePlayNormalLayout> {
   late final ValueNotifier<double> _panelWidthNotifier;
+  bool _panelInitialized = false;
 
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_panelInitialized) return;
     final screenWidth = MediaQuery.sizeOf(context).width;
     _panelWidthNotifier = ValueNotifier<double>(
       SettingsService.to.panel.clampWidth(SettingsService.to.panel.panelWidth, screenWidth),
     );
+    _panelInitialized = true;
   }
 
   @override

@@ -5,6 +5,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:pure_live/common/services/settings/favorite_room_controller.dart';
 import 'package:pure_live/common/services/settings/font_settings_controller.dart';
 import 'package:pure_live/common/services/settings/refresh_config_controller.dart';
 import 'package:pure_live/common/services/settings_service.dart';
@@ -133,9 +134,13 @@ class _Translations extends AssetLoader {
 
 class _TestSettingsService extends SettingsService {
   final FontSettingsController _font = FontSettingsController();
+  final FavoriteRoomController _fav = FavoriteRoomController();
 
   @override
   FontSettingsController get font => _font;
+
+  @override
+  FavoriteRoomController get fav => _fav;
 
   @override
   // Test fixture intentionally skips production controller registrations.

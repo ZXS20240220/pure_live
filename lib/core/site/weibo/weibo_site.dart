@@ -77,6 +77,7 @@ class WeiboSite extends LiveSite
           cover: card.cover,
           link: WeiboLink.url(card.liveId),
           liveStatus: LiveStatus.unknown,
+          watching: '',
           notice: i18n('weibo_room_scope'),
         ),
       ),

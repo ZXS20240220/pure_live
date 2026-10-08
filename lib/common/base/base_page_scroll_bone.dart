@@ -76,7 +76,7 @@ abstract class BasePageScrollAndStateBone<T> extends BaseController {
     _layoutRefreshTimer = Timer(const Duration(milliseconds: 120), () => _commitLayout(version));
   }
 
-  void _commitLayout(int version) {
+  Future<void> _commitLayout(int version) async {
     if (isClosed || version != _layoutVersion) return;
     final isDesktop = _pendingIsDesktop;
     if (isDesktop == null) return;
@@ -92,7 +92,13 @@ abstract class BasePageScrollAndStateBone<T> extends BaseController {
       pageSize.value = 20;
       currentPage = 1;
     }
+    onLayoutChanged();
   }
+
+  /// Hook invoked after a desktop/mobile layout switch commits its new
+  /// [pageSize] and [currentPage]. Subclasses that hold a local data pool
+  /// override this to re-slice the visible page without hitting the network.
+  void onLayoutChanged() {}
 
   bool get usesDesktopPagination => _lastIsDesktop ?? Get.width > 680 && !PlatformUtils.isMobile;
 

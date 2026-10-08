@@ -68,13 +68,13 @@ void main() {
 
     final dialog = find.byType(Dialog);
     expect(dialog, findsOneWidget);
-    final network = find.descendant(of: dialog, matching: find.text('Network'));
+    final network = find.descendant(of: dialog, matching: find.text('IPTV'));
     await _scrollDialogUntilVisible(tester, dialog: dialog, target: network);
     await tester.tap(find.ancestor(of: network, matching: find.byType(RadioListTile<String>)));
     await tester.pumpAndSettle();
 
     expect(favorites.preferPlatform.value, Sites.iptvSite);
-    expect(find.text('Network'), findsOneWidget);
+    expect(find.text('IPTV'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

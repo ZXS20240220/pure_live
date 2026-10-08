@@ -405,12 +405,14 @@ class BiliBiliDanmaku implements LiveDanmaku {
               }
             }
             if (fansName.isEmpty) {
-              final legacyMedal = obj["info"][3];
-              if (legacyMedal is List && legacyMedal.length >= 2) {
-                final mname = legacyMedal[1]?.toString() ?? '';
-                final mlv = legacyMedal[0]?.toString() ?? '';
-                if (mname.isNotEmpty) fansName = mname;
-                if (mlv.isNotEmpty && mlv != '0') fansLevel = mlv;
+              if (obj["info"].length > 3) {
+                final legacyMedal = obj["info"][3];
+                if (legacyMedal is List && legacyMedal.length >= 2) {
+                  final mname = legacyMedal[1]?.toString() ?? '';
+                  final mlv = legacyMedal[0]?.toString() ?? '';
+                  if (mname.isNotEmpty) fansName = mname;
+                  if (mlv.isNotEmpty && mlv != '0') fansLevel = mlv;
+                }
               }
             }
             var liveMsg = LiveMessage(

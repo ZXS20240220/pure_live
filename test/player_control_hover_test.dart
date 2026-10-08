@@ -8,6 +8,7 @@ import 'package:pure_live/get/get.dart';
 import 'package:pure_live/modules/live_play/controllers/player_state.dart';
 import 'package:pure_live/modules/live_play/widgets/video_player/video_controller.dart';
 import 'package:pure_live/modules/live_play/widgets/video_player/video_controller_panel.dart';
+import 'package:pure_live/player/global_player_service.dart';
 
 class _FontSettings implements FontSettingsController {
   @override
@@ -38,6 +39,8 @@ class _HoverController implements VideoController {
   final audioOnlyState = false.obs;
   @override
   bool get isAudioOnly => audioOnlyState.value;
+  @override
+  final isWindowAlwaysOnTop = false.obs;
   @override
   final room = LiveRoom(platform: 'huya', roomId: 'fixture', title: 'Live fixture');
   final owners = <Object?>{};
@@ -74,6 +77,7 @@ void main() {
     Get.testMode = true;
     Get.put(GlobalPlayerState());
     Get.put<SettingsService>(_Settings());
+    await GlobalPlayerService.instance.initialize();
     addTearDown(() {
       Get.reset();
       Get.testMode = false;

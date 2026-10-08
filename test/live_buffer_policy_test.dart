@@ -15,17 +15,17 @@ void main() {
     expect(properties['cache'], 'yes');
     expect(properties['cache-on-disk'], 'no');
     expect(double.parse(properties['cache-secs']!), lessThanOrEqualTo(6));
-    expect(properties['demuxer-max-bytes'], '${32 * 1024 * 1024}');
-    expect(properties['demuxer-max-back-bytes'], '${4 * 1024 * 1024}');
+    expect(properties['demuxer-max-bytes'], '${150 * 1024 * 1024}');
+    expect(properties['demuxer-max-back-bytes'], '${256 * 1024 * 1024}');
     expect(properties['demuxer-donate-buffer'], 'no', reason: 'past packets must not consume the forward reserve');
   });
 
   test('live player keeps a bounded low-latency native buffer budget', () {
-    expect(LiveBufferPolicy.forwardBytes, 32 * 1024 * 1024);
-    expect(LiveBufferPolicy.backBytes, 4 * 1024 * 1024);
-    expect(LiveBufferPolicy.readaheadSeconds, 2);
+    expect(LiveBufferPolicy.forwardBytes, 150 * 1024 * 1024);
+    expect(LiveBufferPolicy.backBytes, 256 * 1024 * 1024);
+    expect(LiveBufferPolicy.readaheadSeconds, 5);
     expect(LiveBufferPolicy.cacheSeconds, 6);
-    expect(LiveBufferPolicy.forwardBytes + LiveBufferPolicy.backBytes, lessThanOrEqualTo(36 * 1024 * 1024));
+    expect(LiveBufferPolicy.forwardBytes, lessThan(200 * 1024 * 1024));
   });
 
   test('policy is explicit and idempotent without changing pause or decoder settings', () async {

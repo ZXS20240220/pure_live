@@ -110,22 +110,27 @@ class CookieSettingsController extends GetxController {
 
   void fromJson(Map<String, dynamic> json) {
     final parsed = parseConfig(json);
-    bilibiliCookie.v = parsed['bilibiliCookie'];
-    huyaCookie.v = parsed['huyaCookie'];
-    douyuCookie.v = parsed['douyuCookie'];
+    bilibiliCookie.v = _mergeCredential(bilibiliCookie.v, parsed['bilibiliCookie']);
+    huyaCookie.v = _mergeCredential(huyaCookie.v, parsed['huyaCookie']);
+    douyuCookie.v = _mergeCredential(douyuCookie.v, parsed['douyuCookie']);
     douyuCookieSavedAt.v = parsed['douyuCookieSavedAt'];
-    douyuLtp0.v = parsed['douyuLtp0'];
-    douyuDid.v = parsed['douyuDid'];
-    douyinCookie.v = parsed['douyinCookie'];
-    kuaishouCookie.v = parsed['kuaishouCookie'];
+    douyuLtp0.v = _mergeCredential(douyuLtp0.v, parsed['douyuLtp0']);
+    douyuDid.v = _mergeCredential(douyuDid.v, parsed['douyuDid']);
+    douyinCookie.v = _mergeCredential(douyinCookie.v, parsed['douyinCookie']);
+    kuaishouCookie.v = _mergeCredential(kuaishouCookie.v, parsed['kuaishouCookie']);
     bilibiliUid.v = parsed['bilibiliUid'];
-    twitchCookie.v = parsed['twitchCookie'];
-    soopCookie.v = parsed['soopCookie'];
-    yyCookie.v = parsed['yyCookie'];
-    taobaoCookie.v = parsed['taobaoCookie'];
+    twitchCookie.v = _mergeCredential(twitchCookie.v, parsed['twitchCookie']);
+    soopCookie.v = _mergeCredential(soopCookie.v, parsed['soopCookie']);
+    yyCookie.v = _mergeCredential(yyCookie.v, parsed['yyCookie']);
+    taobaoCookie.v = _mergeCredential(taobaoCookie.v, parsed['taobaoCookie']);
 
     BiliBiliAccountService.instance.setCookie(bilibiliCookie.v);
     BiliBiliAccountService.instance.loadUserInfo();
+  }
+
+  static String _mergeCredential(String current, String incoming) {
+    if (incoming.isNotEmpty) return incoming;
+    return current;
   }
 
   static Map<String, dynamic> extractConfig(Map<String, dynamic>? rootConfig) {

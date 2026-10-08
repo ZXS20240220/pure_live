@@ -442,27 +442,33 @@ class DanmakuListViewState extends State<DanmakuListView> {
                         }),
                         if (userScrolling)
                           Positioned(
+                            left: 12,
                             right: 12,
                             bottom: 12,
-                            child: FilledButton.icon(
-                              key: const ValueKey('danmaku-resume-live'),
-                              style: FilledButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.92),
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                              ),
-                              icon: const Icon(Icons.arrow_downward_rounded, size: 18),
-                              label: ValueListenableBuilder<int>(
-                                valueListenable: _pendingMessageCount,
-                                builder: (context, count, _) => Text(
-                                  count > 0
-                                      ? i18n('danmaku_new_messages', args: {'count': '$count'})
-                                      : i18n('scroll_to_bottom'),
-                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                            child: Align(
+                              alignment: Alignment.bottomRight,
+                              child: FilledButton.icon(
+                                key: const ValueKey('danmaku-resume-live'),
+                                style: FilledButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.92),
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                                 ),
+                                icon: const Icon(Icons.arrow_downward_rounded, size: 18),
+                                label: ValueListenableBuilder<int>(
+                                  valueListenable: _pendingMessageCount,
+                                  builder: (context, count, _) => Text(
+                                    count > 0
+                                        ? i18n('danmaku_new_messages', args: {'count': '$count'})
+                                        : i18n('scroll_to_bottom'),
+                                    style: const TextStyle(fontWeight: FontWeight.w600),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.fade,
+                                  ),
+                                ),
+                                onPressed: _resumeAutoScroll,
                               ),
-                              onPressed: _resumeAutoScroll,
                             ),
                           ),
                       ],

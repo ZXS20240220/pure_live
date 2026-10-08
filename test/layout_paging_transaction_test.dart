@@ -134,13 +134,15 @@ void main() {
     testWidgets('$kind stable breakpoint commits layout once without refetching', (tester) async {
       final c = await _mount(tester, kind, false);
       final p = c as _Probe<dynamic>;
+      await c.loadData();
+      await tester.pump();
+      final modesBefore = p.modes.length;
       c.checkAndNotifyLayoutChange(true);
       await tester.pump(const Duration(milliseconds: 70));
       c.checkAndNotifyLayoutChange(true);
       await tester.pump(const Duration(milliseconds: 60));
       expect(c.usesDesktopPagination, isTrue);
-      // 断点跨越只重排分页布局，绝不重新拉取数据（对齐开发版）。
-      expect(p.modes, isEmpty);
+      expect(p.modes.length, modesBefore, reason: '断点跨越只重排分页布局，绝不重新拉取数据');
       expect(c.list, isNotEmpty);
     });
 
@@ -153,9 +155,8 @@ void main() {
       await tester.pump();
       c.checkAndNotifyLayoutChange(true);
       await tester.pump(const Duration(milliseconds: 200));
-      // 布局提交不再等待请求：120ms 防抖后立即切换分页模式，且不追加刷新。
       expect(c.usesDesktopPagination, isTrue);
-      expect(p.modes, isEmpty);
+      expect(p.modes, [false], reason: '只有初始 loadData 一次网络请求，布局提交不追加');
       gate.complete();
       await tester.pump();
       await operation;

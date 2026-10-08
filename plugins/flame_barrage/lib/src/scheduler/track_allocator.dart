@@ -27,7 +27,10 @@ class TrackAllocator {
       if (track.locked) continue;
 
       if (track.activeCount == 0) {
-        return i;
+        final last = track.lastEntry;
+        if (last == null || last.x + last.width + config.overlapSafeGap <= screenWidth) {
+          return i;
+        }
       }
 
       final double penalty = track.activeCount * 10.0 + track.avgSpeed * 0.1;

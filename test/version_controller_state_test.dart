@@ -65,6 +65,7 @@ void main() {
     VersionUtil.latestVersion = '3.2.0';
     VersionUtil.latestBuildNumber = 5000;
     VersionUtil.latestUpdateLog = '# Pure Live 3.2.0';
+    VersionUtil.latestWindowsSetupAvailable = true;
     final controller = VersionController(
       updateChecker: () async => true,
       packageInfoLoader: () async => localPackage(),
@@ -76,7 +77,7 @@ void main() {
     expect(controller.error.value, isFalse);
     expect(controller.hasNewVersion.value, isTrue);
     expect(controller.updateLog.value, '# Pure Live 3.2.0');
-    expect(controller.windowsSetupUrl.value, contains('/v3.2.0/PureLive-3.2.0-5000-windows-x64-setup.exe'));
+    expect(controller.windowsSetupUrl.value, contains('/v3.2.0/PureLive-dev-3.2.0-5000-windows-x64-setup.exe'));
   });
 
   test('version comparison handles prefixes, build metadata and malformed values', () {

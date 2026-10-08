@@ -91,7 +91,7 @@ class RecorderConfig {
       supportedThreadQueueSizes.contains(value) ? value : defaultThreadQueueSize;
 
   static String normalizeDefaultQuality(String value) =>
-      PlayerConsts.resolutions.contains(value) ? value : PlayerConsts.resolutions.first;
+      PlayerConsts.resolutions.contains(value) && value != PlayerConsts.smartResolution ? value : '原画';
 
   /// =========================
   /// 分段时长
@@ -151,7 +151,7 @@ class RecorderConfig {
   /// =========================
 
   static String get defaultQuality =>
-      normalizeDefaultQuality(HivePrefUtil.getString(RecorderKeys.defaultQuality) ?? PlayerConsts.resolutions.first);
+      normalizeDefaultQuality(HivePrefUtil.getString(RecorderKeys.defaultQuality) ?? '原画');
 
   static Future<void> setDefaultQuality(String value) =>
       HivePrefUtil.setString(RecorderKeys.defaultQuality, normalizeDefaultQuality(value));

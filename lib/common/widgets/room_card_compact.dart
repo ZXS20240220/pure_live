@@ -79,8 +79,9 @@ class RoomCardCompact extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(radius),
               child: SizedBox(
-                height: 100,
+                height: (100 * MediaQuery.textScalerOf(context).scale(1)).clamp(100.0, 220.0),
                 child: Stack(
+                  clipBehavior: Clip.hardEdge,
                   children: [
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -135,7 +136,7 @@ class RoomCardCompact extends StatelessWidget {
                           ),
                           const SizedBox(width: 8),
                           // 右侧状态/热度/上次直播时间。
-                          _buildTrailing(theme, isDark, config),
+                          Flexible(child: _buildTrailing(theme, isDark, config)),
                           if (isDormant && onDelete != null) ...[
                             const SizedBox(width: 4),
                             IconButton(

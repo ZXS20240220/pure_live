@@ -34,8 +34,37 @@ void main() {
     await HivePrefUtil.setStringList('realOnlinePlatforms', ['twitch']);
     final favorites = Get.put(FavoriteRoomController());
     final app = Get.put(AppSettingsController());
-    expect(favorites.hotAreasList, ['huya', 'ttinglive', 'niconico', 'weibo']);
-    expect(favorites.siteCatalogMigration.value, 14);
+    expect(favorites.hotAreasList, [
+      'huya',
+      'ttinglive',
+      'niconico',
+      'weibo',
+      'showroom',
+      'chzzk',
+      'kick',
+      '17live',
+      'liveme',
+      'tiktok',
+      'youtube',
+      'bigo',
+      'pandalive',
+      'popkontv',
+      'shopeelive',
+      'vkvideolive',
+      'nimotv',
+      'dailymotion',
+      'rumble',
+      'goodgame',
+      'fc2live',
+      'steambroadcast',
+      'jdlive',
+      'taobaolive',
+      'kugoulive',
+      'baidulive',
+      'sixroom',
+      'looklive',
+    ]);
+    expect(favorites.siteCatalogMigration.value, 38);
     expect(app.realOnlinePlatforms, ['twitch']);
     expect(app.audienceMetricMigration.value, 7);
     favorites.hotAreasList.remove('niconico');
@@ -43,7 +72,35 @@ void main() {
     Get.reset();
     await Hive.close();
     await HivePrefUtil.init();
-    expect(Get.put(FavoriteRoomController()).hotAreasList, ['huya', 'ttinglive', 'weibo']);
+    expect(Get.put(FavoriteRoomController()).hotAreasList, [
+      'huya',
+      'ttinglive',
+      'weibo',
+      'showroom',
+      'chzzk',
+      'kick',
+      '17live',
+      'liveme',
+      'tiktok',
+      'youtube',
+      'bigo',
+      'pandalive',
+      'popkontv',
+      'shopeelive',
+      'vkvideolive',
+      'nimotv',
+      'dailymotion',
+      'rumble',
+      'goodgame',
+      'fc2live',
+      'steambroadcast',
+      'jdlive',
+      'taobaolive',
+      'kugoulive',
+      'baidulive',
+      'sixroom',
+      'looklive',
+    ]);
     expect(Get.put(AppSettingsController()).realOnlinePlatforms, ['twitch']);
   });
   test('backup preserves exact broadcast string and tags without inventing owner identity', () {

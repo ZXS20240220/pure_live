@@ -40,8 +40,12 @@ void main() {
       Sites.steamBroadcastSite,
       Sites.jdLiveSite,
       Sites.taobaoLiveSite,
+      Sites.kugouLiveSite,
+      Sites.baiduLiveSite,
+      Sites.sixRoomSite,
+      Sites.lookLiveSite,
     ]);
-    expect(favorites.siteCatalogMigration.value, 34);
+    expect(favorites.siteCatalogMigration.value, 38);
     favorites.hotAreasList.remove(Sites.fc2LiveSite);
     await Hive.box<dynamic>('app_settings').flush();
     Get.reset();
@@ -54,7 +58,11 @@ void main() {
       Sites.steamBroadcastSite,
       Sites.jdLiveSite,
       Sites.taobaoLiveSite,
+      Sites.kugouLiveSite,
+      Sites.baiduLiveSite,
+      Sites.sixRoomSite,
+      Sites.lookLiveSite,
     ]);
-    expect(reopened.siteCatalogMigration.value, 34);
+    expect(reopened.siteCatalogMigration.value, 38);
   });
 }

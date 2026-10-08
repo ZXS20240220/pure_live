@@ -36,6 +36,7 @@ class _VideoKeyboardShortcutsState extends State<VideoKeyboardShortcuts> {
 
     final escape = event.logicalKey == LogicalKeyboardKey.escape;
     if (!escape && isEditingFocused()) return false;
+    if (escape && isShortcutsTargetFocused()) return false;
 
     final ctrlOrCmd = HardwareKeyboard.instance.isControlPressed || HardwareKeyboard.instance.isMetaPressed;
 
@@ -182,7 +183,8 @@ class _VideoKeyboardShortcutsState extends State<VideoKeyboardShortcuts> {
   }
 
   Future<void> _adjustVolume(VideoController controller, double delta) async {
-    final current = await controller.volume() ?? 1.0;
+    final current = await controller.volume();
+    if (current == null) return;
     final next = (current + delta).clamp(0.0, 1.0);
     controller.setVolume(next);
     controller.updateVolumn(next);

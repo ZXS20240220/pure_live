@@ -32,8 +32,9 @@ void main() {
   });
   setUp(() {
     Get.testMode = true;
+    Get.reset();
     settings = _Settings();
-    Get.put<SettingsService>(settings);
+    Get.put<SettingsService>(settings, permanent: true);
     Get.put(ThemeSettingsController());
   });
   tearDown(() {

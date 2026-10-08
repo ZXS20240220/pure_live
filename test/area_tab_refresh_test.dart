@@ -103,7 +103,9 @@ Future<(_Controller, _Site)> _mount(WidgetTester tester, {Size size = const Size
   }
   expect(initialized, true);
   await controller.loadData();
-  await tester.pumpAndSettle();
+  for (var i = 0; i < 20; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
   expect(tester.takeException(), null);
   return (controller, site);
 }
@@ -115,9 +117,9 @@ Future<void> _pull(WidgetTester tester, Finder target) async {
     await tester.pump(const Duration(milliseconds: 16));
   }
   await gesture.up();
-  await tester.pumpAndSettle();
-  await tester.pump(const Duration(seconds: 2));
-  await tester.pumpAndSettle();
+  for (var i = 0; i < 30; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
 }
 
 void main() {
@@ -311,7 +313,9 @@ void main() {
       expect(find.byType(LinearProgressIndicator), findsOneWidget);
     } finally {
       gate.complete();
-      await tester.pumpAndSettle();
+      for (var i = 0; i < 60; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
     }
     expect(controller.loadding.value, false);
     expect(find.byType(LinearProgressIndicator), findsNothing);
@@ -340,7 +344,9 @@ void main() {
         } finally {
           gate.complete();
           await refresh;
-          await tester.pumpAndSettle();
+          for (var i = 0; i < 40; i++) {
+            await tester.pump(const Duration(milliseconds: 50));
+          }
         }
         final expectedId = retained ? 'Last' : 'Replacement';
         expect(controller.categories[controller.tabIndex.value].id, expectedId);
@@ -374,9 +380,9 @@ void main() {
       expect(controller.easyRefreshController.headerState?.mode, IndicatorMode.processing);
     } finally {
       gate.complete();
-      await tester.pumpAndSettle();
-      await tester.pump(const Duration(seconds: 2));
-      await tester.pumpAndSettle();
+      for (var i = 0; i < 60; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
     }
     expect(controller.loadding.value, false);
     expect(controller.easyRefreshController.headerState?.mode, IndicatorMode.inactive);
@@ -407,9 +413,9 @@ void main() {
       expect(controller.easyRefreshController.headerState?.mode, IndicatorMode.processing);
     } finally {
       gate.complete(true);
-      await tester.pumpAndSettle();
-      await tester.pump(const Duration(seconds: 2));
-      await tester.pumpAndSettle();
+      for (var i = 0; i < 60; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
     }
     expect(site.requests, 2);
     expect(controller.hasActiveLoad, false);

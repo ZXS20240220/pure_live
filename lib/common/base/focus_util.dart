@@ -7,3 +7,11 @@ bool isEditingFocused() {
   if (context == null) return false;
   return context.findAncestorWidgetOfExactType<EditableText>() != null;
 }
+
+bool isShortcutsTargetFocused() {
+  final primary = FocusManager.instance.primaryFocus;
+  if (primary == null) return false;
+  final context = primary.context;
+  if (context == null) return false;
+  return context.findAncestorWidgetOfExactType<CallbackShortcuts>() != null;
+}

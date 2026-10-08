@@ -318,11 +318,11 @@ extension AppLayoutFactory on BuildContext {
           Icon(Icons.chevron_right_rounded, color: theme.hintColor.withValues(alpha: 0.4), size: 20),
         ],
       ),
-      onTap: () => _openMenuDialog<T>(title: title, value: value, valueMap: valueMap, onChanged: onChanged),
+      onTap: () => openMenuDialog<T>(title: title, value: value, valueMap: valueMap, onChanged: onChanged),
     );
   }
 
-  void _openMenuDialog<T>({
+  void openMenuDialog<T>({
     required String title,
     required T value,
     required Map<T, String> valueMap,
@@ -343,8 +343,8 @@ extension AppLayoutFactory on BuildContext {
           content: RadioGroup<T>(
             groupValue: value,
             onChanged: (T? newValue) {
+              Navigator.of(dialogContext).pop();
               if (newValue != null) {
-                Navigator.of(dialogContext).pop();
                 onChanged.call(newValue);
               }
             },
@@ -354,9 +354,16 @@ extension AppLayoutFactory on BuildContext {
                 final isSelected = entry.key == value;
                 return RadioListTile<T>(
                   value: entry.key,
+                  toggleable: true,
+                  dense: true,
+                  minLeadingWidth: 0,
+                  horizontalTitleGap: 8,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   activeColor: innerTheme.colorScheme.primary,
                   title: Text(
                     itemDisplayText,
+                    softWrap: true,
+                    maxLines: null,
                     style: AppTextStyles.t15.copyWith(
                       fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                       color: isSelected ? innerTheme.colorScheme.primary : innerTheme.textTheme.bodyLarge?.color,

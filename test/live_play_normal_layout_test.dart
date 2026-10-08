@@ -1,15 +1,32 @@
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hive_ce/hive.dart';
 import 'package:pure_live/common/index.dart';
+import 'package:pure_live/common/utils/hive_pref_util.dart';
 import 'package:pure_live/modules/live_play/widgets/layout/live_play_content.dart';
 import 'package:pure_live/modules/live_play/widgets/layout/live_play_video.dart';
 
 void main() {
-  setUp(() {
-    Get.put(SettingsService());
+  setUpAll(() async {
+    await Hive.openBox<dynamic>('app_settings', bytes: Uint8List(0));
+    await HivePrefUtil.init();
   });
 
-  tearDown(() {
+  setUp(() async {
+    Get.testMode = true;
     Get.reset();
+    await HivePrefUtil.clear();
+    Get.put(SettingsService(), permanent: true);
+  });
+
+  tearDown(() async {
+    await HivePrefUtil.flush();
+    Get.reset();
+  });
+
+  tearDownAll(() async {
+    await Hive.close().timeout(const Duration(seconds: 10));
   });
 
   Widget fixture({bool showPanel = true}) {

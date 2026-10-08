@@ -9,6 +9,7 @@ import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/services/settings/font_settings_controller.dart';
 import 'package:pure_live/modules/live_play/controllers/live_play_controller.dart';
 import 'package:pure_live/modules/live_play/controllers/player_state.dart';
+import 'package:pure_live/modules/live_play/states/live_play_state.dart';
 import 'package:pure_live/modules/live_play/widgets/danmaku/danmaku_list_view.dart';
 import 'package:pure_live/modules/live_play/widgets/local_interaction/local_interaction_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -25,6 +26,8 @@ class _Room extends GetxController implements LivePlayController {
   final danmakuPresentationRevision = 0.obs;
   @override
   final localInteractionController = _Local();
+  @override
+  final state = const LivePlayState().obs;
   final removals = StreamController<bool Function(LiveMessage)>.broadcast(sync: true);
   @override
   Stream<bool Function(LiveMessage)> get danmakuRemovals => removals.stream;
