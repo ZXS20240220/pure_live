@@ -55,13 +55,24 @@ class CookieSettingsController extends GetxController {
     }
   }
 
-  void clearAllCookies() {
-    bilibiliCookie.v = '';
-    huyaCookie.v = '';
+  /// 斗鱼这一组是一个会话，不是单个字段。
+  ///
+  /// [douyuLtp0] 是 passport 的长期续期密钥，[douyuDid] 是它绑定的设备号：
+  /// 只清空 [douyuCookie] 会让续期凭据和设备号残留本地，也仍会跟着勾选了
+  /// 敏感数据的备份一起导出。续期本身要读到非空 cookie 才会发请求（见
+  /// `DouyuUtils.refreshSession`），所以一并清掉不影响任何在用能力；重新登录时
+  /// 本来就是三个字段一起填。
+  void clearDouyuSession() {
     douyuCookie.v = '';
     douyuCookieSavedAt.v = 0;
     douyuLtp0.v = '';
     douyuDid.v = '';
+  }
+
+  void clearAllCookies() {
+    bilibiliCookie.v = '';
+    huyaCookie.v = '';
+    clearDouyuSession();
     douyinCookie.v = '';
     kuaishouCookie.v = '';
     twitchCookie.v = '';

@@ -80,7 +80,7 @@ class AccountPage extends GetView<AccountController> {
                     ? () => _showLogoutDialog(
                         context,
                         accountName: i18n('site_douyu'),
-                        onConfirm: () => cookie.douyuCookie.v = '',
+                        onConfirm: () => cookie.clearDouyuSession(),
                       )
                     : null,
               );
