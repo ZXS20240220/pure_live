@@ -2,7 +2,6 @@ import 'package:pure_live/core/interface/live_quality_discovery.dart';
 import 'package:pure_live/core/interface/live_input_recipe.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/core/interface/live_site.dart';
-import 'package:pure_live/core/utils/smart_quality_selector.dart';
 import 'package:pure_live/model/live_play_quality.dart';
 import 'package:pure_live/player/utils/player_consts.dart';
 import 'package:pure_live/core/common/hls_source_query_policy.dart';
@@ -314,20 +313,18 @@ class StreamResolverService extends GetxService {
     final qualities = ordered.map((entry) => entry.$2).toList(growable: false);
     if (qualities.length < 2) return qualities;
 
-    if (preferredQuality == PlayerConsts.smartResolution) {
-      final smartIndex = SmartQualitySelector.selectSync(qualities: qualities);
-      if (smartIndex >= 0) return _moveToFront(qualities, smartIndex);
-    }
-
     final normalizedPreference = _normalizeQualityLabel(preferredQuality);
     final exactIndex = qualities.indexWhere(
       (quality) => _normalizeQualityLabel(quality.quality) == normalizedPreference,
     );
     if (exactIndex >= 0) return _moveToFront(qualities, exactIndex);
 
-    var preferenceIndex = PlayerConsts.resolutions.indexOf(preferredQuality);
+    final recorderResolutions = PlayerConsts.resolutions
+        .where((value) => value != PlayerConsts.smartResolution)
+        .toList(growable: false);
+    var preferenceIndex = recorderResolutions.indexOf(preferredQuality);
     if (preferenceIndex < 0) preferenceIndex = 0;
-    final targetRatio = preferenceIndex / (PlayerConsts.resolutions.length - 1);
+    final targetRatio = preferenceIndex / (recorderResolutions.length - 1);
     var closestIndex = 0;
     var closestDistance = double.infinity;
     for (var index = 0; index < qualities.length; index++) {

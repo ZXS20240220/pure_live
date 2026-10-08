@@ -362,6 +362,7 @@ class RecordSettingsPage extends GetView<RecordSettingsController> {
       title: i18n("default_record_quality"),
       selected: controller.defaultQuality.value,
       options: PlayerConsts.resolutions
+          .where((value) => value != PlayerConsts.smartResolution)
           .map((value) => _RecordOption(value: value, label: _resolutionLabel(value)))
           .toList(growable: false),
       onSelected: controller.updateDefaultQuality,
