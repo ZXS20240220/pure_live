@@ -124,14 +124,31 @@ void main() {
     );
   });
 
-  test('unexpected live EOF never falls into the slow offline polling state', () {
+  test('unexpected live EOF retries with a wider budget then falls back to offline polling', () {
+    // EOF 的重试预算是普通失败的 2 倍（覆盖短暂 CDN 抖动），但同样有限。
+    expect(
+      RecorderContinuationPolicy.shouldEnterPollingAfterRetryLimit(
+        retryCount: 5,
+        maximumRetries: 3,
+        unexpectedEof: true,
+      ),
+      isFalse,
+    );
+    expect(
+      RecorderContinuationPolicy.shouldEnterPollingAfterRetryLimit(
+        retryCount: 6,
+        maximumRetries: 3,
+        unexpectedEof: true,
+      ),
+      isTrue,
+    );
     expect(
       RecorderContinuationPolicy.shouldEnterPollingAfterRetryLimit(
         retryCount: 1000,
         maximumRetries: 3,
         unexpectedEof: true,
       ),
-      isFalse,
+      isTrue,
     );
     expect(
       RecorderContinuationPolicy.shouldEnterPollingAfterRetryLimit(

@@ -70,16 +70,19 @@ class RecorderContinuationPolicy {
     );
   }
 
-  /// A live-stream EOF after FFmpeg has opened the media does not prove that
-  /// the room went offline. Keep resolving a fresh signed URL with bounded
-  /// delay instead of moving the task into the much slower offline poll loop.
+  /// A live-stream EOF after FFmpeg has opened the media may be either a
+  /// transient CDN hiccup or the host actually going offline. Distinguishing
+  /// the two from a clean EOF alone is impossible, so the stream is retried a
+  /// few times with a short, bounded delay; beyond that the task falls back to
+  /// the slow offline poll, which waits for the host to come back online
+  /// instead of hammering an expired signed URL and churning empty segments.
   static bool shouldEnterPollingAfterRetryLimit({
     required int retryCount,
     required int maximumRetries,
     required bool unexpectedEof,
   }) {
-    if (unexpectedEof) return false;
-    return retryCount >= maximumRetries.clamp(1, 100);
+    final limit = maximumRetries.clamp(1, 100);
+    return retryCount >= (unexpectedEof ? limit * 2 : limit);
   }
 
   /// Starts acquiring the replacement a few seconds before the active input

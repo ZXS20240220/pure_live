@@ -147,7 +147,7 @@ class VideoProcessorService extends GetxService {
       // Schema-v1 recordings used strftime names without an attempt prefix.
       // Prefer the exact v2 attempt, but retain a recovery path for an
       // interrupted recording created by an older installed version.
-      final segments = selectAttemptSegments(
+      var segments = selectAttemptSegments(
         candidates: legacySegments,
         filePrefix: resolvedFilePrefix,
         allowLegacySegments: allowLegacySegments,
@@ -164,19 +164,55 @@ class VideoProcessorService extends GetxService {
       String manifest;
       if (usesClock) {
         try {
-          // A missing/partial/foreign journal and a mixed old/new TS snapshot
-          // all fail before native IO. Never infer a duration or drop a tail.
-          for (final segment in segments) {
-            if (await segment.length() <= 0) throw const FormatException('Recording clock empty segment');
+          // 预取每段长度，用于识别主播下播重试留下的 0 字节空段。
+          final lengths = await Future.wait(segments.map((s) => s.length().onError((_, _) => 0)));
+          // 剥离尾部连续的空段；它们是重试时 FFmpeg 已建分段文件但未写入
+          // 任何数据就 EOF 产生的，对应 journal 里也只有占位行。
+          var end = segments.length;
+          while (end > 0 && lengths[end - 1] <= 0) {
+            end--;
           }
-          final clock = await RecordingSegmentClock.read(journal, prefix: resolvedFilePrefix, segments: segments);
-          manifest = clock.toConcatManifest();
-          clockJournal = journal;
+          if (end == 0) {
+            _emitFailed(taskId, i18n('video_ts_empty'));
+            return false;
+          }
+          final effectiveSegments = segments.sublist(0, end);
+          final trimmed = end < segments.length;
+          try {
+            if (trimmed) {
+              // 裁剪 journal 尾部以匹配有效段数；段名按索引命名，去掉尾部
+              // 不破坏前面的索引与时间戳单调性。
+              final journalText = await _readJournalLines(journal, end);
+              final clock = RecordingSegmentClock.parse(
+                journalText,
+                prefix: resolvedFilePrefix,
+                segments: effectiveSegments.map((f) => f.path).toList(),
+              );
+              manifest = clock.toConcatManifest();
+            } else {
+              final clock = await RecordingSegmentClock.read(
+                journal,
+                prefix: resolvedFilePrefix,
+                segments: effectiveSegments,
+              );
+              manifest = clock.toConcatManifest();
+            }
+            clockJournal = journal;
+            segments = effectiveSegments;
+          } on FormatException catch (error) {
+            // 时钟校验仍失败（空段在中间、journal 损坏或不匹配）。放弃
+            // inpoint/duration 精度，仅用非空段直接 concat——时间戳可能有
+            // 小幅跳跃，但至少产出可播放文件，而不是让整段录制报废。
+            log('Recording clock validation failed for $taskId, falling back to plain concat: ${error.message}');
+            final validPaths = <String>[];
+            for (var i = 0; i < segments.length; i++) {
+              if (lengths[i] > 0) validPaths.add(p.absolute(segments[i].path));
+            }
+            manifest = buildConcatManifest(validPaths);
+            clockJournal = null;
+            segments = effectiveSegments;
+          }
         } on FileSystemException {
-          _emitFailed(taskId, i18n('recorder_segment_clock_failed'));
-          return false;
-        } on FormatException catch (error) {
-          log('Recording clock validation failed for $taskId: ${error.message}');
           _emitFailed(taskId, i18n('recorder_segment_clock_failed'));
           return false;
         }
@@ -380,6 +416,15 @@ class VideoProcessorService extends GetxService {
       manifest.writeln("file '${_escapeConcatPath(path)}'");
     }
     return manifest.toString();
+  }
+
+  /// 读取时钟 journal 的前 [lineCount] 行并以换行结尾返回。
+  ///
+  /// 用于剥离尾部空段后裁剪 journal，使其行数与有效段数一致。
+  static Future<String> _readJournalLines(File journal, int lineCount) async {
+    final lines = await journal.readAsLines();
+    final kept = lines.take(lineCount).join('\n');
+    return '$kept\n';
   }
 
   /// Copy-remux statistics can carry an AV_NOPTS-like timestamp. Prefer
