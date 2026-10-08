@@ -11,6 +11,13 @@ import 'package:pure_live/player/interface/unified_player_interface.dart';
 import 'package:pure_live/common/services/settings/app_settings_controller.dart';
 
 class LiveAudioService {
+  /// 接入系统媒体会话的平台：Android/iOS/macOS 的通知栏与音频焦点，以及
+  /// Windows 的系统媒体传输控件(SMTC：任务栏音量面板媒体卡片、键盘多媒体键)。
+  ///
+  /// Windows 侧由联邦插件 audio_service_win 自动注册，仅在初始化时创建 SMTC
+  /// 展示器，不产生保活/隐藏窗口；keep-alive 在非 Android 本就是 no-op。
+  static const bool _supportsMediaSession = PlatformUtils.isMobile || PlatformUtils.isMacOS || PlatformUtils.isWindows;
+
   static LiveAudioHandler? _handler;
   static UnifiedPlayer? _boundPlayer;
   static int? _boundSessionId;
@@ -116,7 +123,7 @@ class LiveAudioService {
     bool isCurrent() => revision == _bindingRevision && (isSourceCurrent?.call() ?? true);
     if (!isCurrent()) return;
     BackgroundPlaybackService.audioOnlySessionActive = audioOnly;
-    if (PlatformUtils.isMobile || PlatformUtils.isMacOS) {
+    if (_supportsMediaSession) {
       final handler = await _ensureInitialized();
       if (!isCurrent()) return;
       if (handler != null && (!identical(_boundPlayer, player) || _boundSessionId != sessionId)) {
@@ -132,7 +139,7 @@ class LiveAudioService {
   static Future<void> start(String roomId, String title, String author, String? cover) async {
     final revision = _bindingRevision;
     bool isCurrent() => revision == _bindingRevision && _boundPlayer != null && (_handler?.hasActiveBinding ?? false);
-    if (!PlatformUtils.isMobile && !PlatformUtils.isMacOS) return;
+    if (!_supportsMediaSession) return;
     final handler = await _ensureInitialized();
     if (handler == null || !isCurrent()) return;
 
@@ -183,7 +190,7 @@ class LiveAudioService {
     BackgroundPlaybackService.sleepSessionActive = false;
     BackgroundPlaybackService.audioOnlySessionActive = false;
     if (_handler == null) return;
-    if (!PlatformUtils.isMobile && !PlatformUtils.isMacOS) return;
+    if (!_supportsMediaSession) return;
     await _handler!.releasePlayer();
   }
 

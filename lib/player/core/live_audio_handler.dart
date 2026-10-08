@@ -266,6 +266,15 @@ class LiveAudioHandler extends BaseAudioHandler {
     await releasePlayer();
   }
 
+  // 单直播流没有上一首/下一首。Windows SMTC 的系统传输控件理论上仍可能投递
+  // 这两个按键（audio_service_win 保留了相应分支），这里显式 no-op，避免落到
+  // BaseAudioHandler 的未实现实现而在平台回调里抛错。
+  @override
+  Future<void> skipToNext() async {}
+
+  @override
+  Future<void> skipToPrevious() async {}
+
   Future<void> releasePlayer() async {
     final player = _currentPlayer;
     final revision = ++_bindingRevision;
