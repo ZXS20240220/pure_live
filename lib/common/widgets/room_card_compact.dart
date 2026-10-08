@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/services.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/services/settings/room_card_settings_controller.dart';
 import 'package:pure_live/common/widgets/common_avatar.dart';
@@ -43,7 +46,14 @@ class RoomCardCompact extends StatelessWidget {
   /// 暂弃卡片正在单次刷新：状态行以小转圈暂时替代"已弃用"文字。
   final bool dormantRefreshing;
 
-  void onTap(BuildContext context) => AppNavigator.toLiveRoomDetail(liveRoom: room);
+  void onTap(BuildContext context) async {
+    // Windows 桌面：按住 Ctrl 点击直接在悬浮窗中播放该房间。
+    if (Platform.isWindows && HardwareKeyboard.instance.isControlPressed) {
+      await GlobalPlayerService.instance.player.openAppFloatingFromRoom(room);
+      return;
+    }
+    AppNavigator.toLiveRoomDetail(liveRoom: room);
+  }
 
   void onLongPress(BuildContext context) => RoomCard.showRoomInfoDialog(context, room);
 
@@ -94,6 +104,7 @@ class RoomCardCompact extends StatelessWidget {
                           ],
                           // 中间两行：主播名 + 直播间标题。
                           Expanded(
+                            flex: 5,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -136,7 +147,13 @@ class RoomCardCompact extends StatelessWidget {
                           ),
                           const SizedBox(width: 8),
                           // 右侧状态/热度/上次直播时间。
-                          Flexible(child: _buildTrailing(theme, isDark, config)),
+                          Flexible(
+                            flex: 2,
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              child: _buildTrailing(theme, isDark, config),
+                            ),
+                          ),
                           if (isDormant && onDelete != null) ...[
                             const SizedBox(width: 4),
                             IconButton(
