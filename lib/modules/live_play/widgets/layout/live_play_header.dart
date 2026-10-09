@@ -14,7 +14,7 @@ import 'package:pure_live/modules/multiview/widgets/multiview_room_search_panel.
 import 'package:pure_live/modules/live_play/widgets/resolution_selector/audience_info.dart';
 import 'package:pure_live/modules/tags/tag_management_controller.dart';
 
-class LivePlayHeader extends StatelessWidget implements PreferredSizeWidget {
+class LivePlayHeader extends StatefulWidget implements PreferredSizeWidget {
   const LivePlayHeader({super.key, required this.controller, this.compactHeader = false});
   final LivePlayController controller;
   final bool compactHeader;
@@ -31,36 +31,74 @@ class LivePlayHeader extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Size get preferredSize => const Size.fromHeight(48);
+
+  @override
+  State<LivePlayHeader> createState() => _LivePlayHeaderState();
+}
+
+class _LivePlayHeaderState extends State<LivePlayHeader> {
+  DateTime? _lastTapDownTime;
+  Offset? _lastTapDownPosition;
+
+  static const Duration _kDoubleTapTimeout = Duration(milliseconds: 300);
+  static const double _kDoubleTapSlop = 20.0;
+
+  /// 使用 Listener 手动检测双击，避免 GestureDetector.onDoubleTap
+  /// 通过竞技场 hold 机制导致内层按钮单击延迟 ~300ms。
+  void _handlePointerDown(PointerDownEvent event) {
+    final now = DateTime.now();
+    final lastTime = _lastTapDownTime;
+    final lastPosition = _lastTapDownPosition;
+
+    if (lastTime != null && lastPosition != null) {
+      final isWithinTimeout = now.difference(lastTime) < _kDoubleTapTimeout;
+      final isWithinSlop = (event.position - lastPosition).distance < _kDoubleTapSlop;
+      if (isWithinTimeout && isWithinSlop) {
+        _toggleMaximize();
+        _lastTapDownTime = null;
+        _lastTapDownPosition = null;
+        return;
+      }
+    }
+
+    _lastTapDownTime = now;
+    _lastTapDownPosition = event.position;
+  }
+
+  void _toggleMaximize() async {
+    if (await windowManager.isMaximized()) {
+      await windowManager.unmaximize();
+    } else {
+      await windowManager.maximize();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        final showQuickActions = width >= _kQuickActionsMinWidth;
+        final showQuickActions = width >= LivePlayHeader._kQuickActionsMinWidth;
 
-        return GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onPanStart: (_) => windowManager.startDragging(),
-          onDoubleTap: () async {
-            if (await windowManager.isMaximized()) {
-              await windowManager.unmaximize();
-            } else {
-              await windowManager.maximize();
-            }
-          },
-          child: AppBar(
-            toolbarHeight: 50,
-            titleSpacing: 0,
-            title: _buildTitle(context, width),
-            actions: [
-              _buildAudienceInfo(),
-              _buildFavoriteButton(),
-              _buildRecordButton(),
-              if (showQuickActions) _buildQuickActions(context),
-              if (showQuickActions) _buildSearchRoomsButton(context),
-              LivePlayMenuButton(controller: controller),
-              const SizedBox(width: 4),
-            ],
+        return Listener(
+          onPointerDown: _handlePointerDown,
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onPanStart: (_) => windowManager.startDragging(),
+            child: AppBar(
+              toolbarHeight: 50,
+              titleSpacing: 0,
+              title: _buildTitle(context, width),
+              actions: [
+                _buildAudienceInfo(),
+                _buildFavoriteButton(),
+                _buildRecordButton(),
+                if (showQuickActions) _buildQuickActions(context),
+                if (showQuickActions) _buildSearchRoomsButton(context),
+                LivePlayMenuButton(controller: widget.controller),
+                const SizedBox(width: 4),
+              ],
+            ),
           ),
         );
       },
@@ -68,9 +106,9 @@ class LivePlayHeader extends StatelessWidget implements PreferredSizeWidget {
   }
 
   Widget _buildTitle(BuildContext context, double width) {
-    final showArea = width >= _kAreaMinWidth;
-    final showTimeIndicators = width >= _kTimeIndicatorsMinWidth;
-    final showLevelUnion = width >= _kLevelUnionMinWidth;
+    final showArea = width >= LivePlayHeader._kAreaMinWidth;
+    final showTimeIndicators = width >= LivePlayHeader._kTimeIndicatorsMinWidth;
+    final showLevelUnion = width >= LivePlayHeader._kLevelUnionMinWidth;
 
     return Row(
       children: [
@@ -79,14 +117,14 @@ class LivePlayHeader extends StatelessWidget implements PreferredSizeWidget {
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
             onTap: () {
-              final detail = controller.state.value.room.detail;
+              final detail = widget.controller.state.value.room.detail;
               if (detail != null) RoomCard.showRoomInfoDialog(context, detail);
             },
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Obx(() {
-                  final avatar = controller.state.value.room.detail?.avatar;
+                  final avatar = widget.controller.state.value.room.detail?.avatar;
                   return CircleAvatar(
                     radius: 16,
                     foregroundImage: avatar != null && avatar.isNotEmpty ? CachedNetworkImageProvider(avatar) : null,
@@ -96,7 +134,7 @@ class LivePlayHeader extends StatelessWidget implements PreferredSizeWidget {
                 const SizedBox(width: 8),
                 Flexible(
                   child: Obx(() {
-                    final detail = controller.state.value.room.detail;
+                    final detail = widget.controller.state.value.room.detail;
                     if (detail == null) {
                       return const SizedBox.shrink();
                     }
@@ -206,7 +244,7 @@ class LivePlayHeader extends StatelessWidget implements PreferredSizeWidget {
                   }),
                 ),
                 Obx(() {
-                  final detail = controller.state.value.room.detail;
+                  final detail = widget.controller.state.value.room.detail;
                   if (detail == null) return const SizedBox.shrink();
                   if (!showTimeIndicators) return const SizedBox.shrink();
                   if (!detail.isLiveNow) return const SizedBox.shrink();
@@ -242,7 +280,7 @@ class LivePlayHeader extends StatelessWidget implements PreferredSizeWidget {
 
   Widget _buildFavoriteButton() {
     return Obx(() {
-      final roomState = controller.state.value.room;
+      final roomState = widget.controller.state.value.room;
       final detail = roomState.detail;
       if (detail == null) {
         return const SizedBox.shrink();
@@ -260,7 +298,7 @@ class LivePlayHeader extends StatelessWidget implements PreferredSizeWidget {
         child: FavoriteFloatingButton(
           key: ValueKey('${detail.platform}:${detail.roomId}'),
           room: detail,
-          compact: compactHeader,
+          compact: widget.compactHeader,
         ),
       );
     });
@@ -268,7 +306,7 @@ class LivePlayHeader extends StatelessWidget implements PreferredSizeWidget {
 
   Widget _buildQuickActions(BuildContext context) {
     return Obx(() {
-      final detail = controller.state.value.room.detail;
+      final detail = widget.controller.state.value.room.detail;
       if (detail == null) return const SizedBox.shrink();
       return Row(
         mainAxisSize: MainAxisSize.min,
@@ -289,14 +327,14 @@ class LivePlayHeader extends StatelessWidget implements PreferredSizeWidget {
             message: i18n('open_live_room'),
             child: IconButton(
               icon: const Icon(Icons.open_in_browser_rounded),
-              onPressed: () => controller.openNaviteAPP(),
+              onPressed: () => widget.controller.openNaviteAPP(),
             ),
           ),
           Tooltip(
             message: i18n('switch_live_room'),
             child: IconButton(
               icon: const Icon(Icons.swap_horiz_outlined),
-              onPressed: () => Get.dialog(PlayOther(controller: controller)),
+              onPressed: () => Get.dialog(PlayOther(controller: widget.controller)),
             ),
           ),
           Tooltip(
@@ -339,7 +377,7 @@ class LivePlayHeader extends StatelessWidget implements PreferredSizeWidget {
                   onClose: () => Navigator.of(context).pop(),
                   onPicked: (room) {
                     Navigator.of(context).pop();
-                    controller.switchRoom(room);
+                    widget.controller.switchRoom(room);
                   },
                 ),
               ),
@@ -352,12 +390,12 @@ class LivePlayHeader extends StatelessWidget implements PreferredSizeWidget {
 
   Widget _buildRecordButton() {
     return Obx(() {
-      final room = controller.state.value.room.detail;
+      final room = widget.controller.state.value.room.detail;
       return RecordActionButton(
         room: room,
-        recorderController: controller.recorderController,
-        onOpenRecordCenter: controller.openRecordCenter,
-        compactHeader: compactHeader,
+        recorderController: widget.controller.recorderController,
+        onOpenRecordCenter: widget.controller.openRecordCenter,
+        compactHeader: widget.compactHeader,
       );
     });
   }
