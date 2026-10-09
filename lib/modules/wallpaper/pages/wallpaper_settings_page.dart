@@ -81,6 +81,30 @@ class WallpaperSettingsPage extends StatelessWidget {
                 onChanged: (v) => controller.updateBlurRadius(v),
               ),
             ),
+            // 视频壁纸专属设置
+            Obx(() {
+              if (!controller.isVideo) return const SizedBox.shrink();
+              return Column(
+                children: [
+                  context.buildSliderTile(
+                    context,
+                    icon: Remix.volume_up_line,
+                    title: '视频音量',
+                    value: controller.videoVolume.v,
+                    min: 0.0,
+                    max: 1.0,
+                    displayValue: '${(controller.videoVolume.v * 100).toInt()}%',
+                    onChanged: (v) => controller.updateVideoVolume(v),
+                  ),
+                  context.buildSwitchTile(
+                    icon: Remix.pause_circle_line,
+                    title: '直播时暂停',
+                    subtitle: '播放直播时自动暂停壁纸视频',
+                    value: controller.pauseVideoWhenLivePlaying,
+                  ),
+                ],
+              );
+            }),
             // 清除背景
             context.buildTile(
               icon: Icons.close_rounded,

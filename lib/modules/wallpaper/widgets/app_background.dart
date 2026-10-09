@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/modules/wallpaper/controllers/wallpaper_settings_controller.dart';
 import 'package:pure_live/modules/wallpaper/data/wallpaper_models.dart';
+import 'package:pure_live/modules/wallpaper/widgets/wallpaper_video_player.dart';
 
 class AppBackground extends StatelessWidget {
   const AppBackground({super.key});
@@ -38,8 +39,11 @@ class AppBackground extends StatelessWidget {
           break;
         case WallpaperType.videoLocal:
         case WallpaperType.videoOnline:
-          // 视频壁纸在阶段 2 实现，先占位
-          background = const ColoredBox(color: Colors.transparent);
+          background = WallpaperVideoPlayer(
+            source: source,
+            isLocal: type == WallpaperType.videoLocal,
+            fit: controller.resolvedFit,
+          );
           break;
         case WallpaperType.none:
           return const SizedBox.shrink();
