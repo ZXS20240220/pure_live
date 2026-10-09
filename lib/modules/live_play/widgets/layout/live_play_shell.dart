@@ -346,7 +346,17 @@ class _LivePlayShellState extends State<LivePlayShell> with SingleTickerProvider
   }
 
   Widget _buildMobileLayout(double progress) {
-    return Stack(fit: StackFit.expand, children: [_buildMobileFlip(progress), _buildToggleButton(progress, 0)]);
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        _buildMobileFlip(progress),
+        // 移动布局（短边 < 600）同样需要渲染进程内小窗宿主，
+        // 否则 CTRL+点击切换直播间产生的小窗会因宿主缺失而不可见。
+        // 置于翻转容器之上，避免随视频/面板面一起 3D 翻转。
+        const Positioned.fill(child: MiniPipHost()),
+        _buildToggleButton(progress, 0),
+      ],
+    );
   }
 
   Widget _buildMobileFlip(double progress) {
