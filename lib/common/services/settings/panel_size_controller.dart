@@ -45,7 +45,12 @@ class PanelSizeController extends GetxController {
 
   double clampWidth(double width, double screenWidth) {
     final maxWidth = (screenWidth * kMaxPanelRatio).floorToDouble();
-    return width.clamp(kMinPanelWidth, maxWidth);
+    // 窄窗（screenWidth < kMinPanelWidth / kMaxPanelRatio ≈ 508）下
+    // maxWidth < kMinPanelWidth，直接 clamp(335, maxWidth) 会因下限大于上限
+    // 抛出 ArgumentError，导致直播间 body 构建失败（整块灰/白屏）。
+    // 此时面板布局本就不启用，收窄下限到 maxWidth 即可。
+    final lowerLimit = maxWidth < kMinPanelWidth ? maxWidth : kMinPanelWidth;
+    return width.clamp(lowerLimit, maxWidth);
   }
 
   void setPanelWidth(double width, double screenWidth) {
