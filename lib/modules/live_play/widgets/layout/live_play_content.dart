@@ -172,7 +172,7 @@ class LivePlayContent extends StatelessWidget {
   }
 
   Widget _buildNormalView(BuildContext context) {
-    final compactHeader = MediaQuery.sizeOf(context).width < 600;
+    final compactHeader = MediaQuery.sizeOf(context).width < 690;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,

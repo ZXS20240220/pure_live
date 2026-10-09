@@ -18,38 +18,60 @@ class LivePlayHeader extends StatelessWidget implements PreferredSizeWidget {
   const LivePlayHeader({super.key, required this.controller, this.compactHeader = false});
   final LivePlayController controller;
   final bool compactHeader;
+
+  /// 5 个快捷按钮（设置标签、打开直播间、切换直播间、获取直链、搜索房间）
+  /// 需要的最小窗口宽度。窗口宽度小于该值时折叠进菜单。
+  static const double _kQuickActionsMinWidth = 880.0;
+
+  /// 左侧信息栏逐级隐藏阈值（宽度减小时依次隐藏）。
+  /// 仅头像 + 主播名始终保留。
+  static const double _kAreaMinWidth = 560.0; // 分类信息
+  static const double _kTimeIndicatorsMinWidth = 500.0; // 观看时长 + 已播时长
+  static const double _kLevelUnionMinWidth = 440.0; // 等级 + 工会
+
   @override
   Size get preferredSize => const Size.fromHeight(48);
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.translucent,
-      onPanStart: (_) => windowManager.startDragging(),
-      onDoubleTap: () async {
-        if (await windowManager.isMaximized()) {
-          await windowManager.unmaximize();
-        } else {
-          await windowManager.maximize();
-        }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final showQuickActions = width >= _kQuickActionsMinWidth;
+
+        return GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onPanStart: (_) => windowManager.startDragging(),
+          onDoubleTap: () async {
+            if (await windowManager.isMaximized()) {
+              await windowManager.unmaximize();
+            } else {
+              await windowManager.maximize();
+            }
+          },
+          child: AppBar(
+            toolbarHeight: 50,
+            titleSpacing: 0,
+            title: _buildTitle(context, width),
+            actions: [
+              _buildAudienceInfo(),
+              _buildFavoriteButton(),
+              _buildRecordButton(),
+              if (showQuickActions) _buildQuickActions(context),
+              if (showQuickActions) _buildSearchRoomsButton(context),
+              LivePlayMenuButton(controller: controller),
+              const SizedBox(width: 4),
+            ],
+          ),
+        );
       },
-      child: AppBar(
-        toolbarHeight: 50,
-        titleSpacing: 0,
-        title: _buildTitle(context),
-        actions: [
-          _buildAudienceInfo(),
-          _buildFavoriteButton(),
-          _buildRecordButton(),
-          _buildQuickActions(context),
-          _buildSearchRoomsButton(context),
-          LivePlayMenuButton(controller: controller),
-          const SizedBox(width: 4),
-        ],
-      ),
     );
   }
 
-  Widget _buildTitle(BuildContext context) {
+  Widget _buildTitle(BuildContext context, double width) {
+    final showArea = width >= _kAreaMinWidth;
+    final showTimeIndicators = width >= _kTimeIndicatorsMinWidth;
+    final showLevelUnion = width >= _kLevelUnionMinWidth;
+
     return Row(
       children: [
         MouseRegion(
@@ -124,19 +146,20 @@ class LivePlayHeader extends StatelessWidget implements PreferredSizeWidget {
                             ],
                           ],
                         ),
-                        Text(
-                          area == null || area.isEmpty ? i18n('site_$platform') : '${i18n("site_$platform")} / $area',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.labelSmall,
-                        ),
+                        if (showArea)
+                          Text(
+                            area == null || area.isEmpty ? i18n('site_$platform') : '${i18n("site_$platform")} / $area',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.labelSmall,
+                          ),
                       ],
                     );
 
                     final infoColumn = Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        if (hasLevel || hasUnion)
+                        if (showLevelUnion && (hasLevel || hasUnion))
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisSize: MainAxisSize.min,
@@ -170,7 +193,7 @@ class LivePlayHeader extends StatelessWidget implements PreferredSizeWidget {
                                 ),
                             ],
                           ),
-                        if (hasLevel || hasUnion) const SizedBox(width: 4),
+                        if (showLevelUnion && (hasLevel || hasUnion)) const SizedBox(width: 4),
                         Flexible(
                           child: hasIntroduction
                               ? Tooltip(message: introduction, verticalOffset: 8, child: textColumn)
@@ -185,6 +208,7 @@ class LivePlayHeader extends StatelessWidget implements PreferredSizeWidget {
                 Obx(() {
                   final detail = controller.state.value.room.detail;
                   if (detail == null) return const SizedBox.shrink();
+                  if (!showTimeIndicators) return const SizedBox.shrink();
                   if (!detail.isLiveNow) return const SizedBox.shrink();
                   var startTime = detail.startTime;
                   // 观看时长在已播时长上方堆叠；各自内部控制可见性。

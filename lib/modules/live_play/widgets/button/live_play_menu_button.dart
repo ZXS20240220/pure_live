@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:developer' as developer;
 
@@ -11,6 +12,8 @@ import 'package:pure_live/common/utils/windows_multi_instance_launcher.dart';
 import 'package:pure_live/modules/live_play/dialogs/room_volume_dialog.dart';
 import 'package:pure_live/modules/live_play/controllers/live_play_controller.dart';
 import 'package:pure_live/modules/live_play/widgets/local_interaction/local_interaction_sheet.dart';
+import 'package:pure_live/modules/multiview/widgets/multiview_room_search_panel.dart';
+import 'package:pure_live/modules/tags/tag_management_controller.dart';
 
 class LivePlayMenuButton extends StatelessWidget {
   const LivePlayMenuButton({super.key, required this.controller});
@@ -41,43 +44,85 @@ class LivePlayMenuButton extends StatelessWidget {
   void _handleSelected(BuildContext context, int index) {
     switch (index) {
       case 0:
-        _openLiveRoom();
+        _setRoomTags(context);
         break;
 
       case 1:
-        _switchLiveRoom();
+        _searchRooms(context);
         break;
 
       case 2:
-        _castScreen(context);
+        _openLiveRoom();
         break;
 
       case 3:
-        _showTimer(context);
+        _switchLiveRoom();
         break;
 
       case 4:
-        _showVolume(context);
+        _castScreen(context);
         break;
 
       case 5:
-        _getDirectLink(context);
+        _showTimer(context);
         break;
 
       case 6:
-        _shareRoom();
+        _showVolume(context);
         break;
 
       case 7:
-        _showLocalInteraction(context);
+        _getDirectLink(context);
         break;
 
       case 8:
+        _shareRoom();
+        break;
+
+      case 9:
+        _showLocalInteraction(context);
+        break;
+
+      case 10:
         _openNewWindow();
         break;
     }
 
     controller.updateUI(isMenuOpen: false);
+  }
+
+  void _setRoomTags(BuildContext context) {
+    final detail = controller.state.value.room.detail;
+    if (detail == null) return;
+    final tagController = Get.find<TagManagementController>();
+    unawaited(RoomCard.showTagSelectionGridModal(context, Theme.of(context), tagController, detail));
+  }
+
+  void _searchRooms(BuildContext context) {
+    final layout = MediaQuery.sizeOf(context);
+    final maxWidth = layout.width.clamp(360.0, 480.0);
+    final maxHeight = layout.height * 0.72;
+    Get.dialog(
+      Dialog(
+        alignment: Alignment.center,
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: SizedBox(
+          width: maxWidth,
+          height: maxHeight,
+          child: MultiviewRoomSearchPanel(
+            cellIndex: 0,
+            title: i18n('multiview_search_rooms'),
+            embedded: true,
+            onClose: () => Navigator.of(context).pop(),
+            onPicked: (room) {
+              Navigator.of(context).pop();
+              controller.switchRoom(room);
+            },
+          ),
+        ),
+      ),
+    );
   }
 
   void _openLiveRoom() {
@@ -180,24 +225,28 @@ class LivePlayMenuButton extends StatelessWidget {
 
   List<PopupMenuEntry<int>> _buildItems(BuildContext context) {
     return [
-      _item(value: 0, icon: Icons.open_in_browser_rounded, text: i18n('open_live_room')),
+      _item(value: 0, icon: Remix.price_tag_3_line, text: i18n('set_room_tags')),
 
-      _item(value: 1, icon: Icons.swap_horiz_outlined, text: i18n('switch_live_room')),
+      _item(value: 1, icon: Remix.search_2_line, text: i18n('multiview_search_rooms')),
 
-      _item(value: 2, icon: Remix.tv_2_line, text: i18n('cast_screen')),
+      _item(value: 2, icon: Icons.open_in_browser_rounded, text: i18n('open_live_room')),
 
-      _item(value: 3, icon: Remix.time_line, text: i18n('sleep_timer')),
+      _item(value: 3, icon: Icons.swap_horiz_outlined, text: i18n('switch_live_room')),
 
-      _item(value: 4, icon: Remix.volume_up_line, text: i18n('room_volume')),
+      _item(value: 4, icon: Remix.tv_2_line, text: i18n('cast_screen')),
 
-      _item(value: 5, icon: Remix.link_m, text: i18n('toolbox_get_direct_link')),
+      _item(value: 5, icon: Remix.time_line, text: i18n('sleep_timer')),
 
-      _item(value: 6, icon: RemixIcons.share_forward_line, text: i18n('share')),
+      _item(value: 6, icon: Remix.volume_up_line, text: i18n('room_volume')),
+
+      _item(value: 7, icon: Remix.link_m, text: i18n('toolbox_get_direct_link')),
+
+      _item(value: 8, icon: RemixIcons.share_forward_line, text: i18n('share')),
 
       if (controller.localInteractionController.enabled.v)
-        _item(value: 7, icon: Icons.auto_awesome_rounded, text: i18n('local_interaction_title')),
+        _item(value: 9, icon: Icons.auto_awesome_rounded, text: i18n('local_interaction_title')),
 
-      if (Platform.isWindows) _item(value: 8, icon: Icons.open_in_new_rounded, text: i18n('open_room_in_new_window')),
+      if (Platform.isWindows) _item(value: 10, icon: Icons.open_in_new_rounded, text: i18n('open_room_in_new_window')),
     ];
   }
 
