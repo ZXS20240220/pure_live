@@ -49,17 +49,27 @@ class AppBackground extends StatelessWidget {
           return const SizedBox.shrink();
       }
 
+      final blur = controller.blurRadius.v;
+      final maskAlpha = controller.maskOpacity.v;
+
+      // 模糊半径为 0 时不使用 BackdropFilter，避免其创建的 save layer 在 Windows 上
+      // 干扰命中测试（导致按钮不可点击）和原生对话框定位（导致文件选择窗口闪烁）。
+      // 此时仅用一个带透明度的纯色 Container 实现遮罩效果。
+      final overlay = blur > 0
+          ? BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+              child: Container(color: Colors.black.withValues(alpha: maskAlpha)),
+            )
+          : ColoredBox(color: Colors.black.withValues(alpha: maskAlpha));
+
       return IgnorePointer(
-        child: Stack(
-          children: [
-            Positioned.fill(child: background),
-            Positioned.fill(
-              child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: controller.blurRadius.v, sigmaY: controller.blurRadius.v),
-                child: Container(color: Colors.black.withValues(alpha: controller.maskOpacity.v)),
-              ),
-            ),
-          ],
+        child: RepaintBoundary(
+          child: Stack(
+            children: [
+              Positioned.fill(child: background),
+              Positioned.fill(child: overlay),
+            ],
+          ),
         ),
       );
     });
