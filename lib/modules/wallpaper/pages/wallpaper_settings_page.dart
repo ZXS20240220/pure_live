@@ -143,6 +143,12 @@ class WallpaperSettingsPage extends StatelessWidget {
               subtitle: '必应、栗次元、无铭 API 等随机图片',
               onTap: () => SettingsNavigator.open(SettingsCrumbs.wallpaperApi),
             ),
+            context.buildTile(
+              icon: Remix.history_line,
+              title: '已保存壁纸',
+              subtitle: '应用过的壁纸（图片与视频）',
+              onTap: () => SettingsNavigator.open(SettingsCrumbs.wallpaperHistory),
+            ),
           ]),
 
           const SizedBox(height: 20),

@@ -55,6 +55,7 @@ import 'package:pure_live/modules/wallpaper/pages/wallpaper_color_page.dart';
 import 'package:pure_live/modules/wallpaper/pages/wallpaper_video_page.dart';
 import 'package:pure_live/modules/wallpaper/pages/wallpaper_api_page.dart';
 import 'package:pure_live/modules/wallpaper/pages/wallpaper_library_page.dart';
+import 'package:pure_live/modules/wallpaper/pages/wallpaper_history_page.dart';
 import 'package:pure_live/modules/settings/settings_page.dart';
 import 'package:pure_live/modules/shield/danmu_shield_page.dart';
 import 'package:pure_live/modules/shield/danmu_shield_binding.dart';
@@ -242,6 +243,13 @@ class SettingsCrumbs {
     labelText: '壁纸库',
     routeName: '/settings/wallpaper/library',
     pageBuilder: WallpaperLibraryPage.new,
+    parents: [root, wallpaper],
+  );
+  // —— 设置 > 壁纸 > 已保存壁纸 ——
+  static final SettingsCrumb wallpaperHistory = SettingsCrumb(
+    labelText: '已保存壁纸',
+    routeName: '/settings/wallpaper/history',
+    pageBuilder: WallpaperHistoryPage.new,
     parents: [root, wallpaper],
   );
   static final SettingsCrumb loading = SettingsCrumb(
