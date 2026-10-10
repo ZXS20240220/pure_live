@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:file_picker/file_picker.dart';
@@ -8,7 +9,10 @@ import 'package:path/path.dart' as p;
 import 'package:pure_live/common/global/app_path_manager.dart';
 import 'package:pure_live/common/services/utils/hive_rx.dart';
 import 'package:pure_live/get/get.dart';
+import 'package:pure_live/modules/wallpaper/data/wallpaper_catalog.dart';
 import 'package:pure_live/modules/wallpaper/data/wallpaper_models.dart';
+import 'package:pure_live/modules/wallpaper/services/wallpaper_library_service.dart';
+import 'package:pure_live/modules/wallpaper/services/wallpaper_media_store.dart';
 
 class WallpaperSettingsController extends GetxController {
   static WallpaperSettingsController get to => Get.find<WallpaperSettingsController>();
@@ -39,10 +43,18 @@ class WallpaperSettingsController extends GetxController {
 
   bool get isImage => wallpaperType.isImage;
 
+  bool get isColor => wallpaperType.isColor;
+
   /// 是否存在有效壁纸（上游无总开关，清除背景即关闭）
   bool get hasWallpaper => wallpaperType != WallpaperType.none && wallpaperSource.v.isNotEmpty;
 
   BoxFit get resolvedFit => WallpaperFit.toBoxFit(fitIndex.v);
+
+  /// 解析纯色/渐变壁纸数据
+  ColorWallpaperData? get colorData {
+    if (!isColor) return null;
+    return ColorWallpaperData.deserialize(wallpaperSource.v);
+  }
 
   // ===== 类型解析 =====
   static WallpaperType _parseType(String name) {
@@ -96,6 +108,71 @@ class WallpaperSettingsController extends GetxController {
     if (result?.path == null) return;
     final path = result!.path!;
     await applyWallpaper(WallpaperItem(id: path, type: WallpaperType.videoLocal, url: path, name: p.basename(path)));
+  }
+
+  /// 应用纯色/渐变壁纸
+  Future<void> applyColorWallpaper(ColorWallpaperData data) async {
+    await applyWallpaper(
+      WallpaperItem(
+        id: 'color-${DateTime.now().millisecondsSinceEpoch}',
+        type: WallpaperType.color,
+        url: data.serialize(),
+        name: '纯色壁纸',
+      ),
+    );
+  }
+
+  /// 应用在线图片壁纸（先下载到本地再应用）
+  Future<bool> applyOnlineImage(String url, {String? name}) async {
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) return false;
+    try {
+      final localPath = await WallpaperMediaStore.download(trimmed);
+      await applyWallpaper(
+        WallpaperItem(id: localPath, type: WallpaperType.imageLocal, url: localPath, name: name ?? '在线图片'),
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 应用在线视频壁纸（先下载到本地再应用）
+  Future<bool> applyOnlineVideo(String url, {String? name}) async {
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) return false;
+    try {
+      final localPath = await WallpaperMediaStore.download(trimmed);
+      await applyWallpaper(
+        WallpaperItem(id: localPath, type: WallpaperType.videoLocal, url: localPath, name: name ?? '动态壁纸'),
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 应用从随机图源获取的图片字节（保存为本地文件后应用）
+  Future<bool> applyImageBytes(Uint8List bytes) async {
+    try {
+      final localPath = await WallpaperMediaStore.saveImageBytes(bytes);
+      await applyWallpaper(WallpaperItem(id: localPath, type: WallpaperType.imageLocal, url: localPath, name: '随机壁纸'));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 随机获取一张壁纸并应用
+  /// [categories]: 100=通用 010=动漫 001=人物，默认 111（全部）
+  Future<bool> applyRandomWallpaper({String categories = '111'}) async {
+    final items = await WallhavenService.search(categories: categories, sorting: 'random', page: 1);
+    if (items.isEmpty) return false;
+    final item = items.first;
+    await applyWallpaper(
+      WallpaperItem(id: item.id, type: WallpaperType.imageOnline, url: item.fullUrl, name: '随机壁纸 ${item.id}'),
+    );
+    return true;
   }
 
   /// 清除壁纸（恢复使用主题底色）
@@ -209,6 +286,31 @@ class WallpaperSettingsController extends GetxController {
     updateFields.forEach((k, v) => wallpaper[k] = v);
     rootConfig['wallpaper'] = wallpaper;
     return rootConfig;
+  }
+
+  /// 判断目录中的条目是否就是当前应用的壁纸
+  ///
+  /// 下载到本地的文件通过文件名匹配，因为应用时用的是本地副本而非原始 URL。
+  bool usesWallpaper(CatalogWallpaperItem item) {
+    if (wallpaperType == WallpaperType.none) return false;
+    final source = wallpaperSource.v;
+    if (source.isEmpty) return false;
+
+    // 纯色/渐变：比较颜色
+    if (wallpaperType == WallpaperType.color) {
+      final stops = item.gradient?.map((s) => colorFromHex(s.color)).whereType<Color>().toList();
+      final data = colorData;
+      if (stops == null || stops.isEmpty || data == null) return false;
+      if (stops.length != data.colors.length) return false;
+      for (var i = 0; i < stops.length; i++) {
+        if (stops[i] != data.colors[i]) return false;
+      }
+      return true;
+    }
+
+    // 图片/视频：比较 URL 或文件名
+    final name = item.file.split('?').first.split('/').last;
+    return source == item.file || source.endsWith('/$name');
   }
 
   // ===== 工具方法 =====

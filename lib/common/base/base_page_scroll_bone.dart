@@ -151,8 +151,13 @@ abstract class BasePageScrollAndStateBone<T> extends BaseController {
     }
   }
 
+  /// 结束下拉刷新/上拉加载指示器。
+  ///
+  /// 历史上桌面端在此直接返回，因为 [BasePageView] 桌面布局不包裹
+  /// [EasyRefresh]。但 [buildCommonPullToRefresh] 在桌面端同样包裹了
+  /// 指示器，若不调用 [finishRefresh] 会导致转圈卡死。桌面端没有对应
+  /// widget 时调用仅更新 controller 内部状态，无副作用。
   void finishRefreshControllers(IndicatorResult result) {
-    if (usesDesktopPagination) return;
     easyRefreshController.finishRefresh(
       result == IndicatorResult.fail ? IndicatorResult.fail : IndicatorResult.success,
     );

@@ -51,6 +51,10 @@ import 'package:pure_live/modules/settings/pages/room_card_settings_page.dart';
 import 'package:pure_live/modules/settings/pages/theme_settings_page.dart';
 import 'package:pure_live/modules/settings/pages/video_settings_page.dart';
 import 'package:pure_live/modules/wallpaper/pages/wallpaper_settings_page.dart';
+import 'package:pure_live/modules/wallpaper/pages/wallpaper_color_page.dart';
+import 'package:pure_live/modules/wallpaper/pages/wallpaper_video_page.dart';
+import 'package:pure_live/modules/wallpaper/pages/wallpaper_api_page.dart';
+import 'package:pure_live/modules/wallpaper/pages/wallpaper_library_page.dart';
 import 'package:pure_live/modules/settings/settings_page.dart';
 import 'package:pure_live/modules/shield/danmu_shield_page.dart';
 import 'package:pure_live/modules/shield/danmu_shield_binding.dart';
@@ -211,6 +215,34 @@ class SettingsCrumbs {
     routeName: '/settings/wallpaper',
     pageBuilder: WallpaperSettingsPage.new,
     parents: [root],
+  );
+  // —— 设置 > 壁纸 > 纯色渐变 ——
+  static final SettingsCrumb wallpaperColor = SettingsCrumb(
+    labelText: '纯色渐变',
+    routeName: '/settings/wallpaper/color',
+    pageBuilder: WallpaperColorPage.new,
+    parents: [root, wallpaper],
+  );
+  // —— 设置 > 壁纸 > 动态壁纸 ——
+  static final SettingsCrumb wallpaperVideo = SettingsCrumb(
+    labelText: '动态壁纸',
+    routeName: '/settings/wallpaper/video',
+    pageBuilder: WallpaperVideoPage.new,
+    parents: [root, wallpaper],
+  );
+  // —— 设置 > 壁纸 > 随机图源 ——
+  static final SettingsCrumb wallpaperApi = SettingsCrumb(
+    labelText: '随机图源',
+    routeName: '/settings/wallpaper/api',
+    pageBuilder: WallpaperApiPage.new,
+    parents: [root, wallpaper],
+  );
+  // —— 设置 > 壁纸 > 壁纸库 ——
+  static final SettingsCrumb wallpaperLibrary = SettingsCrumb(
+    labelText: '壁纸库',
+    routeName: '/settings/wallpaper/library',
+    pageBuilder: WallpaperLibraryPage.new,
+    parents: [root, wallpaper],
   );
   static final SettingsCrumb loading = SettingsCrumb(
     labelKey: 'change_loading_style',

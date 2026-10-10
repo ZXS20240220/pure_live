@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/painting.dart';
 
 /// 壁纸类型
@@ -19,6 +21,9 @@ enum WallpaperType {
 
   /// 在线视频
   videoOnline,
+
+  /// 纯色/渐变
+  color,
 }
 
 extension WallpaperTypeX on WallpaperType {
@@ -34,6 +39,97 @@ extension WallpaperTypeX on WallpaperType {
 
   /// 是否为在线来源
   bool get isOnline => this == WallpaperType.imageOnline || this == WallpaperType.videoOnline;
+
+  /// 是否为纯色/渐变
+  bool get isColor => this == WallpaperType.color;
+}
+
+/// 渐变方向
+enum GradientDirection {
+  leftToRight,
+  rightToLeft,
+  topToBottom,
+  bottomToTop,
+  topLeftToBottomRight,
+  topRightToBottomLeft,
+  bottomLeftToTopRight,
+  bottomRightToTopLeft,
+  radial,
+}
+
+/// 纯色/渐变壁纸数据
+class ColorWallpaperData {
+  final List<Color> colors;
+  final GradientDirection direction;
+
+  const ColorWallpaperData({required this.colors, this.direction = GradientDirection.topToBottom});
+
+  /// 纯色构造
+  factory ColorWallpaperData.solid(Color color) =>
+      ColorWallpaperData(colors: [color], direction: GradientDirection.topToBottom);
+
+  bool get isSolid => colors.length <= 1;
+
+  Gradient? toGradient() {
+    if (colors.isEmpty) return null;
+    if (colors.length == 1) return null;
+    final (begin, end) = _directionToAlignment();
+    return LinearGradient(colors: colors, begin: begin, end: end);
+  }
+
+  (Alignment, Alignment) _directionToAlignment() {
+    switch (direction) {
+      case GradientDirection.leftToRight:
+        return (Alignment.centerLeft, Alignment.centerRight);
+      case GradientDirection.rightToLeft:
+        return (Alignment.centerRight, Alignment.centerLeft);
+      case GradientDirection.topToBottom:
+        return (Alignment.topCenter, Alignment.bottomCenter);
+      case GradientDirection.bottomToTop:
+        return (Alignment.bottomCenter, Alignment.topCenter);
+      case GradientDirection.topLeftToBottomRight:
+        return (Alignment.topLeft, Alignment.bottomRight);
+      case GradientDirection.topRightToBottomLeft:
+        return (Alignment.topRight, Alignment.bottomLeft);
+      case GradientDirection.bottomLeftToTopRight:
+        return (Alignment.bottomLeft, Alignment.topRight);
+      case GradientDirection.bottomRightToTopLeft:
+        return (Alignment.bottomRight, Alignment.topLeft);
+      case GradientDirection.radial:
+        return (Alignment.center, Alignment.center);
+    }
+  }
+
+  Map<String, dynamic> toJson() => {
+    'colors': colors.map((c) => c.toARGB32().toRadixString(16).padLeft(8, '0')).toList(),
+    'direction': direction.name,
+  };
+
+  factory ColorWallpaperData.fromJson(Map<String, dynamic> json) {
+    final colors =
+        (json['colors'] as List?)?.map((c) => Color(int.parse(c.toString(), radix: 16))).toList() ??
+        [const Color(0xFF1A1A2E)];
+    final dirName = json['direction'] as String? ?? GradientDirection.topToBottom.name;
+    final direction = GradientDirection.values.firstWhere(
+      (e) => e.name == dirName,
+      orElse: () => GradientDirection.topToBottom,
+    );
+    return ColorWallpaperData(colors: colors, direction: direction);
+  }
+
+  /// 序列化为字符串，存入 wallpaperSource
+  String serialize() => jsonEncode(toJson());
+
+  /// 从 wallpaperSource 字符串解析
+  static ColorWallpaperData? deserialize(String source) {
+    try {
+      final json = jsonDecode(source);
+      if (json is Map<String, dynamic>) {
+        return ColorWallpaperData.fromJson(json);
+      }
+    } catch (_) {}
+    return null;
+  }
 }
 
 /// 壁纸填充方式索引

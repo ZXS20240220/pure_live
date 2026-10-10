@@ -58,6 +58,7 @@ class SettingsPage extends GetView<SettingsService> {
             ),
           ]),
 
+          const SizedBox(height: 20),
           context.buildGroupTitle(i18n("general_settings")),
           context.buildModernCard([
             context.buildTile(
@@ -143,8 +144,6 @@ class SettingsPage extends GetView<SettingsService> {
               onTap: () => SettingsNavigator.open(SettingsCrumbs.localInteraction),
             ),
           ]),
-
-          const SizedBox(height: 20),
 
           const SizedBox(height: 20),
           context.buildGroupTitle(i18n("data_manage")),

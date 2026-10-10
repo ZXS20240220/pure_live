@@ -45,6 +45,9 @@ class AppBackground extends StatelessWidget {
             fit: controller.resolvedFit,
           );
           break;
+        case WallpaperType.color:
+          background = _buildColorBackground(source);
+          break;
         case WallpaperType.none:
           return const SizedBox.shrink();
       }
@@ -83,6 +86,20 @@ class AppBackground extends StatelessWidget {
       width: double.infinity,
       height: double.infinity,
       errorBuilder: (_, _, _) => const SizedBox.shrink(),
+    );
+  }
+
+  Widget _buildColorBackground(String source) {
+    final data = ColorWallpaperData.deserialize(source);
+    if (data == null || data.colors.isEmpty) {
+      return const ColoredBox(color: Color(0xFF1A1A2E));
+    }
+    if (data.colors.length == 1) {
+      return ColoredBox(color: data.colors.first);
+    }
+    return DecoratedBox(
+      decoration: BoxDecoration(gradient: data.toGradient()),
+      child: const SizedBox.expand(),
     );
   }
 }

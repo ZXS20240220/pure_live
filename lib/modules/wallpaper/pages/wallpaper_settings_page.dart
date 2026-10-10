@@ -119,10 +119,30 @@ class WallpaperSettingsPage extends StatelessWidget {
           // ===== 背景来源 =====
           context.buildGroupTitle('背景来源'),
           context.buildModernCard([
-            context.buildTile(icon: Remix.palette_line, title: '纯色', subtitle: '纯色与渐变填充', onTap: null),
-            context.buildTile(icon: Remix.film_line, title: '视频壁纸', subtitle: '动态视频背景', onTap: null),
-            context.buildTile(icon: Remix.image_2_line, title: '壁纸库', subtitle: '官方、Wallhaven、必应等图库', onTap: null),
-            context.buildTile(icon: Remix.shuffle_line, title: '随机图源', subtitle: '每次打开随机取一张图', onTap: null),
+            context.buildTile(
+              icon: Remix.palette_line,
+              title: '纯色',
+              subtitle: '纯色与渐变填充',
+              onTap: () => SettingsNavigator.open(SettingsCrumbs.wallpaperColor),
+            ),
+            context.buildTile(
+              icon: Remix.film_line,
+              title: '视频壁纸',
+              subtitle: '动态视频背景',
+              onTap: () => SettingsNavigator.open(SettingsCrumbs.wallpaperVideo),
+            ),
+            context.buildTile(
+              icon: Remix.image_2_line,
+              title: '壁纸库',
+              subtitle: '官方、Wallhaven、必应等图库',
+              onTap: () => SettingsNavigator.open(SettingsCrumbs.wallpaperLibrary),
+            ),
+            context.buildTile(
+              icon: Remix.shuffle_line,
+              title: '随机图源',
+              subtitle: '必应、栗次元、无铭 API 等随机图片',
+              onTap: () => SettingsNavigator.open(SettingsCrumbs.wallpaperApi),
+            ),
           ]),
 
           const SizedBox(height: 20),
@@ -142,9 +162,71 @@ class WallpaperSettingsPage extends StatelessWidget {
               subtitle: '静音循环播放，直播播放时自动让位',
               onTap: () => controller.pickLocalVideo(),
             ),
+            // 网络图片地址：内联输入框
+            _NetworkUrlRow(onApply: (url) => controller.applyOnlineImage(url)),
           ]),
 
           const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
+}
+
+/// 网络图片地址输入行：标题 + 输入框 + 应用按钮
+class _NetworkUrlRow extends StatefulWidget {
+  const _NetworkUrlRow({required this.onApply});
+
+  final ValueChanged<String> onApply;
+
+  @override
+  State<_NetworkUrlRow> createState() => _NetworkUrlRowState();
+}
+
+class _NetworkUrlRowState extends State<_NetworkUrlRow> {
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '网络图片地址',
+            style: AppTextStyles.t14.copyWith(color: theme.hintColor, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _controller,
+                  keyboardType: TextInputType.url,
+                  decoration: const InputDecoration(isDense: true, hintText: '粘贴图片地址', border: OutlineInputBorder()),
+                  onSubmitted: (value) {
+                    if (value.trim().isNotEmpty) widget.onApply(value);
+                  },
+                ),
+              ),
+              const SizedBox(width: 10),
+              FilledButton(
+                onPressed: () {
+                  final url = _controller.text.trim();
+                  if (url.isNotEmpty) widget.onApply(url);
+                },
+                child: const Text('应用'),
+              ),
+            ],
+          ),
         ],
       ),
     );
