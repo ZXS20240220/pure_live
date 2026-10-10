@@ -37,6 +37,7 @@ class _WallpaperVideoPreviewPageState extends State<WallpaperVideoPreviewPage> {
   StreamSubscription<bool>? _playingSub;
   bool _videoPlaying = false;
   String? _openedUrl;
+  double _lastNonMuteVolume = 0.5;
 
   /// 填充方式档位，顺序与设置页一致
   static const List<BoxFit> kFitModes = <BoxFit>[
@@ -107,6 +108,9 @@ class _WallpaperVideoPreviewPageState extends State<WallpaperVideoPreviewPage> {
     });
     // 初始音量取设置中保存的值
     final volume = WallpaperSettingsController.to.videoVolume.v * 100;
+    _lastNonMuteVolume = WallpaperSettingsController.to.videoVolume.v > 0
+        ? WallpaperSettingsController.to.videoVolume.v
+        : 0.5;
     unawaited(player.setVolume(volume));
     unawaited(player.setPlaylistMode(PlaylistMode.loop));
     _openCurrent();
@@ -164,6 +168,22 @@ class _WallpaperVideoPreviewPageState extends State<WallpaperVideoPreviewPage> {
     if (_index < widget.items.length - 1) {
       setState(() => _index += 1);
       _openCurrent();
+    }
+  }
+
+  void _setVolume(double volume) {
+    final v = volume.clamp(0.0, 1.0);
+    WallpaperSettingsController.to.updateVideoVolume(v);
+    unawaited(_player?.setVolume(v * 100));
+  }
+
+  void _toggleMute() {
+    final current = WallpaperSettingsController.to.videoVolume.v;
+    if (current > 0) {
+      _lastNonMuteVolume = current;
+      _setVolume(0);
+    } else {
+      _setVolume(_lastNonMuteVolume > 0 ? _lastNonMuteVolume : 0.5);
     }
   }
 
@@ -389,26 +409,78 @@ class _WallpaperVideoPreviewPageState extends State<WallpaperVideoPreviewPage> {
   Widget _buildActionBar(BoxFit fit, double blur, double mask) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 40, 16, 20),
-      child: Wrap(
-        spacing: 10,
-        runSpacing: 10,
-        alignment: WrapAlignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          _ActionButton(
-            icon: _videoPlaying ? Remix.pause_line : Remix.play_line,
-            label: _videoPlaying ? '暂停' : '播放',
-            onPressed: _togglePlay,
+          _buildVolumeControl(),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            alignment: WrapAlignment.center,
+            children: [
+              _ActionButton(
+                icon: _videoPlaying ? Remix.pause_line : Remix.play_line,
+                label: _videoPlaying ? '暂停' : '播放',
+                onPressed: _togglePlay,
+              ),
+              _ActionButton(icon: Remix.arrow_left_s_line, label: '上一张', onPressed: _index > 0 ? _previous : null),
+              _ActionButton(
+                icon: Remix.arrow_right_s_line,
+                label: '下一张',
+                onPressed: _index < widget.items.length - 1 ? _next : null,
+              ),
+              _ActionButton(icon: Remix.aspect_ratio_line, label: _fitLabel(fit), onPressed: _pickFit),
+              _ActionButton(icon: Remix.blur_off_line, label: _blurLabel(blur), onPressed: _pickBlur),
+              _ActionButton(icon: Remix.contrast_2_line, label: _maskLabel(mask), onPressed: _pickMask),
+              _ActionButton(icon: Remix.check_line, label: '设为背景', primary: true, busy: _applying, onPressed: _apply),
+            ],
           ),
-          _ActionButton(icon: Remix.arrow_left_s_line, label: '上一张', onPressed: _index > 0 ? _previous : null),
-          _ActionButton(
-            icon: Remix.arrow_right_s_line,
-            label: '下一张',
-            onPressed: _index < widget.items.length - 1 ? _next : null,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVolumeControl() {
+    final volume = WallpaperSettingsController.to.videoVolume.v;
+    final muted = volume <= 0;
+    final IconData icon = muted
+        ? Remix.volume_mute_line
+        : volume < 0.5
+        ? Remix.volume_down_line
+        : Remix.volume_up_line;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(24)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: Icon(icon, color: Colors.white),
+            onPressed: _toggleMute,
+            splashRadius: 18,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
           ),
-          _ActionButton(icon: Remix.aspect_ratio_line, label: _fitLabel(fit), onPressed: _pickFit),
-          _ActionButton(icon: Remix.blur_off_line, label: _blurLabel(blur), onPressed: _pickBlur),
-          _ActionButton(icon: Remix.contrast_2_line, label: _maskLabel(mask), onPressed: _pickMask),
-          _ActionButton(icon: Remix.check_line, label: '设为背景', primary: true, busy: _applying, onPressed: _apply),
+          SizedBox(
+            width: 180,
+            child: Slider(
+              value: volume,
+              min: 0,
+              max: 1,
+              activeColor: Colors.white,
+              inactiveColor: Colors.white38,
+              onChanged: _setVolume,
+            ),
+          ),
+          SizedBox(
+            width: 38,
+            child: Text(
+              '${(volume * 100).toInt()}%',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+            ),
+          ),
         ],
       ),
     );
