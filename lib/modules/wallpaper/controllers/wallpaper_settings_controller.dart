@@ -13,6 +13,7 @@ import 'package:pure_live/modules/wallpaper/data/wallpaper_catalog.dart';
 import 'package:pure_live/modules/wallpaper/data/wallpaper_models.dart';
 import 'package:pure_live/modules/wallpaper/services/wallpaper_library_service.dart';
 import 'package:pure_live/modules/wallpaper/services/wallpaper_media_store.dart';
+import 'package:pure_live/plugins/file_utils.dart';
 
 class WallpaperSettingsController extends GetxController {
   static WallpaperSettingsController get to => Get.find<WallpaperSettingsController>();
@@ -114,6 +115,7 @@ class WallpaperSettingsController extends GetxController {
   /// 选择本地图片作为壁纸
   Future<void> pickLocalImage() async {
     final result = await FilePicker.pickFile(type: FileType.image, dialogTitle: '选择壁纸图片');
+    FileUtils.cancelStalePointerEvents();
     if (result?.path == null) return;
     final path = result!.path!;
     await applyWallpaper(WallpaperItem(id: path, type: WallpaperType.imageLocal, url: path, name: p.basename(path)));
@@ -122,6 +124,7 @@ class WallpaperSettingsController extends GetxController {
   /// 选择本地视频作为壁纸
   Future<void> pickLocalVideo() async {
     final result = await FilePicker.pickFile(type: FileType.video, dialogTitle: '选择壁纸视频');
+    FileUtils.cancelStalePointerEvents();
     if (result?.path == null) return;
     final path = result!.path!;
     await applyWallpaper(WallpaperItem(id: path, type: WallpaperType.videoLocal, url: path, name: p.basename(path)));

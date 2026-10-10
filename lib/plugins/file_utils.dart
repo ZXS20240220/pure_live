@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:math';
 
+import 'package:flutter/gestures.dart';
 import 'package:path/path.dart' as p;
 import 'package:open_filex/open_filex.dart';
 import 'package:pure_live/common/index.dart';
@@ -8,6 +9,16 @@ import 'package:url_launcher/url_launcher.dart';
 
 class FileUtils {
   static const String systemHotProviderId = "88888";
+
+  /// 原生对话框（如文件选择器）关闭后，Flutter 手势系统可能残留 pointer 状态，
+  /// 导致鼠标下方的 InkWell/ListTile 卡在 pressed 高亮状态。
+  /// 为常见的 pointer ID 发送取消事件，确保手势状态复位。
+  static void cancelStalePointerEvents() {
+    final binding = GestureBinding.instance;
+    for (var i = 0; i <= 10; i++) {
+      binding.cancelPointer(i);
+    }
+  }
 
   /// 获取文件路径中的纯文件名
   static String getFileName(String fullPath) {

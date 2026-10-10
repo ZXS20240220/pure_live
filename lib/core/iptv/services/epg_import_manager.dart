@@ -33,6 +33,8 @@ class EpgImportManager {
       allowedExtensions: ['xml', 'gz', 'json'],
     );
 
+    FileUtils.cancelStalePointerEvents();
+
     if (result?.path == null) return false;
 
     final file = File(result!.path!);

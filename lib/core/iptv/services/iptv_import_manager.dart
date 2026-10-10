@@ -37,6 +37,8 @@ class IptvImportManager {
       allowedExtensions: ['m3u', 'm3u8', 'txt'],
     );
 
+    FileUtils.cancelStalePointerEvents();
+
     if (result?.path == null) return false;
 
     final file = File(result!.path!);

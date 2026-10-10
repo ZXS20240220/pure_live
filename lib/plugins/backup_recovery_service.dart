@@ -155,6 +155,9 @@ class BackupRecoveryService {
       allowedExtensions: ['txt', 'zip'],
     );
 
+    // 原生文件选择对话框关闭后，清理残留的手势状态，避免 ListTile 卡在 pressed 状态。
+    FileUtils.cancelStalePointerEvents();
+
     if (result?.path == null) return;
 
     final file = File(result!.path!);
@@ -300,6 +303,7 @@ class BackupRecoveryService {
   Future<String?> updateBackupDirectory() async {
     final backup = Get.find<BackupController>();
     String? selectedDirectory = await FilePicker.getDirectoryPath();
+    FileUtils.cancelStalePointerEvents();
     if (selectedDirectory == null) return null;
 
     backup.backupDirectory.v = selectedDirectory;
