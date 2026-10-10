@@ -59,6 +59,7 @@ class RemoteSyncDataMerger {
     'startup',
     'refresh',
     'page',
+    'wallpaper',
     'panelSize',
     'roomCard',
     'tags',

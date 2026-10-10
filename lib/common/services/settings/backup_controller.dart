@@ -25,6 +25,7 @@ import 'package:pure_live/common/services/settings/danmaku_settings_controller.d
 import 'package:pure_live/common/services/settings/panel_size_controller.dart';
 import 'package:pure_live/modules/favorite/favorite_controller.dart';
 import 'package:pure_live/common/services/settings/room_card_settings_controller.dart';
+import 'package:pure_live/modules/wallpaper/controllers/wallpaper_settings_controller.dart';
 
 enum BackupRestoreScope { all, favorites }
 
@@ -61,6 +62,7 @@ class BackupController extends GetxController {
       'tags': Get.find<TagManagementController>().exportToJson(),
       'refresh': Get.find<RefreshConfigController>().toJson(),
       'page': Get.find<PageSettingsController>().toJson(),
+      'wallpaper': Get.find<WallpaperSettingsController>().toJson(),
       'panelSize': Get.find<PanelSizeController>().toJson(),
       'backupDirectory': backupDirectory.v,
     };
@@ -123,6 +125,7 @@ class BackupController extends GetxController {
     'startup': StartupController.extractConfig(null).keys.toSet(),
     'refresh': RefreshConfigController.extractConfig(null).keys.toSet(),
     'page': PageSettingsController.extractConfig(null).keys.toSet(),
+    'wallpaper': WallpaperSettingsController.extractConfig(null).keys.toSet(),
     'panelSize': {'panelWidth', 'immersiveOpacity', 'roomSwitchLayout'},
     'favoriteCtrl': {'enablePinned', 'onlineSortMode', 'onlineSortOrder', 'cardLayoutMode'},
     'tags': {'tags', 'roomTagsMap'},
@@ -184,6 +187,7 @@ class BackupController extends GetxController {
       'history': HistoryController.parseConfig,
       'webdav': WebDavController.parseConfig,
       'page': PageSettingsController.parseConfig,
+      'wallpaper': WallpaperSettingsController.parseConfig,
     };
     for (final entry in parsers.entries) {
       if (version == null) {
@@ -248,6 +252,7 @@ class BackupController extends GetxController {
       'history': HistoryController.parseConfig,
       'webdav': WebDavController.parseConfig,
       'page': PageSettingsController.parseConfig,
+      'wallpaper': WallpaperSettingsController.parseConfig,
     };
     for (final entry in parsers.entries) {
       if (!allowedKeys.contains(entry.key)) continue;
@@ -363,6 +368,11 @@ class BackupController extends GetxController {
 
     if (allowedKeys.contains('page')) {
       Get.find<PageSettingsController>().fromJson(Map<String, dynamic>.from(data['page'] ?? {}));
+    }
+
+    // 壁纸配置：仅在选中且备份包含该段时导入。
+    if (allowedKeys.contains('wallpaper') && data.containsKey('wallpaper')) {
+      Get.find<WallpaperSettingsController>().fromJson(Map<String, dynamic>.from(data['wallpaper'] ?? {}));
     }
 
     // 沉浸侧栏面板尺寸（阶段五）：条件式导入，数据缺失该段时保持当前值。
@@ -564,6 +574,11 @@ class BackupController extends GetxController {
 
     Get.find<PageSettingsController>().fromJson(Map<String, dynamic>.from(data['page'] ?? {}));
 
+    // 壁纸配置：旧备份缺失该段时保持当前值不变。
+    if (data.containsKey('wallpaper')) {
+      Get.find<WallpaperSettingsController>().fromJson(Map<String, dynamic>.from(data['wallpaper'] ?? {}));
+    }
+
     // 沉浸侧栏面板尺寸（阶段五）：条件式导入，旧备份缺失该段时保持当前值。
     if (data['panelSize'] is Map) {
       Get.find<PanelSizeController>().fromJson(Map<String, dynamic>.from(data['panelSize']));
@@ -651,6 +666,7 @@ class BackupController extends GetxController {
       'startup',
       'refresh',
       'page',
+      'wallpaper',
       'panelSize',
       'favoriteCtrl',
       'tags',

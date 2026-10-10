@@ -86,7 +86,7 @@ class BackupRecoveryService {
         'type': 'full_backup',
         'version': _fullBackupVersion,
         'createdAt': DateTime.now().toIso8601String(),
-        'modules': ['hive', 'iptv', 'fonts'],
+        'modules': ['hive', 'iptv', 'fonts', 'wallpaper', 'wallpaperThumb'],
       };
       encoder.addArchiveFile(
         ArchiveFile.string(_fullBackupManifestName, const JsonEncoder.withIndent('  ').convert(manifest)),
@@ -108,6 +108,18 @@ class BackupRecoveryService {
       final fontsDir = Directory(p.join(downloadDir.path, AppPathManager.fontDirectoryName));
       if (await fontsDir.exists()) {
         await _addDirectoryToZip(encoder, fontsDir, 'fonts');
+      }
+
+      // 壁纸文件
+      final wallpaperDir = await AppPathManager().getDir(AppPathManager.dirWallpaper);
+      if (await wallpaperDir.exists()) {
+        await _addDirectoryToZip(encoder, wallpaperDir, 'wallpaper');
+      }
+
+      // 壁纸缩略图缓存
+      final wallpaperThumbDir = await AppPathManager().getDir('WALLPAPER_THUMB');
+      if (await wallpaperThumbDir.exists()) {
+        await _addDirectoryToZip(encoder, wallpaperThumbDir, 'wallpaperThumb');
       }
 
       encoder.closeSync();
@@ -237,6 +249,20 @@ class BackupRecoveryService {
           final fontsTargetDir = Directory(p.join(downloadDir.path, AppPathManager.fontDirectoryName));
           await fontsTargetDir.create(recursive: true);
           await _copyDirectoryContents(fontsRestoreDir, fontsTargetDir);
+        }
+
+        // 恢复壁纸文件
+        final wallpaperRestoreDir = Directory(p.join(tempDir.path, 'wallpaper'));
+        if (await wallpaperRestoreDir.exists()) {
+          final wallpaperTargetDir = await AppPathManager().getDir(AppPathManager.dirWallpaper);
+          await _copyDirectoryContents(wallpaperRestoreDir, wallpaperTargetDir);
+        }
+
+        // 恢复壁纸缩略图缓存
+        final wallpaperThumbRestoreDir = Directory(p.join(tempDir.path, 'wallpaperThumb'));
+        if (await wallpaperThumbRestoreDir.exists()) {
+          final wallpaperThumbTargetDir = await AppPathManager().getDir('WALLPAPER_THUMB');
+          await _copyDirectoryContents(wallpaperThumbRestoreDir, wallpaperThumbTargetDir);
         }
 
         ToastUtil.show(i18n("recover_full_backup_success"));

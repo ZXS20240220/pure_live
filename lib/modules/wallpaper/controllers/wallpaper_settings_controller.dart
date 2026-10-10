@@ -63,17 +63,35 @@ class WallpaperSettingsController extends GetxController {
 
   // ===== 应用壁纸 =====
   Future<void> applyWallpaper(WallpaperItem item) async {
-    // 本地壁纸：复制一份到应用数据目录，避免原文件被删除后失效
     final savedUrl = await _saveWallpaperFileIfNeeded(item);
-    wallpaperType = item.type;
+
+    // 在线类型下载成功后转为本地类型，确保 wallpaperSource 始终指向本地文件
+    WallpaperType finalType = item.type;
+    if (item.type.isOnline) {
+      if (File(savedUrl).existsSync()) {
+        finalType = item.type == WallpaperType.videoOnline ? WallpaperType.videoLocal : WallpaperType.imageLocal;
+      }
+    }
+
+    wallpaperType = finalType;
     wallpaperSource.v = savedUrl;
     _syncWindowEffect();
   }
 
-  /// 将本地壁纸文件复制到应用数据目录的 WALLPAPER 文件夹，返回保存后的路径。
-  /// 在线壁纸直接返回原 URL。
+  /// 将壁纸文件保存到应用数据目录的 WALLPAPER 文件夹，返回保存后的路径。
+  /// - 本地类型：复制到 WALLPAPER 目录
+  /// - 在线类型：下载到 WALLPAPER 目录
+  /// - 纯色/渐变：直接返回序列化数据
   Future<String> _saveWallpaperFileIfNeeded(WallpaperItem item) async {
-    if (!item.type.isLocal) return item.url;
+    if (item.type == WallpaperType.color) return item.url;
+
+    if (item.type.isOnline) {
+      try {
+        return await WallpaperMediaStore.download(item.url);
+      } catch (_) {
+        return item.url;
+      }
+    }
 
     final sourceFile = File(item.url);
     if (!sourceFile.existsSync()) return item.url;
@@ -89,7 +107,6 @@ class WallpaperSettingsController extends GetxController {
       }
       return destPath;
     } catch (_) {
-      // 复制失败时回退到原路径
       return item.url;
     }
   }
@@ -163,16 +180,13 @@ class WallpaperSettingsController extends GetxController {
     }
   }
 
-  /// 随机获取一张壁纸并应用
+  /// 随机获取一张壁纸并应用（下载到本地后应用）
   /// [categories]: 100=通用 010=动漫 001=人物，默认 111（全部）
   Future<bool> applyRandomWallpaper({String categories = '111'}) async {
     final items = await WallhavenService.search(categories: categories, sorting: 'random', page: 1);
     if (items.isEmpty) return false;
     final item = items.first;
-    await applyWallpaper(
-      WallpaperItem(id: item.id, type: WallpaperType.imageOnline, url: item.fullUrl, name: '随机壁纸 ${item.id}'),
-    );
-    return true;
+    return applyOnlineImage(item.fullUrl, name: '随机壁纸 ${item.id}');
   }
 
   /// 清除壁纸（恢复使用主题底色）
@@ -218,8 +232,27 @@ class WallpaperSettingsController extends GetxController {
   void onInit() {
     super.onInit();
     everAll([wallpaperTypeName, wallpaperSource], (_) => _syncWindowEffect());
-    // 初始化时同步一次窗口效果
     _syncWindowEffect();
+    _fixWallpaperPathIfNeeded();
+  }
+
+  /// 跨设备恢复时，wallpaperSource 中的绝对路径可能指向旧设备。
+  /// 若文件不存在但 WALLPAPER 目录中有同名文件，则更新为当前设备的路径。
+  Future<void> _fixWallpaperPathIfNeeded() async {
+    final type = wallpaperType;
+    if (type != WallpaperType.imageLocal && type != WallpaperType.videoLocal) return;
+    final source = wallpaperSource.v;
+    if (source.isEmpty) return;
+    if (File(source).existsSync()) return;
+
+    try {
+      final wallpaperDir = await AppPathManager().getDir(AppPathManager.dirWallpaper);
+      final fileName = p.basename(source);
+      final candidate = File(p.join(wallpaperDir.path, fileName));
+      if (candidate.existsSync()) {
+        wallpaperSource.v = candidate.path;
+      }
+    } catch (_) {}
   }
 
   // ===== 序列化（对齐 ThemeSettingsController 模式）=====
@@ -263,6 +296,28 @@ class WallpaperSettingsController extends GetxController {
     videoLoop.v = parsed['videoLoop'];
     pauseVideoWhenLivePlaying.v = parsed['pauseVideoWhenLivePlaying'];
     itabCategory.v = parsed['itabCategory'];
+
+    // 兼容旧备份：若导入的是在线壁纸 URL，异步下载到本地并转为本地类型
+    final type = wallpaperType;
+    if (type.isOnline && wallpaperSource.v.isNotEmpty) {
+      _downloadOnlineWallpaperToLocal(type, wallpaperSource.v);
+    } else {
+      // 本地壁纸跨设备恢复时修正路径
+      _fixWallpaperPathIfNeeded();
+    }
+  }
+
+  /// 将在线壁纸下载到本地，成功后转为本地类型。
+  Future<void> _downloadOnlineWallpaperToLocal(WallpaperType type, String url) async {
+    try {
+      final localPath = await WallpaperMediaStore.download(url);
+      if (File(localPath).existsSync()) {
+        wallpaperSource.v = localPath;
+        wallpaperType = type == WallpaperType.videoOnline ? WallpaperType.videoLocal : WallpaperType.imageLocal;
+      }
+    } catch (_) {
+      // 下载失败保持原样，渲染层会用 CachedNetworkImage 兜底
+    }
   }
 
   static Map<String, dynamic> extractConfig(Map<String, dynamic>? rootConfig) {

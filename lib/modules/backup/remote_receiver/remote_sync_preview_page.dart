@@ -99,6 +99,7 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
     'startup': '启动行为',
     'refresh': '刷新配置',
     'page': '页面设置',
+    'wallpaper': '壁纸设置',
     'panelSize': '侧边面板尺寸',
     'roomCard': '房间卡片样式',
     'tags': '标签管理',
@@ -106,7 +107,7 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
     'backupDirectory': '备份目录路径',
   };
 
-  static const _extensionKeys = {'favoriteCtrl', 'panelSize'};
+  static const _extensionKeys = {'favoriteCtrl', 'panelSize', 'wallpaper'};
 
   static const _metadataKeys = {'backupVersion', 'sensitiveDataIncluded'};
 
