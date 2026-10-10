@@ -14,6 +14,7 @@ import 'package:pure_live/common/utils/hive_pref_util.dart';
 import 'package:pure_live/get/get.dart';
 import 'package:pure_live/modules/toolbox/toolbox_controller.dart';
 import 'package:pure_live/modules/toolbox/toolbox_page.dart';
+import 'package:pure_live/modules/wallpaper/controllers/wallpaper_settings_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -36,6 +37,7 @@ void main() {
     Get.testMode = true;
     Get.put<SettingsService>(_Settings());
     Get.put(ThemeSettingsController());
+    Get.lazyPut(() => WallpaperSettingsController(), fenix: true);
     controller = Get.put(ToolBoxController());
     reads = [];
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(

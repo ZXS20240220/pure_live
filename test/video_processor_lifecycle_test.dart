@@ -106,18 +106,27 @@ void main() {
     expect(await source.exists(), false);
   });
 
-  for (final defect in [
-    'missing-journal',
-    'unfinished-row',
-    'wrong-attempt',
-    'extra-row',
-    'mixed-profile',
-    'empty-tail',
-  ]) {
-    test('clock-v1 $defect stops before native IO and retains all evidence', () async {
+  test('clock-v1 missing-journal stops before native IO and retains all evidence', () async {
+    await journal.delete();
+    final before = await directory
+        .list()
+        .where((file) => file is File)
+        .cast<File>()
+        .asyncMap((file) async => (file.path, await file.readAsBytes()))
+        .toList();
+    conversion = service.convertToMp4(task: task, allowLegacySegments: true);
+    expect(await conversion, false);
+    expect(native.startCalls, 0);
+    expect(service.isProcessing(task.taskId), false);
+    for (final (path, bytes) in before) {
+      expect(await File(path).readAsBytes(), bytes);
+    }
+    expect(await directory.list().where((file) => file.path.endsWith('.mp4')).length, 0);
+  });
+
+  for (final defect in ['unfinished-row', 'wrong-attempt', 'extra-row', 'mixed-profile', 'empty-tail']) {
+    test('clock-v1 $defect falls back to plain concat and still commits playable output', () async {
       switch (defect) {
-        case 'missing-journal':
-          await journal.delete();
         case 'unfinished-row':
           await journal.writeAsString((await journal.readAsString()).trimRight());
         case 'wrong-attempt':
@@ -138,14 +147,30 @@ void main() {
           .cast<File>()
           .asyncMap((file) async => (file.path, await file.readAsBytes()))
           .toList();
+      native.finish();
       conversion = service.convertToMp4(task: task, allowLegacySegments: true);
-      expect(await conversion, false);
-      expect(native.startCalls, 0);
+      expect(await conversion, true);
+      expect(native.startCalls, 1);
       expect(service.isProcessing(task.taskId), false);
-      for (final (path, bytes) in before) {
-        expect(await File(path).readAsBytes(), bytes);
+      expect(await directory.list().where((file) => file.path.endsWith('.mp4')).length, 1);
+      final manifest = native.manifest!;
+      if (defect == 'empty-tail') {
+        expect(manifest, contains('inpoint 0\n'));
+      } else {
+        expect(manifest, isNot(contains('inpoint ')));
+        expect(manifest, isNot(contains('duration ')));
       }
-      expect(await directory.list().where((file) => file.path.endsWith('.mp4')).length, 0);
+      for (final (path, bytes) in before) {
+        if (!path.endsWith('.ts')) continue;
+        final shouldRemove = bytes.isNotEmpty;
+        expect(
+          await File(path).exists(),
+          !shouldRemove,
+          reason: shouldRemove
+              ? 'non-empty source TS must be removed after successful commit'
+              : 'empty tail segment is retained as attempt evidence',
+        );
+      }
     });
   }
 

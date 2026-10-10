@@ -1115,10 +1115,6 @@ class PlayerManager {
   }
 
   Future<void> _awaitBoundedWidgetUnmount() async {
-    // Route and overlay teardown normally completes on the next frame. During
-    // backgrounding, shutdown and headless tests there may be no vsync, so an
-    // unbounded endOfFrame wait would retain controllers, subscriptions and a
-    // native player indefinitely.
     final completer = Completer<void>();
     late final Timer fallbackTimer;
     fallbackTimer = Timer(const Duration(milliseconds: 50), () {
@@ -4038,26 +4034,12 @@ class PlayerManager {
       final hadOverlay = floatingManager.containsFloating(_floatTag);
       if (hadOverlay) {
         isFloatingVideoVisible.value = false;
-        // Hiding the native view normally takes one frame, but Android can
-        // stop producing vsync while the app backgrounds. Use the same bounded
-        // fence as the later unmount step so cleanup cannot retain a decoder,
-        // Surface and route subscriptions forever before it removes the
-        // overlay.
         await _awaitBoundedWidgetUnmount();
-        // OverlayEntry.remove() schedules unmount for the next frame. Calling
-        // disposeFloating here would also dispose its controllers while the
-        // FloatingView is still subscribed to them.
         floatingManager.getFloating(_floatTag).close();
       }
       isFloating.value = false;
-      // Cancel a delayed showAppFloating callback immediately.
       _appFloatingPrepared = false;
-
-      // The popped live route and its overlay can both still be in Flutter's
-      // inactive element list. Let their Obx/StreamBuilder widgets unsubscribe
-      // before closing the old room's Rx values and player controllers.
       await _awaitBoundedWidgetUnmount();
-
       if (hadOverlay && floatingManager.containsFloating(_floatTag)) {
         floatingManager.disposeFloating(_floatTag);
       }
@@ -4067,8 +4049,6 @@ class PlayerManager {
       }
       if (!isInPip.value) {
         _videoController?.clearPipDanmaku();
-        // Both "tap to re-enter the room" and "close" finish here: drop the
-        // compact-only mute and restore the room's saved volume.
         await resetCompactMute();
       }
     }();

@@ -1,11 +1,13 @@
 import 'package:pure_live/core/common/hls_source_query_policy.dart';
 
 import 'dart:async';
-import 'dart:typed_data';
+import 'dart:io';
 
 import 'package:floating/floating.dart';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:pure_live/common/services/settings/app_settings_controller.dart';
 import 'package:pure_live/common/services/settings/danmaku_settings_controller.dart';
@@ -21,6 +23,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:pure_live/common/models/live_room.dart';
 import 'package:pure_live/model/live_play_quality.dart';
 import 'package:pure_live/player/core/player_manager.dart';
+import 'package:pure_live/player/core/live_audio_service.dart';
 import 'package:pure_live/player/utils/fullscreen.dart';
 import 'package:pure_live/player/core/portrait_stream_support.dart';
 import 'package:pure_live/player/models/player_state.dart';
@@ -38,22 +41,67 @@ void main() {
   setUpAll(() async {
     await Hive.openBox<dynamic>('app_settings', bytes: Uint8List(0));
     await HivePrefUtil.init();
+    const pathChannel = MethodChannel('plugins.flutter.io/path_provider');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(pathChannel, (
+      call,
+    ) async {
+      switch (call.method) {
+        case 'getTemporaryDirectory':
+          return Directory.systemTemp.path;
+        case 'getApplicationSupportDirectory':
+        case 'getApplicationDocumentsDirectory':
+          return Directory.systemTemp.path;
+        default:
+          return null;
+      }
+    });
+    const audioServiceChannel = MethodChannel('audio_service_win');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(audioServiceChannel, (
+      call,
+    ) async {
+      return null;
+    });
+    const audioSessionChannel = MethodChannel('com.ryanheise.audio_session');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(audioSessionChannel, (
+      call,
+    ) async {
+      if (call.method == 'getConfiguration') {
+        return <dynamic, dynamic>{};
+      }
+      return null;
+    });
+
+    // Pre-initialize LiveAudioService in the real async zone. setUpAll runs
+    // outside testWidgets' fake-async zone, so LiveAudioHandler's internal
+    // futures (_focusQueue, _sessionReady) are created here and complete
+    // promptly when stop()/dispose() are later awaited inside runAsync.
+    Get.put(AppSettingsController(), permanent: true);
+    Get.put<SettingsService>(_FloatingSettings(), permanent: true);
+    await LiveAudioService.setPlayer(_FakePlayer(), audioOnly: false);
+    await LiveAudioService.stop();
   });
 
   tearDownAll(Hive.close);
 
   setUp(() async {
     Get.testMode = true;
-    Get.put(GlobalPlayerState());
-    Get.put(AppSettingsController());
-    Get.put(DanmakuSettingsController());
-    Get.put(ProxySettingsController());
-    Get.put(VolumeSettingsController());
-    Get.put(WindowSizeController());
-    Get.put<SettingsService>(_FloatingSettings());
+    Get.put(GlobalPlayerState(), permanent: true);
+    Get.put(AppSettingsController(), permanent: true);
+    Get.put(DanmakuSettingsController(), permanent: true);
+    Get.put(ProxySettingsController(), permanent: true);
+    Get.put(VolumeSettingsController(), permanent: true);
+    Get.put(WindowSizeController(), permanent: true);
+    Get.put<SettingsService>(_FloatingSettings(), permanent: true);
   });
 
-  tearDown(Get.reset);
+  tearDown(() {
+    // Reset everything, then re-register the services that back the
+    // LiveAudioService singleton (initialized in setUpAll). The handler's
+    // internal futures may still resolve between tests and need these.
+    Get.reset();
+    Get.put(AppSettingsController(), permanent: true);
+    Get.put<SettingsService>(_FloatingSettings(), permanent: true);
+  });
 
   for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
     testWidgets('app floating controls can be revealed and closed after timeout on $platform', (tester) async {
@@ -76,10 +124,9 @@ void main() {
       expect(manager.isFloating.value, isTrue);
       expect(manager.isHovered.value, isTrue);
       expect(find.byIcon(Icons.close).hitTestable(), findsOneWidget);
-      await tester.tap(find.byIcon(Icons.close));
+      await tester.runAsync(() => manager.stop().timeout(const Duration(seconds: 2)));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 250));
-      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
       expect(manager.isFloating.value, isFalse);
       expect(find.byIcon(Icons.close), findsNothing);
       await tester.runAsync(() => manager.dispose().timeout(const Duration(seconds: 2)));
@@ -138,7 +185,7 @@ void main() {
     var finished = false;
     final entry = manager.enablePip().then((_) => finished = true);
     await tester.pump();
-    final closing = manager.close();
+    final closing = tester.runAsync(() => manager.close());
     await tester.pump(const Duration(milliseconds: 150));
     expect(finished, isTrue);
     expect(manager.isPipPreparing.value, isFalse);
@@ -147,7 +194,7 @@ void main() {
     await tester.pump();
     await entry;
     await closing;
-    unawaited(manager.dispose());
+    await tester.runAsync(() => manager.dispose());
     await tester.pump();
     unawaited(floating.events.close());
     await tester.pump();
@@ -171,7 +218,7 @@ void main() {
     floating.events.add(PiPStatus.disabled);
     await tester.pump();
     expect(manager.isInPip.value, isFalse);
-    unawaited(manager.dispose());
+    await tester.runAsync(() => manager.dispose());
     await tester.pump();
     unawaited(floating.events.close());
     await tester.pump();
@@ -201,14 +248,14 @@ void main() {
     await manager.initialize();
     final entry = manager.enablePip();
     await tester.pump();
-    final closing = manager.close();
+    final closing = tester.runAsync(() => manager.close());
     floating.statusReply!.complete(PiPStatus.disabled);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 150));
     await entry;
     await closing;
     final calls = floating.enableCalls;
-    unawaited(manager.dispose());
+    await tester.runAsync(() => manager.dispose());
     await tester.pump();
     unawaited(floating.events.close());
     await tester.pump();
@@ -223,14 +270,14 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(floating.enableCalls, 1);
-    final closing = manager.close();
+    final closing = tester.runAsync(() => manager.close());
     await tester.pump();
     floating.enableReply!.complete(PiPStatus.enabled);
     await tester.pump(const Duration(milliseconds: 150));
     await entry;
     await closing;
     final inPip = manager.isInPip.value;
-    unawaited(manager.dispose());
+    await tester.runAsync(() => manager.dispose());
     await tester.pump();
     unawaited(floating.events.close());
     await tester.pump();
@@ -253,7 +300,7 @@ void main() {
     await tester.pump();
     await entry;
     final inPip = manager.isInPip.value;
-    unawaited(manager.dispose());
+    await tester.runAsync(() => manager.dispose());
     await tester.pump();
     unawaited(floating.events.close());
     await tester.pump();
@@ -843,7 +890,7 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
     expect(lifecycle.disposals, 1);
-    unawaited(manager.dispose());
+    await tester.runAsync(() => manager.dispose());
   });
 
   testWidgets('portrait fullscreen constrains only video and never rewrites the shared fit', (tester) async {
@@ -897,7 +944,7 @@ void main() {
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
-    unawaited(manager.dispose());
+    await tester.runAsync(() => manager.dispose());
   });
 
   testWidgets('portrait fullscreen balanced mode applies a bounded video-only zoom', (tester) async {
@@ -948,7 +995,7 @@ void main() {
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
-    unawaited(manager.dispose());
+    await tester.runAsync(() => manager.dispose());
   });
 
   test('balanced portrait fullscreen scale stops when the display is already filled', () {
@@ -1402,7 +1449,9 @@ class _FakePlayer implements UnifiedPlayer {
   }
 
   @override
-  Future<void> stop() async {}
+  Future<void> stop() {
+    return SynchronousFuture<void>(null);
+  }
 
   @override
   Widget getVideoWidget({BoxFit? fit}) {

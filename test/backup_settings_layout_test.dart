@@ -14,6 +14,7 @@ import 'package:pure_live/common/utils/hive_pref_util.dart';
 import 'package:pure_live/get/get.dart';
 import 'package:pure_live/modules/backup/backup_page.dart';
 import 'package:pure_live/modules/settings/pages/local_config_preveiw.dart';
+import 'package:pure_live/modules/wallpaper/controllers/wallpaper_settings_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -44,6 +45,7 @@ void main() {
     logController = _FixtureLogController(logStatus.apply);
     Get.put<LogController>(logController);
     Get.put<SettingsService>(_FixtureSettingsService());
+    Get.lazyPut(() => WallpaperSettingsController(), fenix: true);
   });
 
   tearDown(() async {

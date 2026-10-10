@@ -1,11 +1,32 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hive_ce/hive.dart';
+import 'package:pure_live/common/services/settings_service.dart';
+import 'package:pure_live/common/utils/hive_pref_util.dart';
+import 'package:pure_live/get/get.dart';
 import 'package:pure_live/modules/live_play/widgets/danmaku/danmaku_tab.dart';
 import 'package:pure_live/modules/live_play/widgets/content_first_panel_layout.dart';
 import 'package:pure_live/modules/live_play/widgets/video_player/video_controller_panel.dart';
+import 'package:pure_live/modules/wallpaper/controllers/wallpaper_settings_controller.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() async {
+    await Hive.openBox<dynamic>('app_settings', bytes: Uint8List(0));
+    await HivePrefUtil.init();
+  });
+
   testWidgets('portrait danmaku section tabs fill the row and stay horizontally fixed', (tester) async {
+    Get.testMode = true;
+    Get.put<SettingsService>(_NavSettings());
+    Get.lazyPut(() => WallpaperSettingsController(), fenix: true);
+    addTearDown(() {
+      Get.reset();
+      Get.testMode = false;
+    });
     const tabs = <String>['弹幕列表', '醒目留言', '弹幕设置', '屏蔽管理'];
     await tester.pumpWidget(
       const MaterialApp(
@@ -174,4 +195,10 @@ void main() {
       expect(resolveContentFirstPanelLayout(viewport, kind).splitContent, isTrue);
     }
   });
+}
+
+class _NavSettings extends SettingsService {
+  @override
+  // ignore: must_call_super
+  void onInit() {}
 }

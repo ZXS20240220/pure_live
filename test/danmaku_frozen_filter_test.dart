@@ -12,6 +12,7 @@ import 'package:pure_live/modules/live_play/controllers/player_state.dart';
 import 'package:pure_live/modules/live_play/states/live_play_state.dart';
 import 'package:pure_live/modules/live_play/widgets/danmaku/danmaku_list_view.dart';
 import 'package:pure_live/modules/live_play/widgets/local_interaction/local_interaction_controller.dart';
+import 'package:pure_live/modules/wallpaper/controllers/wallpaper_settings_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _Local extends Fake implements LocalInteractionController {
@@ -61,6 +62,7 @@ void main() {
   testWidgets('filter removes an evicted frozen row without resuming the list', (tester) async {
     Get.testMode = true;
     Get.put<SettingsService>(_Settings());
+    Get.lazyPut(() => WallpaperSettingsController(), fenix: true);
     Get.put(GlobalPlayerState());
     final room = Get.put<LivePlayController>(_Room()) as _Room;
     addTearDown(() async {

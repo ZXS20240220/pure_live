@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer' as developer;
+import 'dart:io';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
@@ -226,10 +227,10 @@ class LiveAudioHandler extends BaseAudioHandler {
   Future<bool> _setSessionActive(bool active, {bool Function()? isCurrent}) {
     final operation = _focusQueue.then((_) async {
       await _sessionReady;
-      if (isCurrent?.call() == false) return false;
-      return _session.setActive(active);
+      final current = isCurrent?.call();
+      if (current == false) return false;
+      return await _session.setActive(active);
     });
-    // Preserve the caller's error, but one failure must not poison later focus commands.
     _focusQueue = operation.then<void>((_) {}).catchError((Object _, StackTrace _) {});
     return operation;
   }
@@ -297,9 +298,9 @@ class LiveAudioHandler extends BaseAudioHandler {
       try {
         await subscription?.cancel();
       } finally {
-        // The same adapter may already own a newer source while subscription
-        // cleanup awaits. Do not stop that replacement source.
-        if (_bindingRevision == revision || !identical(_currentPlayer, player)) await player?.stop();
+        if (_bindingRevision == revision || !identical(_currentPlayer, player)) {
+          await player?.stop();
+        }
       }
     } catch (e) {
       developer.log("Player already disposed or failed to stop: $e");

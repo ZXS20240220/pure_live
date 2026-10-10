@@ -20,6 +20,7 @@ import 'package:pure_live/get/get.dart';
 import 'package:pure_live/modules/toolbox/toolbox_controller.dart';
 import 'package:pure_live/modules/toolbox/toolbox_direct_link_flow.dart';
 import 'package:pure_live/modules/toolbox/toolbox_page.dart';
+import 'package:pure_live/modules/wallpaper/controllers/wallpaper_settings_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/toolbox_test_site.dart';
@@ -47,6 +48,7 @@ void main() {
     Get.testMode = true;
     Get.put<SettingsService>(_Settings());
     Get.put(ThemeSettingsController());
+    Get.lazyPut(() => WallpaperSettingsController(), fenix: true);
     site = ToolBoxTestSite();
     notices = [];
     copied = [];

@@ -12,6 +12,7 @@ import 'package:pure_live/common/services/settings_service.dart';
 import 'package:pure_live/common/utils/hive_pref_util.dart';
 import 'package:pure_live/get/get.dart';
 import 'package:pure_live/modules/about/version_history.dart';
+import 'package:pure_live/modules/wallpaper/controllers/wallpaper_settings_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -31,6 +32,7 @@ void main() {
     Get.reset();
     await HivePrefUtil.clear();
     Get.put<SettingsService>(_TestSettingsService());
+    Get.lazyPut(() => WallpaperSettingsController(), fenix: true);
   });
 
   tearDown(Get.reset);

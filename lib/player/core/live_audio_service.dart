@@ -73,6 +73,15 @@ class LiveAudioService {
     return handler;
   }
 
+  @visibleForTesting
+  static void resetForTest() {
+    _handler = null;
+    _initializationFuture = null;
+    _boundPlayer = null;
+    _boundSessionId = null;
+    _bindingRevision = 0;
+  }
+
   static void configurePlaybackCommands({
     required Future<void> Function() play,
     required Future<void> Function() pause,
@@ -189,8 +198,12 @@ class LiveAudioService {
     _boundSessionId = null;
     BackgroundPlaybackService.sleepSessionActive = false;
     BackgroundPlaybackService.audioOnlySessionActive = false;
-    if (_handler == null) return;
-    if (!_supportsMediaSession) return;
+    if (_handler == null) {
+      return;
+    }
+    if (!_supportsMediaSession) {
+      return;
+    }
     await _handler!.releasePlayer();
   }
 
