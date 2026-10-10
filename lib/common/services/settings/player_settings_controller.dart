@@ -47,6 +47,15 @@ class PlayerSettingsController extends GetxController {
   final RxBool audioOnly = false.obs;
   final RxBool useHardStopOnExit = hiveBool('useHardStopOnExit', false);
 
+  // 直播缓冲预设：balanced / weakNetwork / lowLatency
+  final RxString liveBufferPreset = hiveString('liveBufferPreset', 'balanced');
+  // 视频缩放算法（mpv --scale），影响放大时的清晰度
+  final RxString videoScaleAlgorithm = hiveString('videoScaleAlgorithm', 'auto');
+  // Anime4K 超分着色器开关（默认关闭，吃 GPU）
+  final RxBool enableAnime4K = hiveBool('enableAnime4K', false);
+  // Anime4K 画质档位：lite / high
+  final RxString anime4KQuality = hiveString('anime4KQuality', 'lite');
+
   // Portrait-source presentation. These are deliberately separate from the
   // device orientation and from the global danmaku style.
   final RxBool enablePortraitStreamAdaptation = hiveBool('enablePortraitStreamAdaptation', true);
@@ -128,6 +137,24 @@ class PlayerSettingsController extends GetxController {
     return '原画';
   }
 
+  static final Set<String> _validLiveBufferPresets = PlayerConsts.liveBufferPresets.map((e) => e['key']!).toSet();
+  static String normalizeLiveBufferPreset(String value) {
+    final trimmed = value.trim();
+    return _validLiveBufferPresets.contains(trimmed) ? trimmed : 'balanced';
+  }
+
+  static final Set<String> _validVideoScaleAlgorithms = PlayerConsts.videoScaleAlgorithms.map((e) => e['key']!).toSet();
+  static String normalizeVideoScaleAlgorithm(String value) {
+    final trimmed = value.trim();
+    return _validVideoScaleAlgorithms.contains(trimmed) ? trimmed : 'auto';
+  }
+
+  static final Set<String> _validAnime4KQualities = PlayerConsts.anime4KQualityLevels.map((e) => e['key']!).toSet();
+  static String normalizeAnime4KQuality(String value) {
+    final trimmed = value.trim();
+    return _validAnime4KQualities.contains(trimmed) ? trimmed : 'lite';
+  }
+
   void _repairPlaybackPreferences() {
     final fitIndex = resolvedVideoFitIndex;
     if (videoFitIndex.v != fitIndex) videoFitIndex.v = fitIndex;
@@ -151,6 +178,15 @@ class PlayerSettingsController extends GetxController {
 
     final normalizedHardwareDecoder = normalizeMpvHardwareDecoderForPlatform(videoHardwareDecoder.v, platform);
     if (videoHardwareDecoder.v != normalizedHardwareDecoder) videoHardwareDecoder.v = normalizedHardwareDecoder;
+
+    final normalizedBufferPreset = normalizeLiveBufferPreset(liveBufferPreset.v);
+    if (liveBufferPreset.v != normalizedBufferPreset) liveBufferPreset.v = normalizedBufferPreset;
+
+    final normalizedScale = normalizeVideoScaleAlgorithm(videoScaleAlgorithm.v);
+    if (videoScaleAlgorithm.v != normalizedScale) videoScaleAlgorithm.v = normalizedScale;
+
+    final normalizedAnime4KQuality = normalizeAnime4KQuality(anime4KQuality.v);
+    if (anime4KQuality.v != normalizedAnime4KQuality) anime4KQuality.v = normalizedAnime4KQuality;
   }
 
   PortraitOrientationOverride portraitOverrideForRoom(LiveRoom? room) {
@@ -234,6 +270,10 @@ class PlayerSettingsController extends GetxController {
     preferResolution.v = '原画';
     preferResolutionCellular.v = '原画';
     useHardStopOnExit.v = false;
+    liveBufferPreset.v = 'balanced';
+    videoScaleAlgorithm.v = 'auto';
+    enableAnime4K.v = false;
+    anime4KQuality.v = 'lite';
   }
 
   Map<String, dynamic> toJson() {
@@ -253,6 +293,10 @@ class PlayerSettingsController extends GetxController {
       'enableRtxVsr': enableRtxVsr.v,
       'audioOnly': false,
       'useHardStopOnExit': useHardStopOnExit.v,
+      'liveBufferPreset': liveBufferPreset.v,
+      'videoScaleAlgorithm': videoScaleAlgorithm.v,
+      'enableAnime4K': enableAnime4K.v,
+      'anime4KQuality': anime4KQuality.v,
       'enablePortraitStreamAdaptation': enablePortraitStreamAdaptation.v,
       'portraitFullscreenPolicy': portraitFullscreenPolicy.name,
       'portraitPipFollowSource': portraitPipFollowSource.v,
@@ -299,6 +343,10 @@ class PlayerSettingsController extends GetxController {
           : false,
       'audioOnly': typed<bool>(false),
       'useHardStopOnExit': typed<bool>(json['useHardStopOnExit'] ?? false),
+      'liveBufferPreset': normalizeLiveBufferPreset(typed<String>(json['liveBufferPreset'] ?? 'balanced')),
+      'videoScaleAlgorithm': normalizeVideoScaleAlgorithm(typed<String>(json['videoScaleAlgorithm'] ?? 'auto')),
+      'enableAnime4K': typed<bool>(json['enableAnime4K'] ?? false),
+      'anime4KQuality': normalizeAnime4KQuality(typed<String>(json['anime4KQuality'] ?? 'lite')),
       'enablePortraitStreamAdaptation': typed<bool>(json['enablePortraitStreamAdaptation'] ?? true),
       'portraitFullscreenPolicyName': typed<String>(
         _enumName(
@@ -333,6 +381,10 @@ class PlayerSettingsController extends GetxController {
     enableRtxVsr.v = parsed['enableRtxVsr'];
     audioOnly.v = parsed['audioOnly'];
     useHardStopOnExit.v = parsed['useHardStopOnExit'];
+    liveBufferPreset.v = parsed['liveBufferPreset'];
+    videoScaleAlgorithm.v = parsed['videoScaleAlgorithm'];
+    enableAnime4K.v = parsed['enableAnime4K'];
+    anime4KQuality.v = parsed['anime4KQuality'];
     enablePortraitStreamAdaptation.v = parsed['enablePortraitStreamAdaptation'];
     portraitFullscreenPolicyName.v = parsed['portraitFullscreenPolicyName'];
     portraitPipFollowSource.v = parsed['portraitPipFollowSource'];
@@ -377,6 +429,10 @@ class PlayerSettingsController extends GetxController {
       'enableRtxVsr': defaultTargetPlatform == TargetPlatform.windows ? player['enableRtxVsr'] ?? false : false,
       'audioOnly': false,
       'useHardStopOnExit': player['useHardStopOnExit'] ?? false,
+      'liveBufferPreset': normalizeLiveBufferPreset((player['liveBufferPreset'] ?? 'balanced') as String),
+      'videoScaleAlgorithm': normalizeVideoScaleAlgorithm((player['videoScaleAlgorithm'] ?? 'auto') as String),
+      'enableAnime4K': player['enableAnime4K'] ?? false,
+      'anime4KQuality': normalizeAnime4KQuality((player['anime4KQuality'] ?? 'lite') as String),
       'enablePortraitStreamAdaptation': player['enablePortraitStreamAdaptation'] ?? true,
       'portraitFullscreenPolicy': _enumName(
         PortraitFullscreenPolicy.values,

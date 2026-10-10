@@ -16,12 +16,14 @@ import 'package:media_kit/media_kit.dart' hide PlayerState;
 import 'package:pure_live/player/models/player_engine.dart';
 import 'package:pure_live/common/global/platform_utils.dart';
 import 'package:pure_live/player/utils/live_buffer_policy.dart';
+import 'package:pure_live/player/utils/anime4k_shader_manager.dart';
 import 'package:pure_live/player/utils/mpv_platform_profile.dart';
 import 'package:pure_live/common/utils/latest_async_value_queue.dart';
 import 'package:pure_live/player/interface/media_kit_player_accessor.dart';
 import 'package:pure_live/player/core/player_error_classifier.dart';
 import 'package:pure_live/player/core/source_event_fence.dart';
 import 'package:pure_live/player/core/playback_proxy_policy.dart';
+import 'package:pure_live/core/common/log.dart';
 
 @visibleForTesting
 ({int width, int height})? resolveMediaKitDisplaySize(VideoParams params) {
@@ -91,9 +93,28 @@ class MediaKitAdapter
     // much compressed data only makes long Windows/Android sessions appear
     // to grow indefinitely. Keep this shared with the tested policy rather
     // than scattering raw byte strings through the adapter.
-    await LiveBufferPolicy.apply((name, value) async => await native.setProperty(name, value));
+    final preset = SettingsService.to.player.liveBufferPreset.v;
+    await LiveBufferPolicy.apply((name, value) async => await native.setProperty(name, value), preset: preset);
 
     await native.setProperty('network-timeout', '15');
+
+    final scaleAlgo = SettingsService.to.player.videoScaleAlgorithm.v;
+    if (scaleAlgo != 'auto') {
+      await native.setProperty('scale', scaleAlgo);
+    }
+
+    // Anime4K 超分着色器：默认关闭，开启时从 assets 提取 .glsl 到磁盘后挂载。
+    // glsl-shaders 是列表选项，必须用 change-list 命令（clr + 逐个 append），
+    // 不能用逗号拼接字符串——否则 mpv 会把整串当成单个文件名。
+    if (SettingsService.to.player.enableAnime4K.v) {
+      final quality = SettingsService.to.player.anime4KQuality.v;
+      final shaderPaths = await Anime4KShaderManager.resolveShaderPaths(quality: quality);
+      if (shaderPaths.isNotEmpty) {
+        await _applyGlslShaders(native, shaderPaths);
+      } else {
+        Log.w('[MPV] anime4k enabled but no shader files found in assets/shaders/');
+      }
+    }
 
     // Ask mpv to abandon a broken hardware decoder after the first consecutive
     // frame failure. This preserves the low-power fast path on compatible
@@ -122,6 +143,53 @@ class MediaKitAdapter
     if (PlatformUtils.isWindows && SettingsService.to.player.enableRtxVsr.value) {
       await native.setProperty('hwdec', 'd3d11va');
       await native.setProperty('vf', 'd3d11vpp=scale=2:scaling-mode=nvidia');
+    }
+  }
+
+  /// 在 VideoController（vo）创建后重新应用视频增强属性。
+  ///
+  /// mpv 的 `scale` 与 `glsl-shaders` 依赖视频输出链初始化，
+  /// 在 vo 创建前设置可能被忽略。此方法必须在 VideoController 创建后调用。
+  static Future<void> applyVideoEnhancementProperties(dynamic native) async {
+    // 视频增强（scale / glsl-shaders）依赖 GPU 后处理管线。
+    // 若使用零拷贝硬件解码（hwdec=auto/d3d11va），解码帧直接上屏，
+    // 着色器与 scale 都会被跳过。强制切换到 copy 模式让帧经过着色器。
+    final needsShaderPipeline =
+        SettingsService.to.player.enableAnime4K.v || SettingsService.to.player.videoScaleAlgorithm.v != 'auto';
+    if (needsShaderPipeline) {
+      String? hwdec;
+      try {
+        hwdec = await native.getProperty('hwdec') as String?;
+      } catch (_) {}
+      final copyHwdec = hwdec ?? '';
+      if (copyHwdec != 'no' && !copyHwdec.endsWith('-copy') && copyHwdec.isNotEmpty) {
+        await native.setProperty('hwdec', 'auto-copy');
+      }
+    }
+
+    final scaleAlgo = SettingsService.to.player.videoScaleAlgorithm.v;
+    if (scaleAlgo != 'auto') {
+      await native.setProperty('scale', scaleAlgo);
+    }
+
+    if (SettingsService.to.player.enableAnime4K.v) {
+      final shaderPaths = await Anime4KShaderManager.resolveShaderPaths(
+        quality: SettingsService.to.player.anime4KQuality.v,
+      );
+      if (shaderPaths.isNotEmpty) {
+        await _applyGlslShaders(native, shaderPaths);
+      }
+    }
+  }
+
+  /// 用 change-list 命令挂载 GLSL 着色器列表。
+  ///
+  /// `glsl-shaders` 是 mpv 的列表属性，`setProperty` 会把整串当成单个条目。
+  /// 正确做法：先 `clr` 清空，再逐个 `append`。
+  static Future<void> _applyGlslShaders(dynamic native, List<String> shaderPaths) async {
+    await native.command(['change-list', 'glsl-shaders', 'clr', '']);
+    for (final path in shaderPaths) {
+      await native.command(['change-list', 'glsl-shaders', 'append', path]);
     }
   }
 
@@ -348,6 +416,12 @@ class MediaKitAdapter
                 androidAttachSurfaceAfterVideoParameters: false,
               ),
             );
+
+      // VideoController 创建后重新应用视频增强属性（scale、glsl-shaders），
+      // 这些属性依赖 vo 初始化，在 init 阶段设置可能被忽略。
+      if (_player.platform is NativePlayer) {
+        await applyVideoEnhancementProperties(_player.platform as dynamic);
+      }
 
       if (PlatformUtils.isWindows) {
         var lastRevision = _controller.frameRevision.value;

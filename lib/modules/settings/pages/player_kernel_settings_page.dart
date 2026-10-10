@@ -123,6 +123,42 @@ class PlayerKernelSettingsPage extends GetView<SettingsService> {
           Obx(() => _buildRendererTile(context)),
           Obx(() => _buildAudioSection(context)),
         ]),
+
+        // 直播画质与缓冲优化
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 16, 12, 4),
+          child: Row(
+            children: [
+              Icon(Remix.speed_up_line, size: 18, color: theme.colorScheme.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  i18n("live_quality_section"),
+                  style: AppTextStyles.t16Bold.copyWith(color: theme.colorScheme.primary),
+                ),
+              ),
+            ],
+          ),
+        ),
+        context.buildModernCard([
+          Obx(() => _buildBufferPresetTile(context)),
+          Obx(() => _buildScaleAlgorithmTile(context)),
+          const SizedBox(height: 8),
+          context.buildSwitchTile(
+            icon: Remix.sparkling_line,
+            title: i18n('enable_anime4k'),
+            subtitle: i18n('enable_anime4k_subtitle'),
+            value: SettingsService.to.player.enableAnime4K,
+          ),
+          Obx(
+            () => SettingsService.to.player.enableAnime4K.value
+                ? Padding(
+                    padding: const EdgeInsets.only(left: 16, right: 16, top: 4),
+                    child: _buildAnime4KQualityTile(context),
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ]),
       ],
     );
   }
@@ -178,6 +214,50 @@ class PlayerKernelSettingsPage extends GetView<SettingsService> {
           ),
         ]),
       ],
+    );
+  }
+
+  Widget _buildBufferPresetTile(BuildContext context) {
+    final isZh = Get.locale?.languageCode == 'zh';
+    final valueMap = {
+      for (final item in PlayerConsts.liveBufferPresets) item['key']!: isZh ? item['nameZh']! : item['nameEn']!,
+    };
+    return context.buildMenuTile<String>(
+      icon: Remix.wifi_line,
+      title: i18n('live_buffer_preset'),
+      subtitle: i18n('live_buffer_preset_subtitle'),
+      value: settings.player.liveBufferPreset.v,
+      valueMap: valueMap,
+      onChanged: (v) => settings.player.liveBufferPreset.v = v,
+    );
+  }
+
+  Widget _buildScaleAlgorithmTile(BuildContext context) {
+    final isZh = Get.locale?.languageCode == 'zh';
+    final valueMap = {
+      for (final item in PlayerConsts.videoScaleAlgorithms) item['key']!: isZh ? item['nameZh']! : item['nameEn']!,
+    };
+    return context.buildMenuTile<String>(
+      icon: Remix.image_line,
+      title: i18n('video_scale_algorithm'),
+      subtitle: i18n('video_scale_algorithm_subtitle'),
+      value: settings.player.videoScaleAlgorithm.v,
+      valueMap: valueMap,
+      onChanged: (v) => settings.player.videoScaleAlgorithm.v = v,
+    );
+  }
+
+  Widget _buildAnime4KQualityTile(BuildContext context) {
+    final isZh = Get.locale?.languageCode == 'zh';
+    final valueMap = {
+      for (final item in PlayerConsts.anime4KQualityLevels) item['key']!: isZh ? item['nameZh']! : item['nameEn']!,
+    };
+    return context.buildMenuTile<String>(
+      icon: Remix.fire_line,
+      title: i18n('anime4k_quality'),
+      value: settings.player.anime4KQuality.v,
+      valueMap: valueMap,
+      onChanged: (v) => settings.player.anime4KQuality.v = v,
     );
   }
 

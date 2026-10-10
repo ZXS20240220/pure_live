@@ -180,6 +180,29 @@ class PlayerConsts {
     {'key': 'avfoundation', 'nameEn': 'AVFoundation (macOS / iOS)', 'nameZh': 'AVFoundation（macOS / iOS）'},
   ];
 
+  /// 直播缓冲预设
+  static const List<Map<String, String>> liveBufferPresets = [
+    {'key': 'balanced', 'nameEn': 'Balanced', 'nameZh': '均衡（默认）'},
+    {'key': 'weakNetwork', 'nameEn': 'Weak Network', 'nameZh': '弱网稳定'},
+    {'key': 'lowLatency', 'nameEn': 'Low Latency', 'nameZh': '低延迟'},
+  ];
+
+  /// 视频缩放算法（--scale）
+  static const List<Map<String, String>> videoScaleAlgorithms = [
+    {'key': 'auto', 'nameEn': 'Auto', 'nameZh': '自动'},
+    {'key': 'bilinear', 'nameEn': 'Bilinear', 'nameZh': '双线性（最快）'},
+    {'key': 'bicubic', 'nameEn': 'Bicubic', 'nameZh': '双三次'},
+    {'key': 'spline', 'nameEn': 'Spline', 'nameZh': '样条插值'},
+    {'key': 'lanczos', 'nameEn': 'Lanczos', 'nameZh': 'Lanczos（清晰）'},
+    {'key': 'ewa_lanczos', 'nameEn': 'EWA Lanczos', 'nameZh': 'EWA Lanczos（最清晰）'},
+  ];
+
+  /// Anime4K 画质档位
+  static const List<Map<String, String>> anime4KQualityLevels = [
+    {'key': 'lite', 'nameEn': 'Lite', 'nameZh': '轻量（推荐）'},
+    {'key': 'high', 'nameEn': 'High', 'nameZh': '高质量（吃 GPU）'},
+  ];
+
   /// 超分辨率滤镜
   static const List<Map<String, String>> mpvAnime4KShaders = [
     {'key': 'Anime4K_Clamp_Highlights.glsl', 'nameEn': 'Clamp Highlights', 'nameZh': '高光限制'},

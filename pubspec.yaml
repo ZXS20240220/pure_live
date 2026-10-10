@@ -241,6 +241,7 @@ flutter:
     - assets/animations/error.json
     - assets/fonts/fonts-manifest.json
     - assets/certificates/
+    - assets/shaders/
   # 字体配置
   fonts:
     - family: CustomIcons

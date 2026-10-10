@@ -216,6 +216,12 @@ class _MediaKitCellPlayer implements MultiviewCellPlayerHandle, MultiviewNativeI
     );
     _controller = controller;
 
+    // VideoController 创建后重新应用视频增强属性（scale、glsl-shaders），
+    // 这些属性依赖 vo 初始化，在 init 阶段设置可能被忽略。
+    if (player.platform is NativePlayer) {
+      await MediaKitAdapter.applyVideoEnhancementProperties(player.platform as dynamic);
+    }
+
     await _configureInput(player);
     await player.open(Media(url, httpHeaders: headers), play: true);
   }

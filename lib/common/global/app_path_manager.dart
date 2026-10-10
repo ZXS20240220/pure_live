@@ -27,6 +27,7 @@ class AppPathManager {
   static const String dirRecords = 'RECORDS';
   static const String dirEmojiCache = 'EMOJI_CACHE';
   static const String dirWallpaper = 'WALLPAPER';
+  static const String dirShaders = 'SHADERS';
   static const String dirMigrationBackup = 'MIGRATION_BACKUP';
 
   /// Canonical directory used by [FontDownloadManager] for downloaded fonts.
@@ -368,6 +369,7 @@ class AppPathManager {
   Future<Directory> get imageCacheDir => getDir(dirImageCache);
   Future<Directory> get recordsDir => getDir(dirRecords);
   Future<Directory> get emojiCacheDir => getDir(dirEmojiCache);
+  Future<Directory> get shadersDir => getDir(dirShaders);
   Future<Directory> get migrationWorkingDir => getDir(p.join(dirMigrationBackup, 'working'));
 
   String get basePath => _basePath ?? (throw StateError('AppPathManager 尚未初始化'));
