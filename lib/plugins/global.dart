@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:pure_live/common/index.dart';
 
 typedef _RefreshLayout = ({double height, double? width, TextStyle? textStyle, TextStyle? messageStyle});
@@ -16,6 +17,7 @@ void initRefresh() {
 
 ClassicHeader _buildHeader(_RefreshLayout layout) => ClassicHeader(
   triggerOffset: layout.height,
+  triggerWhenRelease: true,
   textDimension: layout.width,
   textStyle: layout.textStyle,
   messageStyle: layout.messageStyle,
@@ -27,6 +29,14 @@ ClassicHeader _buildHeader(_RefreshLayout layout) => ClassicHeader(
   failedText: i18n("refresh_load_failed"),
   messageText: i18n("refresh_last_updated_at"),
   processedText: i18n("refresh_load_success"),
+  messageBuilder: (context, state, text, dateTime) {
+    final timeStr = DateFormat('HH:mm:ss').format(dateTime);
+    final messageText = text.replaceAll('%T', timeStr);
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Text(messageText, style: layout.messageStyle),
+    );
+  },
   pullIconBuilder: (context, state, animation) {
     if (state.mode == IndicatorMode.processing || state.mode == IndicatorMode.ready) {
       return const AppStatusView(type: AppStatusType.loading, isMini: true);
@@ -40,6 +50,7 @@ ClassicHeader _buildHeader(_RefreshLayout layout) => ClassicHeader(
 
 ClassicFooter _buildFooter(_RefreshLayout layout) => ClassicFooter(
   triggerOffset: layout.height,
+  triggerWhenRelease: true,
   textDimension: layout.width,
   textStyle: layout.textStyle,
   messageStyle: layout.messageStyle,
@@ -51,6 +62,14 @@ ClassicFooter _buildFooter(_RefreshLayout layout) => ClassicFooter(
   failedText: i18n("refresh_load_failed"),
   messageText: i18n("refresh_last_updated_at"),
   processedText: i18n("refresh_load_success"),
+  messageBuilder: (context, state, text, dateTime) {
+    final timeStr = DateFormat('HH:mm:ss').format(dateTime);
+    final messageText = text.replaceAll('%T', timeStr);
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Text(messageText, style: layout.messageStyle),
+    );
+  },
   pullIconBuilder: (context, state, animation) {
     if (state.mode == IndicatorMode.processing || state.mode == IndicatorMode.ready) {
       return const AppStatusView(type: AppStatusType.loading, isMini: true);
@@ -81,7 +100,7 @@ _RefreshLayout _refreshLayout(BuildContext? context, {double? maxWidth}) {
     'refresh_load_failed',
     'refresh_load_success',
   ].map(i18n).toList();
-  final message = i18n('refresh_last_updated_at').replaceAll('%T', '23:59');
+  final message = i18n('refresh_last_updated_at').replaceAll('%T', '23:59:59');
   Size measure(String text, TextStyle style, double maxWidth) {
     final painter = TextPainter(
       text: TextSpan(text: text, style: style),

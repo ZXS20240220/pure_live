@@ -153,6 +153,7 @@ class _AreaGridViewState extends State<AreaGridView> with TickerProviderStateMix
         contentBuilder: (context, displayList, scrollController) {
           // 对齐关注页：桌面/移动、任意宽度一律包裹 EasyRefresh 下拉刷新。
           return buildCommonPullToRefresh(
+            context: context,
             refreshKey: 'area_flatten_${widget.tag}',
             onRefresh: widget.controller.refreshData,
             controller: widget.controller.easyRefreshController,
@@ -247,6 +248,7 @@ class _AreaGridViewState extends State<AreaGridView> with TickerProviderStateMix
                         if (finalData.isEmpty) {
                           return LayoutBuilder(
                             builder: (context, constraints) => buildCommonPullToRefresh(
+                              context: context,
                               refreshKey: 'area_empty_${widget.tag}_${category.id}',
                               onRefresh: widget.controller.refreshData,
                               controller: widget.controller.easyRefreshController,
@@ -270,6 +272,7 @@ class _AreaGridViewState extends State<AreaGridView> with TickerProviderStateMix
                           );
                         }
                         return buildCommonPullToRefresh(
+                          context: context,
                           refreshKey: 'area_grid_${widget.tag}_${category.id}',
                           onRefresh: widget.controller.refreshData,
                           controller: widget.controller.easyRefreshController,

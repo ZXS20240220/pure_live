@@ -31,6 +31,7 @@ class PopularGridView extends StatelessWidget {
             // 对齐关注页：桌面/移动、任意宽度一律包裹 EasyRefresh 下拉刷新，
             // 并将刷新容器给出的 physics 安装到实际滚动控件上。
             return buildCommonPullToRefresh(
+              context: context,
               refreshKey: 'popular_$tag',
               onRefresh: controller.refreshData,
               childBuilder: (_, physics) => _buildRoomGrid(context, list, scrollController, physics),

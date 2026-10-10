@@ -58,6 +58,7 @@ class _WallpaperVideoPageState extends State<WallpaperVideoPage> {
         emptyBuilder: (context) => const EmptyView(icon: Remix.film_line, title: '暂无动态壁纸', subtitle: ''),
         contentBuilder: (context, displayList, scrollController) {
           return buildCommonPullToRefresh(
+            context: context,
             refreshKey: 'wallpaper_video_grid',
             onRefresh: controller.refreshData,
             controller: controller.easyRefreshController,

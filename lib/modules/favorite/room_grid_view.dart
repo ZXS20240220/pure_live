@@ -164,6 +164,7 @@ class RoomGridView extends GetView<FavoriteController> {
           // refresh header could observe it, so the callback existed while the
           // pull animation never armed.
           return buildFavoritePullToRefresh(
+            context: context,
             siteId: siteId,
             onRefresh: controller.refreshData,
             childBuilder: (_, physics) => buildScrollable(physics),
@@ -217,9 +218,17 @@ class RoomGridView extends GetView<FavoriteController> {
 
 @visibleForTesting
 Widget buildFavoritePullToRefresh({
+  required BuildContext context,
   required String siteId,
   required Future<void> Function() onRefresh,
   required ERChildBuilder childBuilder,
+  EasyRefreshController? controller,
 }) {
-  return buildCommonPullToRefresh(refreshKey: 'favorite_$siteId', onRefresh: onRefresh, childBuilder: childBuilder);
+  return buildCommonPullToRefresh(
+    context: context,
+    refreshKey: 'favorite_$siteId',
+    onRefresh: onRefresh,
+    childBuilder: childBuilder,
+    controller: controller,
+  );
 }

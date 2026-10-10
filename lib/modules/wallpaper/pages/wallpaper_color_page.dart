@@ -50,6 +50,7 @@ class _WallpaperColorPageState extends State<WallpaperColorPage> {
         emptyBuilder: (context) => const EmptyView(icon: Icons.palette_outlined, title: '暂无色板', subtitle: ''),
         contentBuilder: (context, displayList, scrollController) {
           return buildCommonPullToRefresh(
+            context: context,
             refreshKey: 'wallpaper_color_grid',
             onRefresh: controller.refreshData,
             controller: controller.easyRefreshController,

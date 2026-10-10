@@ -48,6 +48,7 @@ class _AreasRoomPageState extends State<AreasRoomPage> {
           contentBuilder: (context, list, scrollController) {
             // 对齐关注页：桌面/移动、任意宽度一律包裹 EasyRefresh 下拉刷新。
             return buildCommonPullToRefresh(
+              context: context,
               refreshKey: 'area_rooms_${widget.site.id}_${widget.subCategory.areaId}',
               onRefresh: controller.refreshData,
               childBuilder: (_, physics) => LayoutBuilder(

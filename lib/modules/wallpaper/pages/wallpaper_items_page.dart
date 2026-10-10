@@ -93,6 +93,7 @@ class _WallpaperItemsPageState extends State<WallpaperItemsPage> {
         emptyBuilder: (context) => const EmptyView(icon: Remix.image_2_line, title: '暂无壁纸', subtitle: ''),
         contentBuilder: (context, displayList, scrollController) {
           return buildCommonPullToRefresh(
+            context: context,
             refreshKey: 'wallpaper_items_${widget.sourceId}_${widget.groupId ?? 'all'}',
             onRefresh: controller.refreshData,
             controller: controller.easyRefreshController,
