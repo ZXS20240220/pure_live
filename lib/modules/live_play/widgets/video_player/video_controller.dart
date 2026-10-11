@@ -122,6 +122,19 @@ class DanmakuManager {
         _scheduleConfigUpdate();
       }),
     );
+    // Settings-level fields read inside updateDanmaku() are not mirrored onto
+    // VideoController, and the Obx reads them inside LayoutBuilder (outside
+    // GetX dependency collection). Wire them here so changes still repush the
+    // engine config.
+    workers.add(
+      everAll([
+        dm.danmakuLetterSpacing,
+        dm.danmakuDensityMode,
+        dm.danmakuWidthAdaptiveSpeed,
+        dm.danmakuMassMode,
+        dm.danmakuMaxVisibleCount,
+      ], (_) => _scheduleConfigUpdate()),
+    );
 
     // The engine only exposes a cumulative counter; poll it cheaply and
     // publish changes so the chat list can show "hidden N".
@@ -1057,6 +1070,7 @@ class VideoController with ChangeNotifier implements DanmakuSettingsBinding {
         fps: resolvedFps,
         maxVisibleCount: settings.effectiveMaxVisibleCount,
         letterSpacing: settings.danmakuLetterSpacing.v,
+        fontFamily: danmakuFontFamilyName.value,
         maxPendingCount: settings.effectiveMaxPendingCount,
         maxPendingAge: const Duration(seconds: 5),
         barragePoolMaxSize: 72,

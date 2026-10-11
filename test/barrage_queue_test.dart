@@ -200,4 +200,66 @@ void main() {
     expect(textOnlyKey, isNot(emojiKey));
     expect(layout.cacheCount, 2);
   });
+
+  test('fontWeight is part of barrage picture and layout cache identity', () {
+    final engine = BarrageEngine(
+      config: const BarrageConfig(fontWeight: FontWeight.w500),
+      emojiAtlas: EmojiAtlas.instance,
+    );
+    const item = BarrageItem(content: 'weighted message');
+    final mediumKey = engine.buildCacheKey(item);
+    engine.updateConfig(const BarrageConfig(fontWeight: FontWeight.w700));
+    final boldKey = engine.buildCacheKey(item);
+
+    final layout = MixedLayout(atlas: EmojiAtlas.instance, maxTextCacheSize: 8);
+    const fragments = <Fragment>[TextFragment('weighted message')];
+    layout.layout(
+      fragments,
+      item: item,
+      config: const BarrageConfig(fontWeight: FontWeight.w500),
+    );
+    layout.layout(
+      fragments,
+      item: item,
+      config: const BarrageConfig(fontWeight: FontWeight.w700),
+    );
+
+    expect(boldKey, isNot(mediumKey));
+    expect(layout.cacheCount, 2);
+  });
+
+  testWidgets('fontWeight change relayouts active danmaku with a new picture', (tester) async {
+    final controller = BarrageController();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 400,
+          height: 200,
+          child: FlameBarrageWidget(
+            config: const BarrageConfig(fontWeight: FontWeight.w500),
+            emojiAtlas: EmojiAtlas.instance,
+            controller: controller,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    final engine = controller.engine as BarrageEngine;
+    addTearDown(engine.clear);
+
+    controller.send(const BarrageItem(content: 'weight change'));
+    for (var frame = 0; frame < 10; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+
+    final cacheBefore = controller.pictureCacheCount;
+    expect(cacheBefore, greaterThan(0));
+
+    controller.updateConfig(const BarrageConfig(fontWeight: FontWeight.w700));
+    await tester.pump();
+
+    final cacheAfter = controller.pictureCacheCount;
+    expect(cacheAfter, greaterThan(cacheBefore));
+  });
 }

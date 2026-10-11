@@ -319,18 +319,119 @@ class BarrageEngine extends FlameGame with TapCallbacks {
   Color backgroundColor() => Colors.transparent;
 
   void updateConfig(BarrageConfig newConfig) {
-    final fpsChanged = _config.fps != newConfig.fps;
+    final old = _config;
+    final fpsChanged = old.fps != newConfig.fps;
     _config = newConfig;
     _parser.updateMaxCacheSize(newConfig.textCacheMaxSize);
     _layout.updateMaxTextCacheSize(newConfig.textCacheMaxSize);
     _pictureCache.updateMaxSize(newConfig.pictureCacheMaxSize);
     _pool.updateMaxSize(newConfig.barragePoolMaxSize);
     if (_initialized) {
-      _trackManager.initialize(_config, _calculateAllowedHeight(size.y));
+      final geometryChanged = _configAffectsTrackGeometry(old, newConfig);
+      if (geometryChanged) {
+        _trackManager.initialize(newConfig, _calculateAllowedHeight(size.y));
+      }
+      if (geometryChanged || _configAffectsOnScreenStyle(old, newConfig)) {
+        _relayoutActive();
+      }
     }
     if (fpsChanged && _frameTicker?.isActive == true) {
       _startFramePulses();
     }
+  }
+
+  static bool _configAffectsTrackGeometry(BarrageConfig a, BarrageConfig b) {
+    return a.area != b.area ||
+        a.topAreaDistance != b.topAreaDistance ||
+        a.bottomAreaDistance != b.bottomAreaDistance ||
+        a.trackHeight != b.trackHeight ||
+        a.safeArea != b.safeArea;
+  }
+
+  static bool _configAffectsOnScreenStyle(BarrageConfig a, BarrageConfig b) {
+    return a.fontSize != b.fontSize ||
+        a.fontWeight != b.fontWeight ||
+        a.fontStyle != b.fontStyle ||
+        a.fontFamily != b.fontFamily ||
+        a.letterSpacing != b.letterSpacing ||
+        a.textColor != b.textColor ||
+        a.strokeColor != b.strokeColor ||
+        a.strokeWidth != b.strokeWidth ||
+        a.showStroke != b.showStroke ||
+        a.showShadow != b.showShadow ||
+        a.shadowColor != b.shadowColor ||
+        a.shadowBlur != b.shadowBlur ||
+        a.shadowOffset != b.shadowOffset ||
+        a.opacity != b.opacity ||
+        a.emojiSize != b.emojiSize ||
+        a.noEmojiMode != b.noEmojiMode;
+  }
+
+  void _relayoutActive() {
+    if (_activeEntries.isEmpty) return;
+    final trackCount = _trackManager.tracks.length;
+    if (trackCount == 0) return;
+    for (final entry in List<BarrageEntry>.from(_activeEntries)) {
+      if (!entry.active) continue;
+      final item = entry.item;
+      final resolvedConfig = _resolveConfig(item);
+      final fragments = _parser.parse(item.content);
+      final layoutResult = _layout.layout(fragments, item: item, config: resolvedConfig);
+
+      final oldPicture = entry.picture;
+      final cacheKey = buildCacheKey(item);
+      final Picture picture =
+          _pictureCache.acquire(cacheKey) ??
+          _pictureCache.putAndAcquire(cacheKey, _renderer.buildPicture(layoutResult));
+
+      entry
+        ..width = layoutResult.width
+        ..height = layoutResult.height
+        ..picture = picture
+        ..pictureCacheKey = cacheKey;
+      if (oldPicture != null) {
+        _pictureCache.release(oldPicture);
+      }
+
+      final trackIndex = entry.track.clamp(0, trackCount - 1);
+      final centerY = (resolvedConfig.trackHeight - layoutResult.height) / 2;
+      switch (item.type) {
+        case BarrageType.bottomFixed:
+          entry.y = size.y - _getBottomOffset() - ((trackIndex + 1) * resolvedConfig.trackHeight) + centerY;
+          entry.x = (size.x - layoutResult.width) / 2;
+          break;
+        case BarrageType.topFixed:
+          entry.y = _getTopOffset() + (trackIndex * resolvedConfig.trackHeight) + centerY;
+          entry.x = (size.x - layoutResult.width) / 2;
+          break;
+        case BarrageType.scroll:
+          entry.y = _getTopOffset() + (trackIndex * resolvedConfig.trackHeight) + centerY;
+          break;
+      }
+    }
+  }
+
+  BarrageConfig _resolveConfig(BarrageItem item) {
+    return _config.copyWith(
+      textColor: item.textColor,
+      fontSize: item.fontSize,
+      fontWeight: item.fontWeight,
+      fontStyle: item.fontStyle,
+      fontFamily: item.fontFamily,
+      letterSpacing: item.letterSpacing,
+      opacity: item.opacity,
+      showStroke: item.showStroke,
+      strokeColor: item.strokeColor,
+      strokeWidth: item.strokeWidth,
+      showShadow: item.showShadow,
+      shadowColor: item.shadowColor,
+      shadowBlur: item.shadowBlur,
+      shadowOffset: item.shadowOffset,
+      fixedDuration: item.fixedDuration,
+      emojiSize: item.emojiSize,
+      baseSpeed: item.baseSpeed,
+      overlapSafeGap: item.overlapSafeGap,
+    );
   }
 
   @override
