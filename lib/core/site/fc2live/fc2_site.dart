@@ -115,6 +115,7 @@ final class Fc2Site extends LiveSite
       Fc2State.restricted => LiveStatus.unknown,
     };
     final viewers = room.currentViewers?.toString();
+    final startedAt = room.startedAt;
     return LiveRoom(
       platform: 'fc2live',
       roomId: room.channelId,
@@ -137,6 +138,7 @@ final class Fc2Site extends LiveSite
           : i18n('fc2live_chat_notice'),
       httpHeaders: Fc2Api.mediaHeaders(room.channelId),
       data: includeMedia && liveStatus == LiveStatus.live ? room : null,
+      startTime: liveStatus == LiveStatus.live && startedAt != null ? startedAt.millisecondsSinceEpoch ~/ 1000 : null,
     );
   }
 

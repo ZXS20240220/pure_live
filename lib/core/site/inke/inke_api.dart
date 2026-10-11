@@ -316,6 +316,14 @@ class InkeApi {
       watching: '',
       audienceMetricType: AudienceMetricType.unknown,
       data: playback ? [LivePlayQuality(id: 'flv', quality: 'FLV', data: urls)] : null,
+      startTime: _startTime(info['start_time']),
     );
+  }
+
+  static int? _startTime(Object? value) {
+    final seconds = int.tryParse(_text(value));
+    if (seconds == null || seconds <= 0) return null;
+    final time = DateTime.fromMillisecondsSinceEpoch(seconds * 1000, isUtc: true);
+    return time.year >= 2000 && time.year <= 2100 ? seconds : null;
   }
 }

@@ -70,6 +70,7 @@ class TikTokRoom {
     required this.verified,
     required this.state,
     required Iterable<TikTokStream> streams,
+    this.startedAt,
   }) : streams = List.unmodifiable(streams);
 
   final String username;
@@ -88,6 +89,7 @@ class TikTokRoom {
   final bool verified;
   final TikTokState state;
   final List<TikTokStream> streams;
+  final int? startedAt;
 }
 
 typedef TikTokRequest = Future<({int status, String body})> Function({
@@ -276,8 +278,16 @@ class TikTokApi {
       totalViewers: state == TikTokState.live ? _optionalNonNegativeInt(roomStats['enterCount']) : null,
       verified: _optionalBool(user['verified']) ?? false,
       state: state,
+      startedAt: state == TikTokState.live ? _startTime(live['startTime']) : null,
       streams: state == TikTokState.live && includeMedia ? _streams(live) : const [],
     );
+  }
+
+  static int? _startTime(Object? value) {
+    final seconds = _integer(value);
+    if (seconds == null || seconds <= 0) return null;
+    final time = DateTime.fromMillisecondsSinceEpoch(seconds * 1000, isUtc: true);
+    return time.year >= 2000 && time.year <= 2100 ? seconds : null;
   }
 
   Future<String> _usernameFromRoomId(String rawRoomId, {CancelToken? cancel}) async {

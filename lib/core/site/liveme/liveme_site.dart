@@ -82,6 +82,7 @@ class LiveMeSite extends LiveSite
       notice: i18n('liveme_chat_notice'),
       httpHeaders: LiveMeApi.mediaHeaders(room.shortId),
       data: includeMedia ? room : null,
+      startTime: room.state == LiveMeState.live ? room.startedAt : null,
     );
   }
 

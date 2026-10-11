@@ -74,6 +74,7 @@ class SeventeenLiveSite extends LiveSite
     notice: i18n('seventeen_age_notice'),
     httpHeaders: SeventeenLiveApi.mediaHeaders(room.roomId),
     data: includeMedia ? room : null,
+    startTime: room.state == SeventeenLiveState.live ? room.startedAt : null,
   );
 
   String _roomId(String roomId, String platform) {

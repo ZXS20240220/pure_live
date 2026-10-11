@@ -60,6 +60,7 @@ class LiveMeRoom {
     required this.likes,
     required this.state,
     required Iterable<LiveMeStream> streams,
+    this.startedAt,
   }) : streams = List.unmodifiable(streams);
 
   final String shortId;
@@ -78,6 +79,7 @@ class LiveMeRoom {
   final int? likes;
   final LiveMeState state;
   final List<LiveMeStream> streams;
+  final int? startedAt;
 }
 
 class LiveMeDirectoryPage {
@@ -501,8 +503,17 @@ class LiveMeApi {
       heat: state == LiveMeState.live ? _optionalNonNegativeInt(video['heat']) : null,
       likes: _optionalNonNegativeInt(video['likenum']),
       state: state,
+      startedAt: state == LiveMeState.live ? _startTime(video['vtime']) : null,
       streams: state == LiveMeState.live && includeMedia ? _streams(video) : const [],
     );
+  }
+
+  static int? _startTime(Object? value) {
+    final raw = _integer(value);
+    if (raw == null || raw <= 0) return null;
+    final seconds = raw > 100000000000 ? raw ~/ 1000 : raw;
+    final time = DateTime.fromMillisecondsSinceEpoch(seconds * 1000, isUtc: true);
+    return time.year >= 2000 && time.year <= 2100 ? seconds : null;
   }
 
   static LiveMeRoom _offlineRoom(_LiveMeProfile profile, {required String expectedShortId}) {

@@ -27,6 +27,14 @@ class TwitchSite implements LiveSite, LiveSiteRoomRefresher, LiveSiteRecordRoomR
 
   static const baseUrl = "https://www.twitch.tv";
 
+  static int? _startTimeFromIso(String? value) {
+    final raw = value?.trim() ?? '';
+    if (raw.isEmpty) return null;
+    final time = DateTime.tryParse(raw);
+    if (time == null) return null;
+    return time.millisecondsSinceEpoch ~/ 1000;
+  }
+
   Map<String, String> cursorMap = {};
   late final String _deviceId = generateDeviceId();
   String? _integrityToken;
@@ -640,6 +648,7 @@ class TwitchSite implements LiveSite, LiveSiteRoomRefresher, LiveSiteRecordRoomR
       area: user.stream?.game?.name ?? user.stream?.game?.displayName,
       status: online,
       liveStatus: online ? LiveStatus.live : LiveStatus.offline,
+      startTime: online ? _startTimeFromIso(user.stream!.createdAt) : null,
       platform: Sites.twitchSite,
       link: "$baseUrl/$roomId",
       danmakuData: roomId,
@@ -760,6 +769,7 @@ class TwitchSite implements LiveSite, LiveSiteRoomRefresher, LiveSiteRecordRoomR
           danmakuData: broadcaster["id"]?.toString() ?? login,
           platform: id,
           liveStatus: LiveStatus.live,
+          startTime: _startTimeFromIso(node["createdAt"]?.toString()),
           area: game?["displayName"]?.toString() ?? game?["name"]?.toString() ?? '',
           data: null,
         );
@@ -821,6 +831,7 @@ class TwitchSite implements LiveSite, LiveSiteRoomRefresher, LiveSiteRecordRoomR
         danmakuData: node["login"],
         platform: id,
         liveStatus: status ? LiveStatus.live : LiveStatus.offline,
+        startTime: status ? _startTimeFromIso(node["stream"]?["createdAt"]?.toString()) : null,
         area: node["stream"]?["game"]?["displayName"] ?? "",
         data: null,
       );
@@ -910,6 +921,7 @@ class TwitchSite implements LiveSite, LiveSiteRoomRefresher, LiveSiteRecordRoomR
           area: "",
           status: online,
           liveStatus: online ? LiveStatus.live : LiveStatus.offline,
+          startTime: online ? _startTimeFromIso(user!.stream!.createdAt) : null,
           platform: Sites.twitchSite,
           link: "$baseUrl/${list[index].roomId}",
           danmakuData: list[index].roomId,

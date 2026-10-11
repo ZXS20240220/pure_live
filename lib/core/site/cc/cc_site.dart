@@ -324,7 +324,27 @@ class CCSite implements LiveSite, LiveSiteRoomRefresher, LiveSiteRecordRoomResol
       link: roomInfo['m3u8'],
       userId: roomInfo['cid'].toString(),
       data: roomInfo["quickplay"] ?? roomInfo["stream_list"],
+      startTime: live ? _startTime(roomInfo['startat']) : null,
     );
+  }
+
+  static int? _startTime(Object? value) {
+    final raw = value?.toString().trim() ?? '';
+    final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$').firstMatch(raw);
+    if (match == null) return null;
+    final parts = [for (var index = 1; index <= 6; index++) int.tryParse(match.group(index) ?? '')];
+    if (parts.any((value) => value == null)) return null;
+    final year = parts[0]!;
+    if (year < 2000) return null;
+    final time = DateTime.utc(
+      year,
+      parts[1]!,
+      parts[2]!,
+      parts[3]!,
+      parts[4]!,
+      parts[5]!,
+    ).subtract(const Duration(hours: 8));
+    return time.millisecondsSinceEpoch ~/ 1000;
   }
 
   /// CC exposes two different audience scales in the same payload:

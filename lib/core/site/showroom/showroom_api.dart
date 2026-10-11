@@ -60,6 +60,7 @@ class ShowroomLive {
     required this.totalViewers,
     required this.telop,
     required Iterable<ShowroomStream> streams,
+    this.startedAt,
   }) : streams = List.unmodifiable(streams);
 
   final int roomId;
@@ -72,6 +73,7 @@ class ShowroomLive {
   final int? totalViewers;
   final String telop;
   final List<ShowroomStream> streams;
+  final int? startedAt;
 }
 
 class ShowroomGenre {
@@ -110,6 +112,7 @@ class ShowroomProfile {
     required this.totalViewers,
     required this.description,
     required this.isLive,
+    this.startedAt,
   });
 
   final int roomId;
@@ -122,6 +125,7 @@ class ShowroomProfile {
   final int? totalViewers;
   final String description;
   final bool isLive;
+  final int? startedAt;
 
   ShowroomProfile withLiveStatus(bool value) => ShowroomProfile(
     roomId: roomId,
@@ -134,6 +138,7 @@ class ShowroomProfile {
     totalViewers: totalViewers,
     description: description,
     isLive: value,
+    startedAt: startedAt,
   );
 }
 
@@ -292,7 +297,14 @@ class ShowroomApi {
       totalViewers: _optionalNonNegativeInt(data['view_num']),
       description: _optionalText(data['description']),
       isLive: _bool(data['is_onlive']),
+      startedAt: _startedAt(data['current_live_started_at']),
     );
+  }
+
+  static int? _startedAt(Object? value) {
+    final seconds = _optionalNonNegativeInt(value);
+    if (seconds == null || seconds <= 0) return null;
+    return seconds;
   }
 
   Future<bool> liveStatus(int roomId, {CancelToken? cancel}) async {

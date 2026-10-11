@@ -186,6 +186,7 @@ class ShowroomSite extends LiveSite
       audienceMetricType: AudienceMetricType.totalViewers,
       liveStatus: LiveStatus.live,
       httpHeaders: ShowroomApi.mediaHeaders,
+      startTime: live.startedAt,
     );
   }
 
@@ -214,6 +215,7 @@ class ShowroomSite extends LiveSite
       liveStatus: profile.isLive ? LiveStatus.live : LiveStatus.offline,
       data: profile.isLive && qualities.isNotEmpty ? _ShowroomPlayback('${profile.roomId}', qualities) : null,
       httpHeaders: ShowroomApi.mediaHeaders,
+      startTime: profile.isLive ? profile.startedAt : null,
     );
   }
 

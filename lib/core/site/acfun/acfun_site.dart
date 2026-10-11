@@ -54,7 +54,14 @@ class AcfunSite extends LiveSite
       followers: AcfunApi.text(user['fanCountValue']),
       status: live,
       liveStatus: live ? LiveStatus.live : LiveStatus.offline,
+      startTime: live ? _startTime(data['createTime']) : null,
     );
+  }
+
+  static int? _startTime(Object? value) {
+    final raw = AcfunApi.integer(value);
+    if (raw == null || raw < 1000000000000 || raw >= 10000000000000) return null;
+    return raw ~/ 1000;
   }
 
   @override

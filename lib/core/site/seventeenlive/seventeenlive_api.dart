@@ -52,6 +52,7 @@ class SeventeenLiveRoom {
     required this.audioOnly,
     required this.state,
     required this.streams,
+    this.startedAt,
   });
 
   final String roomId;
@@ -67,6 +68,7 @@ class SeventeenLiveRoom {
   final bool audioOnly;
   final SeventeenLiveState state;
   final List<SeventeenLiveStream> streams;
+  final int? startedAt;
 }
 
 typedef SeventeenLiveRequest = Future<({int status, String body})> Function(Uri uri, CancelToken? cancel);
@@ -209,7 +211,16 @@ class SeventeenLiveApi {
       audioOnly: _integer(data['audioOnly']) == 1,
       state: state,
       streams: streams,
+      startedAt: state == SeventeenLiveState.live ? _startTime(data['beginTime']) : null,
     );
+  }
+
+  static int? _startTime(Object? value) {
+    final raw = _integer(value);
+    if (raw == null || raw <= 0) return null;
+    final seconds = raw > 100000000000 ? raw ~/ 1000 : raw;
+    final time = DateTime.fromMillisecondsSinceEpoch(seconds * 1000, isUtc: true);
+    return time.year >= 2000 && time.year <= 2100 ? seconds : null;
   }
 
   static List<SeventeenLiveStream> _streams(Map<String, dynamic> data) {

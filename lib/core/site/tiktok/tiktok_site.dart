@@ -76,6 +76,7 @@ class TikTokSite extends LiveSite
       notice: i18n('tiktok_chat_notice'),
       httpHeaders: TikTokApi.mediaHeaders(room.username),
       data: includeMedia ? room : null,
+      startTime: room.state == TikTokState.live ? room.startedAt : null,
     );
   }
 
