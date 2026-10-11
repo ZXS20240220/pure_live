@@ -92,6 +92,11 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Future<void> confirmSectionPicker(WidgetTester tester) async {
+    await tester.tap(find.byKey(const ValueKey('backup-section-confirm')));
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('unset directory shows a hint and creates no backup or picker', (tester) async {
     await openPage(tester);
     await createBackup(tester);
@@ -105,6 +110,7 @@ void main() {
     backup.backupDirectory.value = directory.path;
     await openPage(tester);
     await createBackup(tester);
+    await confirmSectionPicker(tester);
     expect(picker.initialDirectories, isEmpty);
     expect(backup.destinations, hasLength(1));
     expect(backup.destinations.single.parent.path, directory.path);
@@ -117,6 +123,7 @@ void main() {
     backup.succeeds = false;
     await openPage(tester);
     await createBackup(tester);
+    await confirmSectionPicker(tester);
     expect(picker.initialDirectories, isEmpty);
     expect(backup.destinations, hasLength(1));
     expect(backup.destinations.single.parent.path, directory.path);
@@ -162,7 +169,7 @@ class _BackupController extends BackupController {
   RxString get backupDirectory => _directory;
 
   @override
-  bool backup(File file) {
+  bool backup(File file, {Iterable<String>? sections}) {
     destinations.add(file);
     return succeeds;
   }

@@ -37,7 +37,7 @@ class BackupController extends GetxController {
 
   final RxString backupDirectory = hiveString('backupDirectory', '');
 
-  Map<String, dynamic> exportAllSettings({bool includeSensitiveData = true}) {
+  Map<String, dynamic> exportAllSettings({bool includeSensitiveData = true, Iterable<String>? sections}) {
     if (!Get.isRegistered<TagManagementController>()) {
       Get.put(TagManagementController());
     }
@@ -83,7 +83,51 @@ class BackupController extends GetxController {
       data['webdav'] = Get.find<WebDavController>().toJson();
       data['cookie'] = Get.find<CookieSettingsController>().toJson();
     }
-    return data;
+
+    final filtered = filterBackupSections(data, sections);
+    if (!identical(filtered, data)) {
+      filtered['sensitiveDataIncluded'] =
+          includeSensitiveData && (filtered.containsKey('webdav') || filtered.containsKey('cookie'));
+    }
+    return filtered;
+  }
+
+  /// 备份元数据键：版本号与敏感数据标记，不受模块选择过滤影响。
+  static const Set<String> _metaKeys = <String>{'backupVersion', 'sensitiveDataIncluded'};
+
+  /// 所有可备份模块的键名（按声明顺序，不含元数据键）。
+  /// backupDirectory 是字符串段，不在 _sectionKeys 中（后者仅含 Map 段），
+  /// 但仍是合法的备份/导入目标，故单独追加。
+  static List<String> get sectionNames => List<String>.unmodifiable([..._sectionKeys.keys, 'backupDirectory']);
+
+  /// 从备份数据中提取实际存在的模块键名（按声明顺序）。
+  static List<String> presentSections(Map<String, dynamic> data) {
+    return [
+      for (final name in sectionNames)
+        if (data.containsKey(name)) name,
+    ];
+  }
+
+  /// 读取备份文件中实际包含的模块键名；解析失败返回 null。
+  static Future<List<String>?> readBackupSections(File file) async {
+    try {
+      final data = jsonDecode(await file.readAsString());
+      if (data is! Map) return null;
+      return presentSections(Map<String, dynamic>.from(data));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 按选中模块过滤备份数据：未选中的模块键被移除，元数据键始终保留。
+  /// sections 为 null 时不过滤，返回原 Map。
+  static Map<String, dynamic> filterBackupSections(Map<String, dynamic> data, Iterable<String>? sections) {
+    if (sections == null) return data;
+    final selected = sections.toSet();
+    return <String, dynamic>{
+      for (final entry in data.entries)
+        if (_metaKeys.contains(entry.key) || selected.contains(entry.key)) entry.key: entry.value,
+    };
   }
 
   /// Removes credentials and session cookies before a backup leaves the device.
@@ -162,7 +206,15 @@ class BackupController extends GetxController {
     if (!recognized) throw const FormatException('No recognized backup settings');
   }
 
-  void importAllSettings(Map<String, dynamic> data) {
+  void importAllSettings(Map<String, dynamic> data, {Iterable<String>? sections}) {
+    if (sections != null) {
+      importPartialSettings(data, sections.toSet());
+      return;
+    }
+    _importSettings(data);
+  }
+
+  void _importSettings(Map<String, dynamic> data) {
     validateBackupIdentity(data);
     final version = data['backupVersion'];
 
@@ -709,9 +761,9 @@ class BackupController extends GetxController {
     }
   }
 
-  bool backup(File file) {
+  bool backup(File file, {Iterable<String>? sections}) {
     try {
-      final data = exportAllSettings();
+      final data = exportAllSettings(sections: sections);
       file.writeAsStringSync(const JsonEncoder.withIndent('  ').convert(data));
       return true;
     } catch (_) {
@@ -719,8 +771,8 @@ class BackupController extends GetxController {
     }
   }
 
-  Future<void> restoreAllSettings(Map<String, dynamic> data) async {
-    await _persistRestore(() => importAllSettings(data));
+  Future<void> restoreAllSettings(Map<String, dynamic> data, {Iterable<String>? sections}) async {
+    await _persistRestore(() => importAllSettings(data, sections: sections));
   }
 
   Future<void> restoreFavoriteSettings(Map<String, dynamic> data) async {
@@ -754,7 +806,7 @@ class BackupController extends GetxController {
     }
   }
 
-  Future<bool> recover(File file) async {
+  Future<bool> recover(File file, {Iterable<String>? sections}) async {
     try {
       final json = file.readAsStringSync();
       final data = jsonDecode(json);
@@ -763,7 +815,7 @@ class BackupController extends GetxController {
         return false;
       }
 
-      await restoreAllSettings(data);
+      await restoreAllSettings(data, sections: sections);
 
       return true;
     } catch (_) {

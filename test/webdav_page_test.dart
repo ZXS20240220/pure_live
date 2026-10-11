@@ -867,10 +867,12 @@ class _BackupController extends BackupController {
   Completer<void>? favoriteRestore;
 
   @override
-  Map<String, dynamic> exportAllSettings({bool includeSensitiveData = false}) => {'backupVersion': 3};
+  Map<String, dynamic> exportAllSettings({bool includeSensitiveData = false, Iterable<String>? sections}) => {
+    'backupVersion': 3,
+  };
 
   @override
-  Future<void> restoreAllSettings(Map<String, dynamic> data) {
+  Future<void> restoreAllSettings(Map<String, dynamic> data, {Iterable<String>? sections}) {
     restores.add(data);
     // Create the future in the widget test's clock, not setUp's root zone.
     restore = Completer<void>();

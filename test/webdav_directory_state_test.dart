@@ -623,10 +623,12 @@ class _BackupController extends BackupController {
   Completer<void>? pendingRestore;
 
   @override
-  Map<String, dynamic> exportAllSettings({bool includeSensitiveData = false}) => {'backupVersion': 3};
+  Map<String, dynamic> exportAllSettings({bool includeSensitiveData = false, Iterable<String>? sections}) => {
+    'backupVersion': 3,
+  };
 
   @override
-  Future<void> restoreAllSettings(Map<String, dynamic> data) async {
+  Future<void> restoreAllSettings(Map<String, dynamic> data, {Iterable<String>? sections}) async {
     restores.add(data);
     await pendingRestore?.future;
   }

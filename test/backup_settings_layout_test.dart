@@ -265,7 +265,7 @@ class _FixtureBackupController extends BackupController {
   final Map<String, dynamic> data;
 
   @override
-  Map<String, dynamic> exportAllSettings({bool includeSensitiveData = false}) => data;
+  Map<String, dynamic> exportAllSettings({bool includeSensitiveData = false, Iterable<String>? sections}) => data;
 }
 
 class _FixtureLogController extends LogController {

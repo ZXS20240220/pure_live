@@ -12,6 +12,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:date_format/date_format.dart' hide S;
 import 'package:pure_live/core/common/http_client.dart';
 import 'package:pure_live/common/services/settings/backup_controller.dart';
+import 'package:pure_live/modules/backup/backup_section_picker.dart';
 import 'package:pure_live/plugins/db_service.dart';
 import 'package:pure_live/plugins/utils.dart';
 import 'package:hive_ce/hive.dart';
@@ -25,12 +26,20 @@ const int _fullBackupVersion = 1;
 class BackupRecoveryService {
   /// 已设置备份目录时直接在该目录创建备份文件；未设置时仅提示用户先设置，
   /// 不再弹出目录选择框。
+  ///
+  /// 创建前先弹出模块选择器，让用户选择要备份的模块。
   Future<String?> createAppSettingsBackup(String backupDirectory) async {
     final backup = Get.find<BackupController>();
     if (backupDirectory.isEmpty) {
       ToastUtil.show(i18n("please_set_backup_directory"));
       return null;
     }
+
+    final sections = await pickBackupSections(
+      direction: BackupSectionDirection.export,
+      available: BackupController.sectionNames,
+    );
+    if (sections == null) return null;
 
     final granted = await FileUtils.requestStoragePermission();
     if (!granted) {
@@ -41,7 +50,7 @@ class BackupRecoveryService {
     final dateStr = formatDate(DateTime.now(), [yyyy, '-', mm, '-', dd, 'T', HH, '_', nn, '_', ss]);
     final file = File('$backupDirectory/purelive_$dateStr.txt');
 
-    if (backup.backup(file)) {
+    if (backup.backup(file, sections: sections)) {
       ToastUtil.show(i18n("create_backup_success"));
       return backupDirectory;
     } else {
@@ -148,6 +157,9 @@ class BackupRecoveryService {
   }
 
   /// 恢复备份：根据文件扩展名自动识别完整备份(zip)或设置备份(txt)。
+  ///
+  /// 恢复设置备份(txt)前，先读取备份中实际包含的模块，让用户选择要恢复的模块；
+  /// 未选中的模块保持本机当前值不变。
   Future<void> recoverSettingsFromFile() async {
     final result = await FilePicker.pickFile(
       dialogTitle: i18n("select_recover_file"),
@@ -167,7 +179,17 @@ class BackupRecoveryService {
       await _recoverFromFullBackup(file);
     } else {
       final backup = Get.find<BackupController>();
-      if (await backup.recover(file)) {
+      final available = await BackupController.readBackupSections(file);
+      if (available == null) {
+        ToastUtil.show(i18n("recover_backup_failed"));
+        return;
+      }
+      List<String>? sections;
+      if (available.isNotEmpty) {
+        sections = await pickBackupSections(direction: BackupSectionDirection.import, available: available);
+        if (sections == null) return;
+      }
+      if (await backup.recover(file, sections: sections)) {
         ToastUtil.show(i18n("recover_backup_success"));
       } else {
         ToastUtil.show(i18n("recover_backup_failed"));
