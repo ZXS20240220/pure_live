@@ -310,7 +310,8 @@ void main() {
     test('open area room response retains normal row/login behavior error=$error', () async {
       final gate = Completer<List<LiveRoom>>();
       final source = _Site()..rooms = gate.future;
-      final row = LiveRoom(roomId: 'fixture', area: 'original');
+      // 分区页 fetchAllServerData 会 keepLiveOnly，未开播的行不会展示。
+      final row = LiveRoom(roomId: 'fixture', area: 'original', liveStatus: LiveStatus.live);
       final c = track(_Rooms(_site(source), LiveArea(areaId: 'a', areaName: 'new area')));
       final operation = c.loadData();
       await Future<void>.delayed(Duration.zero);

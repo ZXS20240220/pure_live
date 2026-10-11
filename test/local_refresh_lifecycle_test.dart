@@ -53,7 +53,11 @@ class _Site extends LiveSite {
   Future<List<LiveRoom>> getRecommendRooms({int page = 1, int pageSize = 20}) async {
     calls++;
     sizes.add(pageSize);
-    return response == null ? [LiveRoom(roomId: 'b'), LiveRoom(roomId: 'a')] : await response!;
+    // 推荐位语义上是在播直播间：显式标记 live，否则会被
+    // PopularLocalReactiveController.getLocalRawData 的 keepLiveOnly 过滤。
+    return response == null
+        ? [LiveRoom(roomId: 'b', liveStatus: LiveStatus.live), LiveRoom(roomId: 'a', liveStatus: LiveStatus.live)]
+        : await response!;
   }
 }
 
@@ -381,7 +385,10 @@ void main() {
     final first = c.loadData();
     final second = c.loadData();
     final during = source.calls;
-    gate.complete([LiveRoom(roomId: 'b'), LiveRoom(roomId: 'a')]);
+    gate.complete([
+      LiveRoom(roomId: 'b', liveStatus: LiveStatus.live),
+      LiveRoom(roomId: 'a', liveStatus: LiveStatus.live),
+    ]);
     await Future.wait([first, second]);
     expect(during, 1);
     expect(c.list.map((e) => e.roomId), ['b', 'a']);
@@ -491,7 +498,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 200));
       final duringMode = c.usesDesktopPagination;
       final duringSize = c.pageSize.value;
-      gate.complete(List.generate(40, (i) => LiveRoom(roomId: '$i')));
+      gate.complete(List.generate(40, (i) => LiveRoom(roomId: '$i', liveStatus: LiveStatus.live)));
       await tester.pump();
       await operation;
       await tester.pumpAndSettle();

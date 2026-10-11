@@ -192,7 +192,10 @@ void main() {
       expect(pageDuring, 2);
       expect(c.currentPage, 2);
       expect(f.requests, hasLength(1));
-      expect(c.list, hasLength(2));
+      // 没有初始首页数据时，flat-buffer 会把当前页窗口（currentPage *
+      // pageSize = 2 * 2 = 4 条）一次补齐；这也能抓住 page 被多加一次的
+      // 回归——若 currentPage 误到 3，窗口会是 6 条（21b8a16cc 累积语义）。
+      expect(c.list, hasLength(4));
     });
 
     test('fixed=$fixed pending size is discarded after deletion', () async {

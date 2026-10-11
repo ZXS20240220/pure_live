@@ -104,8 +104,10 @@ void main() {
     await load;
 
     expect(controller.list, List<int>.generate(18, (index) => index + 1));
-    expect(controller.pageError.value, isFalse);
-    expect(controller.canLoadMore.value, isFalse);
+    // 后页失败时已缓冲内容照常提交；错误以轻提示记录（有数据时不切换整页
+    // 错误视图），游标保留以允许用户再次触发加载更多进行重试。
+    expect(controller.pageError.value, isTrue);
+    expect(controller.canLoadMore.value, isTrue);
   });
 
   test('fixed page commits earlier results when only a later server page fails', () async {
@@ -120,8 +122,9 @@ void main() {
     await load;
 
     expect(controller.list, List<int>.generate(10, (index) => index + 1));
-    expect(controller.pageError.value, isFalse);
-    expect(controller.canLoadMore.value, isFalse);
+    // 同 remote：后页失败不抹掉已提交数据，错误走轻提示且保留重试入口。
+    expect(controller.pageError.value, isTrue);
+    expect(controller.canLoadMore.value, isTrue);
   });
 
   test('tab pages can bind independent scroll controllers without transferring ownership', () {

@@ -1171,6 +1171,18 @@ class _TestDanmakuSettings implements DanmakuSettingsController {
   final danmakuAutoFps = false.obs;
   @override
   final danmakuFontFamilyName = 'Default'.obs;
+  // 与 DanmakuSettingsController 的新字段同步；VideoController.setupWorkers
+  // 的 everAll 会同步读取这些值，缺失时 noSuchMethod 会让构造直接抛出。
+  @override
+  final danmakuMaxVisibleCount = 48.obs;
+  @override
+  final danmakuMassMode = false.obs;
+  @override
+  final danmakuLetterSpacing = 0.0.obs;
+  @override
+  final danmakuDensityMode = 0.obs;
+  @override
+  final danmakuWidthAdaptiveSpeed = true.obs;
 
   @override
   int resolvedDanmakuFps({bool pip = false, AppRefreshRateMode refreshRateMode = AppRefreshRateMode.powerSaving}) =>
