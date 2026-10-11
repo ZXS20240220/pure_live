@@ -3589,7 +3589,7 @@ class PlayerManager {
                               style: IconButton.styleFrom(backgroundColor: Colors.black45),
                               tooltip: i18n('mini_pip_toggle_danmaku'),
                               icon: Icon(
-                                isCompactDanmakuHidden.value ? Icons.subtitles_off_outlined : Icons.subtitles_outlined,
+                                isCompactDanmakuHidden.value ? Icons.subtitles_outlined : Icons.subtitles_rounded,
                                 color: Colors.white,
                               ),
                               onPressed: () {
