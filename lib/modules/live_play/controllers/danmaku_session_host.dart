@@ -11,6 +11,8 @@ abstract interface class DanmakuSessionHost {
 
   void addDanmakuMessage(LiveMessage message, {bool immediate = false});
 
+  void removeDanmakuWhere(bool Function(LiveMessage message) predicate);
+
   void updateRuntimeAudience(dynamic value);
 
   void addSystemMessage(String text);

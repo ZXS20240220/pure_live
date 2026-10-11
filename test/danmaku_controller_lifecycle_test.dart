@@ -200,6 +200,9 @@ class _TestDanmakuHost implements DanmakuSessionHost {
   void addDanmakuMessage(LiveMessage message, {bool immediate = false}) {}
 
   @override
+  void removeDanmakuWhere(bool Function(LiveMessage message) predicate) {}
+
+  @override
   void updateRuntimeAudience(dynamic value) {}
 
   @override

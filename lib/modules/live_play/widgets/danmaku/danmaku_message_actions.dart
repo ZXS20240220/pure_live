@@ -256,6 +256,10 @@ class _DanmakuInfoCard extends StatelessWidget {
         return '在线';
       case LiveMessageType.superChat:
         return '醒目留言';
+      case LiveMessageType.notice:
+        return '通知';
+      case LiveMessageType.retraction:
+        return '撤回';
     }
   }
 }

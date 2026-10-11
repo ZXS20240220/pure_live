@@ -249,6 +249,13 @@ class DanmakuController extends GetxController {
         _main.updateRuntimeAudience(msg.data);
       } else if (msg.type == LiveMessageType.superChat) {
         _main.addAddSuperChat(msg);
+      } else if (msg.type == LiveMessageType.notice) {
+        _addStatusMessage(msg.message);
+      } else if (msg.type == LiveMessageType.retraction) {
+        final target = msg.data is LiveRetraction ? msg.data as LiveRetraction : null;
+        if (target == null) return;
+        _main.removeDanmakuWhere((m) => target.matches(userId: m.userId, userName: m.userName, messageId: m.messageId));
+        if (target.all) _main.clearRenderedDanmaku();
       }
     };
 

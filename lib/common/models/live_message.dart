@@ -10,6 +10,12 @@ enum LiveMessageType {
 
   /// 醒目留言
   superChat,
+
+  /// 系统通知（订阅、突袭、公告、登录失效提示等）：进弹幕列表显示，不飞画面
+  notice,
+
+  /// 撤回指令：[LiveMessage.data] 是 [LiveRetraction]，按目标撤下列表/画面弹幕
+  retraction,
 }
 
 enum LiveAudienceMetricKind { popularity, onlineViewers, totalViewers }
@@ -130,6 +136,39 @@ class LiveMessage {
     this.repeatCount = 0,
     this.emotes = const <LiveEmote>[],
   });
+}
+
+/// 一条撤回指令：按用户、按消息 id 或清屏全部撤回。
+///
+/// 平台给的"用户"可能是 uid（B 站、Twitch）也可能是昵称，所以 [matches] 同时
+/// 接受 [userId] 与 [userName]，两边都比一次才不会被平台差异漏掉。
+class LiveRetraction {
+  const LiveRetraction({this.userId, this.messageId, this.all = false});
+
+  /// 撤回某个用户发的全部消息。
+  const LiveRetraction.user(String userId) : this(userId: userId);
+
+  /// 撤回单条消息。
+  const LiveRetraction.message(String messageId) : this(messageId: messageId);
+
+  /// 清屏：撤回全部。
+  const LiveRetraction.all() : this(all: true);
+
+  final String? userId;
+  final String? messageId;
+  final bool all;
+
+  /// 这条消息是否被本撤回命中（按用户、按 id 或全清）。
+  bool matches({String? userId, String? userName, String? messageId}) {
+    if (all) return true;
+    final target = this.userId?.trim().toLowerCase();
+    if (target != null && target.isNotEmpty) {
+      if (userId != null && userId.trim().toLowerCase() == target) return true;
+      if (userName != null && userName.trim().toLowerCase() == target) return true;
+    }
+    final id = this.messageId;
+    return id != null && messageId != null && messageId == id;
+  }
 }
 
 /// 文本里的一个表情（上游 4.x 的 `LiveEmote`）：[code] 是文本中出现的编码

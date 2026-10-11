@@ -10,6 +10,10 @@ class TwitchDanmaku implements LiveDanmaku {
   WebScoketUtils? webScoketUtils;
   bool _connected = false;
 
+  /// 登录被拒过：这次连接之后不再用这份登录（改用匿名 justinfan…）。
+  bool _loginRefused = false;
+  bool _loginRefusedReported = false;
+
   @override
   bool get isConnected => _connected;
 
@@ -47,6 +51,9 @@ class TwitchDanmaku implements LiveDanmaku {
 
   @override
   Future start(args) async {
+    // 每次进房重新开始：这次的连接重新用参数里的登录。
+    _loginRefused = false;
+    _loginRefusedReported = false;
     webScoketUtils = WebScoketUtils(
       url: serverUrl,
       heartBeatTime: heartbeatTime,
@@ -78,7 +85,7 @@ class TwitchDanmaku implements LiveDanmaku {
     final cookieValues = _parseCookie(cookie);
     final token = cookieValues['auth-token']?.trim() ?? '';
     final login = cookieValues['login']?.trim().toLowerCase() ?? '';
-    final authenticated = token.isNotEmpty && login.isNotEmpty;
+    final authenticated = token.isNotEmpty && login.isNotEmpty && !_loginRefused;
     final user = authenticated ? login : "justinfan${1000 + Random.secure().nextInt(99000)}";
     webScoketUtils
       ?..sendMessage(authenticated ? "PASS oauth:$token" : "PASS SCHMOOPIIE")
@@ -113,6 +120,24 @@ class TwitchDanmaku implements LiveDanmaku {
         // respond to PING according to https://dev.twitch.tv/docs/irc/#keepalive-messages
         webScoketUtils?.sendMessage(data.replaceFirst("PING", "PONG").trim());
       }
+      // 登录被拒（NOTICE … Login authentication failed / Login unsuccessful）：
+      // 报一次用户提示，并让这次连接之后改用匿名。一次 connect 只说一次；
+      // 下一次 connect 会重新用参数里的登录，再被拒就再说一次。
+      if (_isLoginRefusal(data)) {
+        _loginRefused = true;
+        if (!_loginRefusedReported) {
+          _loginRefusedReported = true;
+          onMessage?.call(
+            LiveMessage(
+              type: LiveMessageType.notice,
+              userName: '',
+              message: i18n('twitch_cookie_expired_notice'),
+              color: LiveMessageColor.white,
+            ),
+          );
+        }
+        return;
+      }
       for (final message in parseMessages(data)) {
         onMessage?.call(message);
       }
@@ -121,13 +146,20 @@ class TwitchDanmaku implements LiveDanmaku {
     }
   }
 
+  /// 这条 IRC 帧是不是"登录被拒"。Twitch 用 NOTICE 回这两句（大小写不敏感）。
+  static bool _isLoginRefusal(String data) {
+    if (!data.toUpperCase().contains('NOTICE')) return false;
+    final text = data.toLowerCase();
+    return text.contains('login authentication failed') || text.contains('login unsuccessful');
+  }
+
   /// Parses complete Twitch IRC frames. Kept separate from socket delivery so
   /// reconnect, empty-color and escaped display-name cases stay testable.
   List<LiveMessage> parseMessages(String data) {
     final messages = <LiveMessage>[];
     for (final rawLine in data.split(RegExp(r'\r?\n'))) {
       final line = rawLine.trim();
-      if (!line.contains(' PRIVMSG ')) continue;
+      if (line.isEmpty) continue;
 
       final tags = <String, String>{};
       if (line.startsWith('@')) {
@@ -140,6 +172,47 @@ class TwitchDanmaku implements LiveDanmaku {
           }
         }
       }
+
+      // 管理员删除单条（CLEARMSG）与禁言/封禁/清屏（CLEARCHAT）都是撤回：
+      // 按消息 id、按用户 id、清屏全部撤；只有登录名没有 id 的跳过——
+      // 聊天里没有登录名，对不上，也绝不能当成清屏。
+      if (line.contains(' CLEARMSG ')) {
+        final targetId = (tags['target-msg-id'] ?? '').trim();
+        if (targetId.isNotEmpty) messages.add(_retraction(LiveRetraction.message(targetId)));
+        continue;
+      }
+      if (line.contains(' CLEARCHAT ')) {
+        final targetUser = (tags['target-user-id'] ?? '').trim();
+        if (targetUser.isNotEmpty) {
+          messages.add(_retraction(LiveRetraction.user(targetUser)));
+          continue;
+        }
+        final commandEnd = line.indexOf(' CLEARCHAT ');
+        final paramStart = line.indexOf(' :', commandEnd);
+        if (paramStart >= 0 && line.substring(paramStart + 2).trim().isNotEmpty) continue;
+        messages.add(_retraction(const LiveRetraction.all()));
+        continue;
+      }
+
+      // 订阅、续订、赠送、突袭、管理员的公告（USERNOTICE）：按 msg-id 分类，
+      // sharedchatnotice 再看 source-msg-id。公告的文字在行尾参数里（它的
+      // system-msg 是空的），其余用 system-msg（已被 IRCv3 反转义）。
+      if (line.contains(' USERNOTICE ')) {
+        final msgId = (tags['msg-id'] ?? '').trim();
+        final kind = msgId == 'sharedchatnotice' ? (tags['source-msg-id'] ?? '').trim() : msgId;
+        final paramStart = line.indexOf(' :', line.indexOf(' USERNOTICE '));
+        final attached = paramStart < 0 ? '' : line.substring(paramStart + 2).trim();
+        final isAnnouncement = kind == 'announcement';
+        final text = isAnnouncement ? attached : (tags['system-msg'] ?? '').trim();
+        if (text.isNotEmpty) messages.add(_noticeFromTags(text, tags));
+        // 观众附带的话（续订留言、连续观看时说的话）作为这个观众的一条聊天紧跟其后，
+        // 于是它同样能被 CLEARMSG/CLEARCHAT 撤回、同样飞过画面。公告的文字已经是通知，
+        // 不再重复成聊天。
+        if (!isAnnouncement && attached.isNotEmpty) messages.add(_chatFromTags(attached, tags));
+        continue;
+      }
+
+      if (!line.contains(' PRIVMSG ')) continue;
 
       final messageStart = line.indexOf(' :', line.indexOf(' PRIVMSG '));
       if (messageStart < 0) continue;
@@ -165,6 +238,56 @@ class TwitchDanmaku implements LiveDanmaku {
       );
     }
     return messages;
+  }
+
+  static LiveMessage _retraction(LiveRetraction target) => LiveMessage(
+    type: LiveMessageType.retraction,
+    userName: '',
+    message: '',
+    color: LiveMessageColor.white,
+    data: target,
+  );
+
+  /// 订阅/突袭/公告这一类由 USERNOTICE 来的提示：进弹幕列表当系统消息显示。
+  /// 带上 id/user-id/时间/颜色，于是 CLEARMSG、CLEARCHAT 一样能撤回它。
+  static LiveMessage _noticeFromTags(String text, Map<String, String> tags) {
+    final timestamp = int.tryParse(tags['tmi-sent-ts'] ?? '');
+    return LiveMessage(
+      type: LiveMessageType.notice,
+      userName: _displayName(tags),
+      userId: tags['user-id'] ?? '',
+      messageId: tags['id'] ?? '',
+      message: text,
+      sentAt: timestamp == null ? null : DateTime.fromMillisecondsSinceEpoch(timestamp),
+      color: _color(tags),
+    );
+  }
+
+  /// 通知里观众附带的那句话（续订留言等）——按一条普通聊天处理。
+  static LiveMessage _chatFromTags(String content, Map<String, String> tags) {
+    final timestamp = int.tryParse(tags['tmi-sent-ts'] ?? '');
+    return LiveMessage(
+      type: LiveMessageType.chat,
+      message: content,
+      userName: _displayName(tags),
+      userId: tags['user-id'] ?? '',
+      messageId: tags['id'] ?? '',
+      sentAt: timestamp == null ? null : DateTime.fromMillisecondsSinceEpoch(timestamp),
+      color: _color(tags),
+    );
+  }
+
+  static String _displayName(Map<String, String> tags) {
+    final display = tags['display-name']?.trim() ?? '';
+    if (display.isNotEmpty) return display;
+    final login = tags['login']?.trim() ?? '';
+    return login.isEmpty ? 'Twitch' : login;
+  }
+
+  static LiveMessageColor _color(Map<String, String> tags) {
+    final colorText = (tags['color'] ?? '').replaceFirst('#', '');
+    final value = int.tryParse(colorText, radix: 16) ?? 0xFFFFFF;
+    return LiveMessageColor.numberToColor(value);
   }
 
   static String _decodeTag(String value) => value

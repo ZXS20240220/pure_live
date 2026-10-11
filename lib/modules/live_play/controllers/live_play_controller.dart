@@ -787,6 +787,7 @@ class LivePlayController extends GetxController
     danmakuMessages.assignAll(next);
   }
 
+  @override
   void removeDanmakuWhere(bool Function(LiveMessage message) predicate) {
     if (!_danmakuRemovals.isClosed) _danmakuRemovals.add(predicate);
     _pendingDanmakuMessages.removeWhere(predicate);
