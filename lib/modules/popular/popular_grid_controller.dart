@@ -49,13 +49,15 @@ class PopularLocalReactiveController extends LocalReactivePageController<LiveRoo
     if (isClosed) return [];
     final rooms = await site.liveSite.getRecommendRooms(page: 1, pageSize: pageSize.value);
     if (isClosed) return [];
-    return site.id == Sites.iptvSite ? rooms : _rankForCurrentSettings(rooms);
+    final liveRooms = LiveRoom.keepLiveOnly(rooms);
+    return site.id == Sites.iptvSite ? liveRooms : _rankForCurrentSettings(liveRooms);
   }
 
   Future<List<LiveRoom>> refreshNetworkStatus(List<LiveRoom> currentPool, int page, int pageSize) async {
     try {
       final rooms = await site.liveSite.getRecommendRooms(page: page, pageSize: pageSize);
-      return site.id == Sites.iptvSite ? rooms : _rankForCurrentSettings(rooms);
+      final liveRooms = LiveRoom.keepLiveOnly(rooms);
+      return site.id == Sites.iptvSite ? liveRooms : _rankForCurrentSettings(liveRooms);
     } catch (e) {
       if (e.toString().contains("NoSuchMethodError") && e.toString().contains("'[]'")) {
         throw Exception("loginRequired");
@@ -74,7 +76,8 @@ class PopularServerAllController extends ServerAllPageController<LiveRoom> {
     if (isClosed) return [];
     final rooms = await site.liveSite.getRecommendRooms(page: currentPage, pageSize: pageSize.value);
     if (isClosed) return [];
-    return _rankForCurrentSettings(rooms);
+    final liveRooms = LiveRoom.keepLiveOnly(rooms);
+    return _rankForCurrentSettings(liveRooms);
   }
 }
 
@@ -88,7 +91,8 @@ class PopularServerFixedController extends ServerFixedPageController<LiveRoom> {
     if (isClosed) return [];
     final rooms = await site.liveSite.getRecommendRooms(page: bigPage, pageSize: fixedSize);
     if (isClosed) return [];
-    return _rankForCurrentSettings(rooms);
+    final liveRooms = LiveRoom.keepLiveOnly(rooms);
+    return _rankForCurrentSettings(liveRooms);
   }
 }
 
@@ -101,6 +105,7 @@ class PopularServerRemoteController extends ServerRemotePageController<LiveRoom>
     if (isClosed) return [];
     final rooms = await site.liveSite.getRecommendRooms(page: page, pageSize: pageSize);
     if (isClosed) return [];
-    return _rankForCurrentSettings(rooms);
+    final liveRooms = LiveRoom.keepLiveOnly(rooms);
+    return _rankForCurrentSettings(liveRooms);
   }
 }

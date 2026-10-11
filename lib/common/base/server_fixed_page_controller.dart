@@ -3,9 +3,16 @@ import 'dart:async';
 import 'package:pure_live/common/index.dart';
 
 abstract class ServerFixedPageController<T> extends BasePageScrollAndStateBone<T> {
+  /// Nominal size of one server-side page. The controller still accumulates
+  /// every returned item into a flat buffer so a mismatch between this value
+  /// and the platform's real page size cannot silently truncate the catalogue.
   final int fixedServerPageSize;
-  final Map<int, List<T>> _bigPageCache = {};
-  final Map<int, List<T>> _slicedSmallCache = {};
+
+  /// Flat buffer of every unique item fetched from the server, in fetch order.
+  final List<T> _allItems = [];
+  final Set<T> _seenItems = {};
+  int _nextServerPage = 1;
+  bool _hasMoreNetwork = true;
   Future<void>? _activeLoad;
   bool _refreshPending = false;
   int? _pendingPageSize;
@@ -26,8 +33,10 @@ abstract class ServerFixedPageController<T> extends BasePageScrollAndStateBone<T
     }
     if (!_refreshPending || isClosed) return;
     _refreshPending = false;
-    _bigPageCache.clear();
-    _slicedSmallCache.clear();
+    _allItems.clear();
+    _seenItems.clear();
+    _nextServerPage = 1;
+    _hasMoreNetwork = true;
     currentPage = 1;
     await _startLoad(replaceMobileSnapshot: true);
   }
@@ -36,6 +45,10 @@ abstract class ServerFixedPageController<T> extends BasePageScrollAndStateBone<T
   Future<void> goToPage(int page) async {
     if (isClosed || _activeLoad != null || page < 1) return;
     if (!usesDesktopPagination) return;
+    final int targetStart = (page - 1) * pageSize.value;
+    // Reject navigation past the committed catalogue only when the server has
+    // signalled end-of-stream.
+    if (targetStart >= _allItems.length && !_hasMoreNetwork) return;
     currentPage = page;
     await loadData();
   }
@@ -43,8 +56,6 @@ abstract class ServerFixedPageController<T> extends BasePageScrollAndStateBone<T
   @override
   void setPageSize(int? newSize) {
     if (isClosed || newSize == null || newSize < 1) return;
-    // Keep request dimensions stable until its snapshot is committed. A later
-    // selection replaces the pending intent, including selecting the old size.
     _pendingPageSize = newSize;
     unawaited(_applyPendingPageSize());
   }
@@ -64,7 +75,6 @@ abstract class ServerFixedPageController<T> extends BasePageScrollAndStateBone<T
     final int currentFirstItemIndex = (currentPage - 1) * pageSize.value;
     pageSize.value = newSize;
     currentPage = (currentFirstItemIndex ~/ newSize) + 1;
-    _slicedSmallCache.clear();
     await _startLoad();
   }
 
@@ -98,13 +108,13 @@ abstract class ServerFixedPageController<T> extends BasePageScrollAndStateBone<T
   Future<void> _performLoad({required bool replaceMobileSnapshot}) async {
     totalCount.value = null;
 
-    if (usesDesktopPagination && _slicedSmallCache.containsKey(currentPage)) {
-      final cachedData = _slicedSmallCache[currentPage]!;
-      list.assignAll(cachedData);
-      canLoadMore.value = cachedData.length >= pageSize.value;
-      pageEmpty.value = list.isEmpty;
-      finishRefreshControllers(canLoadMore.value ? IndicatorResult.success : IndicatorResult.noMore);
-      scrollToTopImmediate();
+    final int targetSize = pageSize.value;
+    final int targetStart = usesDesktopPagination ? (currentPage - 1) * targetSize : 0;
+    final int targetEnd = currentPage * targetSize;
+
+    // Fast path: the requested slice is already fully buffered.
+    if (targetEnd <= _allItems.length || !_hasMoreNetwork) {
+      _publishSlice(targetStart, targetEnd, replaceMobileSnapshot);
       return;
     }
 
@@ -117,9 +127,6 @@ abstract class ServerFixedPageController<T> extends BasePageScrollAndStateBone<T
 
     final int previousPageSnapshot = currentPage;
 
-    final int currentGlobalStart = (currentPage - 1) * pageSize.value;
-    final int currentGlobalEnd = currentGlobalStart + pageSize.value;
-
     try {
       loadding.value = true;
       pageError.value = false;
@@ -127,68 +134,38 @@ abstract class ServerFixedPageController<T> extends BasePageScrollAndStateBone<T
       notLogin.value = false;
       if (list.isEmpty) pageLoadding.value = true;
 
-      List<T> combinedData = [];
-      int currentFetchOffset = currentGlobalStart;
+      var requestCount = 0;
+      var noProgressCount = 0;
+      while (_allItems.length < targetEnd && _hasMoreNetwork && requestCount < 20 && noProgressCount < 2) {
+        late final List<T> bigPageData;
+        try {
+          bigPageData = await fetchFixedNetworkData(_nextServerPage, fixedServerPageSize);
+          if (isClosed) return;
+        } catch (e) {
+          if (isClosed) return;
+          // Keep an already assembled partial catalogue when only a later
+          // server page fails. The first request failure still follows the
+          // normal error path.
+          if (_allItems.isEmpty) rethrow;
+          handleError(e, showPageError: false);
+          break;
+        }
+        requestCount++;
 
-      while (currentFetchOffset < currentGlobalEnd) {
-        final int serverBigPage = (currentFetchOffset ~/ fixedServerPageSize) + 1;
-        List<T> bigPageData;
-
-        if (_bigPageCache.containsKey(serverBigPage)) {
-          bigPageData = _bigPageCache[serverBigPage]!;
-        } else {
-          try {
-            bigPageData = await fetchFixedNetworkData(serverBigPage, fixedServerPageSize);
-            if (isClosed) return;
-          } catch (_) {
-            if (isClosed) return;
-            // Keep an already assembled partial client page when only a later
-            // server page fails. Throwing here would replace valid cards with
-            // a full-page error even though the first request succeeded.
-            if (combinedData.isEmpty) rethrow;
-            break;
-          }
-          _bigPageCache[serverBigPage] = bigPageData;
+        if (bigPageData.isEmpty) {
+          _hasMoreNetwork = false;
+          break;
         }
 
-        if (bigPageData.isEmpty) break;
-
-        final int innerStart = currentFetchOffset % fixedServerPageSize;
-        if (innerStart >= bigPageData.length) break;
-
-        final int neededCount = currentGlobalEnd - currentFetchOffset;
-        final int availableCount = bigPageData.length - innerStart;
-        final int takeCount = neededCount < availableCount ? neededCount : availableCount;
-
-        combinedData.addAll(bigPageData.sublist(innerStart, innerStart + takeCount));
-        currentFetchOffset += takeCount;
-
-        if (bigPageData.length < fixedServerPageSize) break;
-      }
-
-      if (combinedData.isEmpty && currentPage > 1) {
-        canLoadMore.value = false;
-        finishRefreshControllers(IndicatorResult.noMore);
-        return;
-      }
-
-      if (usesDesktopPagination) {
-        canLoadMore.value = combinedData.length >= pageSize.value;
-        _slicedSmallCache[currentPage] = combinedData;
-        list.assignAll(combinedData);
-        pageEmpty.value = list.isEmpty;
-        finishRefreshControllers(canLoadMore.value ? IndicatorResult.success : IndicatorResult.noMore);
-        scrollToTopImmediate();
-      } else {
-        canLoadMore.value = combinedData.length >= pageSize.value;
-        if (replaceMobileSnapshot) {
-          list.assignAll(combinedData);
-        } else {
-          list.addAll(combinedData);
+        final previousLength = _allItems.length;
+        for (final item in bigPageData) {
+          if (_seenItems.add(item)) _allItems.add(item);
         }
-        pageEmpty.value = list.isEmpty;
-        finishRefreshControllers(canLoadMore.value ? IndicatorResult.success : IndicatorResult.noMore);
+        noProgressCount = _allItems.length == previousLength ? noProgressCount + 1 : 0;
+        _nextServerPage++;
       }
+
+      _publishSlice(targetStart, targetEnd, replaceMobileSnapshot);
     } catch (e) {
       if (isClosed) return;
       currentPage = previousPageSnapshot;
@@ -200,5 +177,44 @@ abstract class ServerFixedPageController<T> extends BasePageScrollAndStateBone<T
         pageLoadding.value = false;
       }
     }
+  }
+
+  /// Commits the visible slice from [_allItems] and updates paging metadata.
+  /// Snaps back to the last valid page when the requested range falls past the
+  /// end of the catalogue, so a phantom trailing page never renders empty.
+  void _publishSlice(int start, int end, bool replaceMobileSnapshot) {
+    int effectiveStart = start;
+    int effectiveEnd = end;
+
+    if (effectiveStart >= _allItems.length) {
+      if (_allItems.isNotEmpty) {
+        final int lastPage = (_allItems.length / pageSize.value).ceil();
+        currentPage = lastPage;
+        effectiveStart = (lastPage - 1) * pageSize.value;
+        effectiveEnd = lastPage * pageSize.value;
+      } else {
+        list.clear();
+        canLoadMore.value = false;
+        pageEmpty.value = true;
+        if (!_hasMoreNetwork) totalCount.value = 0;
+        finishRefreshControllers(IndicatorResult.noMore);
+        return;
+      }
+    }
+
+    effectiveEnd = effectiveEnd.clamp(effectiveStart, _allItems.length);
+    final slice = _allItems.sublist(effectiveStart, effectiveEnd);
+
+    if (usesDesktopPagination) {
+      list.assignAll(slice);
+    } else {
+      list.assignAll(_allItems.sublist(0, effectiveEnd));
+    }
+
+    canLoadMore.value = effectiveEnd < _allItems.length || _hasMoreNetwork;
+    if (!_hasMoreNetwork) totalCount.value = _allItems.length;
+    pageEmpty.value = list.isEmpty;
+    finishRefreshControllers(canLoadMore.value ? IndicatorResult.success : IndicatorResult.noMore);
+    if (usesDesktopPagination) scrollToTopImmediate();
   }
 }

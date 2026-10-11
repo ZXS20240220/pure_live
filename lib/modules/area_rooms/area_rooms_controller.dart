@@ -19,7 +19,7 @@ class AreaServerAllController extends ServerAllPageController<LiveRoom> {
       for (var element in result) {
         element.area = subCategory.areaName;
       }
-      return result;
+      return LiveRoom.keepLiveOnly(result);
     } catch (e) {
       if (isClosed) return [];
       if (e.toString().contains("-352") ||
@@ -43,18 +43,12 @@ class AreaServerFixedController extends ServerFixedPageController<LiveRoom> {
   Future<List<LiveRoom>> fetchFixedNetworkData(int bigPage, int fixedSize) async {
     if (isClosed) return [];
     try {
-      final result = await site.liveSite.getCategoryRooms(
-        subCategory,
-        page: bigPage,
-        // Preserve older adapters' default contract; TwitCasting must fetch
-        // the full bounded window once before this controller slices it.
-        pageSize: site.id == Sites.twitcastingSite ? fixedSize : 30,
-      );
+      final result = await site.liveSite.getCategoryRooms(subCategory, page: bigPage, pageSize: fixedSize);
       if (isClosed) return [];
       for (var element in result) {
         element.area = subCategory.areaName;
       }
-      return result;
+      return LiveRoom.keepLiveOnly(result);
     } catch (e) {
       if (isClosed) return [];
       if (e.toString().contains("-352") ||
@@ -76,12 +70,12 @@ class AreaServerRemoteController extends ServerRemotePageController<LiveRoom> {
   Future<List<LiveRoom>> fetchNetworkData(int page, int pageSize) async {
     if (isClosed) return [];
     try {
-      final result = await site.liveSite.getCategoryRooms(subCategory, page: page);
+      final result = await site.liveSite.getCategoryRooms(subCategory, page: page, pageSize: pageSize);
       if (isClosed) return [];
       for (var element in result) {
         element.area = subCategory.areaName;
       }
-      return result;
+      return LiveRoom.keepLiveOnly(result);
     } catch (e) {
       if (isClosed) return [];
       if (e.toString().contains("-352") ||

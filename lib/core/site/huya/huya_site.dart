@@ -220,6 +220,9 @@ class HuyaSite
       if (title.isEmpty) {
         title = item["roomName"]?.toString() ?? "";
       }
+      final liveState = parseHuyaLiveStatus(item["liveStatus"]);
+      final isReplay = liveState == LiveStatus.replay;
+      final effectiveStatus = liveState == LiveStatus.unknown ? LiveStatus.live : liveState;
       var roomItem = LiveRoom(
         roomId: item["profileRoom"].toString(),
         title: title,
@@ -230,8 +233,9 @@ class HuyaSite
         audienceMetricType: AudienceMetricType.popularity,
         avatar: item["avatar180"],
         area: item["gameFullName"].toString(),
-        liveStatus: LiveStatus.live,
-        status: true,
+        liveStatus: effectiveStatus,
+        isRecord: isReplay,
+        status: effectiveStatus == LiveStatus.live,
         platform: Sites.huyaSite,
       );
       items.add(roomItem);
@@ -543,6 +547,9 @@ class HuyaSite
         if (title.isEmpty) {
           title = item["roomName"]?.toString() ?? "";
         }
+        final liveState = parseHuyaLiveStatus(item["liveStatus"]);
+        final isReplay = liveState == LiveStatus.replay;
+        final effectiveStatus = liveState == LiveStatus.unknown ? LiveStatus.live : liveState;
         var roomItem = LiveRoom(
           roomId: item["profileRoom"].toString(),
           title: title,
@@ -554,8 +561,9 @@ class HuyaSite
           popularity: item["totalCount"].toString(),
           audienceMetricType: AudienceMetricType.popularity,
           platform: Sites.huyaSite,
-          liveStatus: LiveStatus.live,
-          status: true,
+          liveStatus: effectiveStatus,
+          isRecord: isReplay,
+          status: effectiveStatus == LiveStatus.live,
         );
         items.add(roomItem);
       }

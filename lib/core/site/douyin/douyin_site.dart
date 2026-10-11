@@ -206,17 +206,19 @@ class DouyinSite implements LiveSite, LiveSiteRecordRoomResolver {
     var items = <LiveRoom>[];
     for (var item in result["data"]["data"]) {
       final room = item["room"];
-      final totalViewers = douyinTotalViewers(room);
-      final onlineViewers = douyinOnlineViewers(room);
+      final statusValue = int.tryParse(room['status']?.toString() ?? '');
+      final roomStatus = statusValue == null ? true : statusValue == 2;
+      final totalViewers = roomStatus ? douyinTotalViewers(room) : '';
+      final onlineViewers = roomStatus ? douyinOnlineViewers(room) : '';
       final nativeAudience = totalViewers.isNotEmpty ? totalViewers : onlineViewers;
       var roomItem = LiveRoom(
         roomId: item["web_rid"],
         title: room["title"].toString(),
-        cover: room["cover"]["url_list"][0].toString(),
+        cover: roomStatus ? room["cover"]["url_list"][0].toString() : '',
         nick: room["owner"]["nickname"].toString(),
-        liveStatus: LiveStatus.live,
+        liveStatus: roomStatus ? LiveStatus.live : LiveStatus.offline,
         avatar: room["owner"]["avatar_thumb"]["url_list"][0].toString(),
-        status: true,
+        status: roomStatus,
         platform: Sites.douyinSite,
         area: item['tag_name'].toString(),
         watching: nativeAudience,
@@ -297,8 +299,10 @@ class DouyinSite implements LiveSite, LiveSiteRecordRoomResolver {
       final nick = _firstText([owner['nickname'], envelope['nickname']]);
       final cover = _firstImageUrl([room['cover'], envelope['cover']]);
       final avatar = _firstImageUrl([owner['avatar_thumb'], owner['avatar_large'], envelope['avatar_thumb']]);
-      final totalViewers = douyinTotalViewers(room);
-      final onlineViewers = douyinOnlineViewers(room);
+      final statusValue = int.tryParse(room['status']?.toString() ?? '');
+      final roomStatus = statusValue == null ? true : statusValue == 2;
+      final totalViewers = roomStatus ? douyinTotalViewers(room) : '';
+      final onlineViewers = roomStatus ? douyinOnlineViewers(room) : '';
       final nativeAudience = totalViewers.isNotEmpty ? totalViewers : onlineViewers;
 
       rooms.add(
@@ -316,8 +320,8 @@ class DouyinSite implements LiveSite, LiveSiteRecordRoomResolver {
           audienceMetricType: totalViewers.isNotEmpty
               ? AudienceMetricType.totalViewers
               : AudienceMetricType.onlineViewers,
-          status: true,
-          liveStatus: LiveStatus.live,
+          status: roomStatus,
+          liveStatus: roomStatus ? LiveStatus.live : LiveStatus.offline,
           link: 'https://live.douyin.com/$roomId',
         ),
       );

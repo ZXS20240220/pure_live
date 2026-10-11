@@ -607,6 +607,13 @@ class LiveRoom {
 
   bool get isLiveStatusPending => effectiveLiveStatus == LiveStatus.unknown;
 
+  /// Returns only rooms that are currently live, dropping replay/carousel and
+  /// offline entries. Used by area/popular listings where only active broadcasts
+  /// should be shown.
+  static List<LiveRoom> keepLiveOnly(Iterable<LiveRoom> rooms) {
+    return rooms.where((room) => room.isLiveNow).toList(growable: false);
+  }
+
   /// Stable room identity used by favourites, tags and refresh merges.
   /// Room numbers are only unique inside one platform.
   String get identityKey => '$normalizedPlatformId:$normalizedRoomId';

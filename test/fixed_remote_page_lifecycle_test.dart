@@ -224,7 +224,7 @@ void main() {
           final c = track(fixed ? _AreaFixed(site, area) : _AreaRemote(site, area));
           c.pageSize.value = 1;
           final p = c;
-          final row = LiveRoom(roomId: 'r', area: 'original');
+          final row = LiveRoom(roomId: 'r', area: 'original', status: true, liveStatus: LiveStatus.live);
           final operation = c.loadData();
           await _flush();
           expect(source.calls, 1);

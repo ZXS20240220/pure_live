@@ -3,8 +3,14 @@ import 'dart:async';
 import 'package:pure_live/common/index.dart';
 
 abstract class ServerRemotePageController<T> extends BasePageScrollAndStateBone<T> {
-  final Map<int, List<T>> _pageCache = {};
-  int _virtualNetworkPage = 1;
+  /// Flat buffer of every unique item fetched from the server, in fetch order.
+  /// Client pages are sliced from this pool so overflow from a server response
+  /// is never discarded (the previous per-client-page cache silently dropped
+  /// every item beyond [pageSize] on each network page).
+  final List<T> _allItems = [];
+  final Set<T> _seenItems = {};
+  int _nextNetworkPage = 1;
+  bool _hasMoreNetwork = true;
   Future<void>? _activeLoad;
   bool _refreshPending = false;
   int? _pendingPageSize;
@@ -26,8 +32,10 @@ abstract class ServerRemotePageController<T> extends BasePageScrollAndStateBone<
     if (!_refreshPending || isClosed) return;
     _refreshPending = false;
     currentPage = 1;
-    _virtualNetworkPage = 1;
-    _pageCache.clear();
+    _nextNetworkPage = 1;
+    _allItems.clear();
+    _seenItems.clear();
+    _hasMoreNetwork = true;
     await _startLoad(replaceMobileSnapshot: true);
   }
 
@@ -35,7 +43,11 @@ abstract class ServerRemotePageController<T> extends BasePageScrollAndStateBone<
   Future<void> goToPage(int page) async {
     if (isClosed || _activeLoad != null || page < 1) return;
     if (!usesDesktopPagination) return;
-    if (page > currentPage && !canLoadMore.value && !_pageCache.containsKey(page)) return;
+    final int targetStart = (page - 1) * pageSize.value;
+    // Reject navigation past the committed catalogue only when the server has
+    // signalled end-of-stream. While [_hasMoreNetwork] is still true the target
+    // page may simply not have been fetched yet.
+    if (targetStart >= _allItems.length && !_hasMoreNetwork) return;
     currentPage = page;
     await loadData();
   }
@@ -43,8 +55,6 @@ abstract class ServerRemotePageController<T> extends BasePageScrollAndStateBone<
   @override
   void setPageSize(int? newSize) {
     if (isClosed || newSize == null || newSize < 1) return;
-    // Keep request dimensions stable until its snapshot is committed. A later
-    // selection replaces the pending intent, including selecting the old size.
     _pendingPageSize = newSize;
     unawaited(_applyPendingPageSize());
   }
@@ -65,77 +75,12 @@ abstract class ServerRemotePageController<T> extends BasePageScrollAndStateBone<
     final int previousSize = pageSize.value;
     final int currentFirstItemIndex = (currentPage - 1) * previousSize;
 
-    List<T> allHistoryItems = [];
-    final sortedKeys = _pageCache.keys.toList()..sort();
-    for (var key in sortedKeys) {
-      allHistoryItems.addAll(_pageCache[key]!);
-    }
-
     pageSize.value = newSize;
     currentPage = (currentFirstItemIndex ~/ newSize) + 1;
 
-    _pageCache.clear();
-
-    await _startLoad(rebuildHistory: allHistoryItems);
-  }
-
-  Future<void> _adaptiveRebuildAndFetchMore(List<T> historyPool) async {
-    if (isClosed || loadding.value) return;
-
-    final int targetTotalItemsNeeded = currentPage * pageSize.value;
-
-    if (historyPool.length < targetTotalItemsNeeded && canLoadMore.value) {
-      final bool isNetworkSafe = await checkNetworkBeforeRequest();
-      if (isClosed) return;
-      if (!isNetworkSafe) {
-        finishRefreshControllers(IndicatorResult.fail);
-        return;
-      }
-
-      try {
-        loadding.value = true;
-        final seen = historyPool.toSet();
-        var requestCount = 0;
-        var noProgressCount = 0;
-        while (historyPool.length < targetTotalItemsNeeded && requestCount < 20 && noProgressCount < 2) {
-          final int missingCount = targetTotalItemsNeeded - historyPool.length;
-          final result = await fetchNetworkData(_virtualNetworkPage, missingCount);
-          if (isClosed) return;
-          requestCount++;
-
-          if (result.isEmpty) break;
-
-          final previousLength = historyPool.length;
-          for (final item in result) {
-            if (seen.add(item)) historyPool.add(item);
-            if (historyPool.length >= targetTotalItemsNeeded) break;
-          }
-          noProgressCount = historyPool.length == previousLength ? noProgressCount + 1 : 0;
-          _virtualNetworkPage++;
-        }
-      } catch (e) {
-        if (isClosed) return;
-        handleError(e, showPageError: list.isEmpty);
-      } finally {
-        if (!isClosed) loadding.value = false;
-      }
-    }
-
-    int chunkIndex = 1;
-    for (int i = 0; i < historyPool.length; i += pageSize.value) {
-      int end = i + pageSize.value;
-      if (end > historyPool.length) end = historyPool.length;
-      _pageCache[chunkIndex] = historyPool.sublist(i, end);
-      chunkIndex++;
-    }
-
-    final cachedData = _pageCache[currentPage] ?? [];
-    list.assignAll(cachedData);
-    canLoadMore.value = cachedData.length >= pageSize.value;
-    pageEmpty.value = list.isEmpty;
-
-    finishRefreshControllers(canLoadMore.value ? IndicatorResult.success : IndicatorResult.noMore);
-    update();
+    // The flat buffer is page-size agnostic; re-slicing from it needs no
+    // network round-trip unless the new page extends past the cached tail.
+    await _startLoad();
   }
 
   @override
@@ -154,14 +99,11 @@ abstract class ServerRemotePageController<T> extends BasePageScrollAndStateBone<
     await super.loadMoreData();
   }
 
-  Future<void> _startLoad({bool replaceMobileSnapshot = false, List<T>? rebuildHistory}) {
+  Future<void> _startLoad({bool replaceMobileSnapshot = false}) {
     final active = _activeLoad;
     if (active != null) return active;
     late final Future<void> operation;
-    final work = rebuildHistory == null
-        ? _performLoad(replaceMobileSnapshot: replaceMobileSnapshot)
-        : _adaptiveRebuildAndFetchMore(rebuildHistory);
-    operation = work.whenComplete(() {
+    operation = _performLoad(replaceMobileSnapshot: replaceMobileSnapshot).whenComplete(() {
       if (identical(_activeLoad, operation)) _activeLoad = null;
     });
     _activeLoad = operation;
@@ -171,13 +113,13 @@ abstract class ServerRemotePageController<T> extends BasePageScrollAndStateBone<
   Future<void> _performLoad({required bool replaceMobileSnapshot}) async {
     totalCount.value = null;
 
-    if (usesDesktopPagination && _pageCache.containsKey(currentPage)) {
-      final cachedData = _pageCache[currentPage]!;
-      list.assignAll(cachedData);
-      canLoadMore.value = cachedData.length >= pageSize.value;
-      pageEmpty.value = list.isEmpty;
-      finishRefreshControllers(canLoadMore.value ? IndicatorResult.success : IndicatorResult.noMore);
-      scrollToTopImmediate();
+    final int targetSize = pageSize.value;
+    final int targetStart = usesDesktopPagination ? (currentPage - 1) * targetSize : 0;
+    final int targetEnd = currentPage * targetSize;
+
+    // Fast path: the requested slice is already fully buffered.
+    if (targetEnd <= _allItems.length || !_hasMoreNetwork) {
+      _publishSlice(targetStart, targetEnd, replaceMobileSnapshot);
       return;
     }
 
@@ -196,64 +138,39 @@ abstract class ServerRemotePageController<T> extends BasePageScrollAndStateBone<
       notLogin.value = false;
       if (list.isEmpty) pageLoadding.value = true;
 
-      List<T> combinedResult = [];
-      final seen = replaceMobileSnapshot ? <T>{} : <T>{...list};
-      final int sizeToFetch = pageSize.value;
       var requestCount = 0;
       var noProgressCount = 0;
-
-      while (combinedResult.length < sizeToFetch && requestCount < 20 && noProgressCount < 2) {
-        final int neededCount = sizeToFetch - combinedResult.length;
+      while (_allItems.length < targetEnd && _hasMoreNetwork && requestCount < 20 && noProgressCount < 2) {
+        final int neededCount = targetEnd - _allItems.length;
         late final List<T> result;
         try {
-          result = await fetchNetworkData(_virtualNetworkPage, neededCount);
+          result = await fetchNetworkData(_nextNetworkPage, neededCount);
           if (isClosed) return;
-        } catch (_) {
+        } catch (e) {
           if (isClosed) return;
           // A later cursor/page is allowed to fail without erasing items that
-          // the same transaction has already fetched successfully. This is
-          // common with APIs that protect deeper pagination more aggressively
-          // than their first page and with transient mobile network changes.
-          // The partial page is committed below with canLoadMore=false; an
-          // initial request failure still follows the normal error path.
-          if (combinedResult.isEmpty) rethrow;
+          // the same transaction has already fetched successfully. The partial
+          // page is committed below with [_hasMoreNetwork] left untouched only
+          // when some data was already buffered.
+          if (_allItems.isEmpty) rethrow;
+          handleError(e, showPageError: false);
           break;
         }
         requestCount++;
-        if (result.isEmpty) break;
+        if (result.isEmpty) {
+          _hasMoreNetwork = false;
+          break;
+        }
 
-        final previousLength = combinedResult.length;
+        final previousLength = _allItems.length;
         for (final item in result) {
-          if (seen.add(item)) combinedResult.add(item);
-          if (combinedResult.length >= sizeToFetch) break;
+          if (_seenItems.add(item)) _allItems.add(item);
         }
-        noProgressCount = combinedResult.length == previousLength ? noProgressCount + 1 : 0;
-        _virtualNetworkPage++;
+        noProgressCount = _allItems.length == previousLength ? noProgressCount + 1 : 0;
+        _nextNetworkPage++;
       }
 
-      if (combinedResult.isEmpty && currentPage > 1) {
-        canLoadMore.value = false;
-        finishRefreshControllers(IndicatorResult.noMore);
-        return;
-      }
-
-      if (usesDesktopPagination) {
-        canLoadMore.value = combinedResult.length >= pageSize.value;
-        _pageCache[currentPage] = combinedResult;
-        list.assignAll(combinedResult);
-        pageEmpty.value = list.isEmpty;
-        finishRefreshControllers(canLoadMore.value ? IndicatorResult.success : IndicatorResult.noMore);
-        scrollToTopImmediate();
-      } else {
-        canLoadMore.value = combinedResult.length >= pageSize.value;
-        if (replaceMobileSnapshot) {
-          list.assignAll(combinedResult);
-        } else {
-          list.addAll(combinedResult);
-        }
-        pageEmpty.value = list.isEmpty;
-        finishRefreshControllers(canLoadMore.value ? IndicatorResult.success : IndicatorResult.noMore);
-      }
+      _publishSlice(targetStart, targetEnd, replaceMobileSnapshot);
     } catch (e) {
       if (isClosed) return;
       currentPage = previousPageSnapshot;
@@ -265,5 +182,46 @@ abstract class ServerRemotePageController<T> extends BasePageScrollAndStateBone<
         pageLoadding.value = false;
       }
     }
+  }
+
+  /// Commits the visible slice from [_allItems] and updates paging metadata.
+  /// Snaps back to the last valid page when the requested range falls past the
+  /// end of the catalogue, so a phantom trailing page never renders empty.
+  void _publishSlice(int start, int end, bool replaceMobileSnapshot) {
+    int effectiveStart = start;
+    int effectiveEnd = end;
+
+    if (effectiveStart >= _allItems.length) {
+      if (_allItems.isNotEmpty) {
+        final int lastPage = (_allItems.length / pageSize.value).ceil();
+        currentPage = lastPage;
+        effectiveStart = (lastPage - 1) * pageSize.value;
+        effectiveEnd = lastPage * pageSize.value;
+      } else {
+        list.clear();
+        canLoadMore.value = false;
+        pageEmpty.value = true;
+        if (!_hasMoreNetwork) totalCount.value = 0;
+        finishRefreshControllers(IndicatorResult.noMore);
+        return;
+      }
+    }
+
+    effectiveEnd = effectiveEnd.clamp(effectiveStart, _allItems.length);
+    final slice = _allItems.sublist(effectiveStart, effectiveEnd);
+
+    if (usesDesktopPagination) {
+      list.assignAll(slice);
+    } else {
+      // Mobile accumulates every committed page; the visible list always runs
+      // from the buffer head up to [effectiveEnd].
+      list.assignAll(_allItems.sublist(0, effectiveEnd));
+    }
+
+    canLoadMore.value = effectiveEnd < _allItems.length || _hasMoreNetwork;
+    if (!_hasMoreNetwork) totalCount.value = _allItems.length;
+    pageEmpty.value = list.isEmpty;
+    finishRefreshControllers(canLoadMore.value ? IndicatorResult.success : IndicatorResult.noMore);
+    if (usesDesktopPagination) scrollToTopImmediate();
   }
 }

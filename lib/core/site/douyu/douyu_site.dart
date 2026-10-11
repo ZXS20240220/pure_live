@@ -136,18 +136,21 @@ class DouyuSite
       if (item["type"] != 1) {
         continue;
       }
+      final title = item['rn'].toString();
+      final isReplay = _asInt(item['rst']) == 3 || title.startsWith('【回放】');
       var roomItem = LiveRoom(
         cover: item['rs16'].toString(),
         watching: item['ol'].toString(),
         popularity: item['ol'].toString(),
         audienceMetricType: AudienceMetricType.popularity,
         roomId: item['rid'].toString(),
-        title: item['rn'].toString(),
+        title: title,
         nick: item['nn'].toString(),
         area: item['c2name'].toString(),
-        liveStatus: LiveStatus.live,
+        liveStatus: isReplay ? LiveStatus.replay : LiveStatus.live,
+        isRecord: isReplay,
         avatar: item['av'].toString().isNotEmpty ? 'https://apic.douyucdn.cn/upload/${item['av']}_middle.jpg' : '',
-        status: true,
+        status: !isReplay,
         platform: Sites.douyuSite,
       );
       items.add(roomItem);
@@ -458,19 +461,22 @@ class DouyuSite
           continue;
         }
 
+        final title = item['rn'].toString();
+        final isReplay = _asInt(item['rst']) == 3 || title.startsWith('【回放】');
         var roomItem = LiveRoom(
           cover: item['rs16'].toString(),
           watching: item['ol'].toString(),
           popularity: item['ol'].toString(),
           audienceMetricType: AudienceMetricType.popularity,
           roomId: item['rid'].toString(),
-          title: item['rn'].toString(),
+          title: title,
           nick: item['nn'].toString(),
           area: item['c2name'].toString(),
           avatar: item['av'] ?? '',
           platform: Sites.douyuSite,
-          status: true,
-          liveStatus: LiveStatus.live,
+          status: !isReplay,
+          isRecord: isReplay,
+          liveStatus: isReplay ? LiveStatus.replay : LiveStatus.live,
         );
         items.add(roomItem);
       }

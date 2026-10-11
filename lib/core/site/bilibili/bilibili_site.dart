@@ -107,6 +107,9 @@ class BiliBiliSite implements LiveSite, LiveSiteRoomRefresher, LiveSiteRecordRoo
       }
       var items = <LiveRoom>[];
       for (var item in result["data"]["list"]) {
+        final liveStatusValue = int.tryParse(item["live_status"]?.toString() ?? '') ?? 1;
+        final isReplay = liveStatusValue == 2;
+        final isLive = liveStatusValue == 1;
         var roomItem = LiveRoom(
           roomId: item["roomid"].toString(),
           title: item["title"].toString(),
@@ -116,9 +119,10 @@ class BiliBiliSite implements LiveSite, LiveSiteRoomRefresher, LiveSiteRecordRoo
           watching: item["online"].toString(),
           popularity: item["online"].toString(),
           audienceMetricType: AudienceMetricType.popularity,
-          liveStatus: LiveStatus.live,
+          liveStatus: isReplay ? LiveStatus.replay : (isLive ? LiveStatus.live : LiveStatus.offline),
+          isRecord: isReplay,
           area: item["area_name"].toString(),
-          status: true,
+          status: isLive,
           platform: Sites.bilibiliSite,
         );
         items.add(roomItem);
@@ -362,6 +366,9 @@ class BiliBiliSite implements LiveSite, LiveSiteRoomRefresher, LiveSiteRecordRoo
           final item = Map<String, dynamic>.from(raw);
           final roomId = (item['roomid'] ?? item['room_id'])?.toString() ?? '';
           final cover = normalizeNetworkImageUrl((item['cover'] ?? item['user_cover'])?.toString());
+          final liveStatusValue = int.tryParse((item['live_status'] ?? item['status'])?.toString() ?? '') ?? 1;
+          final isReplay = liveStatusValue == 2;
+          final isLive = liveStatusValue == 1;
           return LiveRoom(
             roomId: roomId,
             title: item['title']?.toString() ?? '',
@@ -372,8 +379,9 @@ class BiliBiliSite implements LiveSite, LiveSiteRoomRefresher, LiveSiteRecordRoo
             watching: item['online']?.toString() ?? '',
             popularity: item['online']?.toString() ?? '',
             audienceMetricType: AudienceMetricType.popularity,
-            liveStatus: LiveStatus.live,
-            status: true,
+            liveStatus: isReplay ? LiveStatus.replay : (isLive ? LiveStatus.live : LiveStatus.offline),
+            isRecord: isReplay,
+            status: isLive,
             platform: Sites.bilibiliSite,
           );
         })
