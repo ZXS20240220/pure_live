@@ -40,7 +40,7 @@ class AreasPage extends GetView<AreasController> {
                     controller: controller.tabController,
                     isScrollable: true,
                     physics: const PureLiveBoundedScrollPhysics(),
-                    tabs: availableSitesList.map((e) => Tab(text: e.name)).toList(),
+                    tabs: availableSitesList.map((e) => PlatformTab(site: e)).toList(),
                   ),
                 ),
               ),

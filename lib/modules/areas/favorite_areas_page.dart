@@ -101,7 +101,7 @@ class _FavoriteAreaSiteTabsState extends State<_FavoriteAreaSiteTabs> with Singl
             onTap: (index) => widget.controller.selectSite(index, widget.sites[index].id),
             isScrollable: true,
             physics: const PureLiveBoundedScrollPhysics(),
-            tabs: widget.sites.map<Widget>((site) => Tab(text: site.name)).toList(growable: false),
+            tabs: widget.sites.map<Widget>((site) => PlatformTab(site: site)).toList(growable: false),
           ),
         ),
         Expanded(

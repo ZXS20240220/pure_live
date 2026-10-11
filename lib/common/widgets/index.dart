@@ -8,6 +8,7 @@ export './search_button.dart';
 export './section_listtile.dart';
 export './pure_live_scroll_physics.dart';
 export './pure_live_scroll_controller.dart';
+export './platform_logo.dart';
 export './common_pull_to_refresh.dart';
 export './adaptive_refresh_rate_scope.dart';
 export './web_view_address_bar.dart';

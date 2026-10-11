@@ -691,7 +691,7 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
                 physics: const PureLiveBoundedScrollPhysics(),
                 tabs: availableSitesList.map((e) {
                   final count = controller.favoriteCountForSite(e.id, statusIndex: statusIndex);
-                  return Tab(text: '${e.name} ($count)');
+                  return PlatformTab(site: e, suffix: '($count)');
                 }).toList(),
               ),
             ),
@@ -891,8 +891,7 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
                   controller.cardLayoutMode.value != 'compact' && SettingsService.to.page.showScrollToTopBtn.v,
               showPageSizeSelector:
                   controller.cardLayoutMode.value != 'compact' && SettingsService.to.page.showPageSizeSelector.v,
-              showGotoButton:
-                  controller.cardLayoutMode.value != 'compact' && SettingsService.to.page.showGotoButton.v,
+              showGotoButton: controller.cardLayoutMode.value != 'compact' && SettingsService.to.page.showGotoButton.v,
               pageSizeOptions: SettingsService.to.page.pageSizeOptions,
               leftPaginationWidget: _buildLastRefreshTime(context),
               contentBuilder: (context, list, _) {

@@ -150,6 +150,9 @@ class Sites {
 
   static const String _assetRoot = 'assets/images';
 
+  /// Logo for the synthetic "all platforms" entry.
+  static const String allLogo = '$_assetRoot/all.png';
+
   /// Keep all platform logos in one place.
   ///
   /// The platform-specific files are preferred over the old generic
@@ -478,7 +481,7 @@ class Sites {
     }
 
     if (containsAll) {
-      result.insert(0, Site(id: allSite, name: i18n('site_all'), logo: '$_assetRoot/all.png', liveSite: LiveSite()));
+      result.insert(0, Site(id: allSite, name: i18n('site_all'), logo: allLogo, liveSite: LiveSite()));
     }
 
     return result;

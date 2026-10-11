@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pure_live/common/widgets/pure_live_scroll_physics.dart';
+import 'package:pure_live/common/widgets/platform_logo.dart';
 
 const double searchPlatformStripHeight = 48;
 const ScrollPhysics searchPlatformStripPhysics = PureLiveBoundedScrollPhysics();
@@ -11,11 +12,18 @@ const ScrollPhysics searchPlatformStripPhysics = PureLiveBoundedScrollPhysics();
 /// have a matching TabBarView, so a small horizontal list is both simpler and
 /// prevents the platform row from drifting beyond its first/last item.
 class SearchPlatformStrip extends StatefulWidget {
-  const SearchPlatformStrip({super.key, required this.labels, required this.selectedIndex, required this.onSelected});
+  const SearchPlatformStrip({
+    super.key,
+    required this.labels,
+    required this.selectedIndex,
+    required this.onSelected,
+    this.logos,
+  });
 
   final List<String> labels;
   final int selectedIndex;
   final ValueChanged<int> onSelected;
+  final List<String>? logos;
 
   @override
   State<SearchPlatformStrip> createState() => _SearchPlatformStripState();
@@ -79,10 +87,12 @@ class _SearchPlatformStripState extends State<SearchPlatformStrip> {
           separatorBuilder: (_, _) => const SizedBox(width: 8),
           itemBuilder: (context, itemIndex) {
             final selected = itemIndex == widget.selectedIndex;
+            final logo = widget.logos != null && itemIndex < widget.logos!.length ? widget.logos![itemIndex] : null;
             return Center(
               key: _itemKeys[itemIndex],
               child: ChoiceChip(
                 key: ValueKey('search-platform-$itemIndex'),
+                avatar: logo != null && logo.isNotEmpty ? PlatformLogoAsset(asset: logo) : null,
                 label: Text(widget.labels[itemIndex]),
                 selected: selected,
                 showCheckmark: false,

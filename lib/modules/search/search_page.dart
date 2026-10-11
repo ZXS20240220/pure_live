@@ -45,6 +45,7 @@ class SearchPage extends GetView<pure_live.SearchController> {
           child: Obx(
             () => SearchPlatformStrip(
               labels: [i18n('site_all'), ...controller.sites.map((site) => site.name)],
+              logos: [Sites.allLogo, ...controller.sites.map((site) => site.logo)],
               selectedIndex: controller.index.v,
               onSelected: controller.selectPlatform,
             ),

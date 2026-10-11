@@ -42,7 +42,7 @@ class PopularPage extends GetView<PopularController> {
                     controller: controller.tabController,
                     isScrollable: true,
                     physics: const PureLiveBoundedScrollPhysics(),
-                    tabs: sites.map((e) => Tab(text: e.name)).toList(),
+                    tabs: sites.map((e) => PlatformTab(site: e)).toList(),
                   ),
                 ),
               ),
