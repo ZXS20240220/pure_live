@@ -1079,6 +1079,13 @@ class LivePlayController extends GetxController
   }
 
   void _handleUnknownStatus(LiveRoom liveRoom) {
+    final hasPlaybackSource = state.value.player.hasPlaybackSource;
+    updateRoom(
+      isLiving: hasPlaybackSource,
+      success: hasPlaybackSource,
+      isLoading: false,
+      loadError: i18n('get_room_info_failed_retry'),
+    );
     unawaited(_syncDanmakuConnection(liveRoom));
     if (Get.currentRoute == '/live_play') {
       ToastUtil.show(i18n('get_room_info_failed_retry'));

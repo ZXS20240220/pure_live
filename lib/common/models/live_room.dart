@@ -992,7 +992,7 @@ extension LiveRoomExtension on LiveRoom {
   }
 
   LiveRoom getLiveRoomWithError() {
-    return copyWith(liveStatus: LiveStatus.offline, status: false, isRecord: false);
+    return copyWith(liveStatus: LiveStatus.unknown, status: false, isRecord: false);
   }
 
   /// Returns a fresh room snapshot for the original live stream.
