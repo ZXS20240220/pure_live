@@ -2,8 +2,8 @@
 ///
 /// 本端（Windows 基础版）与同步对端（官方上游 / Windows 开发版）的备份数据
 /// 结构存在双向差异：
-/// - 上游与开发版拥有本端 LiveRoom.fromJson 不解析的房间字段
-///   （如 anchorLevel/unionName/startTime/location/aiHighlights）；
+/// - 上游可能拥有本端 LiveRoom.fromJson 不解析的房间字段
+///   （如 startedAt/restriction/aiHighlights）；
 /// - 本端已合并上游的时移与 IPTV 请求头字段
 ///   （catchUpMode/catchUpSource/catchUpDays/catchUpCorrectionHours/httpHeaders），
 ///   对端可能不认识这些字段。
@@ -15,7 +15,8 @@
 /// - 回传方向（本地 → 对方）：以对方原始数据为底稿深拷贝，选中模块做
 ///   覆盖同步——数据内容以本端为准（房间列表整体替换为本端列表，对方
 ///   独有条目删除），数据结构以对方为准（条目字段集按对方 JSON 中实际
-///   出现的字段动态对齐：对方没有的键不写入，本端没有的键留空补齐）。
+///   出现的字段动态对齐：对方没有的键不写入，本端没有的键从同身份的
+///   对方原始条目取值保留，无匹配时留空）。
 ///
 /// 本文件刻意不依赖任何 Flutter/GetX 类型，便于单元测试。
 class RemoteSyncMergeReport {
@@ -70,11 +71,11 @@ class RemoteSyncDataMerger {
   /// 房间条目所在模块 -> 房间列表的键名。
   static const Map<String, String> roomListKeyByModule = {'favorite': 'favoriteRooms', 'history': 'historyRooms'};
 
-  /// 本端 LiveRoom.fromJson 认识的全部房间字段。
+  /// 本端 LiveRoom.fromJson / toJson 实际支持的全部房间字段。
   ///
-  /// 与 Windows 开发版不同：本端不解析 anchorLevel/unionName/startTime/
-  /// location/aiHighlights（来自对方也不会应用），但已合并上游的
-  /// catchUpMode/catchUpSource/catchUpDays/catchUpCorrectionHours/httpHeaders。
+  /// aiHighlights 是会话内临时数据，toJson 不输出，故不计入。
+  /// 上游可能新增 startedAt/restriction 等字段，这些不在本集合内，
+  /// 回传时由 buildRoomEntryForTarget 从同身份的对方原始条目取值保留。
   static const Set<String> knownRoomFields = {
     'roomId',
     'userId',
@@ -110,6 +111,10 @@ class RemoteSyncDataMerger {
     'catchUpCorrectionHours',
     'httpHeaders',
     'lastWatchedAt',
+    'anchorLevel',
+    'unionName',
+    'startTime',
+    'location',
   };
 
   /// LiveArea 序列化字段（两端一致）。
@@ -411,18 +416,24 @@ class RemoteSyncDataMerger {
   /// 房间列表覆盖同步（数据内容以本端为准，数据结构以对方为准）：
   /// - 数据结构动态判断：目标端条目字段集 = [baseRooms]（对方 JSON）中
   ///   实际出现的字段并集，而不是硬编码模板——对方没有的键（如本端 toJson
-  ///   输出的 anchorLevel/location）不会写入，对方独有的键按"留空"补齐；
+  ///   输出的 anchorLevel/location）不会写入，对方独有的键从同身份的对方
+  ///   原始条目取值保留，无匹配时留空；
   /// - 数据内容以本端为准：输出列表 = 本端列表逐条按上述字段集重建，
   ///   顺序与本端一致，对方独有的条目不保留（列表条目是可变数据，
   ///   多一个少一个直播间只是数据不同，不破坏数据结构）。
   static List<dynamic>? _mergeRoomList(dynamic baseRooms, dynamic localRooms) {
     if (localRooms is! List) return null;
 
-    // 对方条目字段并集；对方列表为空/无效时回退到硬编码模板键集。
+    // 对方条目字段并集 + 按身份索引的对方原始条目（用于保留未识别字段）。
     final targetKeys = <String>{};
+    final baseRoomByIdentity = <String, Map<String, dynamic>>{};
     if (baseRooms is List) {
       for (final room in baseRooms) {
         if (room is! Map) continue;
+        final identity = _roomIdentity(room);
+        if (identity != null) {
+          baseRoomByIdentity[identity] = Map<String, dynamic>.from(room);
+        }
         targetKeys.addAll(room.keys.whereType<String>());
       }
     }
@@ -430,10 +441,21 @@ class RemoteSyncDataMerger {
     final merged = <dynamic>[];
     for (final item in localRooms) {
       if (item is! Map) continue;
-      merged.add(buildRoomEntryForTarget(Map<String, dynamic>.from(item), targetKeys));
+      final localRoom = Map<String, dynamic>.from(item);
+      final identity = _roomIdentity(localRoom);
+      final matchingBase = identity != null ? baseRoomByIdentity[identity] : null;
+      merged.add(buildRoomEntryForTarget(localRoom, targetKeys, matchingBase));
     }
 
     return merged;
+  }
+
+  /// 提取房间身份键（platform:roomId），用于在回传时匹配对方原始条目。
+  static String? _roomIdentity(Map room) {
+    final platform = (room['platform']?.toString() ?? '').trim().toLowerCase();
+    final roomId = (room['roomId']?.toString() ?? '').trim();
+    if (platform.isEmpty || roomId.isEmpty) return null;
+    return '$platform:$roomId';
   }
 
   /// 本端值是否值得写入重建的条目。
@@ -450,14 +472,19 @@ class RemoteSyncDataMerger {
   /// 数据结构以对方为准、动态判断：输出条目只含 [targetKeys]（对方 JSON
   /// 条目中实际出现的字段并集）内的键——本端 toJson 输出但对方没有的键
   /// （如 anchorLevel/location）不会泄漏进去，对方有而本端条目没有的键
-  /// 留空补齐。[targetKeys] 为空时（对方列表无有效条目）回退到模板键集。
+  /// 从 [matchingBase]（同身份的对方原始条目）取值保留，无匹配时留空。
+  /// [targetKeys] 为空时（对方列表无有效条目）回退到模板键集。
   ///
   /// 数据内容以本端为准：本端值仅在有意义时写入，否则取模板默认值
   /// （模板缺省的对方特有键填 null，即"补不上就留空"）。模板保留
-  /// 上游 LiveRoom.toJson 的输出集合与默认值，仅作为回退依据；本端已
+  /// 本端 LiveRoom.toJson 的输出集合与默认值，仅作为回退依据；本端已
   /// 合并的时移字段（catchUpMode 等）在模板中列出但不会主动写入——
   /// 只有对方条目里实际出现时才会带上。
-  static Map<String, dynamic> buildRoomEntryForTarget(Map<String, dynamic> localRoom, Set<String> targetKeys) {
+  static Map<String, dynamic> buildRoomEntryForTarget(
+    Map<String, dynamic> localRoom,
+    Set<String> targetKeys, [
+    Map<String, dynamic>? matchingBase,
+  ]) {
     final template = <String, dynamic>{
       'roomId': null,
       'userId': null,
@@ -492,6 +519,10 @@ class RemoteSyncDataMerger {
       'catchUpCorrectionHours': null,
       'httpHeaders': null,
       'lastWatchedAt': null,
+      'anchorLevel': null,
+      'unionName': null,
+      'startTime': null,
+      'location': null,
     };
 
     // 目标端字段集：对方 JSON 条目实际字段并集；为空时回退模板键集。
@@ -502,10 +533,13 @@ class RemoteSyncDataMerger {
       final localValue = localRoom[key];
       if (_shouldOverlay(localValue)) {
         out[key] = deepCopy(localValue);
+      } else if (matchingBase != null && matchingBase.containsKey(key)) {
+        // 本端不识别或无值的字段：保留对方原始值，避免数据丢失。
+        out[key] = deepCopy(matchingBase[key]);
       } else if (template.containsKey(key)) {
         out[key] = template[key];
       } else {
-        // 对方特有键且本端没有数据：留空。
+        // 对方特有键、本端无值且无匹配原始条目：留空。
         out[key] = null;
       }
     }
