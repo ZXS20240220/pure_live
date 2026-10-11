@@ -48,6 +48,9 @@ class HuyaDanmaku implements LiveDanmaku {
   final Set<LiveSuperChatMessage> _emittedSuperChats = <LiveSuperChatMessage>{};
   static const int _maxRememberedSuperChats = 512;
 
+  /// 醒目留言在弹幕区的播报形态："xxx(来自一元上头条)"。
+  static final RegExp _headlineScRegex = RegExp(r'\(来自.+?上头条\)');
+
   static bool _isHuyaSystemMessage({required int uid, required String nick, required int level}) {
     return (uid == 0 || uid <= 255) && level == 0 && (nick.isEmpty || nick == '系统消息');
   }
@@ -210,6 +213,13 @@ class HuyaDanmaku implements LiveDanmaku {
         return;
       }
       final color = messageNotice.bulletFormat.fontColor;
+      // "xxx(来自 XX 上头条)" 是醒目留言在弹幕区的播报。消息板 WUP 尚未
+      // 更新时该播报先到，靠它触发一次后台重拉把这条 SC 补上——与
+      // 2001314 通知共用同一条刷新管线（带重试与去重，不阻塞解码）。
+      // 同步自上游 ff98cd04。
+      if (_headlineScRegex.hasMatch(messageNotice.content)) {
+        _scheduleSuperChatRefresh(_generation);
+      }
       final badge = messageNotice.fansBadge();
       final fansLevel = badge == null || badge.$2 <= 0 ? '' : '${badge.$2}';
       final fansName = badge == null ? '' : badge.$1;

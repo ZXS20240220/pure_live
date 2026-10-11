@@ -35,7 +35,7 @@ void main() {
       expect(packet.funcName, 'getHeadLineMessageBoard');
       final request = packet.get('tReq', GetGameEventMessageBoardReq());
       expect(request.lPid, 123);
-      expect(request.iPageSize, 10);
+      expect(request.iPageSize, 50);
       expect(request.tId.sHuYaUA, HuyaRequestParams.hysdkUa);
     });
   }

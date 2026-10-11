@@ -226,8 +226,7 @@ Worker debounce<T>(
   void Function()? onDone,
   bool? cancelOnError,
 }) {
-  final newDebouncer =
-      Debouncer(delay: time ?? const Duration(milliseconds: 800));
+  final newDebouncer = Debouncer(delay: time ?? const Duration(milliseconds: 800));
   StreamSubscription sub = listener.listen(
     (event) {
       newDebouncer(() {
@@ -238,7 +237,13 @@ Worker debounce<T>(
     onDone: onDone,
     cancelOnError: cancelOnError,
   );
-  return Worker(sub.cancel, '[debounce]');
+  return Worker(() async {
+    // dispose 语义：把已排期但未触发的防抖回调一并取消。否则控制器销毁后
+    // 定时器仍存活，回调会在宿主生命周期之外执行（widget 测试的
+    // "Timer is still pending" 失败即由此而来）。
+    newDebouncer.cancel();
+    await sub.cancel();
+  }, '[debounce]');
 }
 
 class Worker {

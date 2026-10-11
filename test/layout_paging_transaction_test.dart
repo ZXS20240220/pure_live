@@ -202,6 +202,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
     expect(c.usesDesktopPagination, isFalse);
     expect(p.modes, [true, true], reason: '断点跨越不再追加网络请求');
+    // setPageSize 现在会写回 PageSettingsController.defaultPageSize（每页
+    // 数量持久化），其 300ms 防抖归一化会连环写两轮（4→归一化值→收敛）。
+    // 在用例体内冲刷掉，避免把挂起定时器留给 addTearDown 之后的不变量
+    // 检查（Get.reset 在 addTearDown 里，晚于不变量检查）。
+    await tester.pump(const Duration(milliseconds: 700));
   });
 
   for (final desktop in [false, true]) {

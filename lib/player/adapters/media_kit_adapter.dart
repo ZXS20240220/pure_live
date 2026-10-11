@@ -702,6 +702,12 @@ class MediaKitAdapter
         );
       }
 
+      // 预置音量：mpv open(play:true) 后默认以 100% 音量出声，会在下方
+      // post-open 恢复保存音量之前先炸一声。open 前先写入目标音量
+      // （移动端维持既有固定 1.0 语义）。同步自上游 467977e 炸音部分的
+      // 本地简化方案。
+      await setVolume(PlatformUtils.isMobile ? 1.0 : (room?.getSavedVolume() ?? 1.0));
+
       await _player.open(Media(url, httpHeaders: headers), play: true);
 
       if (_disposed || sourceGeneration != _sourceFence.generation) return;

@@ -39,7 +39,7 @@ Future<List<LiveSuperChatMessage>> getHuyaSuperChatMessageList({
     ..lPid = lPid
     ..tId = userId
     ..iMessageBoardScope = 0
-    ..iPageSize = 10;
+    ..iPageSize = 50;
   final GetGameEventMessageBoardRsp rsp;
   try {
     rsp = await messageBoardClient
@@ -87,11 +87,12 @@ Future<List<LiveSuperChatMessage>> getHuyaSuperChatMessageList({
 
     messages.add(message);
   }
-  if (first || messages.isEmpty) {
-    return messages;
-  } else {
-    // huya 按money->level->countDown 排序 调整为 startTime
-    messages.sort((a, b) => a.startTime.compareTo(b.startTime));
-    return [messages.last];
+  // 最新在前（按 startTime 逆序）：虎牙原按 money→level→countDown 排序，
+  // 这里统一调整为时间序（同步自上游 ff98cd04，对齐 dart_simple_live）。
+  messages.sort((a, b) => b.startTime.compareTo(a.startTime));
+  if (first) {
+    // 首次拉起只保留最新 10 条，避免一次铺满弹幕区。
+    return messages.length > 10 ? messages.sublist(0, 10) : messages;
   }
+  return messages.isEmpty ? messages : [messages.first];
 }

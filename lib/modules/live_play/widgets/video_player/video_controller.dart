@@ -86,7 +86,9 @@ class DanmakuManager {
     videoController.danmakuFontFamilyName.value = dm.danmakuFontFamilyName.v;
 
     // 设置 workers
-    workers.add(ever<bool>(videoController.hideDanmaku, (data) => dm.hideDanmaku.v = data));
+    // 房间内的弹幕开关只影响本次会话，不写回 hive 全局配置，避免关闭
+    // A 房间弹幕后进 B 房间时弹幕也被连带关闭（跨房间污染）。
+    // 同步自上游 4d4363d7。
 
     final List<Rx> visualProperties = [
       videoController.danmakuArea,

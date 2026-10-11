@@ -143,6 +143,17 @@ class DesktopManager {
         return child ?? const SizedBox.shrink();
       }
 
+      // 全屏（非画中画）时系统标题栏被隐藏，右上角浮一层最小化/关闭按钮，
+      // 否则用户只能靠快捷键退出全屏（同步自上游 e3d45d3c）。
+      if (fullscreen && !pipMode) {
+        return Stack(
+          children: [
+            Positioned.fill(child: child ?? const SizedBox.shrink()),
+            const Positioned(top: 0, right: 0, child: FullscreenWindowControls()),
+          ],
+        );
+      }
+
       return Column(
         children: [
           if (!fullscreen && !pipMode && !isImmersiveLivePlay) const CustomTitleBar(),
@@ -419,6 +430,48 @@ class CustomTitleBar extends StatelessWidget {
         ),
       );
     });
+  }
+}
+
+/// 全屏播放时右上角浮动的窗口控制按钮（最小化 + 关闭），与
+/// [CustomTitleBar] 复用同一套 [WindowControlButton] 与 i18n 键。
+/// 同步自上游 e3d45d3c。
+class FullscreenWindowControls extends StatelessWidget {
+  const FullscreenWindowControls({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    const iconColor = Colors.white;
+    return Container(
+      color: Colors.black.withValues(alpha: 0.35),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          WindowControlButton(
+            semanticLabel: i18nOr('window_minimize', 'Minimize window'),
+            failureMessage: i18nOr('window_close_action_failed', 'The window action failed. Try again.'),
+            icon: Icons.remove,
+            iconColor: iconColor,
+            hoverColor: Colors.white.withValues(alpha: 0.12),
+            onPressed: () async {
+              await windowManager.minimize();
+            },
+          ),
+          WindowControlButton(
+            semanticLabel: i18nOr('window_close', 'Close window'),
+            failureMessage: i18nOr('window_close_action_failed', 'The window action failed. Try again.'),
+            icon: Icons.close,
+            iconColor: iconColor,
+            hoverIconColor: Colors.white,
+            hoverColor: const Color(0xFFE81123),
+            isClose: true,
+            onPressed: () async {
+              await DesktopManager.handleWindowClose();
+            },
+          ),
+        ],
+      ),
+    );
   }
 }
 

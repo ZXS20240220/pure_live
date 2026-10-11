@@ -56,6 +56,7 @@ abstract class ServerFixedPageController<T> extends BasePageScrollAndStateBone<T
   @override
   void setPageSize(int? newSize) {
     if (isClosed || newSize == null || newSize < 1) return;
+    persistUserPageSize(newSize);
     _pendingPageSize = newSize;
     unawaited(_applyPendingPageSize());
   }

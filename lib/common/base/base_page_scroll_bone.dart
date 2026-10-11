@@ -207,6 +207,17 @@ abstract class BasePageScrollAndStateBone<T> extends BaseController {
 
   Future<void> loadData();
 
+  /// 用户手动改每页数量后写回全局默认（hive 持久化）。
+  ///
+  /// 不写回的话，下次进入页面时构造函数读取的仍是旧默认值（20），
+  /// 用户选择的 80 就丢了（同步自上游 e7a794c0）。
+  void persistUserPageSize(int? size) {
+    if (size == null || size < 1) return;
+    if (Get.isRegistered<SettingsService>()) {
+      SettingsService.to.page.defaultPageSize.v = size;
+    }
+  }
+
   /// Default retry retains the legacy refresh behavior. Native-cursor pagers
   /// can resume the failed action without restarting already consumed pages.
   Future<void> retryData() => refreshData();

@@ -181,9 +181,24 @@ class HuyaSite
 
     List<LiveArea> subs = [];
     for (var item in result["data"]) {
-      var gid = (item["gid"])?.toInt().toString();
+      // bussLive 的 gid 字段有四种历史形态：Map（value 逗号分隔取第一个）、
+      // double、int、String。当前 API 实测只出 double/int，但直接 toInt()
+      // 在 Map/String 形态下会抛类型错误，导致类目列表整页失败；逐形态
+      // 收敛（同步自上游 6295de27，对齐 dart_simple_live）。
+      final rawGid = item["gid"];
+      final String gid;
+      if (rawGid is Map) {
+        gid = rawGid["value"]?.toString().split(",").first ?? '';
+      } else if (rawGid is double) {
+        gid = rawGid.toInt().toString();
+      } else if (rawGid is int) {
+        gid = rawGid.toString();
+      } else {
+        gid = rawGid?.toString() ?? '';
+      }
+      if (gid.isEmpty) continue;
       var subCategory = LiveArea(
-        areaId: gid!,
+        areaId: gid,
         areaName: item["gameFullName"].toString(),
         areaType: liveCategory.id,
         platform: Sites.huyaSite,
@@ -260,6 +275,11 @@ class HuyaSite
     final unique = <int, HuyaBitRateModel>{};
     for (final rate in rates) {
       if (rate.bitRate < 0 || rate.name.trim().isEmpty) continue;
+      // huya 4K needs vip：4K 是 VIP 房间专属档位（实测 "4K" br=20000 与
+      // "4K HDR" br=20100 两种形态），播放需要虎牙 VIP 会员身份，普通用户
+      // 选中只会 403，按前缀一律剔除（同步自上游 ff98cd04，对齐
+      // dart_simple_live；精确匹配 '4K' 会漏掉 HDR 变体）。
+      if (rate.name.startsWith('4K')) continue;
       unique.putIfAbsent(rate.bitRate, () => rate);
     }
     final qualities = unique.values
@@ -1247,7 +1267,10 @@ class HuyaSite
   @visibleForTesting
   static GetCdnTokenExReq buildNativePlaybackTokenRequest(HuyaLineModel line) => GetCdnTokenExReq()
     ..sStreamName = line.streamName
-    ..tId = (HuyaUserId()..sHuYaUA = 'pc_exe&7060000&official');
+    // 随机 SDK UA（adr/ios/huya_nftv/pc_exe × 随机子版本 × API Level 28-36），
+    // 取代固定 'pc_exe&7060000&official'：固定 UA 更易被风控识别
+    // （同步自上游 ff98cd04，对齐 dart_simple_live 的 getCdnTokenInfoEx）。
+    ..tId = (HuyaUserId()..sHuYaUA = HuyaRequestParams.requestHuyaUA);
 
   @visibleForTesting
   static BaseTarsHttp createCdnTokenClient(Map<String, String> headers) {
