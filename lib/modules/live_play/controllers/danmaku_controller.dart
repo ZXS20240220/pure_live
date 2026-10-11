@@ -4,6 +4,7 @@ import 'package:pure_live/common/index.dart';
 import 'package:pure_live/core/common/core_log.dart';
 import 'package:pure_live/core/interface/live_danmaku.dart';
 import 'package:pure_live/core/danmaku/empty_danmaku.dart';
+import 'package:pure_live/core/danmaku/danmaku_emote_loader.dart';
 import 'package:pure_live/modules/live_play/states/live_play_state.dart';
 import 'package:pure_live/modules/live_play/controllers/danmaku_message_gate.dart';
 import 'package:pure_live/modules/live_play/controllers/danmaku_aggregator.dart';
@@ -241,6 +242,8 @@ class DanmakuController extends GetxController {
           _addStatusMessage(i18n('bilibili_guest_name_masked'));
         }
         _main.addDanmakuMessage(msg);
+        // 画面弹幕要把表情画成图片：引擎只认已解码的图，取图与解码在这里做。
+        if (msg.emotes.isNotEmpty) DanmakuEmoteLoader.instance.ensureRegistered(msg.emotes);
         _state.player.videoController?.sendDanmaku(msg);
       } else if (msg.type == LiveMessageType.online) {
         _main.updateRuntimeAudience(msg.data);

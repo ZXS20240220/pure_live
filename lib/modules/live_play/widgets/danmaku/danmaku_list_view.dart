@@ -643,7 +643,16 @@ class DanmakuItem extends StatelessWidget {
                       text: '${danmaku.userName}: ',
                       style: AppTextStyles.t14.copyWith(fontWeight: FontWeight.w700, color: textColor),
                     ),
-                    TextSpan(children: parseEmojis(danmaku.message, AppTextStyles.t14.fontSize!, textColor)),
+                    TextSpan(
+                      children: parseEmojis(
+                        danmaku.message,
+                        AppTextStyles.t14.fontSize!,
+                        textColor,
+                        emoteUrls: danmaku.emotes.isEmpty
+                            ? null
+                            : {for (final emote in danmaku.emotes) emote.code: emote.url},
+                      ),
+                    ),
                     if (showRepeat)
                       WidgetSpan(
                         alignment: PlaceholderAlignment.middle,
@@ -736,23 +745,32 @@ class EmojiToken {
   const EmojiToken({required this.isEmoji, required this.value});
 }
 
-List<EmojiToken> _parseEmojiTokens(String text) {
-  final cached = emojiCache[text];
-  if (cached != null) {
-    // LinkedHashMap does not reorder entries on lookup; reinsert to make this
-    // a true least-recently-used cache.
-    emojiCache.remove(text);
-    emojiCache[text] = cached;
-    return cached;
+List<EmojiToken> _parseEmojiTokens(String text, {Map<String, String>? emoteUrls}) {
+  // 本条消息自带的表情（LiveMessage.emotes）优先：它们不一定在全局图集里，所以
+  // 要和图集正则合并成一个分词正则；带它们时也不走缓存（缓存以文本为 key，
+  // 同一条文本在不同消息里表情可能不同）。
+  final extras = <String>[if (emoteUrls != null) ...emoteUrls.keys.where((code) => code.isNotEmpty)];
+  if (extras.isEmpty) {
+    final cached = emojiCache[text];
+    if (cached != null) {
+      // LinkedHashMap does not reorder entries on lookup; reinsert to make this
+      // a true least-recently-used cache.
+      emojiCache.remove(text);
+      emojiCache[text] = cached;
+      return cached;
+    }
   }
 
-  final regex = EmojiAtlas.instance.regex;
+  final atlas = EmojiAtlas.instance.regex;
+  final sources = <String>[...extras.map(RegExp.escape), if (atlas != null) atlas.pattern];
 
-  if (regex == null) {
+  if (sources.isEmpty) {
     final tokens = [EmojiToken(isEmoji: false, value: text)];
-    _storeEmojiTokens(text, tokens);
+    if (extras.isEmpty) _storeEmojiTokens(text, tokens);
     return tokens;
   }
+
+  final regex = RegExp(sources.join('|'));
 
   final tokens = <EmojiToken>[];
 
@@ -772,7 +790,7 @@ List<EmojiToken> _parseEmojiTokens(String text) {
     tokens.add(EmojiToken(isEmoji: false, value: text.substring(last)));
   }
 
-  _storeEmojiTokens(text, tokens);
+  if (extras.isEmpty) _storeEmojiTokens(text, tokens);
 
   return tokens;
 }
@@ -784,8 +802,8 @@ void _storeEmojiTokens(String text, List<EmojiToken> tokens) {
   emojiCache[text] = tokens;
 }
 
-List<InlineSpan> parseEmojis(String text, double size, Color color) {
-  final tokens = _parseEmojiTokens(text);
+List<InlineSpan> parseEmojis(String text, double size, Color color, {Map<String, String>? emoteUrls}) {
+  final tokens = _parseEmojiTokens(text, emoteUrls: emoteUrls);
 
   final spans = <InlineSpan>[];
 
@@ -796,6 +814,23 @@ List<InlineSpan> parseEmojis(String text, double size, Color color) {
   for (final token in tokens) {
     if (!token.isEmoji) {
       spans.add(TextSpan(text: token.value, style: style));
+      continue;
+    }
+
+    // 消息自带的表情：直接用它的图片地址画，图集里没有也能显示。
+    final url = emoteUrls?[token.value];
+    if (url != null && url.isNotEmpty) {
+      spans.add(
+        WidgetSpan(
+          alignment: PlaceholderAlignment.middle,
+          child: Image.network(
+            url,
+            width: emojiSize,
+            height: emojiSize,
+            errorBuilder: (context, error, stackTrace) => Text(token.value, style: style),
+          ),
+        ),
+      );
       continue;
     }
 
