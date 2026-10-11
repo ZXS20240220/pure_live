@@ -164,6 +164,12 @@ abstract class ServerFixedPageController<T> extends BasePageScrollAndStateBone<T
         }
         noProgressCount = _allItems.length == previousLength ? noProgressCount + 1 : 0;
         _nextServerPage++;
+        // 短页（少于服务端固定页大小）即末页：再请求只会命中越界页；部分
+        // 平台对越界页既不返回空也不结束时，刷新事务会永久挂起
+        // （transactional_page_refresh 的短页刷新用例即此场景）。
+        if (bigPageData.length < fixedServerPageSize) {
+          _hasMoreNetwork = false;
+        }
       }
 
       _publishSlice(targetStart, targetEnd, replaceMobileSnapshot);

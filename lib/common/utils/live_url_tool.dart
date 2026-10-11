@@ -167,7 +167,7 @@ class LiveUrlTool {
       if (segments.length == 1 && (_hostIs(host, 'douyu.com') || host == 'cc.163.com')) {
         return WebSearchRoomParser.isRoomIdentifier(segments.single, RegExp(r'^[a-zA-Z0-9_-]+$'));
       }
-      if (_hostIs(host, 'sooplive.com')) {
+      if (_hostIs(host, 'sooplive.com') || _hostIs(host, 'sooplive.co.kr')) {
         return WebSearchRoomParser.isRoomIdentifier(segments.first, RegExp(r'^[a-zA-Z0-9_-]+$'));
       }
       if (host == 'webcast.amemv.com') {
@@ -405,7 +405,7 @@ class LiveUrlTool {
       } else if (host == 'cc.163.com') {
         platform = Sites.ccSite;
         id = segments.first;
-      } else if (_hostIs(host, 'sooplive.com')) {
+      } else if (_hostIs(host, 'sooplive.com') || _hostIs(host, 'sooplive.co.kr')) {
         platform = Sites.soopSite;
         id = segments.first;
       }
