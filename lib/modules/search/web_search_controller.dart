@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:developer' as developer;
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -458,7 +457,6 @@ class WebSearchController extends GetxController {
       if (_dismissedTarget == target.key) continue;
 
       roomId.value = target.roomId;
-      developer.log('[WebSearch] Detected a supported ${target.platform} room link.');
       bool? confirmed;
       try {
         confirmed = await _confirmRoom(target);
@@ -466,9 +464,12 @@ class WebSearchController extends GetxController {
         debugPrint('[WebSearch] Room confirmation failed: $error');
       }
       if (!_isCurrent(generation)) return;
-      // A dialog can outlive the document that discovered it. A later room
-      // will be drained next; a non-room navigation clears the pending target.
-      if (_observedTargetKey != target.key) continue;
+      // A dialog can outlive the document that discovered it. Only skip the
+      // confirmed target when the user has explicitly navigated to a *different*
+      // room; a non-room navigation (observed key becomes null) must not cancel
+      // a target the user already agreed to open.
+      final observedKey = _observedTargetKey;
+      if (observedKey != null && observedKey != target.key) continue;
       if (confirmed != true) {
         _dismissedTarget = target.key;
         continue;

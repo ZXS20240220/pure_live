@@ -185,13 +185,13 @@ class WebSearchRoomParser {
     final host = uri.host.toLowerCase();
     final segments = uri.pathSegments.where((segment) => segment.trim().isNotEmpty).toList(growable: false);
 
-    if (_matchesHost(host, 'huya.com')) {
+    if (host == 'www.huya.com' || host == 'huya.com') {
       return _firstSegment(segments, Sites.huyaSite, RegExp(r'^[a-zA-Z0-9_-]+$'));
     }
     if (host == 'live.douyin.com') {
       return _firstSegment(segments, Sites.douyinSite, RegExp(r'^\d+$'));
     }
-    if (_matchesHost(host, 'douyu.com')) {
+    if (host == 'www.douyu.com') {
       return _firstSegment(segments, Sites.douyuSite, RegExp(r'^\d+$'));
     }
     if (host == 'live.kuaishou.com') {
@@ -204,13 +204,13 @@ class WebSearchRoomParser {
     if (host == 'live.bilibili.com') {
       return _firstSegment(segments, Sites.bilibiliSite, RegExp(r'^\d+$'));
     }
-    if (_matchesHost(host, 'twitch.tv')) {
+    if (host == 'www.twitch.tv' || host == 'twitch.tv') {
       return _firstSegment(segments, Sites.twitchSite, RegExp(r'^[a-zA-Z0-9_]+$'));
     }
-    if (_matchesHost(host, 'sooplive.co.kr')) {
+    if (host == 'play.sooplive.co.kr') {
       return _firstSegment(segments, Sites.soopSite, RegExp(r'^[a-zA-Z0-9_-]+$'));
     }
-    if (_matchesHost(host, 'yy.com')) {
+    if (host == 'www.yy.com' || host == 'yy.com') {
       return _firstSegment(segments, Sites.yySite, RegExp(r'^\d+$'));
     }
     if (host == 'live.acfun.cn' && uri.userInfo.isEmpty && segments.length == 2 && segments.first == 'live') {
@@ -218,8 +218,6 @@ class WebSearchRoomParser {
     }
     return null;
   }
-
-  static bool _matchesHost(String host, String root) => host == root || host.endsWith('.$root');
 
   static WebSearchRoomTarget? _firstSegment(List<String> segments, String platform, RegExp pattern) {
     if (segments.isEmpty) return null;

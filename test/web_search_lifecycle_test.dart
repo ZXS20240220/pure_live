@@ -183,7 +183,7 @@ void main() {
     expect(openedRooms.single.roomId, 'second_room');
   });
 
-  test('leaving a detected room before confirmation drops the stale room', () async {
+  test('leaving a detected room before confirmation still honours a confirmed open', () async {
     final confirmation = Completer<bool?>();
     final openedRooms = <LiveRoom>[];
     final controller = Get.put(
@@ -200,8 +200,10 @@ void main() {
     confirmation.complete(true);
     await detection;
 
-    expect(openedRooms, isEmpty);
-    expect(controller.showWebView.value, isTrue);
+    expect(openedRooms, hasLength(1));
+    expect(openedRooms.single.platform, 'bilibili');
+    expect(openedRooms.single.roomId, '100');
+    expect(controller.showWebView.value, isFalse);
   });
 
   test('confirming an older room after a newer navigation opens only the newer room', () async {
