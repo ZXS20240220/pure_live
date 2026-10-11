@@ -34,6 +34,7 @@ class CompactDanmakuOverlay extends StatelessWidget {
         fontFamily: controller.danmakuFontFamilyName.value,
         showStroke: controller.enableDanmakuStroke.value,
         strokeWidth: controller.danmakuFontBorder.value,
+        letterSpacing: settings.danmakuLetterSpacing.v,
       );
     });
   }
@@ -74,6 +75,7 @@ class StandaloneCompactDanmakuOverlay extends StatelessWidget {
         fontFamily: settings.danmakuFontFamilyName.v,
         showStroke: settings.enableDanmakuStroke.v,
         strokeWidth: settings.danmakuFontBorder.v,
+        letterSpacing: settings.danmakuLetterSpacing.v,
       );
     });
   }
@@ -99,6 +101,7 @@ class CompactDanmakuSurface extends StatelessWidget {
     required this.fontFamily,
     required this.showStroke,
     required this.strokeWidth,
+    required this.letterSpacing,
   });
 
   final BarrageController barrageController;
@@ -116,6 +119,7 @@ class CompactDanmakuSurface extends StatelessWidget {
   final String fontFamily;
   final bool showStroke;
   final double strokeWidth;
+  final double letterSpacing;
 
   @override
   Widget build(BuildContext context) {
@@ -155,6 +159,7 @@ class CompactDanmakuSurface extends StatelessWidget {
                 showStroke: typography.showStroke,
                 noEmojiMode: noEmojiMode,
                 strokeWidth: typography.strokeWidth,
+                letterSpacing: letterSpacing,
                 fps: fps,
                 safeArea: false,
                 trackHeight: metrics.trackHeight,

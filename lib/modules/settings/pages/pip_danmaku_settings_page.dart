@@ -539,6 +539,7 @@ class _PipDanmakuPreviewState extends State<PipDanmakuPreview> with SingleTicker
       final fontFamily = settings.danmakuFontFamilyName.v;
       final showStroke = settings.enableDanmakuStroke.v;
       final strokeWidth = settings.danmakuFontBorder.v;
+      final letterSpacing = settings.danmakuLetterSpacing.v;
       final speed = settings.pipDanmakuSpeed.v;
       final opacity = enabled ? settings.pipDanmakuOpacity.v : 0.25;
       // The preview must mirror the live compact overlay, which inherits the
@@ -600,6 +601,7 @@ class _PipDanmakuPreviewState extends State<PipDanmakuPreview> with SingleTicker
                           fontSize: fontSize,
                           fontWeight: FontWeight(typography.fontWeight),
                           fontFamily: typography.fontFamily,
+                          letterSpacing: letterSpacing,
                           height: 1.15,
                         ),
                       ),
@@ -623,6 +625,7 @@ class _PipDanmakuPreviewState extends State<PipDanmakuPreview> with SingleTicker
                                 fontSize: fontSize,
                                 fontWeight: FontWeight(typography.fontWeight),
                                 fontFamily: typography.fontFamily,
+                                letterSpacing: letterSpacing,
                                 height: 1.15,
                               ),
                             ),
