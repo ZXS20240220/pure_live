@@ -105,8 +105,8 @@ class SavedWallpapersController extends ServerAllPageController<SavedWallpaperIt
       items.add(SavedWallpaperItem(path: entity.path, name: name, isVideo: isVideo, createdTime: stat.changed));
     }
 
-    // 按文件名排序（升序），与 PPT 播放顺序保持一致
-    items.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    // 按创建时间倒序，最新保存的壁纸排在最前
+    items.sort((a, b) => b.createdTime.compareTo(a.createdTime));
     return items;
   }
 
@@ -177,10 +177,14 @@ class SavedWallpapersController extends ServerAllPageController<SavedWallpaperIt
 }
 
 /// PPT 壁纸专用控制器：只返回静态图片，用于 PPT 选择页的分页展示。
+///
+/// 按文件名升序排序，与 PPT 播放顺序保持一致。
 class PptWallpapersController extends SavedWallpapersController {
   @override
   Future<List<SavedWallpaperItem>> fetchAllServerData() async {
     final all = await super.fetchAllServerData();
-    return all.where((item) => !item.isVideo).toList();
+    final images = all.where((item) => !item.isVideo).toList();
+    images.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    return images;
   }
 }
