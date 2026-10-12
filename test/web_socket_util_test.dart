@@ -44,7 +44,7 @@ void main() {
     final socket = WebScoketUtils(
       url: 'wss://primary.example/ws',
       heartBeatTime: 10,
-      inactivityTimeout: const Duration(milliseconds: 40),
+      inactivityTimeout: const Duration(milliseconds: 200),
       reconnectBaseDelay: const Duration(milliseconds: 5),
       connector: (endpoint, {connectTimeout, protocols, headers, customClient}) {
         connectionCount++;
@@ -55,10 +55,10 @@ void main() {
 
     await socket.connect();
     for (var index = 0; index < 4; index++) {
-      await Future<void>.delayed(const Duration(milliseconds: 15));
+      await Future<void>.delayed(const Duration(milliseconds: 30));
       channel.incoming.add('heartbeat-$index');
     }
-    await Future<void>.delayed(const Duration(milliseconds: 20));
+    await Future<void>.delayed(const Duration(milliseconds: 40));
 
     expect(connectionCount, 1);
     expect(socket.status, SocketStatus.connected);
