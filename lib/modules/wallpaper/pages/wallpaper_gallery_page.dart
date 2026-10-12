@@ -28,14 +28,14 @@ class WallpaperGalleryPage extends StatelessWidget {
     final source = WallpaperRepository.instance.loadCatalog().sourceById(sourceId);
     if (source == null) {
       return Scaffold(
-        appBar: AppBar(title: SettingsBreadcrumbBar(node: _crumb)),
+        appBar: SettingsBreadcrumbAppBar(node: _crumb),
         body: const Center(child: Text('未找到该图源')),
       );
     }
 
     final groups = source.visibleGroups;
     return Scaffold(
-      appBar: AppBar(title: SettingsBreadcrumbBar(node: _crumb)),
+      appBar: SettingsBreadcrumbAppBar(node: _crumb),
       body: groups.isEmpty
           ? const Center(child: Text('暂无分组'))
           : ListView(

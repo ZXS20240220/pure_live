@@ -35,7 +35,7 @@ class _WallpaperColorPageState extends State<WallpaperColorPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: SettingsBreadcrumbBar(node: SettingsCrumbs.wallpaperColor)),
+      appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.wallpaperColor),
       body: BasePageView<WallpaperColorController, ColorEntry>(
         controller: controller,
         enableRefresh: true,

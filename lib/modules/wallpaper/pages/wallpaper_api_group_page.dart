@@ -29,14 +29,12 @@ class WallpaperApiGroupPage extends StatelessWidget {
     }
     final WallpaperApiGroup resolved = group;
     return Scaffold(
-      appBar: AppBar(
-        title: SettingsBreadcrumbBar(
-          node: SettingsCrumb(
-            labelText: resolved.name,
-            routeName: '/settings/wallpaper/api/group',
-            pageBuilder: () => this,
-            parents: [SettingsCrumbs.root, SettingsCrumbs.wallpaper, SettingsCrumbs.wallpaperApi],
-          ),
+      appBar: SettingsBreadcrumbAppBar(
+        node: SettingsCrumb(
+          labelText: resolved.name,
+          routeName: '/settings/wallpaper/api/group',
+          pageBuilder: () => this,
+          parents: [SettingsCrumbs.root, SettingsCrumbs.wallpaper, SettingsCrumbs.wallpaperApi],
         ),
       ),
       body: ListView(

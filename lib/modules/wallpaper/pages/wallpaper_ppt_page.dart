@@ -67,7 +67,7 @@ class _WallpaperPptPageState extends State<WallpaperPptPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: SettingsBreadcrumbBar(node: SettingsCrumbs.wallpaperPpt)),
+      appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.wallpaperPpt),
       body: Stack(
         children: [
           Column(

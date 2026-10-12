@@ -84,8 +84,8 @@ class _WallpaperHistoryPageState extends State<WallpaperHistoryPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: SettingsBreadcrumbBar(node: SettingsCrumbs.wallpaperHistory),
+      appBar: SettingsBreadcrumbAppBar(
+        node: SettingsCrumbs.wallpaperHistory,
         actions: [IconButton(tooltip: '清空所有壁纸', icon: const Icon(Remix.delete_bin_line), onPressed: _clearAll)],
       ),
       body: Stack(

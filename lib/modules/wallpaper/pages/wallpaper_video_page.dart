@@ -43,7 +43,7 @@ class _WallpaperVideoPageState extends State<WallpaperVideoPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: SettingsBreadcrumbBar(node: SettingsCrumbs.wallpaperVideo)),
+      appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.wallpaperVideo),
       body: BasePageView<WallpaperVideoController, VideoWallpaperItem>(
         controller: controller,
         enableRefresh: true,

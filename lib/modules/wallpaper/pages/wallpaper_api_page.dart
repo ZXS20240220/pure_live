@@ -13,7 +13,7 @@ class WallpaperApiPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: SettingsBreadcrumbBar(node: SettingsCrumbs.wallpaperApi)),
+      appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.wallpaperApi),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         physics: const PureLiveScrollPhysics(),

@@ -78,7 +78,7 @@ class _WallpaperItemsPageState extends State<WallpaperItemsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: SettingsBreadcrumbBar(node: _crumb)),
+      appBar: SettingsBreadcrumbAppBar(node: _crumb),
       body: BasePageView<WallpaperCatalogItemsController, CatalogWallpaperItem>(
         controller: controller,
         enableRefresh: true,

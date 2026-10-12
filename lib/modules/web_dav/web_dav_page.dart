@@ -239,6 +239,7 @@ class _WebDavPageState extends State<WebDavPage> {
       floating: true,
       pinned: false,
       snap: false,
+      centerTitle: false,
       backgroundColor: Theme.of(Get.context!).colorScheme.surface,
       surfaceTintColor: Colors.transparent,
       title: SettingsBreadcrumbBar(node: SettingsCrumbs.webdav),

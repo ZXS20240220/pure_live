@@ -25,7 +25,7 @@ class WallpaperLibraryPage extends StatelessWidget {
         .toList(growable: false);
 
     return Scaffold(
-      appBar: AppBar(title: SettingsBreadcrumbBar(node: SettingsCrumbs.wallpaperLibrary)),
+      appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.wallpaperLibrary),
       body: sources.isEmpty
           ? const Center(child: Text('暂无图源'))
           : ListView(
