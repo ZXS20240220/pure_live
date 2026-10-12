@@ -17,6 +17,9 @@ class WallpaperCatalogItemsController extends ServerAllPageController<CatalogWal
 
   Timer? _viewportPageDebounce;
 
+  @override
+  bool get shouldSyncGlobalPageSize => false;
+
   void applyViewportPageSize(int capacity) {
     if (isClosed) return;
     final target = capacity < 10 ? 10 : capacity;
@@ -24,7 +27,7 @@ class WallpaperCatalogItemsController extends ServerAllPageController<CatalogWal
     _viewportPageDebounce?.cancel();
     _viewportPageDebounce = Timer(const Duration(milliseconds: 150), () {
       if (isClosed) return;
-      setPageSize(target);
+      setPageSize(target, persist: false);
     });
   }
 

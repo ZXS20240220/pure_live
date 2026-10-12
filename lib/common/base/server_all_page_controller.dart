@@ -47,9 +47,12 @@ abstract class ServerAllPageController<T> extends BasePageScrollAndStateBone<T> 
   }
 
   @override
-  void setPageSize(int? newSize) {
-    if (isClosed || newSize == null || pageSize.value == newSize || _rawAllData == null) return;
-    persistUserPageSize(newSize);
+  void setPageSize(int? newSize, {bool persist = true}) {
+    if (isClosed || newSize == null || pageSize.value == newSize) return;
+    if (persist) persistUserPageSize(newSize);
+    // Paging requires the local catalogue. Persist the user's choice anyway so
+    // it takes effect once data arrives (aligns with the other base pagers).
+    if (_rawAllData == null) return;
     if (!usesDesktopPagination) {
       pageSize.value = newSize;
       return;

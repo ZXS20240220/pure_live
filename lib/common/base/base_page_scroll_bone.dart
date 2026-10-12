@@ -28,6 +28,15 @@ abstract class BasePageScrollAndStateBone<T> extends BaseController {
   final showBackToTop = false.obs;
   final showBackToBottom = true.obs;
 
+  /// Guard value set while [persistUserPageSize] writes the global default, so
+  /// the [defaultPageSize] listener below does not echo the change back into
+  /// [setPageSize] on the originating controller.
+  int? _persistingPageSizeValue;
+
+  /// Worker that keeps every live pager in sync with the global default page
+  /// size. Disposed in [onClose].
+  Worker? _pageSizeSyncWorker;
+
   bool? _lastIsDesktop;
   bool? _pendingIsDesktop;
   int _layoutVersion = 0;
@@ -44,6 +53,35 @@ abstract class BasePageScrollAndStateBone<T> extends BaseController {
         ? SettingsService.to.page.defaultPageSize.v
         : 20;
     _ownedScrollController.addListener(_scrollListener);
+  }
+
+  @override
+  void onInit() {
+    super.onInit();
+    if (Get.isRegistered<SettingsService>()) {
+      _pageSizeSyncWorker = ever(
+        SettingsService.to.page.defaultPageSize,
+        (int newDefault) => _syncPageSizeFromGlobal(newDefault),
+      );
+    }
+  }
+
+  /// Whether this controller should follow the global [defaultPageSize] when
+  /// it changes. Viewport-driven pagers (wallpaper grid, areas list) compute
+  /// their page size from the window and must not be overwritten by the
+  /// global default; they override this to `false`.
+  bool get shouldSyncGlobalPageSize => true;
+
+  void _syncPageSizeFromGlobal(int newDefault) {
+    if (isClosed) return;
+    if (!shouldSyncGlobalPageSize) return;
+    // The change originated from this controller's own [setPageSize] call.
+    if (_persistingPageSizeValue == newDefault) {
+      _persistingPageSizeValue = null;
+      return;
+    }
+    if (pageSize.value == newDefault) return;
+    setPageSize(newDefault);
   }
 
   void bindActiveScrollController(ScrollController? externalController) {
@@ -142,6 +180,7 @@ abstract class BasePageScrollAndStateBone<T> extends BaseController {
     _boundScrollController = null;
     _ownedScrollController.dispose();
     easyRefreshController.dispose();
+    _pageSizeSyncWorker?.dispose();
     super.onClose();
   }
 
@@ -211,9 +250,13 @@ abstract class BasePageScrollAndStateBone<T> extends BaseController {
   ///
   /// 不写回的话，下次进入页面时构造函数读取的仍是旧默认值（20），
   /// 用户选择的 80 就丢了（同步自上游 e7a794c0）。
+  ///
+  /// [_persistingPageSizeValue] 记录本次写入的值，用于 [_syncPageSizeFromGlobal]
+  /// 识别"由本控制器发起的写入"，避免监听回调反向触发 setPageSize 造成递归。
   void persistUserPageSize(int? size) {
     if (size == null || size < 1) return;
     if (Get.isRegistered<SettingsService>()) {
+      _persistingPageSizeValue = size;
       SettingsService.to.page.defaultPageSize.v = size;
     }
   }
@@ -226,5 +269,12 @@ abstract class BasePageScrollAndStateBone<T> extends BaseController {
   String? get pageNotice => null;
   Future<void> refreshData();
   Future<void> goToPage(int page);
-  void setPageSize(int? newSize);
+
+  /// Changes the visible page size.
+  ///
+  /// When [persist] is `true` (default) the new size is written back to the
+  /// global default and propagates to every other live pager. Viewport-driven
+  /// pagers pass `persist: false` so their window-computed size never clobbers
+  /// the user's chosen default.
+  void setPageSize(int? newSize, {bool persist = true});
 }

@@ -120,7 +120,7 @@ class _LegacyRetryController extends BasePageScrollAndStateBone<LiveRoom> {
   @override
   Future<void> goToPage(int page) async {}
   @override
-  void setPageSize(int? newSize) {}
+  void setPageSize(int? newSize, {bool persist = true}) {}
 }
 
 Future<void> _until(bool Function() predicate) async {

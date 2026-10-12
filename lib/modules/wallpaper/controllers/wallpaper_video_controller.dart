@@ -12,6 +12,9 @@ class WallpaperVideoController extends ServerAllPageController<VideoWallpaperIte
 
   Timer? _viewportPageDebounce;
 
+  @override
+  bool get shouldSyncGlobalPageSize => false;
+
   /// 视口动态分页：每页数量 = 窗口可完整容纳的行数 × 每行列数。
   void applyViewportPageSize(int capacity) {
     if (isClosed) return;
@@ -20,7 +23,7 @@ class WallpaperVideoController extends ServerAllPageController<VideoWallpaperIte
     _viewportPageDebounce?.cancel();
     _viewportPageDebounce = Timer(const Duration(milliseconds: 150), () {
       if (isClosed) return;
-      setPageSize(target);
+      setPageSize(target, persist: false);
     });
   }
 

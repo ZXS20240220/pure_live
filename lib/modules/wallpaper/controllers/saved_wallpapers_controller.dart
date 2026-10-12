@@ -28,6 +28,9 @@ class SavedWallpapersController extends ServerAllPageController<SavedWallpaperIt
   Worker? _wallpaperSourceWorker;
 
   @override
+  bool get shouldSyncGlobalPageSize => false;
+
+  @override
   void onInit() {
     super.onInit();
     // 监听当前壁纸变化，实时刷新选中状态
@@ -44,7 +47,7 @@ class SavedWallpapersController extends ServerAllPageController<SavedWallpaperIt
     _viewportPageDebounce?.cancel();
     _viewportPageDebounce = Timer(const Duration(milliseconds: 150), () {
       if (isClosed) return;
-      setPageSize(target);
+      setPageSize(target, persist: false);
     });
   }
 
