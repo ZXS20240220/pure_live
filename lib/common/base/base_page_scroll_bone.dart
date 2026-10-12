@@ -28,10 +28,12 @@ abstract class BasePageScrollAndStateBone<T> extends BaseController {
   final showBackToTop = false.obs;
   final showBackToBottom = true.obs;
 
-  /// Guard value set while [persistUserPageSize] writes the global default, so
-  /// the [defaultPageSize] listener below does not echo the change back into
-  /// [setPageSize] on the originating controller.
-  int? _persistingPageSizeValue;
+  /// Guard set populated while [persistUserPageSize] writes the global default,
+  /// so the [defaultPageSize] listener below does not echo the change back into
+  /// [setPageSize] on the originating controller. A Set is required (not a
+  /// single value) because [ever] fires asynchronously: back-to-back writes
+  /// must all be tracked until their respective worker callbacks arrive.
+  final Set<int> _pendingPersistedPageSizes = {};
 
   /// Worker that keeps every live pager in sync with the global default page
   /// size. Disposed in [onClose].
@@ -76,10 +78,7 @@ abstract class BasePageScrollAndStateBone<T> extends BaseController {
     if (isClosed) return;
     if (!shouldSyncGlobalPageSize) return;
     // The change originated from this controller's own [setPageSize] call.
-    if (_persistingPageSizeValue == newDefault) {
-      _persistingPageSizeValue = null;
-      return;
-    }
+    if (_pendingPersistedPageSizes.remove(newDefault)) return;
     if (pageSize.value == newDefault) return;
     setPageSize(newDefault);
   }
@@ -251,12 +250,13 @@ abstract class BasePageScrollAndStateBone<T> extends BaseController {
   /// 不写回的话，下次进入页面时构造函数读取的仍是旧默认值（20），
   /// 用户选择的 80 就丢了（同步自上游 e7a794c0）。
   ///
-  /// [_persistingPageSizeValue] 记录本次写入的值，用于 [_syncPageSizeFromGlobal]
+  /// [_pendingPersistedPageSizes] 记录本次写入的值，用于 [_syncPageSizeFromGlobal]
   /// 识别"由本控制器发起的写入"，避免监听回调反向触发 setPageSize 造成递归。
+  /// 用 Set 而非单值是因为 [ever] 异步触发，连续写入需要全部追踪。
   void persistUserPageSize(int? size) {
     if (size == null || size < 1) return;
     if (Get.isRegistered<SettingsService>()) {
-      _persistingPageSizeValue = size;
+      _pendingPersistedPageSizes.add(size);
       SettingsService.to.page.defaultPageSize.v = size;
     }
   }
