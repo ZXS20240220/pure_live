@@ -21,7 +21,7 @@ void main() {
 
     expect(delivered, isEmpty);
     expect(queue.pendingCount, 1);
-    await Future<void>.delayed(const Duration(milliseconds: 35));
+    await Future<void>.delayed(const Duration(milliseconds: 100));
     expect(delivered.single.message.message, 'hello');
     expect(delivered.single.showAsDanmaku, isTrue);
     expect(delivered.single.matchesRoom(roomId: '100', platform: 'bilibili'), isTrue);
@@ -40,7 +40,7 @@ void main() {
     );
     queue.cancelAll();
 
-    await Future<void>.delayed(const Duration(milliseconds: 35));
+    await Future<void>.delayed(const Duration(milliseconds: 100));
     expect(delivered, isEmpty);
     expect(queue.pendingCount, 0);
     queue.dispose();

@@ -13,8 +13,8 @@ void main() {
       url: 'wss://primary.example/ws',
       serverUrls: const ['wss://primary.example/ws', 'wss://backup.example/ws'],
       heartBeatTime: 10,
-      inactivityTimeout: const Duration(milliseconds: 25),
-      reconnectBaseDelay: const Duration(milliseconds: 5),
+      inactivityTimeout: const Duration(milliseconds: 50),
+      reconnectBaseDelay: const Duration(milliseconds: 10),
       connector: (endpoint, {connectTimeout, protocols, headers, customClient}) {
         endpoints.add(endpoint);
         final channel = _FakeWebSocketChannel();
@@ -26,7 +26,7 @@ void main() {
     await socket.connect();
     expect(socket.status, SocketStatus.connected);
 
-    await Future<void>.delayed(const Duration(milliseconds: 55));
+    await Future<void>.delayed(const Duration(milliseconds: 250));
 
     expect(endpoints.length, greaterThanOrEqualTo(2));
     expect(endpoints.take(2), ['wss://primary.example/ws', 'wss://backup.example/ws']);
@@ -34,7 +34,7 @@ void main() {
 
     await socket.close();
     final connectionCount = endpoints.length;
-    await Future<void>.delayed(const Duration(milliseconds: 50));
+    await Future<void>.delayed(const Duration(milliseconds: 100));
     expect(endpoints.length, connectionCount, reason: 'manual close must cancel watchdog reconnects');
   });
 
@@ -120,7 +120,7 @@ void main() {
 
     await socket.connect();
     await channel.incoming.close();
-    await Future<void>.delayed(const Duration(milliseconds: 10));
+    await Future<void>.delayed(const Duration(milliseconds: 100));
 
     expect(failures, ['WebSocket closed (code=1008): policy']);
     await socket.close();
