@@ -406,10 +406,11 @@ jobs:
           marker = re.search(r'^###\s+.*本次更新\s*$', raw_desc, re.MULTILINE)
           changelog = raw_desc[marker.end():].strip() if marker else raw_desc
 
-          # 丢弃小节内手写的 version 行（可能带有 [Pre-release] 等标记），
-          # 统一由 pubspec 版本号生成，保持应用内弹窗的历史格式。
+          # 丢弃小节内手写的 version 行（可能带有 [Pre-release] 等标记，
+          # 以及 **...** 等 Markdown 强调包裹），统一由 pubspec 版本号生成，
+          # 保持应用内弹窗的历史格式。
           changelog = re.sub(
-              r'^version:.*$(?:\r?\n)?', '', changelog, count=1, flags=re.MULTILINE
+              r'^[*_]{0,3}\s*version:.*$(?:\r?\n)?', '', changelog, count=1, flags=re.MULTILINE
           ).strip()
           version_desc = f"version: {version} (build {build})"
           if changelog:
@@ -510,7 +511,7 @@ jobs:
               body = stable_rel.get("body", "") or ""
               marker = re.search(r'^###\s+.*本次更新\s*$', body, re.MULTILINE)
               changelog = body[marker.end():].strip() if marker else body.strip()
-              changelog = re.sub(r'^version:.*$(?:\r?\n)?', '', changelog, count=1, flags=re.MULTILINE).strip()
+              changelog = re.sub(r'^[*_]{0,3}\s*version:.*$(?:\r?\n)?', '', changelog, count=1, flags=re.MULTILINE).strip()
               sdesc = f"version: {sv} (build {sb})"
               if changelog:
                   sdesc += f"\n\n{changelog}"
