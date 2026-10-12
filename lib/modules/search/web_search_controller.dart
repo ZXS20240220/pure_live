@@ -129,6 +129,9 @@ class WebSearchController extends GetxController {
   WebSearchRoomTarget? _pendingTarget;
   String? _observedTargetKey;
   String? _dismissedTarget;
+  String? _confirmingPlatform;
+  String? _ignoredPlatform;
+  DateTime? _ignoredPlatformUntil;
   Future<void>? _promptOperation;
   Future<void>? _externalOpenOperation;
   Future<WebSearchBackDisposition>? _backOperation;
@@ -432,7 +435,30 @@ class WebSearchController extends GetxController {
       _observedTargetKey = null;
       _pendingTarget = null;
       _dismissedTarget = null;
+      _ignoredPlatform = null;
+      _ignoredPlatformUntil = null;
       return Future.value();
+    }
+    // While a confirmation dialog is showing, same-platform navigations are
+    // almost always automatic JS redirects (e.g. Douyu rewriting the URL to a
+    // short tracking id). They must not overwrite the user's chosen target nor
+    // spawn a second dialog. Cross-platform navigation is still honoured so the
+    // user can explicitly switch to another site.
+    final confirmingPlatform = _confirmingPlatform;
+    if (confirmingPlatform != null && target.platform == confirmingPlatform) {
+      return Future.value();
+    }
+    // After the user cancels a confirmation, the page keeps firing load/history
+    // events for the same automatic redirect URL. Ignore same-platform targets
+    // briefly so those trailing events do not immediately re-prompt the user.
+    final ignoredPlatform = _ignoredPlatform;
+    final ignoredUntil = _ignoredPlatformUntil;
+    if (ignoredPlatform != null && target.platform == ignoredPlatform) {
+      if (ignoredUntil != null && DateTime.now().isBefore(ignoredUntil)) {
+        return Future.value();
+      }
+      _ignoredPlatform = null;
+      _ignoredPlatformUntil = null;
     }
     _observedTargetKey = target.key;
     if (_dismissedTarget == target.key) return Future.value();
@@ -457,11 +483,14 @@ class WebSearchController extends GetxController {
       if (_dismissedTarget == target.key) continue;
 
       roomId.value = target.roomId;
+      _confirmingPlatform = target.platform;
       bool? confirmed;
       try {
         confirmed = await _confirmRoom(target);
       } catch (error) {
         debugPrint('[WebSearch] Room confirmation failed: $error');
+      } finally {
+        _confirmingPlatform = null;
       }
       if (!_isCurrent(generation)) return;
       // A dialog can outlive the document that discovered it. Only skip the
@@ -472,6 +501,11 @@ class WebSearchController extends GetxController {
       if (observedKey != null && observedKey != target.key) continue;
       if (confirmed != true) {
         _dismissedTarget = target.key;
+        // Suppress trailing same-platform redirect events (e.g. Douyu rewriting
+        // the URL to a tracking id) for a few seconds so the cancelled dialog
+        // is not immediately followed by another one for the same redirect.
+        _ignoredPlatform = target.platform;
+        _ignoredPlatformUntil = DateTime.now().add(const Duration(seconds: 5));
         continue;
       }
 
@@ -601,6 +635,9 @@ class WebSearchController extends GetxController {
     _cancelCreationWatchdog();
     _pendingTarget = null;
     _observedTargetKey = null;
+    _confirmingPlatform = null;
+    _ignoredPlatform = null;
+    _ignoredPlatformUntil = null;
     showWebView.value = false;
     isOpeningExternal.value = false;
     late final Future<void> task;
@@ -678,6 +715,9 @@ class WebSearchController extends GetxController {
       _generation++;
       _pendingTarget = null;
       _observedTargetKey = null;
+      _confirmingPlatform = null;
+      _ignoredPlatform = null;
+      _ignoredPlatformUntil = null;
       showWebView.value = false;
     }
     unawaited(_disposeBrowser());

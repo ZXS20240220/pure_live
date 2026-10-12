@@ -1,6 +1,6 @@
+import 'package:pure_live/common/index.dart';
 import 'package:pure_live/core/site/niconico/niconico_link.dart';
 import 'package:pure_live/core/site/weibo/weibo_link.dart';
-import 'package:pure_live/core/sites.dart';
 import 'package:pure_live/core/site/huajiao/huajiao_link.dart';
 import 'package:pure_live/core/site/picarto/picarto_api.dart';
 import 'package:pure_live/core/site/twitcasting/twitcasting_api.dart';
@@ -79,12 +79,12 @@ class WebSearchRoomParser {
     // Broadcast shares need asynchronous owner lookup in LiveUrlTool. Only
     // verified owner links can be mapped synchronously to a durable app ID.
     final huajiao = HuajiaoLink.parse(rawUrl);
-    if (huajiao?.kind == HuajiaoLinkKind.owner) {
-      return WebSearchRoomTarget(platform: Sites.huajiaoSite, roomId: huajiao!.id);
+    if (huajiao != null && huajiao.kind == HuajiaoLinkKind.owner) {
+      return WebSearchRoomTarget(platform: Sites.huajiaoSite, roomId: huajiao.id);
     }
     final kilakila = KilakilaLink.parse(rawUrl.trim());
-    if (kilakila?.kind == KilakilaLinkKind.owner) {
-      return WebSearchRoomTarget(platform: Sites.kilakilaSite, roomId: kilakila!.id);
+    if (kilakila != null && kilakila.kind == KilakilaLinkKind.owner) {
+      return WebSearchRoomTarget(platform: Sites.kilakilaSite, roomId: kilakila.id);
     }
     final uri = Uri.tryParse(rawUrl.trim());
     if (uri == null || (uri.scheme != 'http' && uri.scheme != 'https')) return null;
