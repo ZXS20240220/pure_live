@@ -14,12 +14,14 @@ class SavedWallpaperTile extends StatefulWidget {
     required this.isCurrent,
     required this.onTap,
     required this.onDelete,
+    this.onPreview,
   });
 
   final SavedWallpaperItem item;
   final bool isCurrent;
   final VoidCallback onTap;
   final VoidCallback onDelete;
+  final VoidCallback? onPreview;
 
   @override
   State<SavedWallpaperTile> createState() => _SavedWallpaperTileState();
@@ -59,6 +61,7 @@ class _SavedWallpaperTileState extends State<SavedWallpaperTile> {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: widget.onTap,
+        onSecondaryTap: widget.onPreview,
         child: Stack(
           fit: StackFit.expand,
           children: [

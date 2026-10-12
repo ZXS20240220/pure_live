@@ -56,6 +56,22 @@ class SavedWallpapersController extends ServerAllPageController<SavedWallpaperIt
   }
 
   @override
+  Future<void> refreshData() async {
+    if (isClosed) return;
+    // 首次加载走真实流程；后续刷新先展示一段动画再扫描磁盘，
+    // 避免本地扫描过快导致 ClassicHeader"正在刷新"一闪而过，
+    // 与纯色页等静态数据页的刷新体验保持一致。
+    if (localItemCount == 0) {
+      await super.refreshData();
+      return;
+    }
+    loadding.value = true;
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+    if (isClosed) return;
+    await super.refreshData();
+  }
+
+  @override
   Future<List<SavedWallpaperItem>> fetchAllServerData() async {
     final dir = await AppPathManager().getDir(AppPathManager.dirWallpaper);
     if (!await dir.exists()) return const <SavedWallpaperItem>[];
@@ -89,8 +105,8 @@ class SavedWallpapersController extends ServerAllPageController<SavedWallpaperIt
       items.add(SavedWallpaperItem(path: entity.path, name: name, isVideo: isVideo, createdTime: stat.changed));
     }
 
-    // 创建时间越新越靠前
-    items.sort((a, b) => b.createdTime.compareTo(a.createdTime));
+    // 按文件名排序（升序），与 PPT 播放顺序保持一致
+    items.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     return items;
   }
 
@@ -125,6 +141,8 @@ class SavedWallpapersController extends ServerAllPageController<SavedWallpaperIt
     if (item.isVideo) {
       await WallpaperThumbnailService.to.deleteThumbnail(item.path);
     }
+    // 同步从 PPT 选中列表中移除
+    WallpaperSettingsController.to.pptImagePaths.remove(item.path);
     // 若删除的是当前壁纸，清除壁纸状态
     if (isCurrent(item)) {
       WallpaperSettingsController.to.clearWallpaper();
@@ -148,9 +166,21 @@ class SavedWallpapersController extends ServerAllPageController<SavedWallpaperIt
     // 清除缩略图缓存
     await WallpaperThumbnailService.to.clearAll();
 
+    // 清空 PPT 选中列表
+    WallpaperSettingsController.to.pptImagePaths.clear();
+
     // 清除当前壁纸
     WallpaperSettingsController.to.clearWallpaper();
 
     await refreshData();
+  }
+}
+
+/// PPT 壁纸专用控制器：只返回静态图片，用于 PPT 选择页的分页展示。
+class PptWallpapersController extends SavedWallpapersController {
+  @override
+  Future<List<SavedWallpaperItem>> fetchAllServerData() async {
+    final all = await super.fetchAllServerData();
+    return all.where((item) => !item.isVideo).toList();
   }
 }

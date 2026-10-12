@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:path/path.dart' as p;
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/modules/wallpaper/controllers/wallpaper_settings_controller.dart';
 import 'package:pure_live/modules/wallpaper/data/wallpaper_models.dart';
@@ -15,41 +18,45 @@ class AppBackground extends StatelessWidget {
     final controller = Get.find<WallpaperSettingsController>();
 
     return Obx(() {
-      if (!controller.hasWallpaper) {
-        return const SizedBox.shrink();
-      }
-
       final type = controller.wallpaperType;
       final source = controller.wallpaperSource.v;
 
       Widget background;
-      switch (type) {
-        case WallpaperType.imageLocal:
-          background = _buildImageBackground(FileImage(File(source)));
-          break;
-        case WallpaperType.imageOnline:
-        case WallpaperType.imagePreset:
-          background = CachedNetworkImage(
-            imageUrl: source,
-            fit: controller.resolvedFit,
-            width: double.infinity,
-            height: double.infinity,
-            errorWidget: (_, _, _) => const SizedBox.shrink(),
-          );
-          break;
-        case WallpaperType.videoLocal:
-        case WallpaperType.videoOnline:
-          background = WallpaperVideoPlayer(
-            source: source,
-            isLocal: type == WallpaperType.videoLocal,
-            fit: controller.resolvedFit,
-          );
-          break;
-        case WallpaperType.color:
-          background = _buildColorBackground(source);
-          break;
-        case WallpaperType.none:
-          return const SizedBox.shrink();
+      if (!controller.hasWallpaper || type == WallpaperType.none) {
+        background = const SizedBox.shrink();
+      } else {
+        switch (type) {
+          case WallpaperType.imageLocal:
+            background = _buildImageBackground(FileImage(File(source)));
+            break;
+          case WallpaperType.imageOnline:
+          case WallpaperType.imagePreset:
+            background = CachedNetworkImage(
+              imageUrl: source,
+              fit: controller.resolvedFit,
+              width: double.infinity,
+              height: double.infinity,
+              errorWidget: (_, _, _) => const SizedBox.shrink(),
+            );
+            break;
+          case WallpaperType.videoLocal:
+          case WallpaperType.videoOnline:
+            background = WallpaperVideoPlayer(
+              source: source,
+              isLocal: type == WallpaperType.videoLocal,
+              fit: controller.resolvedFit,
+            );
+            break;
+          case WallpaperType.color:
+            background = _buildColorBackground(source);
+            break;
+          case WallpaperType.slideshow:
+            background = const _SlideshowBackground();
+            break;
+          case WallpaperType.none:
+            background = const SizedBox.shrink();
+            break;
+        }
       }
 
       final blur = controller.blurRadius.v;
@@ -69,7 +76,8 @@ class AppBackground extends StatelessWidget {
         child: RepaintBoundary(
           child: Stack(
             children: [
-              Positioned.fill(child: background),
+              // 壁纸层：旧壁纸保持不透明直到底层，新壁纸在上层淡入覆盖
+              _BackgroundStack(identityKey: '${type.name}:$source', child: background),
               Positioned.fill(child: overlay),
             ],
           ),
@@ -82,6 +90,7 @@ class AppBackground extends StatelessWidget {
     final controller = Get.find<WallpaperSettingsController>();
     return Image(
       image: provider,
+      gaplessPlayback: true,
       fit: controller.resolvedFit,
       width: double.infinity,
       height: double.infinity,
@@ -101,5 +110,166 @@ class AppBackground extends StatelessWidget {
       decoration: BoxDecoration(gradient: data.toGradient()),
       child: const SizedBox.expand(),
     );
+  }
+}
+
+/// 壁纸切换容器：旧壁纸保持不透明留在底层，新壁纸在上层淡入覆盖，
+/// 新壁纸完全显示后才移除旧壁纸，彻底避免切换时透出底层黑色。
+class _BackgroundStack extends StatefulWidget {
+  final Widget child;
+  final Object identityKey;
+  final Duration fadeDuration;
+
+  const _BackgroundStack({
+    required this.child,
+    required this.identityKey,
+    this.fadeDuration = const Duration(milliseconds: 300),
+  });
+
+  @override
+  State<_BackgroundStack> createState() => _BackgroundStackState();
+}
+
+class _BackgroundStackState extends State<_BackgroundStack> with SingleTickerProviderStateMixin {
+  Widget? _oldChild;
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: widget.fadeDuration, value: 1.0);
+    _controller.addStatusListener(_onStatus);
+  }
+
+  @override
+  void didUpdateWidget(_BackgroundStack oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.identityKey != widget.identityKey) {
+      // 壁纸真正切换时，将旧壁纸保存在底层并启动新壁纸淡入
+      _oldChild = oldWidget.child;
+      _controller.forward(from: 0.0);
+    }
+  }
+
+  void _onStatus(AnimationStatus status) {
+    if (status == AnimationStatus.completed && mounted) {
+      setState(() => _oldChild = null);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.removeStatusListener(_onStatus);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        // 旧壁纸始终不透明，作为底层
+        if (_oldChild != null) Positioned.fill(child: _oldChild!),
+        // 新壁纸在上层淡入覆盖
+        Positioned.fill(
+          child: FadeTransition(opacity: _controller.drive(Tween<double>(begin: 0.0, end: 1.0)), child: widget.child),
+        ),
+      ],
+    );
+  }
+}
+
+/// PPT 壁纸播放组件：按设定间隔与规则轮播选中的图片。
+class _SlideshowBackground extends StatefulWidget {
+  const _SlideshowBackground();
+
+  @override
+  State<_SlideshowBackground> createState() => _SlideshowBackgroundState();
+}
+
+class _SlideshowBackgroundState extends State<_SlideshowBackground> {
+  late final WallpaperSettingsController controller;
+  Timer? _timer;
+  int _currentIndex = 0;
+  Worker? _pathsWorker;
+  Worker? _intervalWorker;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = Get.find<WallpaperSettingsController>();
+    _pathsWorker = ever(controller.pptImagePaths, (_) {
+      _currentIndex = 0;
+      _restartTimer();
+    });
+    _intervalWorker = ever(controller.pptInterval, (_) => _restartTimer());
+    _restartTimer();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _pathsWorker?.dispose();
+    _intervalWorker?.dispose();
+    super.dispose();
+  }
+
+  void _restartTimer() {
+    _timer?.cancel();
+    final interval = controller.pptInterval.v.clamp(1, 3600);
+    _timer = Timer.periodic(Duration(seconds: interval), (_) => _advance());
+  }
+
+  void _advance() {
+    final paths = controller.pptImagePaths;
+    if (paths.length <= 1) {
+      if (mounted) setState(() {});
+      return;
+    }
+    final next = _nextIndex(paths.length);
+    if (mounted) setState(() => _currentIndex = next);
+  }
+
+  int _nextIndex(int length) {
+    if (length <= 1) return 0;
+    if (controller.pptMode.v == PptMode.random.name) {
+      int next;
+      do {
+        next = math.Random().nextInt(length);
+      } while (next == _currentIndex);
+      return next;
+    }
+    return (_currentIndex + 1) % length;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      // 按文件名排序播放，与界面显示顺序保持一致
+      final paths = controller.pptImagePaths.toList()
+        ..sort((a, b) => p.basename(a).toLowerCase().compareTo(p.basename(b).toLowerCase()));
+      if (paths.isEmpty) return const SizedBox.shrink();
+      if (_currentIndex >= paths.length) _currentIndex = 0;
+      final path = paths[_currentIndex];
+      final file = File(path);
+      if (!file.existsSync()) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) controller.removeInvalidPptImage(path);
+        });
+        return const SizedBox.shrink();
+      }
+      return _BackgroundStack(
+        identityKey: path,
+        fadeDuration: const Duration(milliseconds: 300),
+        child: Image.file(
+          file,
+          gaplessPlayback: true,
+          fit: controller.resolvedFit,
+          width: double.infinity,
+          height: double.infinity,
+          errorBuilder: (_, _, _) => const SizedBox.shrink(),
+        ),
+      );
+    });
   }
 }

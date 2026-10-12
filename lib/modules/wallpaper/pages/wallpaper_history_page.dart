@@ -5,6 +5,7 @@ import 'package:pure_live/common/index.dart';
 import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
 import 'package:pure_live/modules/wallpaper/controllers/saved_wallpapers_controller.dart';
 import 'package:pure_live/modules/wallpaper/widgets/saved_wallpaper_tile.dart';
+import 'package:pure_live/modules/wallpaper/widgets/wallpaper_fullscreen_preview.dart';
 
 /// 已保存壁纸页面
 ///
@@ -19,6 +20,7 @@ class WallpaperHistoryPage extends StatefulWidget {
 
 class _WallpaperHistoryPageState extends State<WallpaperHistoryPage> {
   late final SavedWallpapersController controller;
+  SavedWallpaperItem? _previewItem;
 
   @override
   void initState() {
@@ -86,28 +88,34 @@ class _WallpaperHistoryPageState extends State<WallpaperHistoryPage> {
         title: SettingsBreadcrumbBar(node: SettingsCrumbs.wallpaperHistory),
         actions: [IconButton(tooltip: '清空所有壁纸', icon: const Icon(Remix.delete_bin_line), onPressed: _clearAll)],
       ),
-      body: BasePageView<SavedWallpapersController, SavedWallpaperItem>(
-        controller: controller,
-        enableRefresh: true,
-        enableLoadMore: true,
-        wrapMobileRefresh: false,
-        showScrollToTopBtn: false,
-        showPageSizeSelector: false,
-        showGotoButton: false,
-        customDesktopBottomPadding: 135,
-        customMobileBottomPadding: 85,
-        pageSizeOptions: SettingsService.to.page.pageSizeOptions,
-        emptyBuilder: (context) =>
-            const EmptyView(icon: Remix.image_2_line, title: '暂无保存的壁纸', subtitle: '应用过的壁纸会显示在这里'),
-        contentBuilder: (context, displayList, scrollController) {
-          return buildCommonPullToRefresh(
-            context: context,
-            refreshKey: 'wallpaper_history_grid',
-            onRefresh: controller.refreshData,
-            controller: controller.easyRefreshController,
-            childBuilder: (_, physics) => _buildGrid(displayList, scrollController, physics),
-          );
-        },
+      body: Stack(
+        children: [
+          BasePageView<SavedWallpapersController, SavedWallpaperItem>(
+            controller: controller,
+            enableRefresh: true,
+            enableLoadMore: true,
+            wrapMobileRefresh: false,
+            showScrollToTopBtn: false,
+            showPageSizeSelector: false,
+            showGotoButton: false,
+            customDesktopBottomPadding: 135,
+            customMobileBottomPadding: 85,
+            pageSizeOptions: SettingsService.to.page.pageSizeOptions,
+            emptyBuilder: (context) =>
+                const EmptyView(icon: Remix.image_2_line, title: '暂无保存的壁纸', subtitle: '应用过的壁纸会显示在这里'),
+            contentBuilder: (context, displayList, scrollController) {
+              return buildCommonPullToRefresh(
+                context: context,
+                refreshKey: 'wallpaper_history_grid',
+                onRefresh: controller.refreshData,
+                controller: controller.easyRefreshController,
+                childBuilder: (_, physics) => _buildGrid(displayList, scrollController, physics),
+              );
+            },
+          ),
+          if (_previewItem != null)
+            WallpaperFullscreenPreview(item: _previewItem!, onClose: () => setState(() => _previewItem = null)),
+        ],
       ),
     );
   }
@@ -152,6 +160,7 @@ class _WallpaperHistoryPageState extends State<WallpaperHistoryPage> {
                   isCurrent: isCurrent,
                   onTap: () => _apply(item),
                   onDelete: () => _delete(item),
+                  onPreview: () => setState(() => _previewItem = item),
                 );
               });
             },

@@ -36,18 +36,27 @@ class WallpaperCatalogItemsController extends ServerAllPageController<CatalogWal
 
   @override
   Future<List<CatalogWallpaperItem>> fetchAllServerData() async {
+    final sw = Stopwatch()..start();
     final repo = WallpaperRepository.instance;
     final source = repo.loadCatalog().sourceById(sourceId);
     if (source == null) return const <CatalogWallpaperItem>[];
 
+    final List<CatalogWallpaperItem> items;
     if (repo.isLocalSource(source.id)) {
-      return repo.localItems(source.id);
+      items = repo.localItems(source.id);
+    } else {
+      final group = _pickGroup(source, groupId);
+      if (group == null) return const <CatalogWallpaperItem>[];
+      items = await repo.fetchPage(source: source, group: group, page: 1, size: 1000);
     }
 
-    final group = _pickGroup(source, groupId);
-    if (group == null) return const <CatalogWallpaperItem>[];
-
-    return repo.fetchPage(source: source, group: group, page: 1, size: 1000);
+    // 确保加载至少持续 600ms，避免本地图源或缓存命中时 ClassicHeader 刷新动画一闪而过，
+    // 与纯色页等静态数据页的刷新体验保持一致。
+    final elapsed = sw.elapsedMilliseconds;
+    if (elapsed < 600) {
+      await Future<void>.delayed(Duration(milliseconds: 600 - elapsed));
+    }
+    return items;
   }
 
   static CatalogWallpaperGroup? _pickGroup(CatalogWallpaperSource source, String? wanted) {

@@ -35,6 +35,16 @@ class WallpaperSettingsController extends GetxController {
   // ===== 在线壁纸专属 =====
   final RxString itabCategory = hiveString('wallpaperItabCategory', 'anime');
 
+  // ===== PPT 壁纸专属 =====
+  /// 选中参与 PPT 播放的图片路径列表
+  final RxList<String> pptImagePaths = hiveStringList('wallpaperPptImagePaths', <String>[]);
+
+  /// 切换间隔（秒），范围 1~3600
+  final RxInt pptInterval = hiveInt('wallpaperPptInterval', 5);
+
+  /// 切换规则：sequential / random
+  final RxString pptMode = hiveString('wallpaperPptMode', PptMode.sequential.name);
+
   // ===== 计算属性 =====
   WallpaperType get wallpaperType => _parseType(wallpaperTypeName.v);
 
@@ -45,6 +55,8 @@ class WallpaperSettingsController extends GetxController {
   bool get isImage => wallpaperType.isImage;
 
   bool get isColor => wallpaperType.isColor;
+
+  bool get isSlideshow => wallpaperType.isSlideshow;
 
   /// 是否存在有效壁纸（上游无总开关，清除背景即关闭）
   bool get hasWallpaper => wallpaperType != WallpaperType.none && wallpaperSource.v.isNotEmpty;
@@ -77,6 +89,36 @@ class WallpaperSettingsController extends GetxController {
     wallpaperType = finalType;
     wallpaperSource.v = savedUrl;
     _syncWindowEffect();
+  }
+
+  /// 应用 PPT 壁纸（使用当前选中的图片列表与设置）
+  ///
+  /// 返回 false 表示未满足条件（至少需 2 张图），未激活。
+  bool applyPpt() {
+    final valid = pptImagePaths.where((p) => File(p).existsSync()).toList();
+    if (valid.length < 2) return false;
+    pptImagePaths.assignAll(valid);
+    wallpaperType = WallpaperType.slideshow;
+    wallpaperSource.v = 'slideshow';
+    _syncWindowEffect();
+    return true;
+  }
+
+  /// 切换某张图片在 PPT 列表中的选中状态
+  void togglePptImage(String path, bool selected) {
+    if (selected) {
+      if (!pptImagePaths.contains(path)) pptImagePaths.add(path);
+    } else {
+      pptImagePaths.remove(path);
+    }
+  }
+
+  /// PPT 播放时移除失效路径（文件不存在），若有效图片不足 2 张则清除壁纸
+  void removeInvalidPptImage(String path) {
+    pptImagePaths.remove(path);
+    if (pptImagePaths.length < 2 && isSlideshow) {
+      clearWallpaper();
+    }
   }
 
   /// 将壁纸文件保存到应用数据目录的 WALLPAPER 文件夹，返回保存后的路径。
@@ -258,6 +300,31 @@ class WallpaperSettingsController extends GetxController {
     } catch (_) {}
   }
 
+  /// 跨设备恢复时，PPT 图片路径列表中的绝对路径可能指向旧设备。
+  /// 对每个不存在的路径，尝试在 WALLPAPER 目录中按文件名匹配修复；
+  /// 仍找不到则从列表中移除。
+  Future<void> _fixPptPathsIfNeeded() async {
+    try {
+      final wallpaperDir = await AppPathManager().getDir(AppPathManager.dirWallpaper);
+      final fixed = <String>[];
+      for (final path in pptImagePaths.toList()) {
+        if (File(path).existsSync()) {
+          fixed.add(path);
+          continue;
+        }
+        final fileName = p.basename(path);
+        final candidate = File(p.join(wallpaperDir.path, fileName));
+        if (candidate.existsSync()) {
+          fixed.add(candidate.path);
+        }
+      }
+      pptImagePaths.assignAll(fixed);
+      if (pptImagePaths.length < 2 && isSlideshow) {
+        clearWallpaper();
+      }
+    } catch (_) {}
+  }
+
   // ===== 序列化（对齐 ThemeSettingsController 模式）=====
   Map<String, dynamic> toJson() {
     return {
@@ -270,11 +337,16 @@ class WallpaperSettingsController extends GetxController {
       'videoLoop': videoLoop.v,
       'pauseVideoWhenLivePlaying': pauseVideoWhenLivePlaying.v,
       'itabCategory': itabCategory.v,
+      'pptImagePaths': pptImagePaths.toList(),
+      'pptInterval': pptInterval.v,
+      'pptMode': pptMode.v,
     };
   }
 
   /// 解析完整段，不通知观察者也不持久化值。
   static Map<String, dynamic> parseConfig(Map<String, dynamic> json) {
+    final rawPptPaths = json['pptImagePaths'];
+    final pptImagePaths = rawPptPaths is List ? rawPptPaths.map((e) => e.toString()).toList() : <String>[];
     return {
       'wallpaperType': _normalizeType((json['wallpaperType'] ?? WallpaperType.none.name) as String),
       'wallpaperSource': (json['wallpaperSource'] ?? '') as String,
@@ -285,6 +357,9 @@ class WallpaperSettingsController extends GetxController {
       'videoLoop': (json['videoLoop'] ?? true) as bool,
       'pauseVideoWhenLivePlaying': (json['pauseVideoWhenLivePlaying'] ?? true) as bool,
       'itabCategory': (json['itabCategory'] ?? 'anime') as String,
+      'pptImagePaths': pptImagePaths,
+      'pptInterval': (json['pptInterval'] ?? 5) as int,
+      'pptMode': (json['pptMode'] ?? PptMode.sequential.name) as String,
     };
   }
 
@@ -299,11 +374,17 @@ class WallpaperSettingsController extends GetxController {
     videoLoop.v = parsed['videoLoop'];
     pauseVideoWhenLivePlaying.v = parsed['pauseVideoWhenLivePlaying'];
     itabCategory.v = parsed['itabCategory'];
+    pptImagePaths.assignAll(parsed['pptImagePaths'] as List<String>);
+    pptInterval.v = parsed['pptInterval'] as int;
+    pptMode.v = parsed['pptMode'] as String;
 
     // 兼容旧备份：若导入的是在线壁纸 URL，异步下载到本地并转为本地类型
     final type = wallpaperType;
     if (type.isOnline && wallpaperSource.v.isNotEmpty) {
       _downloadOnlineWallpaperToLocal(type, wallpaperSource.v);
+    } else if (type == WallpaperType.slideshow) {
+      // PPT 模式跨设备恢复时修正路径列表
+      _fixPptPathsIfNeeded();
     } else {
       // 本地壁纸跨设备恢复时修正路径
       _fixWallpaperPathIfNeeded();
@@ -336,6 +417,9 @@ class WallpaperSettingsController extends GetxController {
       'videoLoop': parsed['videoLoop'],
       'pauseVideoWhenLivePlaying': parsed['pauseVideoWhenLivePlaying'],
       'itabCategory': parsed['itabCategory'],
+      'pptImagePaths': parsed['pptImagePaths'],
+      'pptInterval': parsed['pptInterval'],
+      'pptMode': parsed['pptMode'],
     };
   }
 
@@ -351,6 +435,8 @@ class WallpaperSettingsController extends GetxController {
   /// 下载到本地的文件通过文件名匹配，因为应用时用的是本地副本而非原始 URL。
   bool usesWallpaper(CatalogWallpaperItem item) {
     if (wallpaperType == WallpaperType.none) return false;
+    // 幻灯片模式没有单一当前壁纸
+    if (wallpaperType == WallpaperType.slideshow) return false;
     final source = wallpaperSource.v;
     if (source.isEmpty) return false;
 

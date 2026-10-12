@@ -32,6 +32,14 @@ class WallpaperVideoController extends ServerAllPageController<VideoWallpaperIte
 
   @override
   Future<List<VideoWallpaperItem>> fetchAllServerData() async {
-    return ItabWallpaperClient.instance.fetchVideoList(page: 1, size: 1000);
+    final sw = Stopwatch()..start();
+    final items = await ItabWallpaperClient.instance.fetchVideoList(page: 1, size: 1000);
+    // 确保加载至少持续 600ms，避免网络过快时 ClassicHeader 刷新动画一闪而过，
+    // 与纯色页等静态数据页的刷新体验保持一致。
+    final elapsed = sw.elapsedMilliseconds;
+    if (elapsed < 600) {
+      await Future<void>.delayed(Duration(milliseconds: 600 - elapsed));
+    }
+    return items;
   }
 }

@@ -149,6 +149,12 @@ class WallpaperSettingsPage extends StatelessWidget {
               subtitle: '应用过的壁纸（图片与视频）',
               onTap: () => SettingsNavigator.open(SettingsCrumbs.wallpaperHistory),
             ),
+            context.buildTile(
+              icon: Remix.slideshow_line,
+              title: 'PPT 壁纸',
+              subtitle: '多张图片自动切换轮播',
+              onTap: () => SettingsNavigator.open(SettingsCrumbs.wallpaperPpt),
+            ),
           ]),
 
           const SizedBox(height: 20),

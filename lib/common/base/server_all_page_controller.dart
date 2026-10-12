@@ -20,6 +20,9 @@ abstract class ServerAllPageController<T> extends BasePageScrollAndStateBone<T> 
   /// different catalogue without fetching again or replacing the load cache.
   int get localItemCount => _rawAllData?.length ?? 0;
 
+  /// 全量数据（未分页），用于需要完整列表的场景（如 PPT 选择）。
+  List<T> get allData => _rawAllData ?? <T>[];
+
   @override
   Future<void> refreshData() async {
     if (isClosed) return;

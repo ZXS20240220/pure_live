@@ -24,6 +24,9 @@ enum WallpaperType {
 
   /// 纯色/渐变
   color,
+
+  /// 幻灯片（多张图片自动切换）
+  slideshow,
 }
 
 extension WallpaperTypeX on WallpaperType {
@@ -42,6 +45,22 @@ extension WallpaperTypeX on WallpaperType {
 
   /// 是否为纯色/渐变
   bool get isColor => this == WallpaperType.color;
+
+  /// 是否为幻灯片模式
+  bool get isSlideshow => this == WallpaperType.slideshow;
+}
+
+/// PPT 切换规则
+enum PptMode {
+  /// 顺序播放
+  sequential,
+
+  /// 随机播放
+  random,
+}
+
+extension PptModeX on PptMode {
+  String get label => this == PptMode.sequential ? '顺序' : '随机';
 }
 
 /// 渐变方向
