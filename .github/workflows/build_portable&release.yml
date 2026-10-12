@@ -47,7 +47,7 @@ jobs:
     name: Analyze & test
     if: ${{ inputs.run_quality }}
     needs: []
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v7
@@ -60,10 +60,7 @@ jobs:
       - name: Resolve packages
         run: flutter pub get
       - name: Generate production AppConfig
-        run: |
-          dart run enven \
-            --env-files .env,.env.prod \
-            --class-name AppConfig
+        run: dart run enven --env-files .env,.env.prod --class-name AppConfig
       - name: Analyze
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
       - name: Test
