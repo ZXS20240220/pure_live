@@ -26,6 +26,11 @@ class _WallpaperPptPageState extends State<WallpaperPptPage> {
   late final WallpaperSettingsController settingsController;
   final TextEditingController _intervalController = TextEditingController();
   SavedWallpaperItem? _previewItem;
+  int? _lastClickedIndex;
+
+  static bool get _isShiftPressed =>
+      HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.shiftLeft) ||
+      HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.shiftRight);
 
   @override
   void initState() {
@@ -167,6 +172,33 @@ class _WallpaperPptPageState extends State<WallpaperPptPage> {
                   ],
                 ),
                 const Spacer(),
+                Obx(() {
+                  final visible = controller.list;
+                  final allVisibleSelected =
+                      visible.isNotEmpty &&
+                      visible.every((item) => settingsController.pptImagePaths.contains(item.path));
+                  return Tooltip(
+                    message: allVisibleSelected ? '取消全选' : '全选当前页',
+                    child: IconButton(
+                      icon: Icon(allVisibleSelected ? Remix.checkbox_circle_line : Remix.checkbox_blank_circle_line),
+                      onPressed: visible.isEmpty
+                          ? null
+                          : () {
+                              if (allVisibleSelected) {
+                                settingsController.pptImagePaths.clear();
+                              } else {
+                                for (final item in visible) {
+                                  if (!settingsController.pptImagePaths.contains(item.path)) {
+                                    settingsController.pptImagePaths.add(item.path);
+                                  }
+                                }
+                              }
+                              _lastClickedIndex = null;
+                            },
+                    ),
+                  );
+                }),
+                const SizedBox(width: 4),
                 FilledButton.icon(
                   onPressed: _apply,
                   icon: const Icon(Remix.check_line, size: 18),
@@ -181,6 +213,20 @@ class _WallpaperPptPageState extends State<WallpaperPptPage> {
         ),
       ]),
     );
+  }
+
+  void _onTileTap(int index, SavedWallpaperItem item, List<SavedWallpaperItem> list) {
+    if (_isShiftPressed && _lastClickedIndex != null) {
+      final start = math.min(_lastClickedIndex!, index);
+      final end = math.max(_lastClickedIndex!, index);
+      for (var i = start; i <= end; i++) {
+        settingsController.togglePptImage(list[i].path, true);
+      }
+    } else {
+      final selected = settingsController.pptImagePaths.contains(item.path);
+      settingsController.togglePptImage(item.path, !selected);
+      _lastClickedIndex = index;
+    }
   }
 
   Widget _buildGrid(List<SavedWallpaperItem> displayList, ScrollController scrollController, ScrollPhysics? physics) {
@@ -221,7 +267,7 @@ class _WallpaperPptPageState extends State<WallpaperPptPage> {
                 return _PptImageTile(
                   item: item,
                   selected: selected,
-                  onToggle: (v) => settingsController.togglePptImage(item.path, v),
+                  onTap: () => _onTileTap(index, item, displayList),
                   onPreview: () => setState(() => _previewItem = item),
                 );
               });
@@ -234,11 +280,11 @@ class _WallpaperPptPageState extends State<WallpaperPptPage> {
 }
 
 class _PptImageTile extends StatelessWidget {
-  const _PptImageTile({required this.item, required this.selected, required this.onToggle, required this.onPreview});
+  const _PptImageTile({required this.item, required this.selected, required this.onTap, required this.onPreview});
 
   final SavedWallpaperItem item;
   final bool selected;
-  final ValueChanged<bool> onToggle;
+  final VoidCallback onTap;
   final VoidCallback onPreview;
 
   @override
@@ -250,7 +296,7 @@ class _PptImageTile extends StatelessWidget {
       borderRadius: radius,
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => onToggle(!selected),
+        onTap: onTap,
         onSecondaryTap: onPreview,
         child: Stack(
           fit: StackFit.expand,
