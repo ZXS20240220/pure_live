@@ -210,7 +210,7 @@ class _AboutPageState extends State<AboutPage> {
   }
 
   void openLicensePage() {
-    final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+    final wallpaperActive = SettingsService.hasWallpaper;
     Navigator.of(Get.context!, rootNavigator: true).push(
       MaterialPageRoute(
         builder: (context) {

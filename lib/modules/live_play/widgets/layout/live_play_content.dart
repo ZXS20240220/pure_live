@@ -81,7 +81,7 @@ class _LivePlayNormalLayoutState extends State<LivePlayNormalLayout> {
               Expanded(
                 key: const ValueKey('live-play-portrait-danmaku'),
                 child: Obx(() {
-                  final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+                  final wallpaperActive = SettingsService.hasWallpaper;
                   final surface = Theme.of(context).colorScheme.surface;
                   return ColoredBox(
                     color: wallpaperActive ? surface.withValues(alpha: 0.8) : surface,
@@ -116,7 +116,7 @@ class _LivePlayNormalLayoutState extends State<LivePlayNormalLayout> {
                   key: const ValueKey('live-play-desktop-panel'),
                   width: panelWidth,
                   child: Obx(() {
-                    final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+                    final wallpaperActive = SettingsService.hasWallpaper;
                     return ColoredBox(
                       color: wallpaperActive ? surface.withValues(alpha: 0.8) : surface,
                       child: Column(

@@ -67,7 +67,7 @@ class FavoritePage extends GetView<FavoriteController> {
                   bottom: 4,
                   child: Obx(() {
                     final count = controller.getFilteredRooms().length;
-                    final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+                    final wallpaperActive = SettingsService.hasWallpaper;
                     final cardBg = Theme.of(context).colorScheme.surfaceContainerHighest;
                     return Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -1024,7 +1024,7 @@ class _FavoriteTagStripState extends State<FavoriteTagStrip> {
       final showUntagged = untaggedCount > 0;
       if (visibleTags.isEmpty && !showUntagged) return const SizedBox.shrink();
       final itemCount = visibleTags.length + 1 + (showUntagged ? 1 : 0);
-      final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+      final wallpaperActive = SettingsService.hasWallpaper;
       final strip = SizedBox(
         key: const ValueKey('favorite_tag_strip'),
         height: 44,

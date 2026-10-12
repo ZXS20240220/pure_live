@@ -129,7 +129,7 @@ class _DesktopPaginationBarState extends State<DesktopPaginationBar> {
             child: ConstrainedBox(
               constraints: BoxConstraints(minWidth: constraints.maxWidth),
               child: Obx(() {
-                final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+                final wallpaperActive = SettingsService.hasWallpaper;
                 return Container(
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   decoration: BoxDecoration(

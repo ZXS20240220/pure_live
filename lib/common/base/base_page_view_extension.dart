@@ -62,7 +62,7 @@ extension BasePageViewContentExtension<C extends BasePageScrollAndStateBone<T>, 
 
   Widget buildFloatingButtons(BuildContext context) {
     return Obx(() {
-      final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+      final wallpaperActive = SettingsService.hasWallpaper;
       final btnBg = Theme.of(context).cardColor;
       final effectiveBg = wallpaperActive ? btnBg.withValues(alpha: 0.7) : btnBg;
       return Column(

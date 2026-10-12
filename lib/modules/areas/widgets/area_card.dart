@@ -67,7 +67,7 @@ class _AreaCardState extends State<AreaCard> {
     final rawTypeName = widget.category.typeName?.trim() ?? '';
     final displayTypeName = rawTypeName.isEmpty ? i18n('no_data') : rawTypeName;
 
-    final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+    final wallpaperActive = SettingsService.hasWallpaper;
     final cardBg = Theme.of(context).colorScheme.surface;
 
     return Card(

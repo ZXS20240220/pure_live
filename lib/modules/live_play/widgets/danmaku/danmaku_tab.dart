@@ -16,7 +16,7 @@ class DanmakuTabView extends GetView<LivePlayController> {
   Widget build(BuildContext context) {
     return Obx(() {
       final state = controller.state.value;
-      final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+      final wallpaperActive = SettingsService.hasWallpaper;
       final surface = Theme.of(context).colorScheme.surface;
       if (state.room.detail == null) {
         return const AppStatusView(type: AppStatusType.loading, title: '', subtitle: '');
@@ -76,7 +76,7 @@ class DanmakuSectionTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+      final wallpaperActive = SettingsService.hasWallpaper;
       final surface = Theme.of(context).colorScheme.surface;
       return Container(
         color: wallpaperActive ? Colors.transparent : surface,

@@ -75,7 +75,7 @@ class RecorderStatusSelector extends StatelessWidget {
           rows.add(Row(children: children));
         }
         return Obx(() {
-          final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+          final wallpaperActive = SettingsService.hasWallpaper;
           final surfaceBg = theme.colorScheme.surface;
           return ColoredBox(
             color: wallpaperActive ? surfaceBg.withValues(alpha: 0.6) : surfaceBg,

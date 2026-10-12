@@ -929,7 +929,7 @@ class RoomCard extends StatelessWidget {
 
       final showPinBadge = config.showPinBadge && isPinned && !isDormant;
       final effectiveShowDelete = showDelete || isDormant;
-      final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+      final wallpaperActive = SettingsService.hasWallpaper;
       final cardColor = colorScheme.surface;
       return Card(
         key: const ValueKey('room-card-surface'),

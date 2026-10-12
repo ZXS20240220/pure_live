@@ -69,7 +69,7 @@ class _LocalConfigPreviewPageState extends State<LocalConfigPreviewPage> {
       );
     }
 
-    final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+    final wallpaperActive = SettingsService.hasWallpaper;
     final backupVersion = _configData['backupVersion'] ?? 0;
     final moduleCount = BackupController.countConfigSections(_configData);
 

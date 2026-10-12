@@ -57,7 +57,7 @@ class AreasPage extends GetView<AreasController> {
             floatingActionButton: Padding(
               padding: EdgeInsets.only(bottom: Get.width > 680 ? 24 : 0, right: 0),
               child: Obx(() {
-                final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+                final wallpaperActive = SettingsService.hasWallpaper;
                 final btnBg = Theme.of(context).colorScheme.surface;
                 return Container(
                   decoration: BoxDecoration(

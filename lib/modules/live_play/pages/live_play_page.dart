@@ -40,7 +40,7 @@ class LivePlayPage extends GetView<LivePlayController> {
       final page = VideoKeyboardShortcuts(
         controller: videoController,
         child: Obx(() {
-          final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+          final wallpaperActive = SettingsService.hasWallpaper;
           return Container(
             color: wallpaperActive ? Colors.transparent : Colors.black,
             width: double.infinity,

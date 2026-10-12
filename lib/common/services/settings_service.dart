@@ -28,6 +28,15 @@ import 'package:pure_live/modules/wallpaper/controllers/wallpaper_settings_contr
 class SettingsService extends GetxService {
   static SettingsService get to => Get.find<SettingsService>();
 
+  static final RxBool _wallpaperState = false.obs;
+
+  static bool get hasWallpaper {
+    _wallpaperState.value;
+    if (!Get.isRegistered<SettingsService>()) return false;
+    if (!Get.isRegistered<WallpaperSettingsController>()) return false;
+    return Get.find<WallpaperSettingsController>().hasWallpaper;
+  }
+
   AppSettingsController get app => Get.find<AppSettingsController>();
   ExitSettingsController get exit => Get.find<ExitSettingsController>();
   StartupController get startup => Get.find<StartupController>();

@@ -73,7 +73,7 @@ class RoomCardCompact extends StatelessWidget {
       // 右下角平台徽章：开关 + 暂弃房间也显示（方便识别）
       final showPlatform = config.showPlatformBadge;
 
-      final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+      final wallpaperActive = SettingsService.hasWallpaper;
       final cardBg = colors.surfaceContainerLow;
 
       return Material(

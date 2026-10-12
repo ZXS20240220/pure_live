@@ -137,7 +137,7 @@ class _MyAppState extends State<MyApp> with DesktopWindowMixin {
       }
 
       final brightness = Theme.of(context).brightness;
-      final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+      final wallpaperActive = SettingsService.hasWallpaper;
       final scaffoldBg = wallpaperActive ? Colors.transparent : null;
 
       ThemeData themeToApply;
@@ -174,8 +174,7 @@ class _MyAppState extends State<MyApp> with DesktopWindowMixin {
           final themeColor = SettingsService.to.theme.themeColor;
           final showSplashPage = SettingsService.to.app.showSplashPage.v;
           final currentFactor = SettingsService.to.font.textScaleFactor.v;
-          final wallpaper = SettingsService.to.wallpaper;
-          final wallpaperActive = wallpaper.hasWallpaper;
+          final wallpaperActive = SettingsService.hasWallpaper;
 
           ThemeData lightTheme;
           ThemeData darkTheme;
@@ -237,7 +236,7 @@ class _MyAppState extends State<MyApp> with DesktopWindowMixin {
                     );
                   }
 
-                  final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+                  final wallpaperActive = SettingsService.hasWallpaper;
                   final baseTheme = Theme.of(context);
                   final restoredScaffoldBg = baseTheme.colorScheme.surface;
                   final effectiveTheme = wallpaperActive

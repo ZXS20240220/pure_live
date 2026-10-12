@@ -325,7 +325,7 @@ class DanmakuListViewState extends State<DanmakuListView> {
         final edgeToEdge = useEdgeToEdgeDanmakuList(constraints.maxWidth);
         final radius = edgeToEdge ? BorderRadius.zero : BorderRadius.circular(10);
         return Obx(() {
-          final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+          final wallpaperActive = SettingsService.hasWallpaper;
           final surfaceColor = theme.colorScheme.surface;
           return Container(
             key: const ValueKey('danmaku-list-surface'),
