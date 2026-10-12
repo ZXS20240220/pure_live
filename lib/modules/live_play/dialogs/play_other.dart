@@ -9,6 +9,7 @@ import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/plugins/event_bus.dart';
 import 'package:pure_live/plugins/cache_manager.dart';
 import 'package:pure_live/common/widgets/common_avatar.dart';
+import 'package:pure_live/plugins/global.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:pure_live/modules/live_play/controllers/live_play_controller.dart';
 import 'package:pure_live/modules/live_play/pip/mini_pip_widgets.dart';
@@ -291,10 +292,14 @@ class _PlayOtherPanelState extends State<PlayOtherPanel> with SingleTickerProvid
   }
 
   Future<void> _refreshHistory() async {
+    refreshing.value = true;
     final history = SettingsService.to.history;
     final list = applyHistoryLimit(history.historyRooms.v, history.historyLimit.v);
     final result = await history.refreshRoomDetails(list, shouldCancel: () => !mounted);
-    if (!mounted || result == null) return;
+    if (!mounted || result == null) {
+      refreshing.value = false;
+      return;
+    }
     // 基础版差异：开发版此处直接 historyRooms.v = result.rooms，会在刷新期间
     // 复活被用户清空的条目；沿用基础版 6.3 的快照安全合并（identity 映射替换）。
     history.applyRefreshedRooms(list, result.rooms);
@@ -305,6 +310,7 @@ class _PlayOtherPanelState extends State<PlayOtherPanel> with SingleTickerProvid
     } else {
       _historyRefreshController.finishRefresh(IndicatorResult.fail);
     }
+    refreshing.value = false;
   }
 
   @override
@@ -512,7 +518,10 @@ class _PlayOtherPanelState extends State<PlayOtherPanel> with SingleTickerProvid
     final onRefresh = history ? _refreshHistory : _refreshOnline;
     // 在外层 Obx 构建期读取布局模式：点击头部按钮时整个网格自动重建。
     final isCompact = PanelSizeController.to.isRoomSwitchCompact;
+    final indicators = appRefreshIndicators(context);
     return EasyRefresh(
+      header: indicators.header,
+      footer: indicators.footer,
       controller: refreshController,
       onRefresh: onRefresh,
       onLoad: () => refreshController.finishLoad(IndicatorResult.noMore),

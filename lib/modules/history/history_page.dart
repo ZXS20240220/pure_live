@@ -16,6 +16,7 @@ class _HistoryPageState extends State<HistoryPage> {
   final refreshController = EasyRefreshController(controlFinishRefresh: true, controlFinishLoad: true);
   Future<void>? _refreshTask;
   bool _historyMutationBusy = false;
+  bool _refreshing = false;
 
   @override
   void dispose() {
@@ -29,10 +30,15 @@ class _HistoryPageState extends State<HistoryPage> {
     final history = SettingsService.to.history;
     // 6.3 统一刷新核心：先按历史条数上限截断，再走 refreshRoomDetails 分平台并发刷新。
     // loadRoom 为测试注入点；合并走 applyRefreshedRooms（快照安全：保留刷新期间的新增/删除/上限调整）。
+    setState(() => _refreshing = true);
     final list = applyHistoryLimit(history.historyRooms.v, history.historyLimit.v);
     final result = await history.refreshRoomDetails(list, shouldCancel: () => !mounted, fetch: widget.loadRoom);
-    if (!mounted || history.isClosed || result == null) return;
+    if (!mounted || history.isClosed || result == null) {
+      if (mounted) setState(() => _refreshing = false);
+      return;
+    }
     history.applyRefreshedRooms(list, result.rooms);
+    if (mounted) setState(() => _refreshing = false);
     if (result.allSuccess) {
       refreshController.finishRefresh(IndicatorResult.success);
       refreshController.resetFooter();
@@ -165,42 +171,59 @@ class _HistoryPageState extends State<HistoryPage> {
             })
             .where((room) => room.isLiveNow)
             .toList();
-        return LayoutBuilder(
-          builder: (context, constraint) {
-            final width = constraint.maxWidth;
-            int crossAxisCount = width > 1280 ? 4 : (width > 960 ? 3 : (width > 640 ? 2 : 1));
-            if (dense) crossAxisCount = width > 1280 ? 5 : (width > 960 ? 4 : (width > 640 ? 3 : 2));
-            final indicators = appRefreshIndicators(context, maxWidth: width);
-            return EasyRefresh(
-              header: indicators.header,
-              footer: indicators.footer,
-              controller: refreshController,
-              onRefresh: onRefresh,
-              onLoad: () => refreshController.finishLoad(IndicatorResult.noMore),
-              child: rooms.isEmpty
-                  ? EmptyView(icon: Icons.history_rounded, title: i18n("empty_history"), subtitle: '')
-                  : WaterfallFlow.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-                      gridDelegate: SliverWaterfallFlowDelegateWithFixedCrossAxisCount(
-                        lastChildLayoutTypeBuilder: (index) => LastChildLayoutType.none,
-                        crossAxisCount: crossAxisCount,
-                        crossAxisSpacing: SettingsService.to.theme.crossAxisSpacing.v,
-                        mainAxisSpacing: SettingsService.to.theme.mainAxisSpacing.v,
-                      ),
-                      itemCount: rooms.length,
-                      itemBuilder: (context, index) => RoomCard(
-                        room: rooms[index],
-                        dense: dense,
-                        showDelete: true,
-                        deleteTooltip: i18n(
-                          'remove_history_entry_named',
-                          args: {'title': _historyRoomLabel(rooms[index])},
+        return Stack(
+          children: [
+            LayoutBuilder(
+              builder: (context, constraint) {
+                final width = constraint.maxWidth;
+                int crossAxisCount = width > 1280 ? 4 : (width > 960 ? 3 : (width > 640 ? 2 : 1));
+                if (dense) crossAxisCount = width > 1280 ? 5 : (width > 960 ? 4 : (width > 640 ? 3 : 2));
+                final indicators = appRefreshIndicators(context, maxWidth: width);
+                return EasyRefresh(
+                  header: indicators.header,
+                  footer: indicators.footer,
+                  controller: refreshController,
+                  onRefresh: onRefresh,
+                  onLoad: () => refreshController.finishLoad(IndicatorResult.noMore),
+                  child: rooms.isEmpty
+                      ? EmptyView(icon: Icons.history_rounded, title: i18n("empty_history"), subtitle: '')
+                      : WaterfallFlow.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                          gridDelegate: SliverWaterfallFlowDelegateWithFixedCrossAxisCount(
+                            lastChildLayoutTypeBuilder: (index) => LastChildLayoutType.none,
+                            crossAxisCount: crossAxisCount,
+                            crossAxisSpacing: SettingsService.to.theme.crossAxisSpacing.v,
+                            mainAxisSpacing: SettingsService.to.theme.mainAxisSpacing.v,
+                          ),
+                          itemCount: rooms.length,
+                          itemBuilder: (context, index) => RoomCard(
+                            room: rooms[index],
+                            dense: dense,
+                            showDelete: true,
+                            deleteTooltip: i18n(
+                              'remove_history_entry_named',
+                              args: {'title': _historyRoomLabel(rooms[index])},
+                            ),
+                            onDelete: _historyMutationBusy ? null : () => _deleteHistoryRoom(rooms[index]),
+                          ),
                         ),
-                        onDelete: _historyMutationBusy ? null : () => _deleteHistoryRoom(rooms[index]),
-                      ),
-                    ),
-            );
-          },
+                );
+              },
+            ),
+            if (_refreshing)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: SizedBox(
+                  height: 2.5,
+                  child: LinearProgressIndicator(
+                    backgroundColor: Colors.transparent,
+                    valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
+                  ),
+                ),
+              ),
+          ],
         );
       }),
     );
