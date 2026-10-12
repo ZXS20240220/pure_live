@@ -925,12 +925,14 @@ class RoomCard extends StatelessWidget {
 
       final showPinBadge = config.showPinBadge && isPinned && !isDormant;
       final effectiveShowDelete = showDelete || isDormant;
+      final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+      final cardColor = isDark ? Colors.grey[900]! : Colors.white;
       return Card(
         key: const ValueKey('room-card-surface'),
         margin: EdgeInsets.zero,
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius)),
-        color: isDark ? Colors.grey[900] : Colors.white,
+        color: wallpaperActive ? cardColor.withValues(alpha: 0.75) : cardColor,
         child: InkWell(
           borderRadius: BorderRadius.circular(radius),
           // 暂弃房间左键由 onTapOverride 决定（刷新状态），右键仍可触发弹窗

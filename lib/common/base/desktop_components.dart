@@ -209,6 +209,10 @@ class _DesktopPaginationBarState extends State<DesktopPaginationBar> {
                                   style: AppTextStyles.t13.copyWith(height: 1.2),
                                   decoration: InputDecoration(
                                     contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 4),
+                                    filled: true,
+                                    fillColor: wallpaperActive
+                                        ? Theme.of(context).colorScheme.surfaceContainerLow.withValues(alpha: 0.6)
+                                        : null,
                                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
                                   ),
                                   onSubmitted: (_) => _executeJump(context, maxPage, total != null),

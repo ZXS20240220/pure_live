@@ -73,6 +73,9 @@ class RoomCardCompact extends StatelessWidget {
       // 右下角平台徽章：开关 + 暂弃房间也显示（方便识别）
       final showPlatform = config.showPlatformBadge;
 
+      final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+      final cardBg = colors.surfaceContainerLow;
+
       return Material(
         color: Colors.transparent,
         child: InkWell(
@@ -82,7 +85,7 @@ class RoomCardCompact extends StatelessWidget {
           borderRadius: BorderRadius.circular(radius),
           child: Ink(
             decoration: BoxDecoration(
-              color: colors.surfaceContainerLow,
+              color: wallpaperActive ? cardBg.withValues(alpha: 0.72) : cardBg,
               borderRadius: BorderRadius.circular(radius),
               border: Border.all(color: colors.outlineVariant.withValues(alpha: .55)),
             ),

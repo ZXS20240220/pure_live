@@ -1,5 +1,4 @@
-import 'package:flutter/material.dart';
-import 'package:pure_live/common/widgets/pure_live_scroll_physics.dart';
+import 'package:pure_live/common/index.dart';
 
 /// A fixed, adaptive status selector.
 ///
@@ -75,13 +74,17 @@ class RecorderStatusSelector extends StatelessWidget {
           }
           rows.add(Row(children: children));
         }
-        return ColoredBox(
-          color: theme.colorScheme.surface,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
-            child: Column(mainAxisSize: MainAxisSize.min, children: rows),
-          ),
-        );
+        return Obx(() {
+          final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+          final surfaceBg = theme.colorScheme.surface;
+          return ColoredBox(
+            color: wallpaperActive ? surfaceBg.withValues(alpha: 0.6) : surfaceBg,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
+              child: Column(mainAxisSize: MainAxisSize.min, children: rows),
+            ),
+          );
+        });
       },
     );
   }

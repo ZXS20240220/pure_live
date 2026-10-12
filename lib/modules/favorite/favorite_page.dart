@@ -67,10 +67,12 @@ class FavoritePage extends GetView<FavoriteController> {
                   bottom: 4,
                   child: Obx(() {
                     final count = controller.getFilteredRooms().length;
+                    final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+                    final cardBg = Theme.of(context).colorScheme.surfaceContainerHighest;
                     return Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                        color: wallpaperActive ? cardBg.withValues(alpha: 0.7) : cardBg,
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(color: Theme.of(context).dividerColor.withValues(alpha: 0.2)),
                         boxShadow: [
@@ -1022,7 +1024,8 @@ class _FavoriteTagStripState extends State<FavoriteTagStrip> {
       final showUntagged = untaggedCount > 0;
       if (visibleTags.isEmpty && !showUntagged) return const SizedBox.shrink();
       final itemCount = visibleTags.length + 1 + (showUntagged ? 1 : 0);
-      return SizedBox(
+      final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+      final strip = SizedBox(
         key: const ValueKey('favorite_tag_strip'),
         height: 44,
         width: double.infinity,
@@ -1069,6 +1072,18 @@ class _FavoriteTagStripState extends State<FavoriteTagStrip> {
                           : tag!.name;
                       final isSelected = activeIds.contains(tagId);
                       final colorScheme = theme.colorScheme;
+                      final untaggedBg = wallpaperActive
+                          ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
+                          : colorScheme.surfaceContainerHighest.withValues(alpha: 0.08);
+                      final normalBg = wallpaperActive
+                          ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.55)
+                          : colorScheme.surfaceContainerHighest.withValues(alpha: 0.15);
+                      final selectedTagBg = wallpaperActive
+                          ? colorScheme.primary.withValues(alpha: 0.7)
+                          : colorScheme.primary;
+                      final untaggedSelectedBg = wallpaperActive
+                          ? colorScheme.tertiary.withValues(alpha: 0.7)
+                          : colorScheme.tertiary;
                       return Padding(
                         key: itemKey,
                         padding: const EdgeInsets.only(right: 6),
@@ -1098,14 +1113,14 @@ class _FavoriteTagStripState extends State<FavoriteTagStrip> {
                                   ],
                                 ),
                                 selected: isSelected,
-                                selectedColor: colorScheme.tertiary,
-                                backgroundColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.08),
+                                selectedColor: untaggedSelectedBg,
+                                backgroundColor: untaggedBg,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),
                                   side: BorderSide(
                                     color: isSelected
                                         ? Colors.transparent
-                                        : colorScheme.outline.withValues(alpha: 0.35),
+                                        : colorScheme.outline.withValues(alpha: wallpaperActive ? 0.25 : 0.35),
                                     width: 0.8,
                                   ),
                                 ),
@@ -1122,12 +1137,14 @@ class _FavoriteTagStripState extends State<FavoriteTagStrip> {
                                   ),
                                 ),
                                 selected: isSelected,
-                                selectedColor: colorScheme.primary,
-                                backgroundColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.15),
+                                selectedColor: selectedTagBg,
+                                backgroundColor: normalBg,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),
                                   side: BorderSide(
-                                    color: isSelected ? Colors.transparent : theme.dividerColor.withValues(alpha: 0.04),
+                                    color: isSelected
+                                        ? Colors.transparent
+                                        : theme.dividerColor.withValues(alpha: wallpaperActive ? 0.12 : 0.04),
                                     width: 0.5,
                                   ),
                                 ),
@@ -1142,6 +1159,13 @@ class _FavoriteTagStripState extends State<FavoriteTagStrip> {
           ],
         ),
       );
+      if (wallpaperActive) {
+        return Theme(
+          data: theme.copyWith(canvasColor: Colors.transparent),
+          child: strip,
+        );
+      }
+      return strip;
     });
   }
 }

@@ -62,6 +62,9 @@ extension BasePageViewContentExtension<C extends BasePageScrollAndStateBone<T>, 
 
   Widget buildFloatingButtons(BuildContext context) {
     return Obx(() {
+      final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
+      final btnBg = Theme.of(context).cardColor;
+      final effectiveBg = wallpaperActive ? btnBg.withValues(alpha: 0.7) : btnBg;
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -74,7 +77,7 @@ extension BasePageViewContentExtension<C extends BasePageScrollAndStateBone<T>, 
                 heroTag: "base_page_view_to_top_${controller.hashCode}",
                 mini: true,
                 elevation: 3,
-                backgroundColor: Theme.of(context).cardColor,
+                backgroundColor: effectiveBg,
                 onPressed: controller.scrollToTopOrRefresh,
                 child: const Icon(Icons.arrow_upward_rounded),
               ),
@@ -87,7 +90,7 @@ extension BasePageViewContentExtension<C extends BasePageScrollAndStateBone<T>, 
               heroTag: "base_page_view_to_bottom_${controller.hashCode}",
               mini: true,
               elevation: 3,
-              backgroundColor: Theme.of(context).cardColor,
+              backgroundColor: effectiveBg,
               onPressed: controller.scrollToBottom,
               child: const Icon(Icons.arrow_downward_rounded),
             ),
