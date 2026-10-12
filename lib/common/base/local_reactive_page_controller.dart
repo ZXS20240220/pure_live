@@ -37,7 +37,10 @@ abstract class LocalReactivePageController<T> extends BasePageScrollAndStateBone
     _localRawPool.addAll(freshData);
     _hasPublishedSnapshot = true;
     if (_externalRefreshRunning) _publishedDuringRefresh = true;
-    currentPage = 1;
+    // 不强制回到第 1 页：后台数据更新（如进入直播间触发的收藏刷新、
+    // 自动刷新、观看时长重排）应保留用户当前浏览位置。_processDesktopSlicing
+    // 会在当前页超出新数据范围时自动夹取到最后一页。需要回到首页的筛选
+    // 切换由调用方显式设置 currentPage = 1。
     _processDataDistribution();
   }
 
@@ -83,6 +86,8 @@ abstract class LocalReactivePageController<T> extends BasePageScrollAndStateBone
   Future<void> _performExternalRefresh() async {
     _externalRefreshRunning = true;
     _publishedDuringRefresh = false;
+    // 外部刷新（热门页等）始终从第 1 页开始展示新拉取的数据。
+    currentPage = 1;
     try {
       loadding.value = true;
       pageEmpty.value = false;
@@ -93,7 +98,6 @@ abstract class LocalReactivePageController<T> extends BasePageScrollAndStateBone
       await onExternalRefresh?.call();
       if (isClosed) return;
       if (!_publishedDuringRefresh) {
-        currentPage = 1;
         _processDataDistribution();
       }
       finishRefreshControllers(canLoadMore.value ? IndicatorResult.success : IndicatorResult.noMore);

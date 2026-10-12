@@ -233,18 +233,21 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     _workers.add(
       ever(enablePinned, (value) {
         HivePrefUtil.setBool(pinnedPrefKey, value);
+        currentPage = 1;
         applyLocalFilter();
       }),
     );
     _workers.add(
       ever(onlineSortMode, (value) {
         HivePrefUtil.setString(sortModePrefKey, value.name);
+        currentPage = 1;
         applyLocalFilter();
       }),
     );
     _workers.add(
       ever(onlineSortAscending, (value) {
         HivePrefUtil.setBool(sortAscendingPrefKey, value);
+        currentPage = 1;
         applyLocalFilter();
       }),
     );
@@ -255,7 +258,10 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     );
     _workers.add(
       debounce(searchKeyword, (_) {
-        if (!_selectionTransaction) applyLocalFilter(resyncSource: false);
+        if (!_selectionTransaction) {
+          currentPage = 1;
+          applyLocalFilter(resyncSource: false);
+        }
       }, time: const Duration(milliseconds: 200)),
     );
 
