@@ -112,6 +112,7 @@ class MyTheme {
 
     return baseTheme.copyWith(
       splashFactory: NoSplash.splashFactory,
+      pageTransitionsTheme: appPageTransitionsTheme,
       appBarTheme: AppBarTheme(
         elevation: 0.0,
         scrolledUnderElevation: 0.0,

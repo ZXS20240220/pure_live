@@ -155,7 +155,10 @@ class _MyAppState extends State<MyApp> with DesktopWindowMixin {
       if (scaffoldBg != null) {
         themeToApply = themeToApply.copyWith(
           scaffoldBackgroundColor: scaffoldBg,
-          appBarTheme: AppBarTheme(surfaceTintColor: Colors.transparent, backgroundColor: scaffoldBg),
+          appBarTheme: themeToApply.appBarTheme.copyWith(
+            surfaceTintColor: Colors.transparent,
+            backgroundColor: scaffoldBg,
+          ),
         );
       }
 
@@ -205,12 +208,18 @@ class _MyAppState extends State<MyApp> with DesktopWindowMixin {
             themeMode: SettingsService.to.theme.themeMode,
             theme: lightTheme.copyWith(
               scaffoldBackgroundColor: scaffoldBg,
-              appBarTheme: AppBarTheme(surfaceTintColor: Colors.transparent, backgroundColor: scaffoldBg),
+              appBarTheme: lightTheme.appBarTheme.copyWith(
+                surfaceTintColor: Colors.transparent,
+                backgroundColor: scaffoldBg,
+              ),
               pageTransitionsTheme: appPageTransitionsTheme,
             ),
             darkTheme: darkTheme.copyWith(
               scaffoldBackgroundColor: scaffoldBg,
-              appBarTheme: AppBarTheme(surfaceTintColor: Colors.transparent, backgroundColor: scaffoldBg),
+              appBarTheme: darkTheme.appBarTheme.copyWith(
+                surfaceTintColor: Colors.transparent,
+                backgroundColor: scaffoldBg,
+              ),
               pageTransitionsTheme: appPageTransitionsTheme,
             ),
             locale: context.locale,

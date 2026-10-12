@@ -6,11 +6,12 @@ class SettingsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Material(
-      color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.withAlpha(50) : Colors.white70,
+      color: colorScheme.surfaceContainerLow,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Colors.grey.withAlpha(25)),
+        side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
       ),
       child: Container(
         decoration: BoxDecoration(borderRadius: BorderRadius.circular(8)),

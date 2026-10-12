@@ -48,11 +48,11 @@ class RoomCard extends StatelessWidget {
 
   /// 暂弃卡片正在单次刷新：遮罩中央以转圈动画暂时替代"已弃用"标识。
   final bool dormantRefreshing;
-  Widget _buildCover(BuildContext context, bool isDark) {
+  Widget _buildCover(BuildContext context) {
     final coverUrl = normalizeNetworkImageUrl(room.cover);
 
     if (coverUrl.isEmpty) {
-      return _coverFallback(context, isDark);
+      return _coverFallback(context);
     }
 
     // Keep a stable image element and an encoded disk entry. The previous
@@ -81,29 +81,31 @@ class RoomCard extends StatelessWidget {
             fadeInDuration: Duration.zero,
             fadeOutDuration: Duration.zero,
             useOldImageOnUrlChange: true,
-            placeholder: (context, _) => _coverPlaceholder(context, isDark),
-            errorWidget: (context, _, _) => _coverFallback(context, isDark),
+            placeholder: (context, _) => _coverPlaceholder(context),
+            errorWidget: (context, _, _) => _coverFallback(context),
           );
         },
       );
     });
   }
 
-  Widget _coverPlaceholder(BuildContext context, bool isDark) {
+  Widget _coverPlaceholder(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      color: isDark ? Colors.grey.shade900 : Colors.grey.shade100,
+      color: colorScheme.surfaceContainerHighest,
       child: Center(
         // Do not create one infinite AnimationController per loading card. A
         // page of failed/slow covers used to repaint the complete grid at the
         // monitor refresh rate and could saturate Android CPU during startup.
-        child: Icon(Icons.live_tv_rounded, size: 24, color: isDark ? Colors.white24 : Colors.black12),
+        child: Icon(Icons.live_tv_rounded, size: 24, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
       ),
     );
   }
 
-  Widget _coverFallback(BuildContext context, bool isDark) {
+  Widget _coverFallback(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      color: isDark ? Colors.grey.shade900 : Colors.grey.shade100,
+      color: colorScheme.surfaceContainerHighest,
       child: AppStatusView(type: AppStatusType.error, title: "", subtitle: "", isMini: true),
     );
   }
@@ -915,7 +917,9 @@ class RoomCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final colorScheme = theme.colorScheme;
 
     // GridView already inserts a RepaintBoundary around every child. Avoid a
     // second composited layer per card and keep the cover clip lightweight.
@@ -926,7 +930,7 @@ class RoomCard extends StatelessWidget {
       final showPinBadge = config.showPinBadge && isPinned && !isDormant;
       final effectiveShowDelete = showDelete || isDormant;
       final wallpaperActive = SettingsService.to.wallpaper.hasWallpaper;
-      final cardColor = isDark ? Colors.grey[900]! : Colors.white;
+      final cardColor = colorScheme.surface;
       return Card(
         key: const ValueKey('room-card-surface'),
         margin: EdgeInsets.zero,
@@ -948,10 +952,7 @@ class RoomCard extends StatelessWidget {
                     aspectRatio: 16 / 9,
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(radius),
-                      child: ColoredBox(
-                        color: isDark ? Colors.grey[850]! : Colors.grey.shade100,
-                        child: _buildCover(context, isDark),
-                      ),
+                      child: ColoredBox(color: colorScheme.surfaceContainerHighest, child: _buildCover(context)),
                     ),
                   ),
                   // 暂弃房间优先显示"已弃用"遮罩，覆盖未开播遮罩
@@ -1207,7 +1208,7 @@ class RoomCard extends StatelessWidget {
                   softWrap: false,
                   style: (dense ? AppTextStyles.t13 : AppTextStyles.t15).copyWith(
                     fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white : Colors.black87,
+                    color: colorScheme.onSurface,
                   ),
                 ),
                 subtitle: config.showAnchorName
@@ -1219,7 +1220,7 @@ class RoomCard extends StatelessWidget {
                         softWrap: false,
                         style: (dense ? AppTextStyles.t12 : AppTextStyles.t13).copyWith(
                           fontWeight: FontWeight.w500,
-                          color: isDark ? Colors.grey[400] : Colors.grey[700],
+                          color: colorScheme.onSurfaceVariant,
                         ),
                       )
                     : null,
