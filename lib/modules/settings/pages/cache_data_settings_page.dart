@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
+import 'package:pure_live/plugins/file_utils.dart';
 
 class CacheDataSettingsPage extends StatefulWidget {
   const CacheDataSettingsPage({super.key});
@@ -111,6 +112,7 @@ class _CacheDataSettingsPageState extends State<CacheDataSettingsPage> {
     final controller = SettingsService.to.app;
     final current = controller.screenshotDirectory.v;
     final selected = await FilePicker.getDirectoryPath(initialDirectory: current.isEmpty ? null : current);
+    FileUtils.cancelStalePointerEvents();
     if (selected == null) return;
     controller.screenshotDirectory.v = selected;
   }

@@ -2,6 +2,7 @@ import 'widgets/version_dialog.dart';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:pure_live/common/index.dart';
+import 'package:pure_live/plugins/file_utils.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:markdown_widget/config/configs.dart';
 import 'package:markdown_widget/widget/markdown_block.dart';
@@ -172,6 +173,7 @@ class _AboutPageState extends State<AboutPage> {
     final controller = SettingsService.to.app;
     final current = controller.downloadDirectory.v;
     final selected = await FilePicker.getDirectoryPath(initialDirectory: current.isEmpty ? null : current);
+    FileUtils.cancelStalePointerEvents();
     if (selected == null || selected.isEmpty) return;
     controller.downloadDirectory.v = selected;
   }

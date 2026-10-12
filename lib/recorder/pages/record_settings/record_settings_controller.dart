@@ -240,6 +240,7 @@ class RecordSettingsController extends GetxController {
     selectingRecordDirectory.value = true;
     try {
       final selected = (await _directoryPicker())?.trim() ?? '';
+      FileUtils.cancelStalePointerEvents();
       if (selected.isEmpty || isClosed) return;
       // Startup may still be persisting the default folder. Let that older
       // operation settle so this explicit choice is always committed last.

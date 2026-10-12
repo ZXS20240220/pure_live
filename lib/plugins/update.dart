@@ -41,6 +41,7 @@ Future<String?> _resolveDownloadDirectory() async {
   if (saved.isNotEmpty) return saved;
 
   final selected = await FilePicker.getDirectoryPath();
+  FileUtils.cancelStalePointerEvents();
   if (selected == null || selected.isEmpty) return null;
   app.downloadDirectory.v = selected;
   return selected;
