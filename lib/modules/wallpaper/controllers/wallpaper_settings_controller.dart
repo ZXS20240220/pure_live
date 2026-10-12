@@ -91,17 +91,20 @@ class WallpaperSettingsController extends GetxController {
     _syncWindowEffect();
   }
 
-  /// 应用 PPT 壁纸（使用当前选中的图片列表与设置）
+  /// 启用 PPT 壁纸（使用当前选中的图片列表与设置）
   ///
-  /// 返回 false 表示未满足条件（至少需 2 张图），未激活。
-  bool applyPpt() {
+  /// 不再限制最少图片数量：1 张时静态展示，≥2 张时轮播。
+  /// 若过滤失效文件后列表为空，则保持关闭状态。
+  void applyPpt() {
     final valid = pptImagePaths.where((p) => File(p).existsSync()).toList();
-    if (valid.length < 2) return false;
     pptImagePaths.assignAll(valid);
+    if (valid.isEmpty) {
+      clearWallpaper();
+      return;
+    }
     wallpaperType = WallpaperType.slideshow;
     wallpaperSource.v = 'slideshow';
     _syncWindowEffect();
-    return true;
   }
 
   /// 切换某张图片在 PPT 列表中的选中状态
@@ -113,12 +116,9 @@ class WallpaperSettingsController extends GetxController {
     }
   }
 
-  /// PPT 播放时移除失效路径（文件不存在），若有效图片不足 2 张则清除壁纸
+  /// PPT 播放时移除失效路径（文件不存在）
   void removeInvalidPptImage(String path) {
     pptImagePaths.remove(path);
-    if (pptImagePaths.length < 2 && isSlideshow) {
-      clearWallpaper();
-    }
   }
 
   /// 将壁纸文件保存到应用数据目录的 WALLPAPER 文件夹，返回保存后的路径。
@@ -319,9 +319,6 @@ class WallpaperSettingsController extends GetxController {
         }
       }
       pptImagePaths.assignAll(fixed);
-      if (pptImagePaths.length < 2 && isSlideshow) {
-        clearWallpaper();
-      }
     } catch (_) {}
   }
 

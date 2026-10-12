@@ -25,8 +25,12 @@ class _WallpaperPptPageState extends State<WallpaperPptPage> {
   late final PptWallpapersController controller;
   late final WallpaperSettingsController settingsController;
   final TextEditingController _intervalController = TextEditingController();
+  final FocusNode _intervalFocusNode = FocusNode();
   SavedWallpaperItem? _previewItem;
   int? _lastClickedIndex;
+  Worker? _pathsWorker;
+
+  static const int _defaultInterval = 5;
 
   static bool get _isShiftPressed =>
       HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.shiftLeft) ||
@@ -39,34 +43,46 @@ class _WallpaperPptPageState extends State<WallpaperPptPage> {
     settingsController = WallpaperSettingsController.to;
     controller.refreshData();
     _intervalController.text = settingsController.pptInterval.v.toString();
+    _intervalFocusNode.addListener(_onIntervalFocusChange);
+    // 启用状态下选中图片变为 0 张时，自动取消启用
+    _pathsWorker = ever(settingsController.pptImagePaths, (_) {
+      if (settingsController.isSlideshow && settingsController.pptImagePaths.isEmpty) {
+        settingsController.clearWallpaper();
+      }
+    });
   }
 
   @override
   void dispose() {
+    _pathsWorker?.dispose();
+    _intervalFocusNode.removeListener(_onIntervalFocusChange);
+    _intervalFocusNode.dispose();
     _intervalController.dispose();
     Get.delete<PptWallpapersController>();
     super.dispose();
   }
 
-  Future<void> _apply() async {
-    final interval = int.tryParse(_intervalController.text.trim());
-    if (interval == null || interval < 1 || interval > 3600) {
-      ToastUtil.show('切换时间需在 1~3600 秒之间');
-      return;
-    }
-    settingsController.pptInterval.v = interval;
-    final ok = settingsController.applyPpt();
-    if (!ok) {
-      ToastUtil.show('PPT 模式至少需要选择 2 张图片');
-      return;
-    }
-    ToastUtil.show('已应用 PPT 壁纸');
+  void _onIntervalFocusChange() {
+    if (!_intervalFocusNode.hasFocus) _validateInterval();
   }
 
-  void _onIntervalChanged(String value) {
-    final parsed = int.tryParse(value.trim());
-    if (parsed == null) return;
-    settingsController.pptInterval.v = parsed.clamp(1, 3600);
+  void _validateInterval() {
+    final parsed = int.tryParse(_intervalController.text.trim());
+    if (parsed == null || parsed < 1 || parsed > 3600) {
+      settingsController.pptInterval.v = _defaultInterval;
+      _intervalController.text = _defaultInterval.toString();
+    } else {
+      settingsController.pptInterval.v = parsed;
+      _intervalController.text = parsed.toString();
+    }
+  }
+
+  void _togglePpt(bool enabled) {
+    if (enabled) {
+      settingsController.applyPpt();
+    } else {
+      settingsController.clearWallpaper();
+    }
   }
 
   @override
@@ -128,6 +144,7 @@ class _WallpaperPptPageState extends State<WallpaperPptPage> {
                   width: 100,
                   child: TextField(
                     controller: _intervalController,
+                    focusNode: _intervalFocusNode,
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(4)],
                     decoration: InputDecoration(
@@ -137,8 +154,8 @@ class _WallpaperPptPageState extends State<WallpaperPptPage> {
                       suffixText: '秒',
                       helperText: '1~3600',
                     ),
-                    onChanged: _onIntervalChanged,
-                    onSubmitted: _onIntervalChanged,
+                    onEditingComplete: _validateInterval,
+                    onSubmitted: (_) => _validateInterval(),
                   ),
                 ),
                 const SizedBox(width: 20),
@@ -171,6 +188,19 @@ class _WallpaperPptPageState extends State<WallpaperPptPage> {
                     ),
                   ],
                 ),
+                const SizedBox(width: 4),
+                Tooltip(
+                  message: selectedCount == 0
+                      ? '请先选择至少 1 张图片'
+                      : (settingsController.isSlideshow ? '关闭 PPT 壁纸' : '启用 PPT 壁纸'),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Switch(value: settingsController.isSlideshow, onChanged: selectedCount == 0 ? null : _togglePpt),
+                      Text('启用', style: AppTextStyles.t13.copyWith(color: theme.hintColor)),
+                    ],
+                  ),
+                ),
                 const Spacer(),
                 Obx(() {
                   final visible = controller.list;
@@ -198,12 +228,6 @@ class _WallpaperPptPageState extends State<WallpaperPptPage> {
                     ),
                   );
                 }),
-                const SizedBox(width: 4),
-                FilledButton.icon(
-                  onPressed: _apply,
-                  icon: const Icon(Remix.check_line, size: 18),
-                  label: const Text('应用'),
-                ),
                 const SizedBox(width: 6),
                 // 选中数量
                 Text('已选 $selectedCount 张', style: AppTextStyles.t13.copyWith(color: theme.hintColor)),
