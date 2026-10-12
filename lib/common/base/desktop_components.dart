@@ -8,6 +8,7 @@ class DesktopPaginationBar extends StatefulWidget {
   final bool showGoto;
   final List<int> options;
   final Widget? leftWidget;
+  final Widget? rightWidget;
 
   const DesktopPaginationBar({
     super.key,
@@ -16,6 +17,7 @@ class DesktopPaginationBar extends StatefulWidget {
     required this.showGoto,
     required this.options,
     this.leftWidget,
+    this.rightWidget,
   });
 
   @override
@@ -225,6 +227,8 @@ class _DesktopPaginationBarState extends State<DesktopPaginationBar> {
                       ),
                       if (widget.leftWidget != null)
                         Positioned(left: 8, child: SizedBox(height: 32, child: widget.leftWidget!)),
+                      if (widget.rightWidget != null)
+                        Positioned(right: 8, child: SizedBox(height: 32, child: widget.rightWidget!)),
                     ],
                   ),
                 );

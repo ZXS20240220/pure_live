@@ -107,7 +107,7 @@ class _WallpaperItemsPageState extends State<WallpaperItemsPage> {
   Widget _buildGrid(List<CatalogWallpaperItem> displayList, ScrollController scrollController, ScrollPhysics? physics) {
     return LayoutBuilder(
       builder: (context, constraint) {
-        const crossAxisExtent = 220.0;
+        const crossAxisExtent = 260.0;
         const crossAxisSpacing = 10.0;
         const mainAxisSpacing = 10.0;
 
@@ -115,7 +115,7 @@ class _WallpaperItemsPageState extends State<WallpaperItemsPage> {
         final crossAxisCount = math.max(1, ((width - 12) / (crossAxisExtent + crossAxisSpacing)).ceil());
 
         final itemWidth = (width - 12 - crossAxisSpacing * (crossAxisCount - 1)) / crossAxisCount;
-        final mainAxisExtent = itemWidth / 1.62;
+        final mainAxisExtent = itemWidth * 9 / 16;
 
         final rowExtent = mainAxisExtent + mainAxisSpacing;
         final rows = ((constraint.maxHeight - 10 + mainAxisSpacing) / rowExtent).floor();

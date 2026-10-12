@@ -101,6 +101,11 @@ class _WallpaperHistoryPageState extends State<WallpaperHistoryPage> {
             customDesktopBottomPadding: 135,
             customMobileBottomPadding: 85,
             pageSizeOptions: SettingsService.to.page.pageSizeOptions,
+            rightPaginationWidget: Obx(() {
+              final total = controller.totalCount.value;
+              if (total == null) return const SizedBox.shrink();
+              return Center(child: Text('共 $total 张壁纸', style: AppTextStyles.t13Muted));
+            }),
             emptyBuilder: (context) =>
                 const EmptyView(icon: Remix.image_2_line, title: '暂无保存的壁纸', subtitle: '应用过的壁纸会显示在这里'),
             contentBuilder: (context, displayList, scrollController) {
@@ -123,7 +128,7 @@ class _WallpaperHistoryPageState extends State<WallpaperHistoryPage> {
   Widget _buildGrid(List<SavedWallpaperItem> displayList, ScrollController scrollController, ScrollPhysics? physics) {
     return LayoutBuilder(
       builder: (context, constraint) {
-        const crossAxisExtent = 220.0;
+        const crossAxisExtent = 260.0;
         const crossAxisSpacing = 10.0;
         const mainAxisSpacing = 10.0;
 
@@ -131,7 +136,7 @@ class _WallpaperHistoryPageState extends State<WallpaperHistoryPage> {
         final crossAxisCount = math.max(1, ((width - 12) / (crossAxisExtent + crossAxisSpacing)).ceil());
 
         final itemWidth = (width - 12 - crossAxisSpacing * (crossAxisCount - 1)) / crossAxisCount;
-        final mainAxisExtent = itemWidth / 1.62;
+        final mainAxisExtent = itemWidth * 9 / 16;
 
         final rowExtent = mainAxisExtent + mainAxisSpacing;
         final rows = ((constraint.maxHeight - 10 + mainAxisSpacing) / rowExtent).floor();
