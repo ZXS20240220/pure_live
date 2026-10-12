@@ -28,6 +28,18 @@ LiveMessage _chat(String text, {String id = '', LiveMessageType type = LiveMessa
 
 Future<void> _settle() => Future<void>.delayed(const Duration(milliseconds: 20));
 
+Future<String> _readClosedXml(File file, {Duration timeout = const Duration(seconds: 5)}) async {
+  final deadline = DateTime.now().add(timeout);
+  while (DateTime.now().isBefore(deadline)) {
+    if (await file.exists()) {
+      final content = await file.readAsString();
+      if (content.trimRight().endsWith('</i>')) return content;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+  return file.readAsString();
+}
+
 void main() {
   late Directory dir;
   final services = <RecordingDanmakuService>[];
@@ -76,7 +88,7 @@ void main() {
     task.status = RecordStatus.reconnecting;
     service.sync([task]);
     await _settle();
-    final xml = await first.readAsString();
+    final xml = await _readClosedXml(first);
     expect(xml, startsWith('<?xml version="1.0" encoding="UTF-8"?>\n<i>'));
     expect(xml.trimRight(), endsWith('</i>'));
     expect(RegExp('<d ').allMatches(xml), hasLength(1));
@@ -99,7 +111,7 @@ void main() {
     service.sync([task]);
     await _settle();
     expect(stops, 1);
-    final second = await File('${dir.path}/${task.recordingFilePrefix}.xml').readAsString();
+    final second = await _readClosedXml(File('${dir.path}/${task.recordingFilePrefix}.xml'));
     expect(second, contains('<d p="1.000,'));
     expect(second.trimRight(), endsWith('</i>'));
   });
