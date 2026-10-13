@@ -36,6 +36,9 @@ class BasePageView<C extends BasePageScrollAndStateBone<T>, T> extends Stateless
   final Widget? leftPaginationWidget;
   final Widget? rightPaginationWidget;
 
+  /// 窄窗口时是否隐藏 [leftPaginationWidget]，默认为 true。
+  final bool collapseLeftPaginationWidget;
+
   const BasePageView({
     super.key,
     required this.controller,
@@ -56,6 +59,7 @@ class BasePageView<C extends BasePageScrollAndStateBone<T>, T> extends Stateless
     this.keyboardPagingEnabled = true,
     this.leftPaginationWidget,
     this.rightPaginationWidget,
+    this.collapseLeftPaginationWidget = true,
   });
 
   @override

@@ -10,6 +10,9 @@ class DesktopPaginationBar extends StatefulWidget {
   final Widget? leftWidget;
   final Widget? rightWidget;
 
+  /// 窄窗口时是否隐藏 [leftWidget]，默认为 true。
+  final bool collapseLeftWidget;
+
   const DesktopPaginationBar({
     super.key,
     required this.controller,
@@ -18,6 +21,7 @@ class DesktopPaginationBar extends StatefulWidget {
     required this.options,
     this.leftWidget,
     this.rightWidget,
+    this.collapseLeftWidget = true,
   });
 
   @override
@@ -129,7 +133,7 @@ class _DesktopPaginationBarState extends State<DesktopPaginationBar> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final isNarrow = constraints.maxWidth < _kCollapseWidthThreshold;
-            final showLeftWidget = !isNarrow && widget.leftWidget != null;
+            final showLeftWidget = widget.leftWidget != null && (!isNarrow || !widget.collapseLeftWidget);
             final effectiveShowGoto = !isNarrow && showGoto;
             return SingleChildScrollView(
               key: const ValueKey('desktop-pagination-scroll'),

@@ -109,6 +109,8 @@ class _WallpaperHistoryPageState extends State<WallpaperHistoryPage> {
               if (total == null) return const SizedBox.shrink();
               return Center(child: Text('共 $total 张壁纸', style: AppTextStyles.t13Muted));
             }),
+            leftPaginationWidget: Center(child: Text('右击壁纸预览', style: AppTextStyles.t13Muted)),
+            collapseLeftPaginationWidget: false,
             emptyBuilder: (context) =>
                 const EmptyView(icon: Remix.image_2_line, title: '暂无保存的壁纸', subtitle: '应用过的壁纸会显示在这里'),
             contentBuilder: (context, displayList, scrollController) {

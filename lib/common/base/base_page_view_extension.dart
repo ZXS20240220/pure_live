@@ -16,6 +16,7 @@ extension BasePageViewContentExtension<C extends BasePageScrollAndStateBone<T>, 
               options: pageSizeOptions,
               leftWidget: leftPaginationWidget,
               rightWidget: rightPaginationWidget,
+              collapseLeftWidget: collapseLeftPaginationWidget,
             ),
         ],
       );

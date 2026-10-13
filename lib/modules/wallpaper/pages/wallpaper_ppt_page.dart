@@ -111,6 +111,8 @@ class _WallpaperPptPageState extends State<WallpaperPptPage> {
                     if (total == null) return const SizedBox.shrink();
                     return Center(child: Text('共 $total 张图片', style: AppTextStyles.t13Muted));
                   }),
+                  leftPaginationWidget: Center(child: Text('右键点击壁纸预览', style: AppTextStyles.t13Muted)),
+                  collapseLeftPaginationWidget: false,
                   emptyBuilder: (context) =>
                       const EmptyView(icon: Remix.image_2_line, title: '暂无静态图片', subtitle: '先应用一些图片壁纸，它们会保存在这里'),
                   contentBuilder: (context, displayList, scrollController) {
