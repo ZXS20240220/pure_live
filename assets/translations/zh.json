@@ -2464,6 +2464,7 @@
   "live_start_time": "开播时间",
   "anchor_level": "主播等级",
   "union_name": "工会",
+  "ip_location": "IP属地",
   "last_watched": "上次观看",
   "title_label": "标题",
   "restart_app": "重启应用"

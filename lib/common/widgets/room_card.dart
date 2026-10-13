@@ -209,6 +209,7 @@ class RoomCard extends StatelessWidget {
     final roomId = room.roomId?.trim() ?? '';
     final startTime = room.startTime;
     final lastWatchedAt = room.lastWatchedAt;
+    final location = room.location?.trim() ?? '';
 
     // 直播状态：文案 + 语义色。
     final (statusText, statusColor) = switch (room.effectiveLiveStatus) {
@@ -232,6 +233,7 @@ class RoomCard extends StatelessWidget {
       if (anchorLevel.isNotEmpty && anchorLevel != '0')
         _RoomInfoCell(label: i18n('anchor_level'), value: 'Lv.$anchorLevel'),
       if (unionName.isNotEmpty) _RoomInfoCell(label: i18n('union_name'), value: unionName),
+      if (location.isNotEmpty) _RoomInfoCell(label: i18n('ip_location'), value: location),
       if (lastWatchedAt != null && lastWatchedAt > 0)
         _RoomInfoCell(label: i18n('last_watched'), value: _formatTimestamp(lastWatchedAt)),
       if (watchSeconds > 0)

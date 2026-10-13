@@ -2464,6 +2464,7 @@
   "live_start_time": "Started at",
   "anchor_level": "Anchor level",
   "union_name": "Guild",
+  "ip_location": "IP Location",
   "last_watched": "Last watched",
   "title_label": "Title",
   "restart_app": "Restart App"
