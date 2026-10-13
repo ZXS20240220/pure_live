@@ -83,14 +83,14 @@ class _WallpaperHistoryPageState extends State<WallpaperHistoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: SettingsBreadcrumbAppBar(
-        node: SettingsCrumbs.wallpaperHistory,
-        actions: [IconButton(tooltip: '清空所有壁纸', icon: const Icon(Remix.delete_bin_line), onPressed: _clearAll)],
-      ),
-      body: Stack(
-        children: [
-          BasePageView<SavedWallpapersController, SavedWallpaperItem>(
+    return Stack(
+      children: [
+        Scaffold(
+          appBar: SettingsBreadcrumbAppBar(
+            node: SettingsCrumbs.wallpaperHistory,
+            actions: [IconButton(tooltip: '清空所有壁纸', icon: const Icon(Remix.delete_bin_line), onPressed: _clearAll)],
+          ),
+          body: BasePageView<SavedWallpapersController, SavedWallpaperItem>(
             controller: controller,
             enableRefresh: true,
             enableLoadMore: true,
@@ -118,10 +118,10 @@ class _WallpaperHistoryPageState extends State<WallpaperHistoryPage> {
               );
             },
           ),
-          if (_previewItem != null)
-            WallpaperFullscreenPreview(item: _previewItem!, onClose: () => setState(() => _previewItem = null)),
-        ],
-      ),
+        ),
+        if (_previewItem != null)
+          WallpaperFullscreenPreview(item: _previewItem!, onClose: () => setState(() => _previewItem = null)),
+      ],
     );
   }
 

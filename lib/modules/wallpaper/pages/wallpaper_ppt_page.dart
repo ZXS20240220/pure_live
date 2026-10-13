@@ -87,11 +87,11 @@ class _WallpaperPptPageState extends State<WallpaperPptPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.wallpaperPpt),
-      body: Stack(
-        children: [
-          Column(
+    return Stack(
+      children: [
+        Scaffold(
+          appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.wallpaperPpt),
+          body: Column(
             children: [
               _buildSettingsCard(context),
               Expanded(
@@ -126,10 +126,10 @@ class _WallpaperPptPageState extends State<WallpaperPptPage> {
               ),
             ],
           ),
-          if (_previewItem != null)
-            WallpaperFullscreenPreview(item: _previewItem!, onClose: () => setState(() => _previewItem = null)),
-        ],
-      ),
+        ),
+        if (_previewItem != null)
+          WallpaperFullscreenPreview(item: _previewItem!, onClose: () => setState(() => _previewItem = null)),
+      ],
     );
   }
 
