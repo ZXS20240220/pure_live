@@ -153,11 +153,18 @@ class _MyAppState extends State<MyApp> with DesktopWindowMixin {
       }
 
       if (scaffoldBg != null) {
+        final scheme = themeToApply.colorScheme;
         themeToApply = themeToApply.copyWith(
           scaffoldBackgroundColor: scaffoldBg,
           appBarTheme: themeToApply.appBarTheme.copyWith(
             surfaceTintColor: Colors.transparent,
             backgroundColor: scaffoldBg,
+          ),
+          cardColor: scheme.surfaceContainerLow.withValues(alpha: 0.64),
+          colorScheme: scheme.copyWith(
+            surface: scheme.surface.withValues(alpha: 0.64),
+            surfaceContainerLow: scheme.surfaceContainerLow.withValues(alpha: 0.64),
+            surfaceContainerHighest: scheme.surfaceContainerHighest.withValues(alpha: 0.64),
           ),
         );
       }
@@ -240,13 +247,22 @@ class _MyAppState extends State<MyApp> with DesktopWindowMixin {
                   final baseTheme = Theme.of(context);
                   final restoredScaffoldBg = baseTheme.colorScheme.surface;
                   final effectiveTheme = wallpaperActive
-                      ? baseTheme.copyWith(
-                          scaffoldBackgroundColor: Colors.transparent,
-                          appBarTheme: baseTheme.appBarTheme.copyWith(
-                            backgroundColor: Colors.transparent,
-                            surfaceTintColor: Colors.transparent,
-                          ),
-                        )
+                      ? () {
+                          final scheme = baseTheme.colorScheme;
+                          return baseTheme.copyWith(
+                            scaffoldBackgroundColor: Colors.transparent,
+                            appBarTheme: baseTheme.appBarTheme.copyWith(
+                              backgroundColor: Colors.transparent,
+                              surfaceTintColor: Colors.transparent,
+                            ),
+                            cardColor: scheme.surfaceContainerLow.withValues(alpha: 0.64),
+                            colorScheme: scheme.copyWith(
+                              surface: scheme.surface.withValues(alpha: 0.64),
+                              surfaceContainerLow: scheme.surfaceContainerLow.withValues(alpha: 0.64),
+                              surfaceContainerHighest: scheme.surfaceContainerHighest.withValues(alpha: 0.64),
+                            ),
+                          );
+                        }()
                       : baseTheme.copyWith(
                           scaffoldBackgroundColor: restoredScaffoldBg,
                           appBarTheme: baseTheme.appBarTheme.copyWith(

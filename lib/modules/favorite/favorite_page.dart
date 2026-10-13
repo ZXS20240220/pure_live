@@ -67,12 +67,11 @@ class FavoritePage extends GetView<FavoriteController> {
                   bottom: 4,
                   child: Obx(() {
                     final count = controller.getFilteredRooms().length;
-                    final wallpaperActive = SettingsService.hasWallpaper;
                     final cardBg = Theme.of(context).colorScheme.surfaceContainerHighest;
                     return Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: wallpaperActive ? cardBg.withValues(alpha: 0.7) : cardBg,
+                        color: cardBg,
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(color: Theme.of(context).dividerColor.withValues(alpha: 0.2)),
                         boxShadow: [
