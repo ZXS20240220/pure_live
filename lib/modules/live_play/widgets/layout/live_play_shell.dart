@@ -112,6 +112,7 @@ class _LivePlayShellState extends State<LivePlayShell> with SingleTickerProvider
     return ValueListenableBuilder<double>(
       valueListenable: _panelWidthNotifier,
       builder: (context, panelWidth, _) {
+        final clampedPanelWidth = SettingsService.to.panel.clampWidth(panelWidth, size.width);
         return ClipRect(
           child: AnimatedBuilder(
             animation: _drawerController,
@@ -122,7 +123,7 @@ class _LivePlayShellState extends State<LivePlayShell> with SingleTickerProvider
                 return _buildMobileLayout(progress);
               }
 
-              return _buildDesktopLayout(progress, panelWidth);
+              return _buildDesktopLayout(progress, clampedPanelWidth);
             },
           ),
         );

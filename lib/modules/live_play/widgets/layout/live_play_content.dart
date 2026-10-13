@@ -98,12 +98,13 @@ class _LivePlayNormalLayoutState extends State<LivePlayNormalLayout> {
           builder: (context, panelWidth, _) {
             final surface = Theme.of(context).colorScheme.surface;
             final screenWidth = MediaQuery.sizeOf(context).width;
+            final clampedPanelWidth = SettingsService.to.panel.clampWidth(panelWidth, screenWidth);
             return Row(
               key: const ValueKey('live-play-desktop-split'),
               children: [
                 Expanded(child: widget.video),
                 PanelResizeDivider(
-                  currentWidth: panelWidth,
+                  currentWidth: clampedPanelWidth,
                   clampWidth: (width, screenWidth) => SettingsService.to.panel.clampWidth(width, screenWidth),
                   onResize: (newWidth) {
                     _panelWidthNotifier.value = newWidth;
@@ -114,7 +115,7 @@ class _LivePlayNormalLayoutState extends State<LivePlayNormalLayout> {
                 ),
                 SizedBox(
                   key: const ValueKey('live-play-desktop-panel'),
-                  width: panelWidth,
+                  width: clampedPanelWidth,
                   child: Obx(() {
                     final wallpaperActive = SettingsService.hasWallpaper;
                     return ColoredBox(
