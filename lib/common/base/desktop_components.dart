@@ -33,7 +33,7 @@ class _DesktopPaginationBarState extends State<DesktopPaginationBar> {
 
   /// 窗口宽度小于此阈值时，隐藏左侧附加信息与"跳转至"输入框，
   /// 避免与中间分页控件重叠。
-  static const double _kCollapseWidthThreshold = 840;
+  static const double _kCollapseWidthThreshold = 900;
 
   BasePageScrollAndStateBone get controller => widget.controller;
   bool get showSelector => widget.showSelector;
