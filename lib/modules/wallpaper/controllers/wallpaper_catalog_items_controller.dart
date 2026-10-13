@@ -27,7 +27,7 @@ class WallpaperCatalogItemsController extends ServerAllPageController<CatalogWal
     _viewportPageDebounce?.cancel();
     _viewportPageDebounce = Timer(const Duration(milliseconds: 150), () {
       if (isClosed) return;
-      setPageSize(target, persist: false);
+      setPageSize(target, persist: false, preservePage: true);
     });
   }
 

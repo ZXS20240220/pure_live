@@ -47,7 +47,7 @@ abstract class ServerAllPageController<T> extends BasePageScrollAndStateBone<T> 
   }
 
   @override
-  void setPageSize(int? newSize, {bool persist = true}) {
+  void setPageSize(int? newSize, {bool persist = true, bool preservePage = false}) {
     if (isClosed || newSize == null || pageSize.value == newSize) return;
     if (persist) persistUserPageSize(newSize);
     // Paging requires the local catalogue. Persist the user's choice anyway so
@@ -55,6 +55,11 @@ abstract class ServerAllPageController<T> extends BasePageScrollAndStateBone<T> 
     if (_rawAllData == null) return;
     if (!usesDesktopPagination) {
       pageSize.value = newSize;
+      return;
+    }
+    if (preservePage) {
+      pageSize.value = newSize;
+      processLocalPaging();
       return;
     }
     final int currentFirstItemIndex = (currentPage - 1) * pageSize.value;

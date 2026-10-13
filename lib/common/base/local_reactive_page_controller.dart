@@ -10,6 +10,7 @@ abstract class LocalReactivePageController<T> extends BasePageScrollAndStateBone
   bool _publishedDuringRefresh = false;
   bool _refreshPending = false;
   int? _pendingPageSize;
+  bool _pendingPreservePage = false;
 
   Future<void> Function()? onExternalRefresh;
 
@@ -40,8 +41,9 @@ abstract class LocalReactivePageController<T> extends BasePageScrollAndStateBone
     // 不强制回到第 1 页：后台数据更新（如进入直播间触发的收藏刷新、
     // 自动刷新、观看时长重排）应保留用户当前浏览位置。_processDesktopSlicing
     // 会在当前页超出新数据范围时自动夹取到最后一页。需要回到首页的筛选
-    // 切换由调用方显式设置 currentPage = 1。
-    _processDataDistribution();
+    // 切换由调用方显式设置 currentPage = 1。同样不重置滚动位置，避免
+    // 后台刷新把已滚到中部的用户拽回顶部造成闪烁。
+    _processDataDistribution(scrollToTop: false);
   }
 
   @override
@@ -127,10 +129,11 @@ abstract class LocalReactivePageController<T> extends BasePageScrollAndStateBone
   }
 
   @override
-  void setPageSize(int? newSize, {bool persist = true}) {
+  void setPageSize(int? newSize, {bool persist = true, bool preservePage = false}) {
     if (isClosed || newSize == null || newSize < 1) return;
     if (persist) persistUserPageSize(newSize);
     _pendingPageSize = newSize;
+    _pendingPreservePage = preservePage;
     unawaited(_applyPendingPageSize());
   }
 
@@ -142,10 +145,21 @@ abstract class LocalReactivePageController<T> extends BasePageScrollAndStateBone
     }
     if (isClosed) return;
     final newSize = _pendingPageSize;
+    final preservePage = _pendingPreservePage;
     _pendingPageSize = null;
+    _pendingPreservePage = false;
     if (newSize == null || pageSize.value == newSize) return;
     if (!usesDesktopPagination) {
       pageSize.value = newSize;
+      return;
+    }
+
+    if (preservePage) {
+      // 视口驱动的分页（如紧凑列表）：保持当前页码不变，仅由
+      // _processDesktopSlicing 在页码越界时自动夹取到最后一页。
+      // 避免 resize 导致 currentPage 被重算而"回到上一页"。
+      pageSize.value = newSize;
+      _processDataDistribution();
       return;
     }
 
@@ -174,18 +188,18 @@ abstract class LocalReactivePageController<T> extends BasePageScrollAndStateBone
     await super.loadMoreData();
   }
 
-  void _processDataDistribution() {
+  void _processDataDistribution({bool scrollToTop = true}) {
     if (isClosed) return;
     totalCount.value = _localRawPool.length;
 
     if (usesDesktopPagination) {
-      _processDesktopSlicing();
+      _processDesktopSlicing(scrollToTop: scrollToTop);
     } else {
       _processMobileDisplayAll();
     }
   }
 
-  void _processDesktopSlicing() {
+  void _processDesktopSlicing({bool scrollToTop = true}) {
     int startIndex = (currentPage - 1) * pageSize.value;
     if (startIndex >= _localRawPool.length) {
       if (_localRawPool.isEmpty) {
@@ -206,7 +220,7 @@ abstract class LocalReactivePageController<T> extends BasePageScrollAndStateBone
     canLoadMore.value = endIndex < _localRawPool.length;
     pageEmpty.value = list.isEmpty;
     _finishLocalProjection(canLoadMore.value ? IndicatorResult.success : IndicatorResult.noMore);
-    scrollToTopImmediate();
+    if (scrollToTop) scrollToTopImmediate();
   }
 
   void _processMobileDisplayAll() {

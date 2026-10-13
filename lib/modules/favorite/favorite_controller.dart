@@ -106,24 +106,39 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
   void applyCompactPageSize(int? capacity) {
     if (isClosed) return;
     if (capacity != null) {
+      final target = capacity < 10 ? 10 : capacity;
       if (!_compactPageOverride) {
         _savedStandardPageSize = pageSize.value;
       }
       _compactPageOverride = true;
-      final target = capacity < 10 ? 10 : capacity;
+      // 容量未变化时直接返回：避免每帧重建都调度一次 setPageSize。
+      // 否则 persist 会反复写全局默认（覆盖用户在标准布局下的选择），且
+      // _applyPendingPageSize 会重算 currentPage，在翻页 / resize 期间
+      // 造成"回到上一页"的错觉。
+      if (pageSize.value == target) {
+        _compactPageDebounce?.cancel();
+        return;
+      }
       _compactPageDebounce?.cancel();
       _compactPageDebounce = Timer(const Duration(milliseconds: 150), () {
         if (isClosed) return;
-        setPageSize(target);
+        // 视口推算的每页数量不写回全局默认，且保持当前页码不变，
+        // 避免覆盖用户选择与 resize 时跳回上一页。
+        setPageSize(target, persist: false, preservePage: true);
       });
     } else if (_compactPageOverride) {
       _compactPageOverride = false;
       _compactPageDebounce?.cancel();
       final restore = _savedStandardPageSize ?? SettingsService.to.page.defaultPageSize.v;
       _savedStandardPageSize = null;
-      setPageSize(restore);
+      setPageSize(restore, persist: true);
     }
   }
+
+  /// 紧凑布局的每页数量由视口推算，不应被全局默认覆盖；
+  /// 标准布局下仍跟随全局默认（用户通过每页选择器修改时同步）。
+  @override
+  bool get shouldSyncGlobalPageSize => cardLayoutMode.value != 'compact';
 
   // 这三个 Hive key 需要公开：备份导入 favoriteCtrl 段时若控制器尚未实例化
   // （lazyPut），直接写 key 等其创建时恢复，避免 Get.find 触发工厂副作用。
@@ -391,6 +406,7 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     _configSubscription?.cancel();
     _autoRefreshTimer?.cancel();
     _debounceTimer?.cancel();
+    _compactPageDebounce?.cancel();
     _cancelPendingResumeRefresh();
     _favoriteSnapshotTimer?.cancel();
     for (final worker in _workers) {

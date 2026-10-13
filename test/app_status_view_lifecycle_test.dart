@@ -250,5 +250,5 @@ class _StatusGridController extends BasePageScrollAndStateBone<LiveRoom> {
   @override
   Future<void> goToPage(int page) async {}
   @override
-  void setPageSize(int? newSize, {bool persist = true}) {}
+  void setPageSize(int? newSize, {bool persist = true, bool preservePage = false}) {}
 }

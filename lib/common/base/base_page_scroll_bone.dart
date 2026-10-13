@@ -276,5 +276,10 @@ abstract class BasePageScrollAndStateBone<T> extends BaseController {
   /// global default and propagates to every other live pager. Viewport-driven
   /// pagers pass `persist: false` so their window-computed size never clobbers
   /// the user's chosen default.
-  void setPageSize(int? newSize, {bool persist = true});
+  ///
+  /// When [preservePage] is `true` the current page number is kept as-is
+  /// instead of being remapped to keep the first visible item stable. This is
+  /// used by viewport-driven pagers (e.g. the favourite compact list) where a
+  /// resize should not silently push the user back to an earlier page.
+  void setPageSize(int? newSize, {bool persist = true, bool preservePage = false});
 }

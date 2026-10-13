@@ -47,7 +47,7 @@ class _Controller extends BasePageScrollAndStateBone<int> {
   }
 
   @override
-  void setPageSize(int? newSize, {bool persist = true}) {
+  void setPageSize(int? newSize, {bool persist = true, bool preservePage = false}) {
     if (newSize != null) pageSize.value = newSize;
   }
 }

@@ -53,7 +53,7 @@ abstract class ServerRemotePageController<T> extends BasePageScrollAndStateBone<
   }
 
   @override
-  void setPageSize(int? newSize, {bool persist = true}) {
+  void setPageSize(int? newSize, {bool persist = true, bool preservePage = false}) {
     if (isClosed || newSize == null || newSize < 1) return;
     if (persist) persistUserPageSize(newSize);
     _pendingPageSize = newSize;

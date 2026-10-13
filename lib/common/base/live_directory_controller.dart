@@ -108,7 +108,7 @@ class LiveDirectoryController extends BasePageScrollAndStateBone<LiveRoom> {
   }
 
   @override
-  void setPageSize(int? newSize, {bool persist = true}) {
+  void setPageSize(int? newSize, {bool persist = true, bool preservePage = false}) {
     if (newSize == null || newSize < 1 || newSize == pageSize.value || _disposed) return;
     if (persist) persistUserPageSize(newSize);
     _refreshBuffer = null;
