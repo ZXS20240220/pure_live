@@ -100,7 +100,7 @@ class _LocalConfigPreviewPageState extends State<LocalConfigPreviewPage> {
                     margin: const EdgeInsets.fromLTRB(16, 0, 16, 0),
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.surface,
+                      color: theme.colorScheme.surfaceContainerLow,
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
@@ -179,7 +179,7 @@ class _LocalConfigPreviewPageState extends State<LocalConfigPreviewPage> {
           margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
+            color: theme.colorScheme.surfaceContainerLow,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: theme.dividerColor.withValues(alpha: 0.15), width: 0.5),
           ),

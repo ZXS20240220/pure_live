@@ -160,11 +160,11 @@ class _MyAppState extends State<MyApp> with DesktopWindowMixin {
             surfaceTintColor: Colors.transparent,
             backgroundColor: scaffoldBg,
           ),
-          cardColor: scheme.surfaceContainerLow.withValues(alpha: 0.64),
+          cardColor: scheme.surfaceContainerLow.withValues(alpha: 0.24),
           colorScheme: scheme.copyWith(
-            surface: scheme.surface.withValues(alpha: 0.64),
-            surfaceContainerLow: scheme.surfaceContainerLow.withValues(alpha: 0.64),
-            surfaceContainerHighest: scheme.surfaceContainerHighest.withValues(alpha: 0.64),
+            surface: scheme.surface.withValues(alpha: 1),
+            surfaceContainerLow: scheme.surfaceContainerLow.withValues(alpha: 0.24),
+            surfaceContainerHighest: scheme.surfaceContainerHighest.withValues(alpha: 0.24),
           ),
         );
       }
@@ -255,11 +255,11 @@ class _MyAppState extends State<MyApp> with DesktopWindowMixin {
                               backgroundColor: Colors.transparent,
                               surfaceTintColor: Colors.transparent,
                             ),
-                            cardColor: scheme.surfaceContainerLow.withValues(alpha: 0.64),
+                            cardColor: scheme.surfaceContainerLow.withValues(alpha: 0.24),
                             colorScheme: scheme.copyWith(
-                              surface: scheme.surface.withValues(alpha: 0.64),
-                              surfaceContainerLow: scheme.surfaceContainerLow.withValues(alpha: 0.64),
-                              surfaceContainerHighest: scheme.surfaceContainerHighest.withValues(alpha: 0.64),
+                              surface: scheme.surface.withValues(alpha: 1),
+                              surfaceContainerLow: scheme.surfaceContainerLow.withValues(alpha: 0.24),
+                              surfaceContainerHighest: scheme.surfaceContainerHighest.withValues(alpha: 0.24),
                             ),
                           );
                         }()

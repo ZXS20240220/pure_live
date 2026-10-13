@@ -301,6 +301,7 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin,
                           constraints: const BoxConstraints(maxWidth: 280),
                           child: Card(
                             elevation: 8,
+                            color: Theme.of(context).colorScheme.surface,
                             child: Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
                               child: Column(

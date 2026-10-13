@@ -72,7 +72,7 @@ class _AreaCardState extends State<AreaCard> {
 
     return Card(
       margin: EdgeInsets.zero,
-      color: wallpaperActive ? cardBg.withValues(alpha: 0.72) : cardBg,
+      color: wallpaperActive ? cardBg.withValues(alpha: 0.52) : cardBg,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15.0)),
       child: InkWell(
         borderRadius: BorderRadius.circular(15.0),

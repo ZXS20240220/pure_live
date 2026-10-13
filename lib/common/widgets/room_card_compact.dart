@@ -85,7 +85,7 @@ class RoomCardCompact extends StatelessWidget {
           borderRadius: BorderRadius.circular(radius),
           child: Ink(
             decoration: BoxDecoration(
-              color: wallpaperActive ? cardBg.withValues(alpha: 0.72) : cardBg,
+              color: wallpaperActive ? cardBg.withValues(alpha: 0.52) : cardBg,
               borderRadius: BorderRadius.circular(radius),
               border: Border.all(color: colors.outlineVariant.withValues(alpha: .55)),
             ),

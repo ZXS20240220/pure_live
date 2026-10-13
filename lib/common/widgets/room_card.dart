@@ -936,7 +936,7 @@ class RoomCard extends StatelessWidget {
         margin: EdgeInsets.zero,
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius)),
-        color: wallpaperActive ? cardColor.withValues(alpha: 0.75) : cardColor,
+        color: wallpaperActive ? cardColor.withValues(alpha: 0.35) : cardColor,
         child: InkWell(
           borderRadius: BorderRadius.circular(radius),
           // 暂弃房间左键由 onTapOverride 决定（刷新状态），右键仍可触发弹窗

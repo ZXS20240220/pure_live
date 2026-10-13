@@ -66,7 +66,7 @@ class _WebDavPageState extends State<WebDavPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: Theme.of(Get.context!).colorScheme.surface,
+      backgroundColor: Theme.of(Get.context!).colorScheme.surfaceContainerLow,
       body: LayoutBuilder(
         builder: (context, constraints) {
           final minimumStateHeight = (constraints.maxHeight - kToolbarHeight - 50)
@@ -117,7 +117,7 @@ class _WebDavPageState extends State<WebDavPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(topLeft: Radius.circular(0), bottomLeft: Radius.circular(0)),
       ),
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow.withValues(alpha: 0.8),
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
@@ -240,7 +240,7 @@ class _WebDavPageState extends State<WebDavPage> {
       pinned: false,
       snap: false,
       centerTitle: false,
-      backgroundColor: Theme.of(Get.context!).colorScheme.surface,
+      backgroundColor: Theme.of(Get.context!).colorScheme.surfaceContainerLow,
       surfaceTintColor: Colors.transparent,
       title: SettingsBreadcrumbBar(node: SettingsCrumbs.webdav),
       actions: [
@@ -280,7 +280,7 @@ class _WebDavPageState extends State<WebDavPage> {
       pinned: true,
       delegate: _BreadcrumbHeaderDelegate(
         child: Container(
-          color: Theme.of(Get.context!).colorScheme.surface,
+          color: Theme.of(Get.context!).colorScheme.surfaceContainerLow,
           height: 50,
           child: Align(
             alignment: Alignment.centerLeft,
