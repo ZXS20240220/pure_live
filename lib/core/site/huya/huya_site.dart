@@ -1267,10 +1267,12 @@ class HuyaSite
   @visibleForTesting
   static GetCdnTokenExReq buildNativePlaybackTokenRequest(HuyaLineModel line) => GetCdnTokenExReq()
     ..sStreamName = line.streamName
-    // 随机 SDK UA（adr/ios/huya_nftv/pc_exe × 随机子版本 × API Level 28-36），
-    // 取代固定 'pc_exe&7060000&official'：固定 UA 更易被风控识别
-    // （同步自上游 ff98cd04，对齐 dart_simple_live 的 getCdnTokenInfoEx）。
-    ..tId = (HuyaUserId()..sHuYaUA = HuyaRequestParams.requestHuyaUA);
+    // 必须固定 pc_exe：本 fork 的 native 长连接依赖服务器返回
+    // ctype=huya_pc_exe&t=100 凭证（见 HuyaTransportPolicy）。随机 adr/ios/
+    // nftv 平台会拿到移动端凭证，被判定为短租约；Windows 短租约在播放 40s
+    // 后被主动切流（windowsHuyaProactiveRefreshInterval），表现为周期性刷新。
+    // 上游 dart_simple_live 的随机 UA 反风控依赖其无长/短租约区分，不适用本 fork。
+    ..tId = (HuyaUserId()..sHuYaUA = 'pc_exe&7060000&official');
 
   @visibleForTesting
   static BaseTarsHttp createCdnTokenClient(Map<String, String> headers) {

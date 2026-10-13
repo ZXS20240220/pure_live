@@ -312,23 +312,9 @@ void main() {
     expect(request.iAppId, 66);
     expect(request.tId.lUid, 0);
     expect(request.tId.sCookie, isEmpty);
-    // 随机 SDK UA：四平台之一，固定 pc_exe 旧值会被风控识别。按平台
-    // 分别断言子版本与 API Level 契约（adr/huya_nftv 追加随机子版本
-    // 与 API Level 28-36，ios/pc_exe 不带 API Level）。
-    final ua = request.tId.sHuYaUA;
-    final platform = ua.split('&').first;
-    switch (platform) {
-      case 'adr':
-        expect(ua, matches(RegExp(r'^adr&13\.1\.0\.\d{4}&official&(?:2[8-9]|3[0-6])$')));
-      case 'ios':
-        expect(ua, 'ios&13.1.0&official');
-      case 'huya_nftv':
-        expect(ua, matches(RegExp(r'^huya_nftv&2\.6\.10\.\d{4}&official&(?:2[8-9]|3[0-6])$')));
-      case 'pc_exe':
-        expect(ua, 'pc_exe&7000000&official');
-      default:
-        fail('unexpected random UA platform: $ua');
-    }
+    // 固定 pc_exe：native 长连接依赖 ctype=huya_pc_exe&t=100 凭证，随机移动
+    // 端平台 UA 会拿到短租约凭证导致周期刷新，故不采用上游的随机 UA。
+    expect(request.tId.sHuYaUA, 'pc_exe&7060000&official');
   });
 
   test('independent playback and recorder opens receive distinct native signatures', () {
