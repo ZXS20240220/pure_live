@@ -95,9 +95,9 @@ class WindowSizeController extends GetxController {
   static WindowSizeController get to => Get.find<WindowSizeController>();
 
   static const double defaultWindowWidth = 1280;
-  static const double defaultWindowHeight = 720;
-  static const double minWindowWidth = 400;
-  static const double minWindowHeight = 300;
+  static const double defaultWindowHeight = 768;
+  static const double minWindowWidth = 640;
+  static const double minWindowHeight = 480;
   static const double maxWindowDimension = 16384;
 
   final RxDouble storedWidth = hiveDouble('window_width', defaultWindowWidth);
