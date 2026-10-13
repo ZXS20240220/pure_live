@@ -57,12 +57,20 @@ abstract final class HuyaTransportPolicy {
     return path.endsWith('.flv') || path.endsWith('.m3u8') ? uri : null;
   }
 
+  /// 录播 VOD（scene=vodreplay/livereplay）是整场录像的点播流，不存在直播
+  /// 流的凭证租约/续期概念，绝不能被直播 40s 主动刷新逻辑误杀。
+  static bool isReplayVod(String url) {
+    final scene = Uri.tryParse(url)?.queryParameters['scene']?.toLowerCase() ?? '';
+    return scene == 'vodreplay' || scene == 'livereplay';
+  }
+
   static bool hasShortTransportLease(String url) {
     final uri = Uri.tryParse(url);
     final host = uri?.host.toLowerCase() ?? '';
     final path = uri?.path.toLowerCase() ?? '';
     final isHuya = host == 'huya.com' || host.endsWith('.huya.com');
     if (!isHuya || (!path.endsWith('.flv') && !path.endsWith('.m3u8'))) return false;
+    if (isReplayVod(url)) return false;
     // The native WUP FLV connection outlives its credential in long-read probes.
     // Refresh the next credential without restarting a healthy current stream.
     return !hasNativeFlvCredential(url);

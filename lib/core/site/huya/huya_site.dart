@@ -271,6 +271,7 @@ class HuyaSite
   @visibleForTesting
   static List<LivePlayQuality> parsePlayQualities(HuyaUrlDataModel data) {
     final playbackLines = List<HuyaLineModel>.unmodifiable(data.lines);
+    final replayLines = data.qualityLines;
     final rates = data.bitRates.isEmpty ? <HuyaBitRateModel>[HuyaBitRateModel(name: '原画', bitRate: 0)] : data.bitRates;
     final unique = <int, HuyaBitRateModel>{};
     for (final rate in rates) {
@@ -293,7 +294,10 @@ class HuyaSite
             ),
             id: rate.bitRate,
             sort: rate.bitRate == 0 ? 1 << 30 : rate.bitRate,
-            data: <String, Object>{'urls': playbackLines, 'bitRate': rate.bitRate},
+            data: <String, Object>{
+              'urls': List<HuyaLineModel>.unmodifiable(replayLines?[rate.bitRate] ?? playbackLines),
+              'bitRate': rate.bitRate,
+            },
           ),
         )
         .toList(growable: false);
@@ -399,6 +403,13 @@ class HuyaSite
   }
 
   Future<String> getPlayUrl(HuyaLineModel line, int bitRate) async {
+    // 录播 VOD 直链：URL 已在视频页预签名且与具体转码档位绑定，不能再走
+    // WSP/WUP 签名、antiCode 拼接或 ratio 改写（ratio 对 VOD 无效，反而会
+    // 破坏签名），直接返回。
+    final directUrl = line.directUrl;
+    if (directUrl != null && directUrl.isNotEmpty) {
+      return directUrl;
+    }
     HuyaViewerIdentity? viewer;
     HuyaCdnTokenLease? tokenLease;
     // Select signing material by transport before any fallback. Starting every
@@ -693,6 +704,18 @@ class HuyaSite
         followers: extras.$2,
       );
     }
+    if (statusCode == 200 && responseData != null && normalizedLiveState == 'REPLAY') {
+      // 录播间 profileRoom 不返回 stream 字段，整场录像的 VOD m3u8 位于
+      // liveData.hls（单档 360P）；多清晰度需凭其中的 vid 再取视频页
+      // videoDefinitions。任何一步失败都回退到 360P 单链，至少保证可播。
+      final replayRoom = await _buildReplayRoom(
+        responseData,
+        platform: platform,
+        roomId: roomId,
+        fansFuture: fansFuture,
+      );
+      if (replayRoom != null) return replayRoom;
+    }
     if (statusCode == 200 && responseData != null && responseData['stream'] != null) {
       dynamic data = responseData;
       var topSid = 0;
@@ -883,6 +906,170 @@ class HuyaSite
       platform: platform,
       link: 'https://www.huya.com/$roomId',
       startTime: inactiveStartTime != null && inactiveStartTime > 0 ? inactiveStartTime : null,
+    );
+  }
+
+  /// 视频页（v.huya.com）只认桌面端 UA，移动端 UA 会拿到不含播放配置的页面。
+  static const String _replayPageUserAgent =
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+      '(KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
+
+  static final RegExp _replayVideoDefinitionsRegex = RegExp(r'videoDefinitions\s*=\s*(\{.*?\})\s*;', dotAll: true);
+
+  static String _upgradeToHttps(String url) {
+    final trimmed = url.trim();
+    return trimmed.startsWith('http://') ? 'https://${trimmed.substring(7)}' : trimmed;
+  }
+
+  /// 解析虎牙视频播放页内嵌的 `videoDefinitions`（TAF 序列化后的合法 JSON），
+  /// 得到录播各清晰度（实测 360P/720P/1080P，yuanhua=原画）的预签名 VOD m3u8。
+  /// 每个档位 m3u8 的 UUID 不同，无法通过改 ratio/definition 参数切换。
+  @visibleForTesting
+  static List<HuyaReplaySource> parseReplayVideoDefinitions(String html) {
+    final match = _replayVideoDefinitionsRegex.firstMatch(html);
+    if (match == null) return const <HuyaReplaySource>[];
+    Map<dynamic, dynamic> payload;
+    try {
+      payload = jsonDecode(match.group(1)!) as Map;
+    } on Object {
+      return const <HuyaReplaySource>[];
+    }
+    final rawList = payload['value'];
+    if (rawList is! List) return const <HuyaReplaySource>[];
+    final result = <HuyaReplaySource>[];
+    for (final item in rawList.whereType<Map>()) {
+      final definition = item['sDefinition']?.toString().trim() ?? '';
+      if (definition.isEmpty) continue;
+      final seen = <String>{};
+      final urls = <String>[];
+      void addUrl(Object? value) {
+        final candidate = _upgradeToHttps(value?.toString() ?? '');
+        if (candidate.contains('.m3u8') && seen.add(candidate)) urls.add(candidate);
+      }
+
+      // streams.value 可能给出多条 CDN 线路（实测多为 1 条），顶层 sUrl 兜底。
+      final streams = item['streams'];
+      final streamValues = streams is Map ? streams['value'] : null;
+      if (streamValues is List) {
+        for (final line in streamValues.whereType<Map>()) {
+          addUrl(line['sM3u8'] ?? line['sUrl']);
+        }
+      }
+      addUrl(item['sM3u8'] ?? item['sUrl']);
+      if (urls.isEmpty) continue;
+      // yuanhua（原画）码率未知，给足够大的值确保排序在最前
+      final bitRate = definition == 'yuanhua'
+          ? 10000
+          : int.tryParse(definition) ?? int.tryParse(item['iBitRate']?.toString() ?? '') ?? 0;
+      final rawName = item['sDefName']?.toString().trim() ?? '';
+      final name = rawName.isNotEmpty ? rawName : (definition == 'yuanhua' ? '原画' : definition);
+      result.add(HuyaReplaySource(definition: definition, name: name, bitRate: bitRate, urls: urls));
+    }
+    // 与直播清晰度排序一致：高码率（原画 1080P）在前。
+    result.sort((a, b) => b.bitRate.compareTo(a.bitRate));
+    return result;
+  }
+
+  HuyaLineModel _buildReplayLine(String url, int presenterUid) {
+    final uri = Uri.tryParse(url);
+    return HuyaLineModel(
+      line: url,
+      lineType: HuyaLineType.hls,
+      flvAntiCode: '',
+      hlsAntiCode: '',
+      streamName: uri != null && uri.pathSegments.isNotEmpty ? uri.pathSegments.last : '',
+      cdnType: uri?.host ?? 'replay',
+      presenterUid: presenterUid,
+      directUrl: url,
+    );
+  }
+
+  /// 构造录播房间。profileRoom 的 liveData.hls 仅给 360P 单档；凭其 query
+  /// 中的 vid 请求视频页可拿到 360P/720P/1080P 三档直链。视频页失败时
+  /// 回退 360P 单档；连 hls 都没有则返回 null，由调用方走原错误兜底。
+  Future<LiveRoom?> _buildReplayRoom(
+    Map<dynamic, dynamic> data, {
+    required String platform,
+    required String roomId,
+    required Future<String> fansFuture,
+  }) async {
+    final liveData = data['liveData'] is Map
+        ? Map<String, dynamic>.from(data['liveData'] as Map)
+        : const <String, dynamic>{};
+    final profile = data['profileInfo'] is Map ? data['profileInfo'] as Map : const <dynamic, dynamic>{};
+    final rawHls = liveData['hls']?.toString().trim() ?? '';
+    final fallbackHls = _upgradeToHttps(rawHls.isNotEmpty ? rawHls : (liveData['hlsUrl']?.toString() ?? ''));
+    // 虎牙返回的 URL 末尾可能带 &，导致 endsWith('.m3u8') 为 false
+    final isM3u8 = fallbackHls.contains('.m3u8?') || fallbackHls.endsWith('.m3u8');
+    if (!isM3u8) {
+      return null;
+    }
+    final presenterUid = int.tryParse(profile['uid']?.toString() ?? '') ?? 0;
+
+    var sources = const <HuyaReplaySource>[];
+    final vid = Uri.tryParse(fallbackHls)?.queryParameters['vid']?.trim() ?? '';
+    if (vid.isNotEmpty) {
+      try {
+        final page = await HttpClient.instance
+            .getText(
+              'https://v.huya.com/play/$vid.html',
+              header: <String, String>{'Accept': 'text/html,application/xhtml+xml', 'User-Agent': _replayPageUserAgent},
+            )
+            .timeout(const Duration(seconds: 10));
+        sources = parseReplayVideoDefinitions(page);
+      } on Object {
+        // 视频页失败时静默降级到 360P 单档
+      }
+    }
+
+    final bitRates = <HuyaBitRateModel>[];
+    final qualityLines = <int, List<HuyaLineModel>>{};
+    if (sources.isEmpty) {
+      bitRates.add(HuyaBitRateModel(bitRate: 350, name: '360P'));
+      qualityLines[350] = <HuyaLineModel>[_buildReplayLine(fallbackHls, presenterUid)];
+    } else {
+      for (final source in sources) {
+        bitRates.add(HuyaBitRateModel(bitRate: source.bitRate, name: source.name));
+        qualityLines[source.bitRate] = <HuyaLineModel>[
+          for (final url in source.urls) _buildReplayLine(url, presenterUid),
+        ];
+      }
+    }
+
+    final audience = parseRoomAudience(liveData);
+    final roomStartTime = int.tryParse(liveData['startTime']?.toString() ?? '');
+    final extras = await _resolveHuyaExtras(data['profileInfo'], fansFuture);
+    return LiveRoom(
+      cover: liveData['screenshot']?.toString() ?? '',
+      watching: audience.popularity,
+      onlineViewers: audience.onlineViewers,
+      popularity: audience.popularity,
+      audienceMetricType: AudienceMetricType.popularity,
+      roomId: roomId,
+      area: liveData['gameFullName']?.toString() ?? '',
+      title: liveData['introduction']?.toString() ?? '',
+      nick: profile['nick']?.toString() ?? '',
+      avatar: profile['avatar180']?.toString() ?? '',
+      introduction: data['welcomeText']?.toString() ?? '',
+      notice: '',
+      anchorLevel: liveData['level']?.toString() ?? '',
+      unionName: extras.$1,
+      followers: extras.$2,
+      isRecord: true,
+      status: false,
+      liveStatus: LiveStatus.replay,
+      platform: platform,
+      data: HuyaUrlDataModel(
+        url: '',
+        lines: const <HuyaLineModel>[],
+        bitRates: bitRates,
+        uid: '',
+        isXingxiu: false,
+        qualityLines: qualityLines,
+      ),
+      danmakuData: HuyaDanmakuArgs(uid: presenterUid, topSid: 0, subSid: 0),
+      link: 'https://www.huya.com/$roomId',
+      startTime: roomStartTime != null && roomStartTime > 0 ? roomStartTime : null,
     );
   }
 
@@ -1448,12 +1635,17 @@ class HuyaUrlDataModel {
   List<HuyaLineModel> lines;
   List<HuyaBitRateModel> bitRates;
   final bool isXingxiu;
+
+  /// 录播专用：每个码率档位携带各自的直连线路（直播流所有档位共用
+  /// [lines]，录播每档的 m3u8 UUID 不同，无法共用）。key 为 bitRate。
+  final Map<int, List<HuyaLineModel>>? qualityLines;
   HuyaUrlDataModel({
     required this.bitRates,
     required this.lines,
     required this.url,
     required this.uid,
     required this.isXingxiu,
+    this.qualityLines,
   });
 }
 
@@ -1468,6 +1660,10 @@ class HuyaLineModel {
   final HuyaLineType lineType;
   final int presenterUid;
   int bitRate;
+
+  /// 录播（VOD）直链：已由虎牙视频页 videoDefinitions 预签名并绑定转码
+  /// 档位，非空时 getPlayUrl 直接返回它，不再走 WUP/antiCode/ratio 改写。
+  final String? directUrl;
   HuyaLineModel({
     required this.line,
     required this.lineType,
@@ -1477,6 +1673,7 @@ class HuyaLineModel {
     required this.cdnType,
     required this.presenterUid,
     this.bitRate = 0,
+    this.directUrl,
   });
   @override
   String toString() {
@@ -1489,4 +1686,14 @@ class HuyaBitRateModel {
   final String name;
   final int bitRate;
   HuyaBitRateModel({required this.bitRate, required this.name});
+}
+
+/// 虎牙录播（VOD）单个清晰度档位：definition 为虎牙档位标识
+///（yuanhua=原画/1080P、1300=720P、350=360P），urls 为该档预签名 m3u8。
+class HuyaReplaySource {
+  final String definition;
+  final String name;
+  final int bitRate;
+  final List<String> urls;
+  const HuyaReplaySource({required this.definition, required this.name, required this.bitRate, required this.urls});
 }
