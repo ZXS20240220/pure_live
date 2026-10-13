@@ -81,7 +81,7 @@ class _SavedWallpaperTileState extends State<SavedWallpaperTile> {
               ),
             ),
             if (widget.item.isVideo)
-              const Positioned(top: 6, left: 8, child: Icon(Remix.play_circle_line, color: Colors.white, size: 20)),
+              const Center(child: Icon(Icons.play_circle_outline, size: 40, color: Colors.white70)),
             Positioned(top: 4, right: 4, child: _DeleteButton(onPressed: widget.onDelete)),
             if (widget.isCurrent)
               Positioned.fill(
