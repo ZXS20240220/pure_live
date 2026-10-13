@@ -58,7 +58,7 @@ class AppNavigator {
         } else {
           manager.cancelRoomSessionReentry();
         }
-        await manager.closeAppFloating();
+        await manager.stop();
       } else {
         manager.cancelRoomSessionReentry();
       }
