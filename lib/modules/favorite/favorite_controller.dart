@@ -98,17 +98,20 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
   /// 紧凑布局是否正在覆盖每页数量（用于切回标准布局时恢复）。
   bool _compactPageOverride = false;
   Timer? _compactPageDebounce;
+  int? _savedStandardPageSize;
 
   /// 紧凑布局的动态分页：每页数量 = 视口可容纳的完整卡片数，下限 10。
-  /// [capacity] 传 null 表示离开紧凑布局，恢复设置中的每页数量。
+  /// [capacity] 传 null 表示离开紧凑布局，恢复之前记住的标准布局每页数量。
   /// 房间总数不足一页时由分页切片自然显示全部。
   void applyCompactPageSize(int? capacity) {
     if (isClosed) return;
     if (capacity != null) {
+      if (!_compactPageOverride) {
+        _savedStandardPageSize = pageSize.value;
+      }
       _compactPageOverride = true;
       final target = capacity < 10 ? 10 : capacity;
       _compactPageDebounce?.cancel();
-      // 防抖：窗口拖动过程中高度连续变化，避免频繁重切分页。
       _compactPageDebounce = Timer(const Duration(milliseconds: 150), () {
         if (isClosed) return;
         setPageSize(target);
@@ -116,7 +119,9 @@ class FavoriteController extends LocalReactivePageController<LiveRoom>
     } else if (_compactPageOverride) {
       _compactPageOverride = false;
       _compactPageDebounce?.cancel();
-      setPageSize(SettingsService.to.page.defaultPageSize.v);
+      final restore = _savedStandardPageSize ?? SettingsService.to.page.defaultPageSize.v;
+      _savedStandardPageSize = null;
+      setPageSize(restore);
     }
   }
 
