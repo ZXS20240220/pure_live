@@ -576,6 +576,7 @@ class SettingsBreadcrumbAppBar extends StatelessWidget implements PreferredSizeW
       elevation: elevation,
       scrolledUnderElevation: scrolledUnderElevation,
       centerTitle: false,
+      titleSpacing: 0,
       title: SettingsBreadcrumbBar(node: node),
       actions: actions,
     );
