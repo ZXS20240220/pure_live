@@ -14,6 +14,7 @@ import 'package:pure_live/modules/live_play/controllers/live_play_controller.dar
 import 'package:pure_live/modules/live_play/widgets/local_interaction/local_interaction_sheet.dart';
 import 'package:pure_live/modules/multiview/widgets/multiview_room_search_panel.dart';
 import 'package:pure_live/modules/tags/tag_management_controller.dart';
+import 'package:pure_live/plugins/utils.dart';
 
 class LivePlayMenuButton extends StatelessWidget {
   const LivePlayMenuButton({super.key, required this.controller});
@@ -85,6 +86,10 @@ class LivePlayMenuButton extends StatelessWidget {
 
       case 10:
         _openNewWindow();
+        break;
+
+      case 11:
+        _exitApp();
         break;
     }
 
@@ -223,6 +228,10 @@ class LivePlayMenuButton extends StatelessWidget {
     });
   }
 
+  void _exitApp() {
+    Utils.exitDesktopApplication();
+  }
+
   List<PopupMenuEntry<int>> _buildItems(BuildContext context) {
     return [
       _item(value: 0, icon: Remix.price_tag_3_line, text: i18n('set_room_tags')),
@@ -247,6 +256,10 @@ class LivePlayMenuButton extends StatelessWidget {
         _item(value: 9, icon: Icons.auto_awesome_rounded, text: i18n('local_interaction_title')),
 
       if (Platform.isWindows) _item(value: 10, icon: Icons.open_in_new_rounded, text: i18n('open_room_in_new_window')),
+
+      const PopupMenuDivider(),
+
+      _item(value: 11, icon: Remix.close_line, text: i18n('exit_app')),
     ];
   }
 

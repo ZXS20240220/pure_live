@@ -4,7 +4,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/services/settings/watch_time_service.dart';
-import 'package:pure_live/common/utils/live_url_tool.dart';
 import 'package:pure_live/modules/live_play/controllers/live_play_controller.dart';
 import 'package:pure_live/modules/live_play/dialogs/play_other.dart';
 import 'package:pure_live/modules/live_play/widgets/button/record_action_button.dart';
@@ -13,6 +12,7 @@ import 'package:pure_live/modules/live_play/widgets/button/favorite_floating_but
 import 'package:pure_live/modules/multiview/widgets/multiview_room_search_panel.dart';
 import 'package:pure_live/modules/live_play/widgets/resolution_selector/audience_info.dart';
 import 'package:pure_live/modules/tags/tag_management_controller.dart';
+import 'package:pure_live/plugins/utils.dart';
 
 class LivePlayHeader extends StatefulWidget implements PreferredSizeWidget {
   const LivePlayHeader({super.key, required this.controller, this.compactHeader = false});
@@ -96,6 +96,7 @@ class _LivePlayHeaderState extends State<LivePlayHeader> {
                 if (showQuickActions) _buildQuickActions(context),
                 if (showQuickActions) _buildSearchRoomsButton(context),
                 LivePlayMenuButton(controller: widget.controller),
+                _buildExitButton(),
                 const SizedBox(width: 4),
               ],
             ),
@@ -337,17 +338,17 @@ class _LivePlayHeaderState extends State<LivePlayHeader> {
               onPressed: () => Get.dialog(PlayOther(controller: widget.controller)),
             ),
           ),
-          Tooltip(
-            message: i18n('toolbox_get_direct_link'),
-            child: IconButton(
-              icon: const Icon(Remix.link_m),
-              onPressed: () => LiveUrlTool.getPlayUrlByRoomId(
-                context: context,
-                roomId: detail.roomId ?? '',
-                platform: detail.platform ?? '',
-              ),
-            ),
-          ),
+          // Tooltip(
+          //   message: i18n('toolbox_get_direct_link'),
+          //   child: IconButton(
+          //     icon: const Icon(Remix.link_m),
+          //     onPressed: () => LiveUrlTool.getPlayUrlByRoomId(
+          //       context: context,
+          //       roomId: detail.roomId ?? '',
+          //       platform: detail.platform ?? '',
+          //     ),
+          //   ),
+          // ),
         ],
       );
     });
@@ -396,6 +397,22 @@ class _LivePlayHeaderState extends State<LivePlayHeader> {
         recorderController: widget.controller.recorderController,
         onOpenRecordCenter: widget.controller.openRecordCenter,
         compactHeader: widget.compactHeader,
+      );
+    });
+  }
+
+  Widget _buildExitButton() {
+    return Obx(() {
+      if (!SettingsService.to.player.enableImmersiveLayout.v) {
+        return const SizedBox.shrink();
+      }
+      return Tooltip(
+        message: i18n('exit_app'),
+        child: IconButton(
+          icon: const Icon(Remix.close_line),
+          onPressed: Utils.exitDesktopApplication,
+          style: IconButton.styleFrom(hoverColor: Colors.red, focusColor: Colors.red),
+        ),
       );
     });
   }
