@@ -94,7 +94,7 @@ void main() {
     final second = helper.exitPiP();
     await Future<void>.delayed(Duration.zero);
 
-    expect(host.calls.where((call) => call == 'setMinimumSize:Size(400.0, 300.0)').length, 1);
+    expect(host.calls.where((call) => call == 'setMinimumSize:Size(640.0, 480.0)').length, 1);
     positionGate.complete();
     await Future.wait([first, second]);
     expect(helper.currentMode, WindowLayoutMode.normal);
@@ -115,7 +115,7 @@ void main() {
     final exiting = helper.exitPiP();
     await Future<void>.delayed(Duration.zero);
 
-    expect(host.calls.where((call) => call == 'setMinimumSize:Size(400.0, 300.0)'), isEmpty);
+    expect(host.calls.where((call) => call == 'setMinimumSize:Size(640.0, 480.0)'), isEmpty);
     alwaysOnTopGate.complete();
     await Future.wait([stackingUpdate, exiting]);
     expect(helper.currentMode, WindowLayoutMode.normal);

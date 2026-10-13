@@ -1379,7 +1379,7 @@
   "height": "Height",
   "save_success": "Settings applied",
   "invalid_input": "Please enter valid dimensions",
-  "window_size_range_hint": "Width 400–16384 · Height 300–16384",
+  "window_size_range_hint": "Width 640–16384 · Height 480–16384",
   "window_size_out_of_range": "Enter a window size within the supported range",
   "window_close_action_failed": "The window action failed. Try again.",
   "window_size_apply_failed": "The window size was not applied. Try again",

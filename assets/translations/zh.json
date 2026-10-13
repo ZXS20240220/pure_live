@@ -1379,7 +1379,7 @@
   "height": "高度",
   "save_success": "设置已应用",
   "invalid_input": "请输入正确的数值",
-  "window_size_range_hint": "宽度 400～16384 · 高度 300～16384",
+  "window_size_range_hint": "宽度 640～16384 · 高度 480～16384",
   "window_size_out_of_range": "请输入支持范围内的窗口尺寸",
   "window_close_action_failed": "窗口操作失败，请重试",
   "window_size_apply_failed": "窗口尺寸应用失败，请重试",

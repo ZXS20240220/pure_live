@@ -347,12 +347,12 @@ class _WindowSizeDialogState extends State<_WindowSizeDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final presets = [
-      ('1080 × 720 (${i18n("default_option")})', const Size(1080, 720)),
+      ('1280 × 768 (${i18n("default_option")})', const Size(1280, 768)),
+      ('1080 × 720', const Size(1080, 720)),
       ('1280 × 720 (720P)', const Size(1280, 720)),
       ('1600 × 900', const Size(1600, 900)),
       ('1920 × 1080 (1080P)', const Size(1920, 1080)),
       ('2560 × 1440 (2K)', const Size(2560, 1440)),
-      ('1280 × 768', const Size(1280, 768)),
     ];
     return AlertDialog(
       scrollable: true,

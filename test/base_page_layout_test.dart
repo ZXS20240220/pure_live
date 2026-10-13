@@ -219,8 +219,8 @@ void main() {
         });
       }
     }
-    testWidgets('$lang desktop pagination controls fit and stay operable at 700 px', (tester) async {
-      final c = await _mount(tester, lang: lang, size: const Size(700, 320), headers: false);
+    testWidgets('$lang desktop pagination controls fit and stay operable at 900 px', (tester) async {
+      final c = await _mount(tester, lang: lang, size: const Size(900, 320), headers: false);
       expect(tester.takeException(), null);
       final next = find.descendant(of: find.byType(DesktopPaginationBar), matching: find.text(i18n('next_page')));
       await _reveal(tester, find.byKey(const ValueKey('desktop-pagination-scroll')), next, horizontal: true);

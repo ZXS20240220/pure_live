@@ -42,9 +42,9 @@ void main() {
       WindowSizeController.maxWindowDimension,
     );
     expect(WindowSizeController.normalizeStoredHeight(double.infinity), WindowSizeController.defaultWindowHeight);
-    expect(WindowSizeController.tryParseWindowSize('400', '300'), const Size(400, 300));
-    expect(WindowSizeController.tryParseWindowSize('399', '300'), isNull);
-    expect(WindowSizeController.tryParseWindowSize('400', '16385'), isNull);
+    expect(WindowSizeController.tryParseWindowSize('640', '480'), const Size(640, 480));
+    expect(WindowSizeController.tryParseWindowSize('639', '480'), isNull);
+    expect(WindowSizeController.tryParseWindowSize('640', '16385'), isNull);
     expect(WindowSizeController.tryParseWindowSize('NaN', '720'), isNull);
   });
 
@@ -61,7 +61,7 @@ void main() {
 
     expect(settings.resolvedStoredWidth, WindowSizeController.defaultWindowWidth);
     expect(settings.resolvedStoredHeight, WindowSizeController.minWindowHeight);
-    expect(settings.windowSize.value, const Size(1280, 300));
+    expect(settings.windowSize.value, const Size(1280, 480));
     expect(settings.windowsPip.hasValidBounds, isFalse);
     expect(settings.windowsPip.toJson(), {
       'displayId': '',
@@ -92,10 +92,10 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     expect(settings.storedWidth.value, WindowSizeController.minWindowWidth);
     expect(settings.storedHeight.value, WindowSizeController.defaultWindowHeight);
-    expect(settings.windowSize.value, const Size(400, 720));
+    expect(settings.windowSize.value, const Size(640, 768));
 
     settings.updateSize(Size.zero);
-    expect(settings.windowSize.value, const Size(400, 720));
+    expect(settings.windowSize.value, const Size(640, 768));
     settings.updateSize(const Size(20000, 900));
     expect(settings.windowSize.value, const Size(16384, 900));
   });
