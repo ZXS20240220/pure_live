@@ -106,7 +106,7 @@ class _LivePlayShellState extends State<LivePlayShell> with SingleTickerProvider
     }
 
     final size = MediaQuery.sizeOf(context);
-    final isSmallScreen = size.shortestSide < 600;
+    final isSmallScreen = size.width < 600;
     _isDesktopLayout = !isSmallScreen;
 
     return ValueListenableBuilder<double>(
@@ -403,7 +403,7 @@ class _LivePlayShellState extends State<LivePlayShell> with SingleTickerProvider
   }
 
   Widget _buildToggleButton(double progress, double panelWidth) {
-    final isDesktop = MediaQuery.sizeOf(context).shortestSide >= 600;
+    final isDesktop = MediaQuery.sizeOf(context).width >= 600;
     final rightOffset = isDesktop ? panelWidth * progress : 0;
 
     return Positioned(
