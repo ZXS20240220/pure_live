@@ -122,6 +122,7 @@ class _HomeTabletViewState extends State<HomeTabletView> {
                           backgroundColor: Colors.transparent,
                           groupAlignment: isShortWindow ? -1 : 0.9,
                           labelType: NavigationRailLabelType.all,
+                          minWidth: 60,
                           scrollable: true,
                           leadingAtTop: !isShortWindow,
                           leading: Column(
