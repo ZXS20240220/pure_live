@@ -982,9 +982,6 @@ class RoomCard extends StatelessWidget {
                                           fontSize: dense ? 11 : 13,
                                           fontWeight: FontWeight.w600,
                                           letterSpacing: 0.5,
-                                          shadows: const [
-                                            Shadow(color: Colors.black54, blurRadius: 4, offset: Offset(0, 1)),
-                                          ],
                                         ),
                                       ),
                                     ],
@@ -1002,9 +999,6 @@ class RoomCard extends StatelessWidget {
                                           fontSize: dense ? 11 : 14,
                                           fontWeight: FontWeight.w700,
                                           letterSpacing: 0.5,
-                                          shadows: const [
-                                            Shadow(color: Colors.black54, blurRadius: 4, offset: Offset(0, 1)),
-                                          ],
                                         ),
                                       ),
                                     ],
@@ -1030,7 +1024,6 @@ class RoomCard extends StatelessWidget {
                                 fontWeight: FontWeight.w600,
                                 letterSpacing: 0.3,
                                 height: 1.4,
-                                shadows: const [Shadow(color: Colors.black54, blurRadius: 4, offset: Offset(0, 1))],
                               ),
                             ),
                           ),

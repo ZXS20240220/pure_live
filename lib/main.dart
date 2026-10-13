@@ -51,6 +51,23 @@ class _MyAppState extends State<MyApp> with DesktopWindowMixin {
   SharedMediaReceiver? _sharedMediaReceiver;
   bool _dynamicThemeChangeScheduled = false;
 
+  static TextTheme _applyShadowToTextTheme(TextTheme base, Shadow shadow) {
+    return base.copyWith(
+      bodySmall: base.bodySmall?.copyWith(shadows: [shadow]),
+      bodyMedium: base.bodyMedium?.copyWith(shadows: [shadow]),
+      bodyLarge: base.bodyLarge?.copyWith(shadows: [shadow]),
+      titleSmall: base.titleSmall?.copyWith(shadows: [shadow]),
+      titleMedium: base.titleMedium?.copyWith(shadows: [shadow]),
+      titleLarge: base.titleLarge?.copyWith(shadows: [shadow]),
+      labelSmall: base.labelSmall?.copyWith(shadows: [shadow]),
+      labelMedium: base.labelMedium?.copyWith(shadows: [shadow]),
+      labelLarge: base.labelLarge?.copyWith(shadows: [shadow]),
+      headlineSmall: base.headlineSmall?.copyWith(shadows: [shadow]),
+      headlineMedium: base.headlineMedium?.copyWith(shadows: [shadow]),
+      headlineLarge: base.headlineLarge?.copyWith(shadows: [shadow]),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -154,6 +171,8 @@ class _MyAppState extends State<MyApp> with DesktopWindowMixin {
 
       if (scaffoldBg != null) {
         final scheme = themeToApply.colorScheme;
+        final textTheme = themeToApply.textTheme;
+        final shadow = Shadow(color: Colors.black.withValues(alpha: 0.55), blurRadius: 3, offset: const Offset(0, 1));
         themeToApply = themeToApply.copyWith(
           scaffoldBackgroundColor: scaffoldBg,
           appBarTheme: themeToApply.appBarTheme.copyWith(
@@ -166,6 +185,17 @@ class _MyAppState extends State<MyApp> with DesktopWindowMixin {
             surfaceContainerLow: scheme.surfaceContainerLow.withValues(alpha: 0.24),
             surfaceContainerHighest: scheme.surfaceContainerHighest.withValues(alpha: 0.24),
           ),
+          textTheme: _applyShadowToTextTheme(textTheme, shadow),
+          dialogTheme: DialogThemeData(
+            titleTextStyle: textTheme.titleLarge,
+            contentTextStyle: textTheme.bodyMedium,
+            backgroundColor: scheme.surface,
+          ),
+          tooltipTheme: TooltipThemeData(
+            textStyle: textTheme.bodySmall,
+            decoration: BoxDecoration(color: scheme.surface, borderRadius: BorderRadius.circular(4)),
+          ),
+          snackBarTheme: SnackBarThemeData(backgroundColor: scheme.surface, contentTextStyle: textTheme.bodyMedium),
         );
       }
 
@@ -249,6 +279,12 @@ class _MyAppState extends State<MyApp> with DesktopWindowMixin {
                   final effectiveTheme = wallpaperActive
                       ? () {
                           final scheme = baseTheme.colorScheme;
+                          final baseTextTheme = baseTheme.textTheme;
+                          final shadow = Shadow(
+                            color: Colors.black.withValues(alpha: 0.65),
+                            blurRadius: 3,
+                            offset: const Offset(0, 1),
+                          );
                           return baseTheme.copyWith(
                             scaffoldBackgroundColor: Colors.transparent,
                             appBarTheme: baseTheme.appBarTheme.copyWith(
@@ -260,6 +296,20 @@ class _MyAppState extends State<MyApp> with DesktopWindowMixin {
                               surface: scheme.surface.withValues(alpha: 1),
                               surfaceContainerLow: scheme.surfaceContainerLow.withValues(alpha: 0.24),
                               surfaceContainerHighest: scheme.surfaceContainerHighest.withValues(alpha: 0.24),
+                            ),
+                            textTheme: _applyShadowToTextTheme(baseTextTheme, shadow),
+                            dialogTheme: DialogThemeData(
+                              titleTextStyle: baseTextTheme.titleLarge,
+                              contentTextStyle: baseTextTheme.bodyMedium,
+                              backgroundColor: scheme.surface,
+                            ),
+                            tooltipTheme: TooltipThemeData(
+                              textStyle: baseTextTheme.bodySmall,
+                              decoration: BoxDecoration(color: scheme.surface, borderRadius: BorderRadius.circular(4)),
+                            ),
+                            snackBarTheme: SnackBarThemeData(
+                              backgroundColor: scheme.surface,
+                              contentTextStyle: baseTextTheme.bodyMedium,
                             ),
                           );
                         }()
