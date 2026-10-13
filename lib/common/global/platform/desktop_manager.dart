@@ -573,26 +573,37 @@ class _WindowMaximizeIconPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2;
 
+    // 共用的方形尺寸：最大化状态下的前方框与未最大化状态下的方框完全一致
+    final margin = size.width * 0.22;
+    final sqSize = size.width - margin * 2;
+    final radius = Radius.circular(size.width * 0.08);
+
     if (isMaximized) {
-      // 还原图标：两个重叠方框，后方框偏右上，前方框偏左下
-      // 用线段直接绘制可见部分，无需背景色填充，避免 hover 变色时出现瑕疵
-      final sq = size.width * 0.58;
-      final back = Rect.fromLTWH(size.width * 0.31, size.height * 0.12, sq, sq);
-      final front = Rect.fromLTWH(size.width * 0.12, size.height * 0.31, sq, sq);
+      // 还原图标（Windows 11 风格）：前方框完整，后方框仅保留上边和右边
+      final offset = size.width * 0.18;
+      // 通过调整前方框位置，使前方框与后方框组合后的包围盒整体居中
+      final frontX = (size.width - sqSize - offset) / 2;
+      final frontY = (size.width - sqSize + offset) / 2;
+      final front = Rect.fromLTWH(frontX, frontY, sqSize, sqSize);
+      final back = Rect.fromLTWH(frontX + offset, frontY - offset, sqSize, sqSize);
 
-      // 后方框：上边、右边完整；左边只画到前方框顶部；下边只画前方框右侧部分
-      canvas.drawLine(Offset(back.left, back.top), Offset(back.right, back.top), stroke);
-      canvas.drawLine(Offset(back.right, back.top), Offset(back.right, back.bottom), stroke);
-      canvas.drawLine(Offset(back.left, back.top), Offset(back.left, front.top), stroke);
-      canvas.drawLine(Offset(front.right, back.bottom), Offset(back.right, back.bottom), stroke);
+      // 后方框：仅绘制上边和右边，右上角带圆角
+      // arcToPoint 默认 clockwise=true 在屏幕坐标系(y向下)会画成凹弧，需设为 false
+      final backPath = Path()
+        ..moveTo(back.left, back.top)
+        ..lineTo(back.right - radius.x, back.top)
+        ..arcToPoint(Offset(back.right, back.top + radius.y), radius: radius, clockwise: false)
+        ..lineTo(back.right, back.bottom);
+      canvas.drawPath(backPath, stroke);
 
-      // 前方框：完整方框
-      canvas.drawRect(front, stroke);
+      // 前方框：完整圆角方框
+      final frontPath = Path()..addRRect(RRect.fromRectAndRadius(front, radius));
+      canvas.drawPath(frontPath, stroke);
     } else {
-      // 最大化图标：单个方框，四周留白
-      final margin = size.width * 0.22;
-      final rect = Rect.fromLTWH(margin, margin, size.width - margin * 2, size.height - margin * 2);
-      canvas.drawRect(rect, stroke);
+      // 最大化图标：单个圆角方框，四周留白
+      final rect = Rect.fromLTWH(margin, margin, sqSize, sqSize);
+      final path = Path()..addRRect(RRect.fromRectAndRadius(rect, radius));
+      canvas.drawPath(path, stroke);
     }
   }
 
