@@ -2049,7 +2049,7 @@ class BottomActionBar extends StatelessWidget {
                         // （居中发送框 + 清晰度/线路合并胶囊），与宽屏全屏底栏一致。
                         final immersive = !fullscreen && !isPipMode && enableImmersiveLayout;
                         final fullscreenStyle = fullscreen || immersive;
-                        final compact = constraints.maxWidth < 680;
+                        final compact = constraints.maxWidth < 700;
                         final left = _buildLeftActions(
                           compact: fullscreenStyle && compact && localInteractionEnabled,
                           enableDanmakuDisplay: enableDanmakuDisplay,
@@ -2113,8 +2113,8 @@ class BottomActionBar extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         PlayPauseButton(controller: controller),
-        if (!compact) LiveEdgeButton(controller: controller),
-        if (!compact) RefreshButton(controller: controller),
+        LiveEdgeButton(controller: controller),
+        RefreshButton(controller: controller),
         if (!compact) FavoriteButton(controller: controller),
         if (enableDanmakuDisplay) ...[DanmakuButton(controller: controller), SettingsButton(controller: controller)],
       ],
@@ -2130,8 +2130,7 @@ class BottomActionBar extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // 清晰度/线路合并胶囊：全屏或沉浸模式（非紧凑布局）显示。
-        if (!compact && showStreamSelector) ...[FullscreenStreamSelectorButton(controller: controller)],
+        if (showStreamSelector) ...[FullscreenStreamSelectorButton(controller: controller)],
         if (!compact) VideoFitSetting(controller: controller),
         if (Platform.isWindows) OverlayVolumeControl(controller: controller),
         if (Platform.isWindows && controller.supportWindowFull && !isFullscreen)
