@@ -998,6 +998,7 @@ class LockButton extends StatelessWidget {
             child: Container(
               margin: const EdgeInsets.only(right: 20.0),
               child: IconButton(
+                tooltip: i18n(controller.showLocked.value ? 'unlock_player_controls' : 'lock_player_controls'),
                 onPressed: () => {controller.showLocked.toggle()},
                 icon: Icon(controller.showLocked.value ? Icons.lock_rounded : Icons.lock_open_rounded, size: 28),
                 color: Colors.white,
@@ -1106,6 +1107,7 @@ class ScreenshotButton extends StatelessWidget {
         child: AbsorbPointer(
           absorbing: !controller.showController.value,
           child: IconButton(
+            tooltip: i18n('take_screenshot'),
             onPressed: controller.takeScreenshot,
             icon: const Icon(Icons.photo_camera_outlined, size: 28),
             color: Colors.white,
@@ -2321,20 +2323,23 @@ class PlayPauseButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final playerManager = GlobalPlayerService.instance.player;
 
-    return GestureDetector(
-      onTap: () => playerManager.togglePlayPause(),
-      child: StreamBuilder<bool>(
-        stream: playerManager.onPlaying.distinct(),
-        initialData: playerManager.isPlayingNow,
-        builder: (context, snapshot) {
-          final isPlaying = snapshot.data ?? playerManager.isPlayingNow;
-          return Container(
-            alignment: Alignment.center,
-            padding: const EdgeInsets.only(right: 6),
-            child: Icon(isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded, color: Colors.white, size: 28),
-          );
-        },
-      ),
+    return StreamBuilder<bool>(
+      stream: playerManager.onPlaying.distinct(),
+      initialData: playerManager.isPlayingNow,
+      builder: (context, snapshot) {
+        final isPlaying = snapshot.data ?? playerManager.isPlayingNow;
+        return Tooltip(
+          message: i18n(isPlaying ? 'pause_video' : 'play_video'),
+          child: GestureDetector(
+            onTap: () => playerManager.togglePlayPause(),
+            child: Container(
+              alignment: Alignment.center,
+              padding: const EdgeInsets.only(right: 6),
+              child: Icon(isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded, color: Colors.white, size: 28),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -2346,12 +2351,15 @@ class RefreshButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => controller.refresh(),
-      child: Container(
-        alignment: Alignment.center,
-        padding: const EdgeInsets.only(right: 6),
-        child: const Icon(Icons.autorenew_rounded, color: Colors.white),
+    return Tooltip(
+      message: i18n('refresh'),
+      child: GestureDetector(
+        onTap: () => controller.refresh(),
+        child: Container(
+          alignment: Alignment.center,
+          padding: const EdgeInsets.only(right: 6),
+          child: const Icon(Icons.autorenew_rounded, color: Colors.white),
+        ),
       ),
     );
   }
@@ -2399,26 +2407,30 @@ class DanmakuButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => controller.hideDanmaku.toggle(),
-      child: Container(
-        alignment: Alignment.center,
-        padding: const EdgeInsets.only(right: 6, left: 6),
-        child: Obx(
-          () => controller.hideDanmaku.value
-              ? SvgPicture.asset(
-                  'assets/images/video/danmu_close.svg',
-                  // ignore: deprecated_member_use
-                  color: Colors.white,
-                )
-              : SvgPicture.asset(
-                  'assets/images/video/danmu_open.svg',
-                  // ignore: deprecated_member_use
-                  color: Colors.white,
-                ),
+    return Obx(() {
+      final hidden = controller.hideDanmaku.value;
+      return Tooltip(
+        message: i18n(hidden ? 'show_danmaku' : 'hide_danmaku'),
+        child: GestureDetector(
+          onTap: () => controller.hideDanmaku.toggle(),
+          child: Container(
+            alignment: Alignment.center,
+            padding: const EdgeInsets.only(right: 6, left: 6),
+            child: hidden
+                ? SvgPicture.asset(
+                    'assets/images/video/danmu_close.svg',
+                    // ignore: deprecated_member_use
+                    color: Colors.white,
+                  )
+                : SvgPicture.asset(
+                    'assets/images/video/danmu_open.svg',
+                    // ignore: deprecated_member_use
+                    color: Colors.white,
+                  ),
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 }
 
@@ -2429,28 +2441,31 @@ class SettingsButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () async {
-        if (controller.isMenuOpen.value) return;
-        controller.isMenuOpen.value = true;
-        try {
-          await Get.dialog<void>(
-            SettingsPanel(controller: controller),
-            barrierColor: Colors.black.withValues(alpha: 0.58),
-            useSafeArea: true,
-          );
-        } finally {
-          controller.isMenuOpen.value = false;
-          controller.enableController();
-        }
-      },
-      child: Container(
-        alignment: Alignment.center,
-        padding: const EdgeInsets.only(right: 6, left: 6),
-        child: SvgPicture.asset(
-          'assets/images/video/danmu_setting.svg',
-          // ignore: deprecated_member_use
-          color: Colors.white,
+    return Tooltip(
+      message: i18n('danmaku_settings'),
+      child: GestureDetector(
+        onTap: () async {
+          if (controller.isMenuOpen.value) return;
+          controller.isMenuOpen.value = true;
+          try {
+            await Get.dialog<void>(
+              SettingsPanel(controller: controller),
+              barrierColor: Colors.black.withValues(alpha: 0.58),
+              useSafeArea: true,
+            );
+          } finally {
+            controller.isMenuOpen.value = false;
+            controller.enableController();
+          }
+        },
+        child: Container(
+          alignment: Alignment.center,
+          padding: const EdgeInsets.only(right: 6, left: 6),
+          child: SvgPicture.asset(
+            'assets/images/video/danmu_setting.svg',
+            // ignore: deprecated_member_use
+            color: Colors.white,
+          ),
         ),
       ),
     );
@@ -2466,20 +2481,23 @@ class ExpandWindowButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Obx(() {
       final expanded = GlobalPlayerState.to.isWindowFullscreen.value;
-      return Semantics(
-        button: true,
-        label: i18n(playerWindowActionLabelKey(expanded)),
-        child: GestureDetector(
-          excludeFromSemantics: true,
-          onTap: () => controller.toggleWindowFullScreen(),
-          child: Container(
-            alignment: Alignment.center,
-            child: RotatedBox(
-              quarterTurns: 1,
-              child: Icon(
-                expanded ? Icons.unfold_less_rounded : Icons.unfold_more_rounded,
-                color: Colors.white,
-                size: 26,
+      return Tooltip(
+        message: i18n(expanded ? 'exit_window_fullscreen' : 'enter_window_fullscreen'),
+        child: Semantics(
+          button: true,
+          label: i18n(playerWindowActionLabelKey(expanded)),
+          child: GestureDetector(
+            excludeFromSemantics: true,
+            onTap: () => controller.toggleWindowFullScreen(),
+            child: Container(
+              alignment: Alignment.center,
+              child: RotatedBox(
+                quarterTurns: 1,
+                child: Icon(
+                  expanded ? Icons.unfold_less_rounded : Icons.unfold_more_rounded,
+                  color: Colors.white,
+                  size: 26,
+                ),
               ),
             ),
           ),
@@ -2498,20 +2516,23 @@ class ExpandButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Obx(() {
       final expanded = GlobalPlayerState.to.isFullscreen.value;
-      return Semantics(
-        button: true,
-        label: i18n(fullscreenActionLabelKey(expanded)),
-        child: GestureDetector(
-          excludeFromSemantics: true,
-          onTap: () => controller.toggleFullScreen(),
-          child: Container(
-            alignment: Alignment.center,
-            child: Padding(
-              padding: const EdgeInsets.only(left: 6),
-              child: Icon(
-                expanded ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
-                color: Colors.white,
-                size: 26,
+      return Tooltip(
+        message: i18n(expanded ? 'exit_fullscreen' : 'enter_fullscreen'),
+        child: Semantics(
+          button: true,
+          label: i18n(fullscreenActionLabelKey(expanded)),
+          child: GestureDetector(
+            excludeFromSemantics: true,
+            onTap: () => controller.toggleFullScreen(),
+            child: Container(
+              alignment: Alignment.center,
+              child: Padding(
+                padding: const EdgeInsets.only(left: 6),
+                child: Icon(
+                  expanded ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
+                  color: Colors.white,
+                  size: 26,
+                ),
               ),
             ),
           ),
@@ -2613,23 +2634,26 @@ class FavoriteButton extends StatelessWidget {
       final room = controller.room;
       final favoriteRooms = SettingsService.to.fav.favoriteRooms.value;
       final isFavorite = favoriteRooms.any((candidate) => candidate.hasSameIdentity(room));
-      return GestureDetector(
-        onTap: () {
-          controller.enableController();
-          final changed = isFavorite ? SettingsService.to.fav.removeRoom(room) : SettingsService.to.fav.addRoom(room);
-          if (changed) EventBus.instance.emit('changeFavorite', true);
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 2),
-          alignment: Alignment.center,
-          height: 25,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Icon(isFavorite ? Icons.check_rounded : Icons.close, color: Colors.white, size: 15),
-              Text(isFavorite ? i18n('followed') : i18n('follow'), style: const TextStyle(color: Colors.white)),
-            ],
+      return Tooltip(
+        message: i18n(isFavorite ? 'favorite_remove' : 'favorite_add'),
+        child: GestureDetector(
+          onTap: () {
+            controller.enableController();
+            final changed = isFavorite ? SettingsService.to.fav.removeRoom(room) : SettingsService.to.fav.addRoom(room);
+            if (changed) EventBus.instance.emit('changeFavorite', true);
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 2),
+            alignment: Alignment.center,
+            height: 25,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Icon(isFavorite ? Icons.check_rounded : Icons.close, color: Colors.white, size: 15),
+                Text(isFavorite ? i18n('followed') : i18n('follow'), style: const TextStyle(color: Colors.white)),
+              ],
+            ),
           ),
         ),
       );

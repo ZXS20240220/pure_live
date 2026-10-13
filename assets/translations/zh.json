@@ -2467,5 +2467,14 @@
   "ip_location": "IP属地",
   "last_watched": "上次观看",
   "title_label": "标题",
-  "restart_app": "重启应用"
+  "restart_app": "重启应用",
+  "take_screenshot": "截图",
+  "play_video": "播放",
+  "pause_video": "暂停",
+  "hide_danmaku": "隐藏弹幕",
+  "show_danmaku": "显示弹幕",
+  "enter_window_fullscreen": "进入窗口全屏",
+  "exit_window_fullscreen": "退出窗口全屏",
+  "favorite_add": "添加关注",
+  "favorite_remove": "取消关注"
 }

@@ -2467,5 +2467,14 @@
   "ip_location": "IP Location",
   "last_watched": "Last watched",
   "title_label": "Title",
-  "restart_app": "Restart App"
+  "restart_app": "Restart App",
+  "take_screenshot": "Take screenshot",
+  "play_video": "Play",
+  "pause_video": "Pause",
+  "hide_danmaku": "Hide danmaku",
+  "show_danmaku": "Show danmaku",
+  "enter_window_fullscreen": "Enter window fullscreen",
+  "exit_window_fullscreen": "Exit window fullscreen",
+  "favorite_add": "Add favorite",
+  "favorite_remove": "Remove favorite"
 }
