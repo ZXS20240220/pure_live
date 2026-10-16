@@ -15,31 +15,34 @@ class RendererSettingsPage extends GetView<SettingsService> {
         .toList(growable: false);
     return Scaffold(
       appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.renderer),
-      body: ListView(
-        physics: const PureLiveScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        children: [
-          context.buildGroupTitle(i18n('video_output_driver')),
-          context.buildModernCard([
-            Obx(
-              () => Column(
-                children: renderers.map((item) {
-                  final key = item['key']!;
-                  final selected = controller.player.videoOutputDriver.v == key;
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: ListView(
+          physics: const PureLiveScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          children: [
+            context.buildGroupTitle(i18n('video_output_driver')),
+            context.buildModernCard([
+              Obx(
+                () => Column(
+                  children: renderers.map((item) {
+                    final key = item['key']!;
+                    final selected = controller.player.videoOutputDriver.v == key;
 
-                  return _RendererTile(
-                    title: _getLocalizedName(context, item),
-                    selected: selected,
-                    onTap: () {
-                      controller.player.videoOutputDriver.v = key;
-                    },
-                  );
-                }).toList(),
+                    return _RendererTile(
+                      title: _getLocalizedName(context, item),
+                      selected: selected,
+                      onTap: () {
+                        controller.player.videoOutputDriver.v = key;
+                      },
+                    );
+                  }).toList(),
+                ),
               ),
-            ),
-          ]),
-          const SizedBox(height: 32),
-        ],
+            ]),
+            const SizedBox(height: 32),
+          ],
+        ),
       ),
     );
   }

@@ -67,22 +67,25 @@ class _WebDavPageState extends State<WebDavPage> {
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: Theme.of(Get.context!).colorScheme.surfaceContainerLow,
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final minimumStateHeight = (constraints.maxHeight - kToolbarHeight - 50)
-              .clamp(0.0, double.infinity)
-              .toDouble();
-          return CustomScrollView(
-            key: const ValueKey('webdav-page-scroll'),
-            physics: const PureLiveScrollPhysics(),
-            slivers: [
-              _buildAppBar(),
-              _buildNavigationBar(),
-              SliverToBoxAdapter(child: _buildFileActionStatus()),
-              _buildBodyContent(minimumStateHeight),
-            ],
-          );
-        },
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final minimumStateHeight = (constraints.maxHeight - kToolbarHeight - 50)
+                .clamp(0.0, double.infinity)
+                .toDouble();
+            return CustomScrollView(
+              key: const ValueKey('webdav-page-scroll'),
+              physics: const PureLiveScrollPhysics(),
+              slivers: [
+                _buildAppBar(),
+                _buildNavigationBar(),
+                SliverToBoxAdapter(child: _buildFileActionStatus()),
+                _buildBodyContent(minimumStateHeight),
+              ],
+            );
+          },
+        ),
       ),
       endDrawer: _buildDrawer(context),
       floatingActionButton: Obx(

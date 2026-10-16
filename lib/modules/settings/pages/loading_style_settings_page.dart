@@ -434,116 +434,123 @@ class _LoadingStyleSettingsPageState extends State<LoadingStyleSettingsPage> wit
           ),
         ],
       ),
-      body: CustomScrollView(
-        physics: const PureLiveScrollPhysics(),
-        slivers: [
-          SliverPadding(
-            padding: const EdgeInsets.all(16),
-            sliver: SliverToBoxAdapter(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  context.buildGroupTitle(i18n("change_loading_color")),
-                  context.buildModernCard([
-                    context.buildTile(
-                      icon: Remix.palette_line,
-                      title: i18n("change_loading_color"),
-                      subtitle: i18n("change_loading_color_subtitle"),
-                      onTap: colorPickerDialog,
-                      isLong: true,
-                      stackTrailingOnNarrow: true,
-                      trailing: Obx(
-                        () => ColorIndicator(
-                          width: 28,
-                          height: 28,
-                          borderRadius: 6,
-                          color: SettingsService.to.theme.loadingStyleColor ?? theme.colorScheme.primary,
-                          onSelectFocus: false,
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: CustomScrollView(
+          physics: const PureLiveScrollPhysics(),
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.all(16),
+              sliver: SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    context.buildGroupTitle(i18n("change_loading_color")),
+                    context.buildModernCard([
+                      context.buildTile(
+                        icon: Remix.palette_line,
+                        title: i18n("change_loading_color"),
+                        subtitle: i18n("change_loading_color_subtitle"),
+                        onTap: colorPickerDialog,
+                        isLong: true,
+                        stackTrailingOnNarrow: true,
+                        trailing: Obx(
+                          () => ColorIndicator(
+                            width: 28,
+                            height: 28,
+                            borderRadius: 6,
+                            color: SettingsService.to.theme.loadingStyleColor ?? theme.colorScheme.primary,
+                            onSelectFocus: false,
+                          ),
                         ),
                       ),
-                    ),
-                  ]),
-                ],
+                    ]),
+                  ],
+                ),
               ),
             ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            sliver: SliverGrid(
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: crossAxisCount,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: childAspectRatio,
-              ),
-              delegate: SliverChildBuilderDelegate((context, index) {
-                final item = AppConsts.allStyles[index];
-                final String key = item['key']!;
-                final String displayName = isZh ? item['nameZh']! : item['nameEn']!;
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              sliver: SliverGrid(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: childAspectRatio,
+                ),
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final item = AppConsts.allStyles[index];
+                  final String key = item['key']!;
+                  final String displayName = isZh ? item['nameZh']! : item['nameEn']!;
 
-                return Obx(() {
-                  final bool isSelected = SettingsService.to.theme.resolvedLoadingStyle == key;
-                  final Color liveColor = SettingsService.to.theme.loadingStyleColor ?? theme.colorScheme.primary;
+                  return Obx(() {
+                    final bool isSelected = SettingsService.to.theme.resolvedLoadingStyle == key;
+                    final Color liveColor = SettingsService.to.theme.loadingStyleColor ?? theme.colorScheme.primary;
 
-                  return InkWell(
-                    key: ValueKey('loading-style-$key'),
-                    onTap: () => SettingsService.to.theme.loadingStyle.v = key,
-                    borderRadius: BorderRadius.circular(16),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? theme.colorScheme.primaryContainer.withValues(alpha: 0.25)
-                            : theme.colorScheme.surfaceContainerLow,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: isSelected ? theme.colorScheme.primary : Colors.transparent,
-                          width: 2,
+                    return InkWell(
+                      key: ValueKey('loading-style-$key'),
+                      onTap: () => SettingsService.to.theme.loadingStyle.v = key,
+                      borderRadius: BorderRadius.circular(16),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.25)
+                              : theme.colorScheme.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isSelected ? theme.colorScheme.primary : Colors.transparent,
+                            width: 2,
+                          ),
                         ),
-                      ),
-                      child: Stack(
-                        children: [
-                          Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Expanded(
-                                child: Center(
-                                  child: SizedBox(width: 36, height: 36, child: _buildAnim(key, liveColor, 36, theme)),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 12, left: 4, right: 4),
-                                child: Tooltip(
-                                  message: displayName,
-                                  child: Text(
-                                    displayName,
-                                    key: ValueKey('loading-style-label-$key'),
-                                    textAlign: TextAlign.center,
-                                    maxLines: textScale > 1.5 ? 2 : 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: AppTextStyles.t11Bold.copyWith(
-                                      color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface,
+                        child: Stack(
+                          children: [
+                            Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Expanded(
+                                  child: Center(
+                                    child: SizedBox(
+                                      width: 36,
+                                      height: 36,
+                                      child: _buildAnim(key, liveColor, 36, theme),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          if (isSelected)
-                            Positioned(
-                              top: 8,
-                              right: 8,
-                              child: Icon(Icons.check_circle, size: 16, color: theme.colorScheme.primary),
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 12, left: 4, right: 4),
+                                  child: Tooltip(
+                                    message: displayName,
+                                    child: Text(
+                                      displayName,
+                                      key: ValueKey('loading-style-label-$key'),
+                                      textAlign: TextAlign.center,
+                                      maxLines: textScale > 1.5 ? 2 : 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppTextStyles.t11Bold.copyWith(
+                                        color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                        ],
+                            if (isSelected)
+                              Positioned(
+                                top: 8,
+                                right: 8,
+                                child: Icon(Icons.check_circle, size: 16, color: theme.colorScheme.primary),
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-                });
-              }, childCount: AppConsts.allStyles.length),
+                    );
+                  });
+                }, childCount: AppConsts.allStyles.length),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

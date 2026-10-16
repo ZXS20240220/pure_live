@@ -18,28 +18,31 @@ class _ContactPageState extends State<ContactPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(),
-      body: ListView(
-        physics: const PureLiveScrollPhysics(),
-        children: [
-          SectionTitle(title: i18n("contact")),
-          ListTile(
-            leading: const Icon(CustomIcons.mail_squared, size: 34),
-            title: Text(i18n("email")),
-            subtitle: const Text(VersionUtil.email),
-            onLongPress: () => clipboard(VersionUtil.email),
-            onTap: () {
-              launchUrl(Uri.parse(VersionUtil.emailUrl), mode: LaunchMode.externalApplication);
-            },
-          ),
-          ListTile(
-            leading: const Icon(CustomIcons.github_circled, size: 32),
-            title: Text(i18n("github")),
-            subtitle: Text(VersionUtil.githubUrl),
-            onTap: () {
-              launchUrl(Uri.parse(VersionUtil.githubUrl), mode: LaunchMode.externalApplication);
-            },
-          ),
-        ],
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: ListView(
+          physics: const PureLiveScrollPhysics(),
+          children: [
+            SectionTitle(title: i18n("contact")),
+            ListTile(
+              leading: const Icon(CustomIcons.mail_squared, size: 34),
+              title: Text(i18n("email")),
+              subtitle: const Text(VersionUtil.email),
+              onLongPress: () => clipboard(VersionUtil.email),
+              onTap: () {
+                launchUrl(Uri.parse(VersionUtil.emailUrl), mode: LaunchMode.externalApplication);
+              },
+            ),
+            ListTile(
+              leading: const Icon(CustomIcons.github_circled, size: 32),
+              title: Text(i18n("github")),
+              subtitle: Text(VersionUtil.githubUrl),
+              onTap: () {
+                launchUrl(Uri.parse(VersionUtil.githubUrl), mode: LaunchMode.externalApplication);
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

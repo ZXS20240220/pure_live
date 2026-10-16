@@ -37,21 +37,24 @@ class WallpaperApiGroupPage extends StatelessWidget {
           parents: [SettingsCrumbs.root, SettingsCrumbs.wallpaper, SettingsCrumbs.wallpaperApi],
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-        physics: const PureLiveScrollPhysics(),
-        children: <Widget>[
-          context.buildModernCard(<Widget>[
-            for (final WallpaperApiSource source in resolved.sources)
-              context.buildTile(
-                icon: Remix.global_line,
-                title: source.name,
-                subtitle: source.host,
-                trailing: const Icon(Remix.arrow_right_s_line),
-                onTap: () => Get.to<void>(() => WallpaperApiPreviewPage(source: source)),
-              ),
-          ]),
-        ],
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+          physics: const PureLiveScrollPhysics(),
+          children: <Widget>[
+            context.buildModernCard(<Widget>[
+              for (final WallpaperApiSource source in resolved.sources)
+                context.buildTile(
+                  icon: Remix.global_line,
+                  title: source.name,
+                  subtitle: source.host,
+                  trailing: const Icon(Remix.arrow_right_s_line),
+                  onTap: () => Get.to<void>(() => WallpaperApiPreviewPage(source: source)),
+                ),
+            ]),
+          ],
+        ),
       ),
     );
   }

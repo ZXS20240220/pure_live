@@ -26,25 +26,28 @@ class WallpaperLibraryPage extends StatelessWidget {
 
     return Scaffold(
       appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.wallpaperLibrary),
-      body: sources.isEmpty
-          ? const Center(child: Text('暂无图源'))
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-              children: [
-                context.buildModernCard([
-                  for (final source in sources)
-                    context.buildTile(
-                      icon: _sourceIcon(source.kind),
-                      title: wallpaperSourceName(source.id),
-                      subtitle: source.categorized && source.visibleGroups.length > 1
-                          ? '${source.visibleGroups.length} 个分类'
-                          : null,
-                      trailing: const Icon(Remix.arrow_right_s_line),
-                      onTap: () => _open(context, source),
-                    ),
-                ]),
-              ],
-            ),
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: sources.isEmpty
+            ? const Center(child: Text('暂无图源'))
+            : ListView(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+                children: [
+                  context.buildModernCard([
+                    for (final source in sources)
+                      context.buildTile(
+                        icon: _sourceIcon(source.kind),
+                        title: wallpaperSourceName(source.id),
+                        subtitle: source.categorized && source.visibleGroups.length > 1
+                            ? '${source.visibleGroups.length} 个分类'
+                            : null,
+                        trailing: const Icon(Remix.arrow_right_s_line),
+                        onTap: () => _open(context, source),
+                      ),
+                  ]),
+                ],
+              ),
+      ),
     );
   }
 

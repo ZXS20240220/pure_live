@@ -16,160 +16,163 @@ class NavigationSettingsPage extends StatelessWidget {
 
     return Scaffold(
       appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.navigation),
-      body: ListView(
-        physics: const PureLiveScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        children: [
-          context.buildGroupTitle(i18n("multiview_title")),
-          context.buildModernCard([
-            context.buildSwitchTile(
-              title: i18n("multiview_title"),
-              subtitle: "",
-              value: SettingsService.to.app.enableMultiView,
-              icon: Remix.layout_grid_line,
-            ),
-          ]),
-          const SizedBox(height: 16),
-          _buildTipBanner(theme),
-          const SizedBox(height: 16),
-          context.buildGroupTitle(i18n("navigation_display_settings")),
-          Obx(() {
-            // 2. 关键：按 savedMenuIds 的顺序给 allMenus 排序
-            final savedOrder = AppSettingsController.normalizeMenuIds(SettingsService.to.app.savedMenuIds.v);
-            // 给每个菜单一个排序权重：在 savedMenuIds 里的位置，不在里面的排到最后
-            final sortedMenus = List<HomeMenu>.from(allMenus);
-            sortedMenus.sort((a, b) {
-              final indexA = savedOrder.indexOf(a.id);
-              final indexB = savedOrder.indexOf(b.id);
-              // 都在列表里：按 savedOrder 顺序排
-              if (indexA != -1 && indexB != -1) return indexA.compareTo(indexB);
-              // 只有一个在列表里：在列表里的排前面
-              if (indexA != -1) return -1;
-              if (indexB != -1) return 1;
-              // 都不在：保持原始顺序
-              return 0;
-            });
-
-            return Container(
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: theme.dividerColor.withValues(alpha: 0.05), width: 0.5),
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: ListView(
+          physics: const PureLiveScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          children: [
+            context.buildGroupTitle(i18n("multiview_title")),
+            context.buildModernCard([
+              context.buildSwitchTile(
+                title: i18n("multiview_title"),
+                subtitle: "",
+                value: SettingsService.to.app.enableMultiView,
+                icon: Remix.layout_grid_line,
               ),
-              child: ReorderableListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                buildDefaultDragHandles: false,
-                itemCount: sortedMenus.length,
-                onReorderItem: (oldIndex, newIndex) {
-                  if (oldIndex < 0 || oldIndex >= sortedMenus.length) return;
-                  final movedId = sortedMenus[oldIndex].id;
-                  final currentOrder = List<String>.from(savedOrder);
-                  final oldVisibleIndex = currentOrder.indexOf(movedId);
-                  // Hidden rows have no persisted order and therefore no drag
-                  // action. Older builds exposed their handle, then indexed
-                  // past the shorter visible-id list.
-                  if (oldVisibleIndex < 0) return;
-                  if (newIndex > oldIndex) newIndex -= 1;
-                  currentOrder.removeAt(oldVisibleIndex);
-                  final insertIndex = newIndex.clamp(0, currentOrder.length);
-                  currentOrder.insert(insertIndex, movedId);
-                  SettingsService.to.app.savedMenuIds.v = currentOrder;
-                },
-                itemBuilder: (context, index) {
-                  final menu = sortedMenus[index];
-                  // 开关状态直接从 savedMenuIds 判断
-                  final isVisible = SettingsService.to.app.savedMenuIds.v.contains(menu.id);
+            ]),
+            const SizedBox(height: 16),
+            _buildTipBanner(theme),
+            const SizedBox(height: 16),
+            context.buildGroupTitle(i18n("navigation_display_settings")),
+            Obx(() {
+              // 2. 关键：按 savedMenuIds 的顺序给 allMenus 排序
+              final savedOrder = AppSettingsController.normalizeMenuIds(SettingsService.to.app.savedMenuIds.v);
+              // 给每个菜单一个排序权重：在 savedMenuIds 里的位置，不在里面的排到最后
+              final sortedMenus = List<HomeMenu>.from(allMenus);
+              sortedMenus.sort((a, b) {
+                final indexA = savedOrder.indexOf(a.id);
+                final indexB = savedOrder.indexOf(b.id);
+                // 都在列表里：按 savedOrder 顺序排
+                if (indexA != -1 && indexB != -1) return indexA.compareTo(indexB);
+                // 只有一个在列表里：在列表里的排前面
+                if (indexA != -1) return -1;
+                if (indexB != -1) return 1;
+                // 都不在：保持原始顺序
+                return 0;
+              });
 
-                  String titleText = "";
-                  IconData menuIcon = Remix.question_line;
-                  switch (menu) {
-                    case HomeMenu.favorites:
-                      titleText = i18n("favorites_title");
-                      menuIcon = Remix.heart_3_fill;
-                      break;
-                    case HomeMenu.popular:
-                      titleText = i18n("popular_title");
-                      menuIcon = CustomIcons.popular;
-                      break;
-                    case HomeMenu.areas:
-                      titleText = i18n("areas_title");
-                      menuIcon = Remix.apps_2_line;
-                      break;
-                    case HomeMenu.record:
-                      titleText = i18n("record_center");
-                      menuIcon = Remix.download_2_fill;
-                      break;
-                  }
+              return Container(
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: theme.dividerColor.withValues(alpha: 0.05), width: 0.5),
+                ),
+                child: ReorderableListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  buildDefaultDragHandles: false,
+                  itemCount: sortedMenus.length,
+                  onReorderItem: (oldIndex, newIndex) {
+                    if (oldIndex < 0 || oldIndex >= sortedMenus.length) return;
+                    final movedId = sortedMenus[oldIndex].id;
+                    final currentOrder = List<String>.from(savedOrder);
+                    final oldVisibleIndex = currentOrder.indexOf(movedId);
+                    // Hidden rows have no persisted order and therefore no drag
+                    // action. Older builds exposed their handle, then indexed
+                    // past the shorter visible-id list.
+                    if (oldVisibleIndex < 0) return;
+                    if (newIndex > oldIndex) newIndex -= 1;
+                    currentOrder.removeAt(oldVisibleIndex);
+                    final insertIndex = newIndex.clamp(0, currentOrder.length);
+                    currentOrder.insert(insertIndex, movedId);
+                    SettingsService.to.app.savedMenuIds.v = currentOrder;
+                  },
+                  itemBuilder: (context, index) {
+                    final menu = sortedMenus[index];
+                    // 开关状态直接从 savedMenuIds 判断
+                    final isVisible = SettingsService.to.app.savedMenuIds.v.contains(menu.id);
 
-                  Widget buildControls() => Row(
-                    key: ValueKey('navigation-menu-controls-${menu.id}'),
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Switch(
-                        key: ValueKey('navigation-menu-switch-${menu.id}'),
-                        value: isVisible,
-                        activeThumbColor: theme.colorScheme.primary,
-                        onChanged: (value) {
-                          final savedMenus = AppSettingsController.normalizeMenuIds(
-                            SettingsService.to.app.savedMenuIds.v,
+                    String titleText = "";
+                    IconData menuIcon = Remix.question_line;
+                    switch (menu) {
+                      case HomeMenu.favorites:
+                        titleText = i18n("favorites_title");
+                        menuIcon = Remix.heart_3_fill;
+                        break;
+                      case HomeMenu.popular:
+                        titleText = i18n("popular_title");
+                        menuIcon = CustomIcons.popular;
+                        break;
+                      case HomeMenu.areas:
+                        titleText = i18n("areas_title");
+                        menuIcon = Remix.apps_2_line;
+                        break;
+                      case HomeMenu.record:
+                        titleText = i18n("record_center");
+                        menuIcon = Remix.download_2_fill;
+                        break;
+                    }
+
+                    Widget buildControls() => Row(
+                      key: ValueKey('navigation-menu-controls-${menu.id}'),
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Switch(
+                          key: ValueKey('navigation-menu-switch-${menu.id}'),
+                          value: isVisible,
+                          activeThumbColor: theme.colorScheme.primary,
+                          onChanged: (value) {
+                            final savedMenus = AppSettingsController.normalizeMenuIds(
+                              SettingsService.to.app.savedMenuIds.v,
+                            );
+                            if (!value && savedMenus.length <= 1) {
+                              ToastUtil.show(i18n("at_least_one_menu_required"));
+                              return;
+                            }
+                            SettingsService.to.app.toggleMenuVisibility(menu, value);
+                          },
+                        ),
+                        if (isVisible && savedOrder.length > 1) ...[
+                          const SizedBox(width: 8),
+                          ReorderableDragStartListener(
+                            key: ValueKey('navigation-menu-drag-${menu.id}'),
+                            index: index,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              child: Icon(RemixIcons.sort_asc, size: 20),
+                            ),
+                          ),
+                        ],
+                      ],
+                    );
+
+                    return Material(
+                      key: ValueKey(menu.id),
+                      color: Colors.transparent,
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final title = Text(
+                            titleText,
+                            key: ValueKey('navigation-menu-title-${menu.id}'),
+                            style: AppTextStyles.t15.copyWith(fontWeight: FontWeight.w600),
                           );
-                          if (!value && savedMenus.length <= 1) {
-                            ToastUtil.show(i18n("at_least_one_menu_required"));
-                            return;
-                          }
-                          SettingsService.to.app.toggleMenuVisibility(menu, value);
+                          final controls = buildControls();
+                          final stackControls =
+                              constraints.maxWidth < 360 || MediaQuery.textScalerOf(context).scale(1) > 1.5;
+                          return ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                            title: stackControls
+                                ? Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [title, const SizedBox(height: 6), controls],
+                                  )
+                                : title,
+                            leading: Icon(menuIcon, size: 22, color: theme.colorScheme.primary),
+                            trailing: stackControls ? null : controls,
+                          );
                         },
                       ),
-                      if (isVisible && savedOrder.length > 1) ...[
-                        const SizedBox(width: 8),
-                        ReorderableDragStartListener(
-                          key: ValueKey('navigation-menu-drag-${menu.id}'),
-                          index: index,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            child: Icon(RemixIcons.sort_asc, size: 20),
-                          ),
-                        ),
-                      ],
-                    ],
-                  );
-
-                  return Material(
-                    key: ValueKey(menu.id),
-                    color: Colors.transparent,
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final title = Text(
-                          titleText,
-                          key: ValueKey('navigation-menu-title-${menu.id}'),
-                          style: AppTextStyles.t15.copyWith(fontWeight: FontWeight.w600),
-                        );
-                        final controls = buildControls();
-                        final stackControls =
-                            constraints.maxWidth < 360 || MediaQuery.textScalerOf(context).scale(1) > 1.5;
-                        return ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                          title: stackControls
-                              ? Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [title, const SizedBox(height: 6), controls],
-                                )
-                              : title,
-                          leading: Icon(menuIcon, size: 22, color: theme.colorScheme.primary),
-                          trailing: stackControls ? null : controls,
-                        );
-                      },
-                    ),
-                  );
-                },
-              ),
-            );
-          }),
-          const SizedBox(height: 32),
-        ],
+                    );
+                  },
+                ),
+              );
+            }),
+            const SizedBox(height: 32),
+          ],
+        ),
       ),
     );
   }

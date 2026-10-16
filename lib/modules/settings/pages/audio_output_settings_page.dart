@@ -15,31 +15,34 @@ class AudioOutputSettingsPage extends GetView<SettingsService> {
         .toList(growable: false);
     return Scaffold(
       appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.audioOutput),
-      body: ListView(
-        physics: const PureLiveScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        children: [
-          context.buildGroupTitle(i18n('audio_output_driver')),
-          context.buildModernCard([
-            Obx(
-              () => Column(
-                children: drivers.map((item) {
-                  final key = item['key']!;
-                  final selected = controller.player.audioOutputDriver.v == key;
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: ListView(
+          physics: const PureLiveScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          children: [
+            context.buildGroupTitle(i18n('audio_output_driver')),
+            context.buildModernCard([
+              Obx(
+                () => Column(
+                  children: drivers.map((item) {
+                    final key = item['key']!;
+                    final selected = controller.player.audioOutputDriver.v == key;
 
-                  return _AudioOutputTile(
-                    title: _getLocalizedName(context, item),
-                    selected: selected,
-                    onTap: () {
-                      controller.player.audioOutputDriver.v = key;
-                    },
-                  );
-                }).toList(),
+                    return _AudioOutputTile(
+                      title: _getLocalizedName(context, item),
+                      selected: selected,
+                      onTap: () {
+                        controller.player.audioOutputDriver.v = key;
+                      },
+                    );
+                  }).toList(),
+                ),
               ),
-            ),
-          ]),
-          const SizedBox(height: 32),
-        ],
+            ]),
+            const SizedBox(height: 32),
+          ],
+        ),
       ),
     );
   }

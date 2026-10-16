@@ -14,28 +14,31 @@ class WallpaperApiPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.wallpaperApi),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-        physics: const PureLiveScrollPhysics(),
-        children: <Widget>[
-          context.buildModernCard(<Widget>[
-            for (final WallpaperApiGroup group in kWallpaperApiGroups)
-              context.buildTile(
-                icon: Remix.sparkling_2_line,
-                title: group.name,
-                subtitle: '${group.sources.length} 个来源',
-                trailing: const Icon(Remix.arrow_right_s_line),
-                onTap: () => SettingsNavigator.open(
-                  SettingsCrumb(
-                    labelText: group.name,
-                    routeName: '/settings/wallpaper/api/group',
-                    pageBuilder: () => WallpaperApiGroupPage(groupId: group.id),
-                    parents: [SettingsCrumbs.root, SettingsCrumbs.wallpaper, SettingsCrumbs.wallpaperApi],
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+          physics: const PureLiveScrollPhysics(),
+          children: <Widget>[
+            context.buildModernCard(<Widget>[
+              for (final WallpaperApiGroup group in kWallpaperApiGroups)
+                context.buildTile(
+                  icon: Remix.sparkling_2_line,
+                  title: group.name,
+                  subtitle: '${group.sources.length} 个来源',
+                  trailing: const Icon(Remix.arrow_right_s_line),
+                  onTap: () => SettingsNavigator.open(
+                    SettingsCrumb(
+                      labelText: group.name,
+                      routeName: '/settings/wallpaper/api/group',
+                      pageBuilder: () => WallpaperApiGroupPage(groupId: group.id),
+                      parents: [SettingsCrumbs.root, SettingsCrumbs.wallpaper, SettingsCrumbs.wallpaperApi],
+                    ),
                   ),
                 ),
-              ),
-          ]),
-        ],
+            ]),
+          ],
+        ),
       ),
     );
   }

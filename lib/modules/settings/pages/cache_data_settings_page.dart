@@ -123,86 +123,89 @@ class _CacheDataSettingsPageState extends State<CacheDataSettingsPage> {
 
     return Scaffold(
       appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.cache),
-      body: ListView(
-        physics: const PureLiveScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        children: [
-          context.buildGroupTitle(i18n("screenshot_settings")),
-          context.buildModernCard([
-            Obx(() {
-              final screenshotDirectory = SettingsService.to.app.screenshotDirectory.v;
-              return context.buildTile(
-                icon: Remix.camera_line,
-                title: i18n("screenshot_directory"),
-                subtitle: screenshotDirectory.isEmpty ? i18n("please_set_screenshot_directory") : screenshotDirectory,
-                isLong: true,
-                onTap: _pickScreenshotDirectory,
-              );
-            }),
-          ]),
-          const SizedBox(height: 20),
-          context.buildGroupTitle(i18n("cache_and_data")),
-          context.buildModernCard([
-            Obx(() {
-              final size = SettingsService.to.cache.cacheSizeMB.value;
-              final turns = SettingsService.to.cache.refreshTurns.value;
-              final busy = SettingsService.to.cache.isBusy;
-              return context.buildTile(
-                icon: Remix.database_2_line,
-                title: i18n("current_cache_size"),
-                subtitle: "",
-                onTap: busy ? null : _refreshCacheSize,
-                stackTrailingOnNarrow: true,
-                trailing: Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Text(
-                      "${size.toStringAsFixed(2)} MB",
-                      style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.w600),
-                    ),
-                    if (SettingsService.to.cache.isScanning.value)
-                      _progressIndicator(theme.colorScheme.primary)
-                    else
-                      AnimatedRotation(
-                        turns: turns,
-                        duration: const Duration(milliseconds: 600),
-                        curve: Curves.easeInOutCubic,
-                        child: Icon(Remix.refresh_line, size: 16, color: theme.hintColor.withValues(alpha: 0.6)),
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: ListView(
+          physics: const PureLiveScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          children: [
+            context.buildGroupTitle(i18n("screenshot_settings")),
+            context.buildModernCard([
+              Obx(() {
+                final screenshotDirectory = SettingsService.to.app.screenshotDirectory.v;
+                return context.buildTile(
+                  icon: Remix.camera_line,
+                  title: i18n("screenshot_directory"),
+                  subtitle: screenshotDirectory.isEmpty ? i18n("please_set_screenshot_directory") : screenshotDirectory,
+                  isLong: true,
+                  onTap: _pickScreenshotDirectory,
+                );
+              }),
+            ]),
+            const SizedBox(height: 20),
+            context.buildGroupTitle(i18n("cache_and_data")),
+            context.buildModernCard([
+              Obx(() {
+                final size = SettingsService.to.cache.cacheSizeMB.value;
+                final turns = SettingsService.to.cache.refreshTurns.value;
+                final busy = SettingsService.to.cache.isBusy;
+                return context.buildTile(
+                  icon: Remix.database_2_line,
+                  title: i18n("current_cache_size"),
+                  subtitle: "",
+                  onTap: busy ? null : _refreshCacheSize,
+                  stackTrailingOnNarrow: true,
+                  trailing: Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(
+                        "${size.toStringAsFixed(2)} MB",
+                        style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.w600),
                       ),
-                  ],
+                      if (SettingsService.to.cache.isScanning.value)
+                        _progressIndicator(theme.colorScheme.primary)
+                      else
+                        AnimatedRotation(
+                          turns: turns,
+                          duration: const Duration(milliseconds: 600),
+                          curve: Curves.easeInOutCubic,
+                          child: Icon(Remix.refresh_line, size: 16, color: theme.hintColor.withValues(alpha: 0.6)),
+                        ),
+                    ],
+                  ),
+                );
+              }),
+              Obx(
+                () => context.buildTile(
+                  icon: Remix.image_2_line,
+                  title: i18n('refresh_thumbnails'),
+                  subtitle: i18n('refresh_thumbnails_desc'),
+                  trailing: SettingsService.to.cache.isRefreshingImages.value
+                      ? _progressIndicator(theme.colorScheme.primary)
+                      : const Icon(Icons.refresh_rounded),
+                  onTap: SettingsService.to.cache.isBusy ? null : _refreshThumbnails,
                 ),
-              );
-            }),
-            Obx(
-              () => context.buildTile(
-                icon: Remix.image_2_line,
-                title: i18n('refresh_thumbnails'),
-                subtitle: i18n('refresh_thumbnails_desc'),
-                trailing: SettingsService.to.cache.isRefreshingImages.value
-                    ? _progressIndicator(theme.colorScheme.primary)
-                    : const Icon(Icons.refresh_rounded),
-                onTap: SettingsService.to.cache.isBusy ? null : _refreshThumbnails,
               ),
-            ),
-            Obx(
-              () => context.buildTile(
-                icon: Remix.delete_bin_6_line,
-                title: i18n('clear_local_cache'),
-                subtitle: i18n('clear_local_cache_desc'),
-                isLong: true,
-                trailing: SettingsService.to.cache.isClearing.value
-                    ? _progressIndicator(theme.colorScheme.error)
-                    : Icon(Remix.delete_bin_6_line, color: theme.colorScheme.error),
-                onTap: SettingsService.to.cache.isBusy || _clearTransactionBusy
-                    ? null
-                    : () => _confirmClearCache(theme),
+              Obx(
+                () => context.buildTile(
+                  icon: Remix.delete_bin_6_line,
+                  title: i18n('clear_local_cache'),
+                  subtitle: i18n('clear_local_cache_desc'),
+                  isLong: true,
+                  trailing: SettingsService.to.cache.isClearing.value
+                      ? _progressIndicator(theme.colorScheme.error)
+                      : Icon(Remix.delete_bin_6_line, color: theme.colorScheme.error),
+                  onTap: SettingsService.to.cache.isBusy || _clearTransactionBusy
+                      ? null
+                      : () => _confirmClearCache(theme),
+                ),
               ),
-            ),
-          ]),
-          const SizedBox(height: 32),
-        ],
+            ]),
+            const SizedBox(height: 32),
+          ],
+        ),
       ),
     );
   }

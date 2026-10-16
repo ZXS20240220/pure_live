@@ -28,224 +28,227 @@ class RecordSettingsPage extends GetView<RecordSettingsController> {
 
     return Scaffold(
       appBar: AppBar(title: Text(i18n("record_settings"))),
-      body: Obx(
-        () => ListView(
-          physics: const PureLiveScrollPhysics(),
-          padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
-          children: [
-            context.buildGroupTitle(i18n("basic_config")),
-            context.buildModernCard([
-              context.buildTile(
-                icon: Remix.hd_line,
-                title: i18n("default_record_quality"),
-                subtitle: _resolutionLabel(controller.defaultQuality.value),
-                onTap: _showQualityDialog,
-              ),
-              context.buildSwitchTile(
-                icon: Remix.translate_2,
-                title: i18n("use_pinyin_folder"),
-                subtitle: i18n("use_pinyin_folder_desc"),
-                value: controller.usePinyinForFolder,
-              ),
-              context.buildSwitchTile(
-                icon: Remix.chat_3_line,
-                title: i18n("record_danmaku"),
-                subtitle: i18n("record_danmaku_desc"),
-                value: controller.recordDanmaku,
-              ),
-            ]),
-            const SizedBox(height: 20),
-            _buildCacheHeader(context, theme),
-            context.buildModernCard([
-              context.buildTile(
-                icon: Remix.folder_video_line,
-                title: i18n("storage_directory"),
-                subtitle: controller.managedRecordPath.value.isEmpty
-                    ? controller.recordSavePath.value
-                    : controller.managedRecordPath.value,
-                trailing: controller.selectingRecordDirectory.value
-                    ? SizedBox.square(
-                        dimension: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          semanticsLabel: i18n('record_storage_checking'),
-                        ),
-                      )
-                    : null,
-                onTap: controller.selectingRecordDirectory.value ? null : controller.pickRecordDir,
-              ),
-              context.buildSwitchTile(
-                icon: Remix.exchange_box_line,
-                title: i18n("enable_cache_limit"),
-                subtitle: i18n("enable_cache_limit_desc"),
-                value: controller.enableCacheLimit,
-                onChanged: (value) => unawaited(controller.updateEnableCacheLimit(value)),
-              ),
-              if (controller.enableCacheLimit.value)
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: Obx(
+          () => ListView(
+            physics: const PureLiveScrollPhysics(),
+            padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
+            children: [
+              context.buildGroupTitle(i18n("basic_config")),
+              context.buildModernCard([
                 context.buildTile(
-                  icon: Remix.database_2_line,
-                  title: i18n("cache_limit"),
-                  subtitle: "${controller.maxCacheMB.value} MB",
-                  onTap: _showCacheDialog,
+                  icon: Remix.hd_line,
+                  title: i18n("default_record_quality"),
+                  subtitle: _resolutionLabel(controller.defaultQuality.value),
+                  onTap: _showQualityDialog,
                 ),
-              Obx(() {
-                final size = controller.cacheSizeMB.value;
-                return context.buildTile(
-                  icon: Remix.custom_size,
-                  title: i18n("current_cache_size"),
-                  subtitle: "${size.toStringAsFixed(2)} MB",
-                );
-              }),
-              context.buildTile(
-                icon: Remix.delete_bin_4_line,
-                title: i18n("clear_all_cache"),
-                subtitle: i18n("clear_all_cache_desc"),
-                onTap: () async {
-                  final ok = await showDialog<bool>(
-                    context: Get.context!,
-                    builder: (dialogContext) => AlertDialog(
-                      scrollable: true,
-                      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                      title: Text(i18n("confirm_clear_cache"), style: const TextStyle(fontWeight: FontWeight.bold)),
-                      content: Text(i18n("confirm_clear_cache_desc")),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.of(dialogContext).pop(false),
-                          child: Text(i18n("cancel")),
-                        ),
-                        ElevatedButton(
-                          onPressed: () => Navigator.of(dialogContext).pop(true),
-                          child: Text(i18n("clear")),
-                        ),
-                      ],
-                    ),
+                context.buildSwitchTile(
+                  icon: Remix.translate_2,
+                  title: i18n("use_pinyin_folder"),
+                  subtitle: i18n("use_pinyin_folder_desc"),
+                  value: controller.usePinyinForFolder,
+                ),
+                context.buildSwitchTile(
+                  icon: Remix.chat_3_line,
+                  title: i18n("record_danmaku"),
+                  subtitle: i18n("record_danmaku_desc"),
+                  value: controller.recordDanmaku,
+                ),
+              ]),
+              const SizedBox(height: 20),
+              _buildCacheHeader(context, theme),
+              context.buildModernCard([
+                context.buildTile(
+                  icon: Remix.folder_video_line,
+                  title: i18n("storage_directory"),
+                  subtitle: controller.managedRecordPath.value.isEmpty
+                      ? controller.recordSavePath.value
+                      : controller.managedRecordPath.value,
+                  trailing: controller.selectingRecordDirectory.value
+                      ? SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            semanticsLabel: i18n('record_storage_checking'),
+                          ),
+                        )
+                      : null,
+                  onTap: controller.selectingRecordDirectory.value ? null : controller.pickRecordDir,
+                ),
+                context.buildSwitchTile(
+                  icon: Remix.exchange_box_line,
+                  title: i18n("enable_cache_limit"),
+                  subtitle: i18n("enable_cache_limit_desc"),
+                  value: controller.enableCacheLimit,
+                  onChanged: (value) => unawaited(controller.updateEnableCacheLimit(value)),
+                ),
+                if (controller.enableCacheLimit.value)
+                  context.buildTile(
+                    icon: Remix.database_2_line,
+                    title: i18n("cache_limit"),
+                    subtitle: "${controller.maxCacheMB.value} MB",
+                    onTap: _showCacheDialog,
+                  ),
+                Obx(() {
+                  final size = controller.cacheSizeMB.value;
+                  return context.buildTile(
+                    icon: Remix.custom_size,
+                    title: i18n("current_cache_size"),
+                    subtitle: "${size.toStringAsFixed(2)} MB",
                   );
+                }),
+                context.buildTile(
+                  icon: Remix.delete_bin_4_line,
+                  title: i18n("clear_all_cache"),
+                  subtitle: i18n("clear_all_cache_desc"),
+                  onTap: () async {
+                    final ok = await showDialog<bool>(
+                      context: Get.context!,
+                      builder: (dialogContext) => AlertDialog(
+                        scrollable: true,
+                        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                        title: Text(i18n("confirm_clear_cache"), style: const TextStyle(fontWeight: FontWeight.bold)),
+                        content: Text(i18n("confirm_clear_cache_desc")),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(dialogContext).pop(false),
+                            child: Text(i18n("cancel")),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => Navigator.of(dialogContext).pop(true),
+                            child: Text(i18n("clear")),
+                          ),
+                        ],
+                      ),
+                    );
 
-                  if (ok == true) {
-                    await controller.clearCache();
-                    Get.snackbar(i18n("done"), i18n("cache_cleared"), snackPosition: SnackPosition.bottom);
-                  }
-                },
-              ),
-            ]),
-            const SizedBox(height: 20),
-            context.buildGroupTitle(i18n("record_performance_quality")),
-            context.buildModernCard([
-              context.buildSwitchTile(
-                icon: Remix.video_download_line,
-                title: i18n("prefer_best_stream"),
-                subtitle: i18n("prefer_best_stream_desc"),
-                value: controller.preferBestStream,
-              ),
-              context.buildTile(
-                icon: Remix.timer_flash_line,
-                title: i18n("rw_timeout"),
-                subtitle: "${controller.rwTimeout.value}s",
-                onTap: _showRwTimeoutDialog,
-              ),
-              context.buildTile(
-                icon: Remix.speed_mini_line,
-                title: i18n("queue_size"),
-                subtitle: "${controller.threadQueueSize.value}",
-                onTap: _showQueueSizeDialog,
-              ),
-              context.buildSliderTile(
-                context,
-                icon: Remix.film_line,
-                title: i18n("segment_duration"),
-                value: controller.segmentTime.value.toDouble(),
-                min: RecorderConfig.minSegmentTime.toDouble(),
-                max: RecorderConfig.maxSegmentTime.toDouble(),
-                displayValue: _formatDuration(controller.segmentTime.value),
-                onChanged: (v) => controller.updateSegmentTime(v.toInt()),
-              ),
-              context.buildTile(
-                icon: Remix.task_line,
-                title: i18n("max_record_tasks"),
-                subtitle: "${controller.maxTaskCount.value}",
-                onTap: _showMaxTaskDialog,
-              ),
-            ]),
-            const SizedBox(height: 20),
-            context.buildGroupTitle(i18n("auto_reconnect")),
-            context.buildModernCard([
-              context.buildSwitchTile(
-                icon: Remix.refresh_line,
-                title: i18n("auto_reconnect_switch"),
-                subtitle: i18n("auto_reconnect_desc"),
-                value: controller.autoReconnect,
-              ),
-              if (controller.autoReconnect.value)
+                    if (ok == true) {
+                      await controller.clearCache();
+                      Get.snackbar(i18n("done"), i18n("cache_cleared"), snackPosition: SnackPosition.bottom);
+                    }
+                  },
+                ),
+              ]),
+              const SizedBox(height: 20),
+              context.buildGroupTitle(i18n("record_performance_quality")),
+              context.buildModernCard([
+                context.buildSwitchTile(
+                  icon: Remix.video_download_line,
+                  title: i18n("prefer_best_stream"),
+                  subtitle: i18n("prefer_best_stream_desc"),
+                  value: controller.preferBestStream,
+                ),
+                context.buildTile(
+                  icon: Remix.timer_flash_line,
+                  title: i18n("rw_timeout"),
+                  subtitle: "${controller.rwTimeout.value}s",
+                  onTap: _showRwTimeoutDialog,
+                ),
+                context.buildTile(
+                  icon: Remix.speed_mini_line,
+                  title: i18n("queue_size"),
+                  subtitle: "${controller.threadQueueSize.value}",
+                  onTap: _showQueueSizeDialog,
+                ),
                 context.buildSliderTile(
                   context,
-                  icon: Remix.loop_left_line,
-                  title: i18n("max_retry_count"),
-                  value: controller.maxRetryCount.value.toDouble(),
-                  min: RecorderConfig.minMaxRetryCount.toDouble(),
-                  max: RecorderConfig.maxMaxRetryCount.toDouble(),
-                  displayValue: "${controller.maxRetryCount.value}",
-                  onChanged: (v) => controller.updateMaxRetryCount(v.toInt()),
+                  icon: Remix.film_line,
+                  title: i18n("segment_duration"),
+                  value: controller.segmentTime.value.toDouble(),
+                  min: RecorderConfig.minSegmentTime.toDouble(),
+                  max: RecorderConfig.maxSegmentTime.toDouble(),
+                  displayValue: _formatDuration(controller.segmentTime.value),
+                  onChanged: (v) => controller.updateSegmentTime(v.toInt()),
                 ),
-              context.buildSliderTile(
-                context,
-                icon: Remix.time_line,
-                title: i18n("retry_delay"),
-                value: controller.retryDelay.value.toDouble(),
-                min: RecorderConfig.minRetryDelay.toDouble(),
-                max: RecorderConfig.maxRetryDelay.toDouble(),
-                displayValue: "${controller.retryDelay.value}s",
-                onChanged: (v) => controller.updateRetryDelay(v.toInt()),
-              ),
-            ]),
-            const SizedBox(height: 20),
-            context.buildGroupTitle(i18n("polling_detection")),
-            context.buildModernCard([
-              context.buildSwitchTile(
-                icon: Remix.radar_line,
-                title: i18n("enable_polling"),
-                subtitle: i18n("enable_polling_desc"),
-                value: controller.enablePolling,
-              ),
-              if (controller.enablePolling.value) ...[
+                context.buildTile(
+                  icon: Remix.task_line,
+                  title: i18n("max_record_tasks"),
+                  subtitle: "${controller.maxTaskCount.value}",
+                  onTap: _showMaxTaskDialog,
+                ),
+              ]),
+              const SizedBox(height: 20),
+              context.buildGroupTitle(i18n("auto_reconnect")),
+              context.buildModernCard([
+                context.buildSwitchTile(
+                  icon: Remix.refresh_line,
+                  title: i18n("auto_reconnect_switch"),
+                  subtitle: i18n("auto_reconnect_desc"),
+                  value: controller.autoReconnect,
+                ),
+                if (controller.autoReconnect.value)
+                  context.buildSliderTile(
+                    context,
+                    icon: Remix.loop_left_line,
+                    title: i18n("max_retry_count"),
+                    value: controller.maxRetryCount.value.toDouble(),
+                    min: RecorderConfig.minMaxRetryCount.toDouble(),
+                    max: RecorderConfig.maxMaxRetryCount.toDouble(),
+                    displayValue: "${controller.maxRetryCount.value}",
+                    onChanged: (v) => controller.updateMaxRetryCount(v.toInt()),
+                  ),
                 context.buildSliderTile(
                   context,
                   icon: Remix.time_line,
-                  title: i18n("check_interval"),
-                  value: controller.liveCheckInterval.value.toDouble(),
-                  min: RecorderConfig.minLiveCheckInterval.toDouble(),
-                  max: RecorderConfig.maxLiveCheckInterval.toDouble(),
-                  displayValue: "${controller.liveCheckInterval.value}s",
-                  onChanged: (v) => controller.updateLiveCheckInterval(v.toInt()),
+                  title: i18n("retry_delay"),
+                  value: controller.retryDelay.value.toDouble(),
+                  min: RecorderConfig.minRetryDelay.toDouble(),
+                  max: RecorderConfig.maxRetryDelay.toDouble(),
+                  displayValue: "${controller.retryDelay.value}s",
+                  onChanged: (v) => controller.updateRetryDelay(v.toInt()),
                 ),
+              ]),
+              const SizedBox(height: 20),
+              context.buildGroupTitle(i18n("polling_detection")),
+              context.buildModernCard([
                 context.buildSwitchTile(
-                  icon: Remix.line_chart_line,
-                  title: i18n("enable_backoff"),
-                  subtitle: i18n("enable_backoff_desc"),
-                  value: controller.enableBackoff,
+                  icon: Remix.radar_line,
+                  title: i18n("enable_polling"),
+                  subtitle: i18n("enable_polling_desc"),
+                  value: controller.enablePolling,
                 ),
-                if (controller.enableBackoff.value)
+                if (controller.enablePolling.value) ...[
                   context.buildSliderTile(
                     context,
-                    icon: Remix.hourglass_2_line,
-                    title: i18n("max_check_interval"),
-                    value: controller.maxCheckInterval.value.toDouble(),
-                    min: RecorderConfig.minMaxCheckInterval.toDouble(),
-                    max: RecorderConfig.maxMaxCheckInterval.toDouble(),
-                    displayValue: _formatDuration(controller.maxCheckInterval.value),
-                    onChanged: (v) => controller.updateMaxCheckInterval(v.toInt()),
+                    icon: Remix.time_line,
+                    title: i18n("check_interval"),
+                    value: controller.liveCheckInterval.value.toDouble(),
+                    min: RecorderConfig.minLiveCheckInterval.toDouble(),
+                    max: RecorderConfig.maxLiveCheckInterval.toDouble(),
+                    displayValue: "${controller.liveCheckInterval.value}s",
+                    onChanged: (v) => controller.updateLiveCheckInterval(v.toInt()),
                   ),
-              ],
-              context.buildSwitchTile(
-                icon: Remix.restart_line,
-                title: i18n("auto_start_boot"),
-                subtitle: i18n("auto_start_boot_desc"),
-                value: controller.autoStartOnBoot,
-                isLong: true,
-              ),
-            ]),
-            const SizedBox(height: 60),
-          ],
+                  context.buildSwitchTile(
+                    icon: Remix.line_chart_line,
+                    title: i18n("enable_backoff"),
+                    subtitle: i18n("enable_backoff_desc"),
+                    value: controller.enableBackoff,
+                  ),
+                  if (controller.enableBackoff.value)
+                    context.buildSliderTile(
+                      context,
+                      icon: Remix.hourglass_2_line,
+                      title: i18n("max_check_interval"),
+                      value: controller.maxCheckInterval.value.toDouble(),
+                      min: RecorderConfig.minMaxCheckInterval.toDouble(),
+                      max: RecorderConfig.maxMaxCheckInterval.toDouble(),
+                      displayValue: _formatDuration(controller.maxCheckInterval.value),
+                      onChanged: (v) => controller.updateMaxCheckInterval(v.toInt()),
+                    ),
+                ],
+                context.buildSwitchTile(
+                  icon: Remix.restart_line,
+                  title: i18n("auto_start_boot"),
+                  subtitle: i18n("auto_start_boot_desc"),
+                  value: controller.autoStartOnBoot,
+                  isLong: true,
+                ),
+              ]),
+              const SizedBox(height: 60),
+            ],
+          ),
         ),
       ),
     );

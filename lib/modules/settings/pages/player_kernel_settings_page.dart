@@ -20,62 +20,65 @@ class PlayerKernelSettingsPage extends GetView<SettingsService> {
 
     return Scaffold(
       appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.kernel),
-      body: ListView(
-        physics: const PureLiveScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        children: [
-          context.buildGroupTitle(i18n("core_kernel_settings")),
-          context.buildModernCard([
-            // 仅剩 mpv（media_kit）内核，此处仅作只读展示，不再提供切换。
-            context.buildTile(
-              icon: Remix.toggle_line,
-              title: i18n("kernel_switch"),
-              subtitle: i18n("kernel_fixed_subtitle"),
-              trailing: Text(
-                i18n(PlayerConsts.names[PlayerConsts.defaultKey]!),
-                style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.w600),
-              ),
-              stackTrailingOnNarrow: true,
-            ),
-            Obx(
-              () => context.buildTile(
-                icon: Remix.global_line,
-                title: i18n("network_proxy"),
-                subtitle: i18n("network_proxy_subtitle"),
-                onTap: showProxySettingsDialog,
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: ListView(
+          physics: const PureLiveScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          children: [
+            context.buildGroupTitle(i18n("core_kernel_settings")),
+            context.buildModernCard([
+              // 仅剩 mpv（media_kit）内核，此处仅作只读展示，不再提供切换。
+              context.buildTile(
+                icon: Remix.toggle_line,
+                title: i18n("kernel_switch"),
+                subtitle: i18n("kernel_fixed_subtitle"),
                 trailing: Text(
-                  SettingsService.to.proxy.enableProxy.v ? i18n("enabled") : i18n("disabled"),
-                  style: AppTextStyles.t13.copyWith(
-                    color: SettingsService.to.proxy.enableProxy.v ? theme.colorScheme.primary : theme.hintColor,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  i18n(PlayerConsts.names[PlayerConsts.defaultKey]!),
+                  style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.w600),
                 ),
                 stackTrailingOnNarrow: true,
               ),
-            ),
-            context.buildSwitchTile(
-              icon: Remix.speed_up_line,
-              title: i18n('enable_codec'),
-              subtitle: i18n("gpu_decode"),
-              value: SettingsService.to.player.enableCodec,
-            ),
-            if (PlatformUtils.isWindows)
-              context.buildSwitchTile(
-                icon: Remix.image_edit_line,
-                title: i18n('enable_rtx_vsr'),
-                subtitle: i18n('enable_rtx_vsr_subtitle'),
-                value: SettingsService.to.player.enableRtxVsr,
+              Obx(
+                () => context.buildTile(
+                  icon: Remix.global_line,
+                  title: i18n("network_proxy"),
+                  subtitle: i18n("network_proxy_subtitle"),
+                  onTap: showProxySettingsDialog,
+                  trailing: Text(
+                    SettingsService.to.proxy.enableProxy.v ? i18n("enabled") : i18n("disabled"),
+                    style: AppTextStyles.t13.copyWith(
+                      color: SettingsService.to.proxy.enableProxy.v ? theme.colorScheme.primary : theme.hintColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  stackTrailingOnNarrow: true,
+                ),
               ),
-            context.buildSwitchTile(
-              icon: Remix.shut_down_line,
-              title: i18n('force_destroy_player'),
-              subtitle: i18n('force_destroy_player_subtitle'),
-              value: SettingsService.to.player.useHardStopOnExit,
-            ),
-          ]),
-          _buildMpvSettings(context),
-          const SizedBox(height: 32),
-        ],
+              context.buildSwitchTile(
+                icon: Remix.speed_up_line,
+                title: i18n('enable_codec'),
+                subtitle: i18n("gpu_decode"),
+                value: SettingsService.to.player.enableCodec,
+              ),
+              if (PlatformUtils.isWindows)
+                context.buildSwitchTile(
+                  icon: Remix.image_edit_line,
+                  title: i18n('enable_rtx_vsr'),
+                  subtitle: i18n('enable_rtx_vsr_subtitle'),
+                  value: SettingsService.to.player.enableRtxVsr,
+                ),
+              context.buildSwitchTile(
+                icon: Remix.shut_down_line,
+                title: i18n('force_destroy_player'),
+                subtitle: i18n('force_destroy_player_subtitle'),
+                value: SettingsService.to.player.useHardStopOnExit,
+              ),
+            ]),
+            _buildMpvSettings(context),
+            const SizedBox(height: 32),
+          ],
+        ),
       ),
     );
   }

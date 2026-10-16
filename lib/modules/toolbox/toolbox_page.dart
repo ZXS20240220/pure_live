@@ -15,36 +15,39 @@ class ToolBoxPage extends GetView<ToolBoxController> {
     return Scaffold(
       backgroundColor: SettingsService.hasWallpaper ? Colors.transparent : null,
       appBar: AppBar(title: Text(i18n("toolbox_title")), centerTitle: true, elevation: 0),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-        children: [
-          // Section 1: Jump to Room
-          _buildToolCard(
-            context,
-            title: i18n("toolbox_room_jump"),
-            icon: Remix.external_link_line,
-            controller: controller.roomJumpToController,
-            btnIcon: Remix.play_circle_line,
-            btnLabel: i18n("toolbox_link_jump"),
-            actionKind: ToolBoxAction.jump,
-            onAction: (text) => controller.jumpToRoom(text, context: context),
-          ),
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: ListView(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+          children: [
+            // Section 1: Jump to Room
+            _buildToolCard(
+              context,
+              title: i18n("toolbox_room_jump"),
+              icon: Remix.external_link_line,
+              controller: controller.roomJumpToController,
+              btnIcon: Remix.play_circle_line,
+              btnLabel: i18n("toolbox_link_jump"),
+              actionKind: ToolBoxAction.jump,
+              onAction: (text) => controller.jumpToRoom(text, context: context),
+            ),
 
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
-          // Section 2: Get Direct Link (Description is persistent outside the fold)
-          _buildToolCard(
-            context,
-            title: i18n("toolbox_get_direct_link"),
-            icon: Remix.link_m,
-            controller: controller.getUrlController,
-            btnIcon: Remix.download_2_line,
-            btnLabel: i18n("toolbox_get_parse"),
-            actionKind: ToolBoxAction.directLink,
-            onAction: (text) => controller.getPlayUrl(text, context: context),
-            extraFooter: _buildDescription(),
-          ),
-        ],
+            // Section 2: Get Direct Link (Description is persistent outside the fold)
+            _buildToolCard(
+              context,
+              title: i18n("toolbox_get_direct_link"),
+              icon: Remix.link_m,
+              controller: controller.getUrlController,
+              btnIcon: Remix.download_2_line,
+              btnLabel: i18n("toolbox_get_parse"),
+              actionKind: ToolBoxAction.directLink,
+              onAction: (text) => controller.getPlayUrl(text, context: context),
+              extraFooter: _buildDescription(),
+            ),
+          ],
+        ),
       ),
     );
   }

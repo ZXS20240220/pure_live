@@ -36,29 +36,32 @@ class WallpaperGalleryPage extends StatelessWidget {
     final groups = source.visibleGroups;
     return Scaffold(
       appBar: SettingsBreadcrumbAppBar(node: _crumb),
-      body: groups.isEmpty
-          ? const Center(child: Text('暂无分组'))
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-              children: [
-                context.buildModernCard([
-                  for (final group in groups)
-                    context.buildTile(
-                      icon: Remix.image_2_line,
-                      title: wallpaperGroupName(source.id, group.id),
-                      trailing: const Icon(Remix.arrow_right_s_line),
-                      onTap: () => SettingsNavigator.open(
-                        SettingsCrumb(
-                          labelText: wallpaperGroupName(source.id, group.id),
-                          routeName: '/settings/wallpaper/library/items',
-                          pageBuilder: () => WallpaperItemsPage(sourceId: source.id, groupId: group.id),
-                          parents: [SettingsCrumbs.root, SettingsCrumbs.wallpaper, SettingsCrumbs.wallpaperLibrary],
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: groups.isEmpty
+            ? const Center(child: Text('暂无分组'))
+            : ListView(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+                children: [
+                  context.buildModernCard([
+                    for (final group in groups)
+                      context.buildTile(
+                        icon: Remix.image_2_line,
+                        title: wallpaperGroupName(source.id, group.id),
+                        trailing: const Icon(Remix.arrow_right_s_line),
+                        onTap: () => SettingsNavigator.open(
+                          SettingsCrumb(
+                            labelText: wallpaperGroupName(source.id, group.id),
+                            routeName: '/settings/wallpaper/library/items',
+                            pageBuilder: () => WallpaperItemsPage(sourceId: source.id, groupId: group.id),
+                            parents: [SettingsCrumbs.root, SettingsCrumbs.wallpaper, SettingsCrumbs.wallpaperLibrary],
+                          ),
                         ),
                       ),
-                    ),
-                ]),
-              ],
-            ),
+                  ]),
+                ],
+              ),
+      ),
     );
   }
 }

@@ -263,19 +263,22 @@ class _WallpaperApiPreviewPageState extends State<WallpaperApiPreviewPage> {
             ),
           ],
         ),
-        body: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (_imageBytes != null)
-              _blurred(SizedBox.expand(child: Image.memory(_imageBytes!, fit: fit, gaplessPlayback: true)), blur)
-            else if (_error != null)
-              Center(
-                child: Text(_error!, style: const TextStyle(color: Colors.red)),
-              ),
-            IgnorePointer(child: _buildMask(mask)),
-            if (_loading) const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70)),
-            Align(alignment: Alignment.bottomCenter, child: _buildActionBar(fit, blur, mask)),
-          ],
+        body: ScrollConfiguration(
+          behavior: const MouseDraggableScrollBehavior(),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (_imageBytes != null)
+                _blurred(SizedBox.expand(child: Image.memory(_imageBytes!, fit: fit, gaplessPlayback: true)), blur)
+              else if (_error != null)
+                Center(
+                  child: Text(_error!, style: const TextStyle(color: Colors.red)),
+                ),
+              IgnorePointer(child: _buildMask(mask)),
+              if (_loading) const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70)),
+              Align(alignment: Alignment.bottomCenter, child: _buildActionBar(fit, blur, mask)),
+            ],
+          ),
         ),
       );
     });

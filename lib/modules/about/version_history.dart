@@ -163,35 +163,38 @@ class _VersionHistoryPageState extends State<VersionHistoryPage> {
           ),
         ],
       ),
-      body: Obx(() {
-        final versions = allReleased.toList(growable: false);
-        final loading = historyLoading.value;
-        if (loading && versions.isEmpty) return const AppStatusView(type: AppStatusType.loading);
-        if (historyError.value && versions.isEmpty) {
-          return AppStatusView(
-            type: AppStatusType.error,
-            onButtonPressed: () => loadReleaseHistory(forceRefresh: true),
-          );
-        }
-        if (versions.isEmpty) return const AppStatusView(type: AppStatusType.empty);
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: Obx(() {
+          final versions = allReleased.toList(growable: false);
+          final loading = historyLoading.value;
+          if (loading && versions.isEmpty) return const AppStatusView(type: AppStatusType.loading);
+          if (historyError.value && versions.isEmpty) {
+            return AppStatusView(
+              type: AppStatusType.error,
+              onButtonPressed: () => loadReleaseHistory(forceRefresh: true),
+            );
+          }
+          if (versions.isEmpty) return const AppStatusView(type: AppStatusType.empty);
 
-        final selectedIndex = math.min(_selectedHistoryIndex.value, versions.length - 1);
-        final content = isDesktopLayout
-            ? _buildDesktopHistory(context, versions, selectedIndex)
-            : _buildMobileHistory(context, versions);
-        return Stack(
-          children: [
-            Positioned.fill(child: content),
-            if (loading)
-              const Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: LinearProgressIndicator(key: ValueKey('release-history-refresh-progress'), minHeight: 2),
-              ),
-          ],
-        );
-      }),
+          final selectedIndex = math.min(_selectedHistoryIndex.value, versions.length - 1);
+          final content = isDesktopLayout
+              ? _buildDesktopHistory(context, versions, selectedIndex)
+              : _buildMobileHistory(context, versions);
+          return Stack(
+            children: [
+              Positioned.fill(child: content),
+              if (loading)
+                const Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: LinearProgressIndicator(key: ValueKey('release-history-refresh-progress'), minHeight: 2),
+                ),
+            ],
+          );
+        }),
+      ),
     );
   }
 

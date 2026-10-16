@@ -16,165 +16,172 @@ class GeneralSettingsPage extends GetView<SettingsService> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.general),
-      body: ListView(
-        physics: const PureLiveScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        children: [
-          context.buildGroupTitle(i18n("general")),
-          context.buildModernCard([
-            if (Platform.isAndroid || Platform.isWindows)
-              Obx(() {
-                final info = DisplayModeService.info.value;
-                final mode = SettingsService.to.app.refreshRateMode;
-                final suffix = info == null
-                    ? ''
-                    : ' · ${info.currentRefreshRate.toStringAsFixed(0)} / ${info.maxRefreshRate.toStringAsFixed(0)} Hz';
-                return context.buildTile(
-                  title: i18n('refresh_rate_mode'),
-                  subtitle: '${_refreshRateModeLabel(mode)} · ${_refreshRateModeDescription(mode)}$suffix',
-                  icon: Remix.speed_up_line,
-                  isLong: true,
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => _showRefreshRateModeDialog(context),
-                );
-              }),
-            if (Platform.isWindows)
-              Obx(() {
-                final info = DisplayModeService.info.value;
-                final mode = info == null
-                    ? i18n('display_mode_detecting')
-                    : '${info.width} × ${info.height} · '
-                          '${info.currentRefreshRate.toStringAsFixed(0)} Hz '
-                          '(${i18n('display_mode_max')} ${info.maxRefreshRate.toStringAsFixed(0)} Hz)';
-                return context.buildTile(
-                  title: i18n('windows_dynamic_refresh_rate'),
-                  subtitle: '${i18n('windows_dynamic_refresh_rate_subtitle')}\n$mode',
-                  icon: Remix.speed_up_line,
-                  isLong: true,
-                  trailing: const Icon(Icons.refresh_rounded),
-                  onTap: () => DisplayModeService.refreshInfo(),
-                );
-              }),
-            if (Platform.isWindows)
-              context.buildSwitchTile(
-                title: i18n('open_new_window'),
-                subtitle: i18n("open_new_window_subtitle"),
-                value: SettingsService.to.app.enableNewWindowPlay,
-                icon: Icons.add_to_photos_outlined,
-              ),
-            context.buildSwitchTile(
-              title: i18n('splash_animation'),
-              subtitle: i18n("splash_animation_subtitle"),
-              value: SettingsService.to.app.showSplashPage,
-              icon: Remix.rocket_2_line,
-            ),
-            Obx(
-              () => context.buildMenuTile<AutoCheckUpdateMode>(
-                title: i18n('enable_auto_check_update'),
-                subtitle: i18n('enable_auto_check_update_subtitle'),
-                icon: Remix.refresh_line,
-                value: SettingsService.to.app.autoCheckUpdateMode,
-                valueMap: const {
-                  AutoCheckUpdateMode.off: 'auto_check_update_mode_off',
-                  AutoCheckUpdateMode.all: 'auto_check_update_mode_all',
-                  AutoCheckUpdateMode.stableOnly: 'auto_check_update_mode_stable_only',
-                },
-                onChanged: SettingsService.to.app.setAutoCheckUpdateMode,
-              ),
-            ),
-            context.buildSwitchTile(
-              title: i18n('use_github_origin_for_updates'),
-              subtitle: i18n('use_github_origin_for_updates_desc'),
-              value: SettingsService.to.app.useGitHubOriginForUpdates,
-              icon: Remix.github_line,
-              isLong: true,
-            ),
-            context.buildSwitchTile(
-              title: i18n('enable_countdown_close'),
-              subtitle: i18n('enable_countdown_close_subtitle'),
-              value: SettingsService.to.exit.enableAutoShutDownTime,
-              icon: Remix.timer_line,
-            ),
-            Obx(() {
-              final bool isEnabled = SettingsService.to.exit.enableAutoShutDownTime.v;
-              final int configMinutes = SettingsService.to.exit.autoShutDownTime.v;
-
-              return StreamBuilder<int>(
-                key: ValueKey('${isEnabled}_$configMinutes'),
-                stream: SettingsService.to.exit.stopWatchTimer.rawTime,
-                builder: (context, snapshot) {
-                  final int value = snapshot.data ?? 0;
-                  String subtitleText = "";
-
-                  if (!isEnabled || value == 0) {
-                    subtitleText = "$configMinutes ${i18n('minutes')}";
-                  } else {
-                    final displayTime = StopWatchTimer.getDisplayTime(value, hours: true, milliSecond: false);
-                    subtitleText = "${i18n('remaining_time')}: $displayTime";
-                  }
-
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: ListView(
+          physics: const PureLiveScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          children: [
+            context.buildGroupTitle(i18n("general")),
+            context.buildModernCard([
+              if (Platform.isAndroid || Platform.isWindows)
+                Obx(() {
+                  final info = DisplayModeService.info.value;
+                  final mode = SettingsService.to.app.refreshRateMode;
+                  final suffix = info == null
+                      ? ''
+                      : ' · ${info.currentRefreshRate.toStringAsFixed(0)} / ${info.maxRefreshRate.toStringAsFixed(0)} Hz';
                   return context.buildTile(
-                    iconWidget: AnimatedTimerIcon(enabled: isEnabled, remainingMs: value, totalMinutes: configMinutes),
-
-                    title: i18n('countdown_duration'),
-                    subtitle: subtitleText,
+                    title: i18n('refresh_rate_mode'),
+                    subtitle: '${_refreshRateModeLabel(mode)} · ${_refreshRateModeDescription(mode)}$suffix',
+                    icon: Remix.speed_up_line,
+                    isLong: true,
                     trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () => _showCountdownDurationDialog(context),
+                    onTap: () => _showRefreshRateModeDialog(context),
                   );
-                },
-              );
-            }),
-
-            if (Platform.isWindows) ...[
-              Obx(() {
-                final startup = SettingsService.to.startup;
-                final applying = startup.isApplyingStartup.v;
-                final statusKey = startup.startupStatusKey.v;
-                final subtitleKey = applying
-                    ? 'startup_applying'
-                    : statusKey.isNotEmpty
-                    ? statusKey
-                    : 'startup_subtitle';
-                return SwitchListTile(
-                  key: const ValueKey('windows-startup-switch'),
-                  secondary: Icon(Remix.windows_line, color: Theme.of(context).colorScheme.primary, size: 22),
-                  title: Text(i18n('startup'), style: AppTextStyles.t15.copyWith(fontWeight: FontWeight.w600)),
-                  subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      i18n(subtitleKey),
-                      style: AppTextStyles.t12.copyWith(
-                        color: statusKey.isNotEmpty && !applying
-                            ? Theme.of(context).colorScheme.error
-                            : Theme.of(context).hintColor.withValues(alpha: 0.75),
-                      ),
-                    ),
-                  ),
-                  value: startup.enableStartUp.v,
-                  onChanged: applying ? null : (value) => unawaited(startup.setStartupEnabled(value)),
-                  contentPadding: const EdgeInsets.only(left: 16, top: 2, bottom: 2, right: 8),
-                );
-              }),
+                }),
+              if (Platform.isWindows)
+                Obx(() {
+                  final info = DisplayModeService.info.value;
+                  final mode = info == null
+                      ? i18n('display_mode_detecting')
+                      : '${info.width} × ${info.height} · '
+                            '${info.currentRefreshRate.toStringAsFixed(0)} Hz '
+                            '(${i18n('display_mode_max')} ${info.maxRefreshRate.toStringAsFixed(0)} Hz)';
+                  return context.buildTile(
+                    title: i18n('windows_dynamic_refresh_rate'),
+                    subtitle: '${i18n('windows_dynamic_refresh_rate_subtitle')}\n$mode',
+                    icon: Remix.speed_up_line,
+                    isLong: true,
+                    trailing: const Icon(Icons.refresh_rounded),
+                    onTap: () => DisplayModeService.refreshInfo(),
+                  );
+                }),
+              if (Platform.isWindows)
+                context.buildSwitchTile(
+                  title: i18n('open_new_window'),
+                  subtitle: i18n("open_new_window_subtitle"),
+                  value: SettingsService.to.app.enableNewWindowPlay,
+                  icon: Icons.add_to_photos_outlined,
+                ),
+              context.buildSwitchTile(
+                title: i18n('splash_animation'),
+                subtitle: i18n("splash_animation_subtitle"),
+                value: SettingsService.to.app.showSplashPage,
+                icon: Remix.rocket_2_line,
+              ),
               Obx(
-                () => context.buildTile(
-                  icon: Remix.aspect_ratio_line,
-                  title: i18n("window_size"),
-                  subtitle:
-                      "${SettingsService.to.window.resolvedStoredWidth.toInt()} × ${SettingsService.to.window.resolvedStoredHeight.toInt()}",
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => _showWindowSizeDialog(context),
+                () => context.buildMenuTile<AutoCheckUpdateMode>(
+                  title: i18n('enable_auto_check_update'),
+                  subtitle: i18n('enable_auto_check_update_subtitle'),
+                  icon: Remix.refresh_line,
+                  value: SettingsService.to.app.autoCheckUpdateMode,
+                  valueMap: const {
+                    AutoCheckUpdateMode.off: 'auto_check_update_mode_off',
+                    AutoCheckUpdateMode.all: 'auto_check_update_mode_all',
+                    AutoCheckUpdateMode.stableOnly: 'auto_check_update_mode_stable_only',
+                  },
+                  onChanged: SettingsService.to.app.setAutoCheckUpdateMode,
                 ),
               ),
               context.buildSwitchTile(
-                title: i18n("no_exit_confirm"),
-                subtitle: "",
-                value: SettingsService.to.exit.dontAskExit,
-                icon: Remix.error_warning_line,
+                title: i18n('use_github_origin_for_updates'),
+                subtitle: i18n('use_github_origin_for_updates_desc'),
+                value: SettingsService.to.app.useGitHubOriginForUpdates,
+                icon: Remix.github_line,
+                isLong: true,
               ),
-            ],
-          ]),
-          const SizedBox(height: 32),
-        ],
+              context.buildSwitchTile(
+                title: i18n('enable_countdown_close'),
+                subtitle: i18n('enable_countdown_close_subtitle'),
+                value: SettingsService.to.exit.enableAutoShutDownTime,
+                icon: Remix.timer_line,
+              ),
+              Obx(() {
+                final bool isEnabled = SettingsService.to.exit.enableAutoShutDownTime.v;
+                final int configMinutes = SettingsService.to.exit.autoShutDownTime.v;
+
+                return StreamBuilder<int>(
+                  key: ValueKey('${isEnabled}_$configMinutes'),
+                  stream: SettingsService.to.exit.stopWatchTimer.rawTime,
+                  builder: (context, snapshot) {
+                    final int value = snapshot.data ?? 0;
+                    String subtitleText = "";
+
+                    if (!isEnabled || value == 0) {
+                      subtitleText = "$configMinutes ${i18n('minutes')}";
+                    } else {
+                      final displayTime = StopWatchTimer.getDisplayTime(value, hours: true, milliSecond: false);
+                      subtitleText = "${i18n('remaining_time')}: $displayTime";
+                    }
+
+                    return context.buildTile(
+                      iconWidget: AnimatedTimerIcon(
+                        enabled: isEnabled,
+                        remainingMs: value,
+                        totalMinutes: configMinutes,
+                      ),
+
+                      title: i18n('countdown_duration'),
+                      subtitle: subtitleText,
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => _showCountdownDurationDialog(context),
+                    );
+                  },
+                );
+              }),
+
+              if (Platform.isWindows) ...[
+                Obx(() {
+                  final startup = SettingsService.to.startup;
+                  final applying = startup.isApplyingStartup.v;
+                  final statusKey = startup.startupStatusKey.v;
+                  final subtitleKey = applying
+                      ? 'startup_applying'
+                      : statusKey.isNotEmpty
+                      ? statusKey
+                      : 'startup_subtitle';
+                  return SwitchListTile(
+                    key: const ValueKey('windows-startup-switch'),
+                    secondary: Icon(Remix.windows_line, color: Theme.of(context).colorScheme.primary, size: 22),
+                    title: Text(i18n('startup'), style: AppTextStyles.t15.copyWith(fontWeight: FontWeight.w600)),
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        i18n(subtitleKey),
+                        style: AppTextStyles.t12.copyWith(
+                          color: statusKey.isNotEmpty && !applying
+                              ? Theme.of(context).colorScheme.error
+                              : Theme.of(context).hintColor.withValues(alpha: 0.75),
+                        ),
+                      ),
+                    ),
+                    value: startup.enableStartUp.v,
+                    onChanged: applying ? null : (value) => unawaited(startup.setStartupEnabled(value)),
+                    contentPadding: const EdgeInsets.only(left: 16, top: 2, bottom: 2, right: 8),
+                  );
+                }),
+                Obx(
+                  () => context.buildTile(
+                    icon: Remix.aspect_ratio_line,
+                    title: i18n("window_size"),
+                    subtitle:
+                        "${SettingsService.to.window.resolvedStoredWidth.toInt()} × ${SettingsService.to.window.resolvedStoredHeight.toInt()}",
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => _showWindowSizeDialog(context),
+                  ),
+                ),
+                context.buildSwitchTile(
+                  title: i18n("no_exit_confirm"),
+                  subtitle: "",
+                  value: SettingsService.to.exit.dontAskExit,
+                  icon: Remix.error_warning_line,
+                ),
+              ],
+            ]),
+            const SizedBox(height: 32),
+          ],
+        ),
       ),
     );
   }

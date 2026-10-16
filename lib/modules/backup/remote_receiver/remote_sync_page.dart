@@ -224,17 +224,20 @@ class _RemoteSyncPageState extends State<RemoteSyncPage> {
           const SizedBox(width: 8),
         ],
       ),
-      body: Obx(
-        () => ListView(
-          physics: const PureLiveScrollPhysics(),
-          padding: const EdgeInsets.all(16),
-          children: [
-            _buildLocalDevice(),
-            const SizedBox(height: 16),
-            _buildDiscoveredDevices(),
-            const SizedBox(height: 16),
-            _buildManualAddress(),
-          ],
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: Obx(
+          () => ListView(
+            physics: const PureLiveScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            children: [
+              _buildLocalDevice(),
+              const SizedBox(height: 16),
+              _buildDiscoveredDevices(),
+              const SizedBox(height: 16),
+              _buildManualAddress(),
+            ],
+          ),
         ),
       ),
     );

@@ -23,146 +23,152 @@ class _AboutPageState extends State<AboutPage> {
 
     return Scaffold(
       appBar: AppBar(),
-      body: ListView(
-        physics: const PureLiveScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        children: <Widget>[
-          Center(
-            child: Column(
-              children: [
-                TweenAnimationBuilder<double>(
-                  tween: Tween<double>(begin: 0.0, end: 1.0),
-                  duration: const Duration(milliseconds: 1000),
-                  curve: Curves.elasticOut,
-                  builder: (context, value, child) {
-                    return Transform.scale(scale: value, child: child);
-                  },
-                  child: Container(
-                    width: PlatformUtils.isMobile ? 80 : 96,
-                    height: PlatformUtils.isMobile ? 80 : 96,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.08), width: 1),
-                      boxShadow: [
-                        BoxShadow(
-                          color: theme.colorScheme.primary.withValues(alpha: 0.06),
-                          blurRadius: 16,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: ListView(
+          physics: const PureLiveScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          children: <Widget>[
+            Center(
+              child: Column(
+                children: [
+                  TweenAnimationBuilder<double>(
+                    tween: Tween<double>(begin: 0.0, end: 1.0),
+                    duration: const Duration(milliseconds: 1000),
+                    curve: Curves.elasticOut,
+                    builder: (context, value, child) {
+                      return Transform.scale(scale: value, child: child);
+                    },
+                    child: Container(
+                      width: PlatformUtils.isMobile ? 80 : 96,
+                      height: PlatformUtils.isMobile ? 80 : 96,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.08), width: 1),
+                        boxShadow: [
+                          BoxShadow(
+                            color: theme.colorScheme.primary.withValues(alpha: 0.06),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.all(16),
+                      child: Image.asset('assets/icons/icon.png', fit: BoxFit.contain),
                     ),
-                    padding: const EdgeInsets.all(16),
-                    child: Image.asset('assets/icons/icon.png', fit: BoxFit.contain),
                   ),
-                ),
 
-                const SizedBox(height: 18),
-                Text(
-                  i18n("app_name"),
-                  style: AppTextStyles.t18.copyWith(fontWeight: FontWeight.bold, letterSpacing: 0.5),
-                ),
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  const SizedBox(height: 18),
+                  Text(
+                    i18n("app_name"),
+                    style: AppTextStyles.t18.copyWith(fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: theme.dividerColor.withValues(alpha: 0.05), width: 0.5),
+                    ),
+                    child: Text(
+                      'v${VersionUtil.fullVersion}',
+                      style: AppTextStyles.t11.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                ],
+              ),
+            ),
+            context.buildGroupTitle(i18n("about")),
+            const SizedBox(height: 8),
+            context.buildModernCard([
+              context.buildTile(
+                icon: Remix.download_cloud_2_line,
+                title: i18n("online_update"),
+                trailing: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: theme.dividerColor.withValues(alpha: 0.05), width: 0.5),
+                    color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
                     'v${VersionUtil.fullVersion}',
-                    style: AppTextStyles.t11.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w500,
-                    ),
+                    style: AppTextStyles.t11.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.w600),
                   ),
                 ),
-                const SizedBox(height: 28),
-              ],
-            ),
-          ),
-          context.buildGroupTitle(i18n("about")),
-          const SizedBox(height: 8),
-          context.buildModernCard([
-            context.buildTile(
-              icon: Remix.download_cloud_2_line,
-              title: i18n("online_update"),
-              trailing: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  'v${VersionUtil.fullVersion}',
-                  style: AppTextStyles.t11.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.w600),
-                ),
+                stackTrailingOnNarrow: true,
+                onTap: () => Get.toNamed(RoutePath.kVersionPage),
               ),
-              stackTrailingOnNarrow: true,
-              onTap: () => Get.toNamed(RoutePath.kVersionPage),
-            ),
-            Obx(() {
-              final downloadDirectory = SettingsService.to.app.downloadDirectory.v;
-              return context.buildTile(
-                icon: Remix.folder_open_line,
-                title: i18n("download_directory"),
-                subtitle: downloadDirectory.isEmpty ? i18n("please_set_download_directory") : downloadDirectory,
+              Obx(() {
+                final downloadDirectory = SettingsService.to.app.downloadDirectory.v;
+                return context.buildTile(
+                  icon: Remix.folder_open_line,
+                  title: i18n("download_directory"),
+                  subtitle: downloadDirectory.isEmpty ? i18n("please_set_download_directory") : downloadDirectory,
+                  isLong: true,
+                  onTap: _pickDownloadDirectory,
+                );
+              }),
+              context.buildTile(
+                icon: Remix.refresh_line,
+                title: i18n("check_update"),
+                subtitle: i18n("check_update_desc"),
+                onTap: () => showCheckUpdateDialog(context),
+              ),
+              context.buildTile(
+                icon: Remix.history_line,
+                title: i18n("history"),
+                subtitle: i18n("history_desc"),
+                onTap: () => Get.toNamed(RoutePath.kVersionHistory),
+              ),
+              context.buildTile(icon: Remix.shield_user_line, title: i18n("license"), onTap: openLicensePage),
+            ]),
+            const SizedBox(height: 24),
+            context.buildGroupTitle(i18n("project")),
+            const SizedBox(height: 8),
+            context.buildModernCard([
+              context.buildTile(
+                icon: Remix.git_repository_line,
+                title: i18n("project_page"),
+                subtitle: VersionUtil.projectUrl,
                 isLong: true,
-                onTap: _pickDownloadDirectory,
-              );
-            }),
-            context.buildTile(
-              icon: Remix.refresh_line,
-              title: i18n("check_update"),
-              subtitle: i18n("check_update_desc"),
-              onTap: () => showCheckUpdateDialog(context),
-            ),
-            context.buildTile(
-              icon: Remix.history_line,
-              title: i18n("history"),
-              subtitle: i18n("history_desc"),
-              onTap: () => Get.toNamed(RoutePath.kVersionHistory),
-            ),
-            context.buildTile(icon: Remix.shield_user_line, title: i18n("license"), onTap: openLicensePage),
-          ]),
-          const SizedBox(height: 24),
-          context.buildGroupTitle(i18n("project")),
-          const SizedBox(height: 8),
-          context.buildModernCard([
-            context.buildTile(
-              icon: Remix.git_repository_line,
-              title: i18n("project_page"),
-              subtitle: VersionUtil.projectUrl,
-              isLong: true,
-              onTap: () {
-                launchUrl(Uri.parse(VersionUtil.projectUrl), mode: LaunchMode.externalApplication);
-              },
-            ),
-            context.buildTile(
-              icon: Remix.cloud_line,
-              title: i18n("upstream_repository"),
-              subtitle: 'https://github.com/liuchuancong/pure_live',
-              isLong: true,
-              onTap: () {
-                launchUrl(Uri.parse('https://github.com/liuchuancong/pure_live'), mode: LaunchMode.externalApplication);
-              },
-            ),
-            context.buildTile(
-              icon: Remix.file_list_3_line,
-              title: i18n("changes_summary"),
-              subtitle: i18n("changes_summary_desc"),
-              isLong: true,
-              onTap: () => Get.toNamed(RoutePath.kChangesSummary),
-            ),
-            context.buildTile(
-              icon: Remix.error_warning_line,
-              title: i18n("project_alert"),
-              subtitle: i18n("app_legalese"),
-              isLong: true,
-              iconColor: theme.colorScheme.error,
-            ),
-          ]),
-        ],
+                onTap: () {
+                  launchUrl(Uri.parse(VersionUtil.projectUrl), mode: LaunchMode.externalApplication);
+                },
+              ),
+              context.buildTile(
+                icon: Remix.cloud_line,
+                title: i18n("upstream_repository"),
+                subtitle: 'https://github.com/liuchuancong/pure_live',
+                isLong: true,
+                onTap: () {
+                  launchUrl(
+                    Uri.parse('https://github.com/liuchuancong/pure_live'),
+                    mode: LaunchMode.externalApplication,
+                  );
+                },
+              ),
+              context.buildTile(
+                icon: Remix.file_list_3_line,
+                title: i18n("changes_summary"),
+                subtitle: i18n("changes_summary_desc"),
+                isLong: true,
+                onTap: () => Get.toNamed(RoutePath.kChangesSummary),
+              ),
+              context.buildTile(
+                icon: Remix.error_warning_line,
+                title: i18n("project_alert"),
+                subtitle: i18n("app_legalese"),
+                isLong: true,
+                iconColor: theme.colorScheme.error,
+              ),
+            ]),
+          ],
+        ),
       ),
     );
   }
@@ -225,13 +231,16 @@ class _AboutPageState extends State<AboutPage> {
                     ),
                   )
                 : baseTheme,
-            child: LicensePage(
-              applicationName: i18n("app_name"),
-              applicationLegalese: i18n("app_legalese"),
-              applicationVersion: 'v${VersionUtil.fullVersion}',
-              applicationIcon: Padding(
-                padding: const EdgeInsets.all(12),
-                child: SizedBox(width: 60, child: Center(child: Image.asset('assets/icons/icon.png'))),
+            child: ScrollConfiguration(
+              behavior: const MouseDraggableScrollBehavior(),
+              child: LicensePage(
+                applicationName: i18n("app_name"),
+                applicationLegalese: i18n("app_legalese"),
+                applicationVersion: 'v${VersionUtil.fullVersion}',
+                applicationIcon: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: SizedBox(width: 60, child: Center(child: Image.asset('assets/icons/icon.png'))),
+                ),
               ),
             ),
           );

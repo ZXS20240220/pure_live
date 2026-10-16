@@ -176,93 +176,96 @@ class _AccountCookieEditorPageState extends State<AccountCookieEditorPage> {
         appBar: widget.breadcrumb != null
             ? SettingsBreadcrumbAppBar(node: widget.breadcrumb!)
             : AppBar(title: Text(i18n('set_cookie'))),
-        body: SafeArea(
-          top: false,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final horizontalPadding = constraints.maxWidth < 360 ? 12.0 : 16.0;
-              return ListView(
-                key: const ValueKey('account-cookie-scroll'),
-                physics: const PureLiveScrollPhysics(),
-                padding: EdgeInsets.fromLTRB(horizontalPadding, 12, horizontalPadding, 32),
-                children: [
-                  _buildTipBanner(theme),
-                  const SizedBox(height: 20),
-                  context.buildGroupTitle(i18n('cookie')),
-                  context.buildModernCard([
-                    Padding(
-                      padding: EdgeInsets.all(constraints.maxWidth < 360 ? 12 : 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          TextField(
-                            key: const ValueKey('account-cookie-input'),
-                            minLines: 3,
-                            maxLines: 7,
-                            controller: widget.controller,
-                            style: AppTextStyles.t14,
-                            keyboardType: TextInputType.multiline,
-                            textInputAction: TextInputAction.newline,
-                            autocorrect: false,
-                            enableSuggestions: false,
-                            smartDashesType: SmartDashesType.disabled,
-                            smartQuotesType: SmartQuotesType.disabled,
-                            scrollPadding: const EdgeInsets.only(bottom: 120),
-                            decoration: accountCookieFieldDecoration(theme, hintText: widget.hintText),
-                          ),
-                          for (final field in widget.extraFields) ...<Widget>[const SizedBox(height: 12), field],
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              if (widget.autoCaptureTarget != null) ...[
+        body: ScrollConfiguration(
+          behavior: const MouseDraggableScrollBehavior(),
+          child: SafeArea(
+            top: false,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final horizontalPadding = constraints.maxWidth < 360 ? 12.0 : 16.0;
+                return ListView(
+                  key: const ValueKey('account-cookie-scroll'),
+                  physics: const PureLiveScrollPhysics(),
+                  padding: EdgeInsets.fromLTRB(horizontalPadding, 12, horizontalPadding, 32),
+                  children: [
+                    _buildTipBanner(theme),
+                    const SizedBox(height: 20),
+                    context.buildGroupTitle(i18n('cookie')),
+                    context.buildModernCard([
+                      Padding(
+                        padding: EdgeInsets.all(constraints.maxWidth < 360 ? 12 : 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            TextField(
+                              key: const ValueKey('account-cookie-input'),
+                              minLines: 3,
+                              maxLines: 7,
+                              controller: widget.controller,
+                              style: AppTextStyles.t14,
+                              keyboardType: TextInputType.multiline,
+                              textInputAction: TextInputAction.newline,
+                              autocorrect: false,
+                              enableSuggestions: false,
+                              smartDashesType: SmartDashesType.disabled,
+                              smartQuotesType: SmartQuotesType.disabled,
+                              scrollPadding: const EdgeInsets.only(bottom: 120),
+                              decoration: accountCookieFieldDecoration(theme, hintText: widget.hintText),
+                            ),
+                            for (final field in widget.extraFields) ...<Widget>[const SizedBox(height: 12), field],
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                if (widget.autoCaptureTarget != null) ...[
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      onPressed: _autoCaptureCookie,
+                                      style: OutlinedButton.styleFrom(
+                                        minimumSize: const Size.fromHeight(48),
+                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      ),
+                                      icon: const Icon(Remix.global_line, size: 18),
+                                      label: Text(
+                                        i18n('cookie_auto_capture'),
+                                        textAlign: TextAlign.center,
+                                        style: AppTextStyles.t14.copyWith(fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                ],
                                 Expanded(
-                                  child: OutlinedButton.icon(
-                                    onPressed: _autoCaptureCookie,
-                                    style: OutlinedButton.styleFrom(
+                                  child: FilledButton.icon(
+                                    key: const ValueKey('account-cookie-save'),
+                                    onPressed: _save,
+                                    style: FilledButton.styleFrom(
                                       minimumSize: const Size.fromHeight(48),
                                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                     ),
-                                    icon: const Icon(Remix.global_line, size: 18),
+                                    icon: const Icon(Icons.save_rounded, size: 18),
                                     label: Text(
-                                      i18n('cookie_auto_capture'),
+                                      i18n('save'),
                                       textAlign: TextAlign.center,
-                                      style: AppTextStyles.t14.copyWith(fontWeight: FontWeight.w600),
+                                      style: AppTextStyles.t14.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 0.5,
+                                        color: theme.colorScheme.onPrimary,
+                                      ),
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 12),
                               ],
-                              Expanded(
-                                child: FilledButton.icon(
-                                  key: const ValueKey('account-cookie-save'),
-                                  onPressed: _save,
-                                  style: FilledButton.styleFrom(
-                                    minimumSize: const Size.fromHeight(48),
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                  ),
-                                  icon: const Icon(Icons.save_rounded, size: 18),
-                                  label: Text(
-                                    i18n('save'),
-                                    textAlign: TextAlign.center,
-                                    style: AppTextStyles.t14.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                      letterSpacing: 0.5,
-                                      color: theme.colorScheme.onPrimary,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ]),
-                ],
-              );
-            },
+                    ]),
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ),

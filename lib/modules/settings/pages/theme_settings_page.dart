@@ -16,174 +16,177 @@ class ThemeSettingsPage extends GetView<SettingsService> {
 
     return Scaffold(
       appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.theme),
-      body: ListView(
-        physics: const PureLiveScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        children: [
-          context.buildGroupTitle(i18n("theme_customization")),
-          context.buildModernCard([
-            context.buildTile(
-              icon: Remix.moon_clear_line,
-              title: i18n("change_theme_mode"),
-              subtitle: i18n("change_theme_mode_subtitle"),
-              onTap: showThemeModeSelectorDialog,
-            ),
-            context.buildTile(
-              icon: Remix.palette_line,
-              title: i18n("change_theme_color"),
-              subtitle: i18n("change_theme_color_subtitle"),
-              onTap: colorPickerDialog,
-              trailing: Obx(
-                () => ColorIndicator(
-                  width: 28,
-                  height: 28,
-                  borderRadius: 6,
-                  color: SettingsService.to.theme.themeColor,
-                  onSelectFocus: false,
-                ),
-              ),
-            ),
-            context.buildSwitchTile(
-              title: i18n("enable_dynamic_color"),
-              subtitle: i18n("enable_dynamic_color_subtitle"),
-              value: SettingsService.to.theme.enableDynamicTheme,
-              icon: Remix.magic_line,
-            ),
-            Obx(
-              () => context.buildTile(
-                iconWidget: SizedBox(
-                  key: ValueKey(SettingsService.to.theme.resolvedLoadingStyle),
-                  width: 24,
-                  child: AppStatusView(
-                    type: AppStatusType.loading,
-                    title: i18n('refresh_loading'),
-                    subtitle: '',
-                    isMini: true,
-                  ),
-                ),
-                title: i18n("change_loading_style"),
-                subtitle: i18n("change_loading_style_subtitle"),
-                onTap: () => SettingsNavigator.open(SettingsCrumbs.loading),
-                stackTrailingOnNarrow: true,
-                trailing: Obx(() {
-                  final String currentKey = SettingsService.to.theme.resolvedLoadingStyle;
-                  final bool isZh = Get.locale?.languageCode == 'zh';
-                  final Map<String, String> currentItem = AppConsts.allStyles.firstWhere(
-                    (item) => item['key'] == currentKey,
-                    orElse: () => {'key': 'default', 'nameEn': 'Default Ring', 'nameZh': '默认圆环'},
-                  );
-                  final String displayName = isZh ? currentItem['nameZh']! : currentItem['nameEn']!;
-
-                  return Text(
-                    displayName,
-                    style: AppTextStyles.t13.copyWith(color: Theme.of(context).colorScheme.outline),
-                  );
-                }),
-              ),
-            ),
-          ]),
-          const SizedBox(height: 20),
-          context.buildGroupTitle(i18n('room_card_settings')),
-          context.buildModernCard([
-            KeyedSubtree(
-              key: const ValueKey('room-card-settings-entry'),
-              child: context.buildTile(
-                icon: Remix.layout_grid_line,
-                title: i18n('room_card_settings'),
-                subtitle: i18n('room_card_settings_subtitle'),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => SettingsNavigator.open(SettingsCrumbs.roomCard),
-              ),
-            ),
-          ]),
-          const SizedBox(height: 20),
-          context.buildGroupTitle(i18n("grid_spacing_settings")),
-          context.buildModernCard([
-            context.buildTile(
-              icon: Remix.arrow_left_right_line,
-              title: i18n("cross_axis_spacing"),
-              subtitle: i18n("cross_axis_spacing_subtitle"),
-              onTap: showCrossAxisSpacingDialog,
-            ),
-            context.buildTile(
-              icon: Remix.arrow_up_down_line,
-              title: i18n("main_axis_spacing"),
-              subtitle: i18n("main_axis_spacing_subtitle"),
-              onTap: showMainAxisSpacingDialog,
-            ),
-          ]),
-          if (Get.width > 680) ...[
-            const SizedBox(height: 20),
-            context.buildGroupTitle(i18n("page_settings")),
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: ListView(
+          physics: const PureLiveScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          children: [
+            context.buildGroupTitle(i18n("theme_customization")),
             context.buildModernCard([
               context.buildTile(
-                icon: Remix.pages_line,
-                title: i18n('page_settings'),
-                subtitle: i18n('page_settings_subtitle'),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => SettingsNavigator.open(SettingsCrumbs.pageSettings),
+                icon: Remix.moon_clear_line,
+                title: i18n("change_theme_mode"),
+                subtitle: i18n("change_theme_mode_subtitle"),
+                onTap: showThemeModeSelectorDialog,
+              ),
+              context.buildTile(
+                icon: Remix.palette_line,
+                title: i18n("change_theme_color"),
+                subtitle: i18n("change_theme_color_subtitle"),
+                onTap: colorPickerDialog,
+                trailing: Obx(
+                  () => ColorIndicator(
+                    width: 28,
+                    height: 28,
+                    borderRadius: 6,
+                    color: SettingsService.to.theme.themeColor,
+                    onSelectFocus: false,
+                  ),
+                ),
+              ),
+              context.buildSwitchTile(
+                title: i18n("enable_dynamic_color"),
+                subtitle: i18n("enable_dynamic_color_subtitle"),
+                value: SettingsService.to.theme.enableDynamicTheme,
+                icon: Remix.magic_line,
+              ),
+              Obx(
+                () => context.buildTile(
+                  iconWidget: SizedBox(
+                    key: ValueKey(SettingsService.to.theme.resolvedLoadingStyle),
+                    width: 24,
+                    child: AppStatusView(
+                      type: AppStatusType.loading,
+                      title: i18n('refresh_loading'),
+                      subtitle: '',
+                      isMini: true,
+                    ),
+                  ),
+                  title: i18n("change_loading_style"),
+                  subtitle: i18n("change_loading_style_subtitle"),
+                  onTap: () => SettingsNavigator.open(SettingsCrumbs.loading),
+                  stackTrailingOnNarrow: true,
+                  trailing: Obx(() {
+                    final String currentKey = SettingsService.to.theme.resolvedLoadingStyle;
+                    final bool isZh = Get.locale?.languageCode == 'zh';
+                    final Map<String, String> currentItem = AppConsts.allStyles.firstWhere(
+                      (item) => item['key'] == currentKey,
+                      orElse: () => {'key': 'default', 'nameEn': 'Default Ring', 'nameZh': '默认圆环'},
+                    );
+                    final String displayName = isZh ? currentItem['nameZh']! : currentItem['nameEn']!;
+
+                    return Text(
+                      displayName,
+                      style: AppTextStyles.t13.copyWith(color: Theme.of(context).colorScheme.outline),
+                    );
+                  }),
+                ),
               ),
             ]),
-          ],
-
-          const SizedBox(height: 20),
-          context.buildGroupTitle(i18n("localization_settings")),
-          context.buildModernCard([
-            context.buildTile(
-              icon: Remix.global_line,
-              title: i18n("change_language"),
-              subtitle: i18n("change_language_subtitle"),
-              onTap: showLanguageSelecterDialog,
-            ),
-          ]),
-          const SizedBox(height: 20),
-          context.buildGroupTitle(i18n("font_family_settings")),
-          context.buildModernCard([
-            Obx(
-              () => context.buildTile(
-                icon: Remix.font_color,
-                title: i18n("change_font_family"),
-                subtitle:
-                    "${i18n("current_font_prefix")}: ${SettingsService.to.font.fontFamilyFileName.v.isNotEmpty ? SettingsService.to.font.fontFamilyFileName.v : SettingsService.to.font.fontFamilyName.v}",
-                onTap: () => SettingsNavigator.open(SettingsCrumbs.fontFamily),
-              ),
-            ),
-          ]),
-          const SizedBox(height: 20),
-          context.buildGroupTitle(i18n("text_size_settings")),
-          context.buildModernCard([
-            context.buildTile(
-              icon: Remix.font_size,
-              title: i18n("font_settings_title"),
-              subtitle: i18n("font_settings_desc"),
-              onTap: () => SettingsNavigator.open(SettingsCrumbs.font),
-            ),
             const SizedBox(height: 20),
+            context.buildGroupTitle(i18n('room_card_settings')),
+            context.buildModernCard([
+              KeyedSubtree(
+                key: const ValueKey('room-card-settings-entry'),
+                child: context.buildTile(
+                  icon: Remix.layout_grid_line,
+                  title: i18n('room_card_settings'),
+                  subtitle: i18n('room_card_settings_subtitle'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => SettingsNavigator.open(SettingsCrumbs.roomCard),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 20),
+            context.buildGroupTitle(i18n("grid_spacing_settings")),
+            context.buildModernCard([
+              context.buildTile(
+                icon: Remix.arrow_left_right_line,
+                title: i18n("cross_axis_spacing"),
+                subtitle: i18n("cross_axis_spacing_subtitle"),
+                onTap: showCrossAxisSpacingDialog,
+              ),
+              context.buildTile(
+                icon: Remix.arrow_up_down_line,
+                title: i18n("main_axis_spacing"),
+                subtitle: i18n("main_axis_spacing_subtitle"),
+                onTap: showMainAxisSpacingDialog,
+              ),
+            ]),
+            if (Get.width > 680) ...[
+              const SizedBox(height: 20),
+              context.buildGroupTitle(i18n("page_settings")),
+              context.buildModernCard([
+                context.buildTile(
+                  icon: Remix.pages_line,
+                  title: i18n('page_settings'),
+                  subtitle: i18n('page_settings_subtitle'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => SettingsNavigator.open(SettingsCrumbs.pageSettings),
+                ),
+              ]),
+            ],
 
-            Obx(
-              () => context.buildSliderTile(
-                context,
-                icon: Remix.text_spacing,
-                title: i18n("text_size_title"),
-                value: SettingsService.to.font.textScaleFactor.v,
-                min: FontSettingsController.minTextScaleFactor,
-                max: FontSettingsController.maxTextScaleFactor,
-                displayValue: SettingsService.to.font.textScaleFactor.v.toStringAsFixed(2),
-                onChanged: (val) {
-                  SettingsService.to.font.textScaleFactor.v = val;
-                },
+            const SizedBox(height: 20),
+            context.buildGroupTitle(i18n("localization_settings")),
+            context.buildModernCard([
+              context.buildTile(
+                icon: Remix.global_line,
+                title: i18n("change_language"),
+                subtitle: i18n("change_language_subtitle"),
+                onTap: showLanguageSelecterDialog,
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: Align(
-                alignment: Alignment.center,
-                child: Text(i18n("text_size_preview"), style: TextStyle(color: theme.colorScheme.outline)),
+            ]),
+            const SizedBox(height: 20),
+            context.buildGroupTitle(i18n("font_family_settings")),
+            context.buildModernCard([
+              Obx(
+                () => context.buildTile(
+                  icon: Remix.font_color,
+                  title: i18n("change_font_family"),
+                  subtitle:
+                      "${i18n("current_font_prefix")}: ${SettingsService.to.font.fontFamilyFileName.v.isNotEmpty ? SettingsService.to.font.fontFamilyFileName.v : SettingsService.to.font.fontFamilyName.v}",
+                  onTap: () => SettingsNavigator.open(SettingsCrumbs.fontFamily),
+                ),
               ),
-            ),
-          ]),
-          const SizedBox(height: 32),
-        ],
+            ]),
+            const SizedBox(height: 20),
+            context.buildGroupTitle(i18n("text_size_settings")),
+            context.buildModernCard([
+              context.buildTile(
+                icon: Remix.font_size,
+                title: i18n("font_settings_title"),
+                subtitle: i18n("font_settings_desc"),
+                onTap: () => SettingsNavigator.open(SettingsCrumbs.font),
+              ),
+              const SizedBox(height: 20),
+
+              Obx(
+                () => context.buildSliderTile(
+                  context,
+                  icon: Remix.text_spacing,
+                  title: i18n("text_size_title"),
+                  value: SettingsService.to.font.textScaleFactor.v,
+                  min: FontSettingsController.minTextScaleFactor,
+                  max: FontSettingsController.maxTextScaleFactor,
+                  displayValue: SettingsService.to.font.textScaleFactor.v.toStringAsFixed(2),
+                  onChanged: (val) {
+                    SettingsService.to.font.textScaleFactor.v = val;
+                  },
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: Align(
+                  alignment: Alignment.center,
+                  child: Text(i18n("text_size_preview"), style: TextStyle(color: theme.colorScheme.outline)),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 32),
+          ],
+        ),
       ),
     );
   }

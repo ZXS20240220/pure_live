@@ -27,13 +27,19 @@ class PipDanmakuSettingsPage extends StatelessWidget {
           ),
         ],
       ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          if (constraints.maxWidth >= 840) {
-            return _DesktopPipDanmakuLayout(maxPreviewWidth: math.min(520, constraints.maxWidth * 0.43));
-          }
-          return _MobilePipDanmakuLayout(availableHeight: constraints.maxHeight, availableWidth: constraints.maxWidth);
-        },
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth >= 840) {
+              return _DesktopPipDanmakuLayout(maxPreviewWidth: math.min(520, constraints.maxWidth * 0.43));
+            }
+            return _MobilePipDanmakuLayout(
+              availableHeight: constraints.maxHeight,
+              availableWidth: constraints.maxWidth,
+            );
+          },
+        ),
       ),
     );
   }

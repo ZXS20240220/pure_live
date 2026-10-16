@@ -9,31 +9,34 @@ class DecoderSettingsPage extends GetView<SettingsService> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.decoder),
-      body: ListView(
-        physics: const PureLiveScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        children: [
-          context.buildGroupTitle(i18n('hardware_decoder')),
-          context.buildModernCard([
-            Obx(
-              () => Column(
-                children: PlayerConsts.hardwareDecodersList.map((item) {
-                  final key = item['key']!;
-                  final selected = controller.player.videoHardwareDecoder.v == key;
-                  final bool isZh = Get.locale?.languageCode == 'zh';
-                  return _DecoderTile(
-                    title: isZh ? item['nameZh']! : item['nameEn']!,
-                    selected: selected,
-                    onTap: () {
-                      controller.player.videoHardwareDecoder.v = key;
-                    },
-                  );
-                }).toList(),
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: ListView(
+          physics: const PureLiveScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          children: [
+            context.buildGroupTitle(i18n('hardware_decoder')),
+            context.buildModernCard([
+              Obx(
+                () => Column(
+                  children: PlayerConsts.hardwareDecodersList.map((item) {
+                    final key = item['key']!;
+                    final selected = controller.player.videoHardwareDecoder.v == key;
+                    final bool isZh = Get.locale?.languageCode == 'zh';
+                    return _DecoderTile(
+                      title: isZh ? item['nameZh']! : item['nameEn']!,
+                      selected: selected,
+                      onTap: () {
+                        controller.player.videoHardwareDecoder.v = key;
+                      },
+                    );
+                  }).toList(),
+                ),
               ),
-            ),
-          ]),
-          const SizedBox(height: 32),
-        ],
+            ]),
+            const SizedBox(height: 32),
+          ],
+        ),
       ),
     );
   }

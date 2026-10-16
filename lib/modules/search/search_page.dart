@@ -52,16 +52,19 @@ class SearchPage extends GetView<pure_live.SearchController> {
           ),
         ),
       ),
-      body: LayoutBuilder(
-        builder: (context, constraints) => Obx(
-          () => CustomScrollView(
-            key: const ValueKey('search-content'),
-            controller: controller.scrollController,
-            physics: resolveSearchResultScrollPhysics(Theme.of(context).platform),
-            scrollCacheExtent: ScrollCacheExtent.pixels(constraints.maxWidth > 680 ? 480 : 320),
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            semanticChildCount: controller.loading.v ? 0 : controller.results.length,
-            slivers: _buildSlivers(context, constraints.maxWidth),
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: LayoutBuilder(
+          builder: (context, constraints) => Obx(
+            () => CustomScrollView(
+              key: const ValueKey('search-content'),
+              controller: controller.scrollController,
+              physics: resolveSearchResultScrollPhysics(Theme.of(context).platform),
+              scrollCacheExtent: ScrollCacheExtent.pixels(constraints.maxWidth > 680 ? 480 : 320),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              semanticChildCount: controller.loading.v ? 0 : controller.results.length,
+              slivers: _buildSlivers(context, constraints.maxWidth),
+            ),
           ),
         ),
       ),

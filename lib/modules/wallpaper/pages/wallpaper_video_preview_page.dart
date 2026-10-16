@@ -364,15 +364,18 @@ class _WallpaperVideoPreviewPageState extends State<WallpaperVideoPreviewPage> {
               ),
           ],
         ),
-        body: Stack(
-          fit: StackFit.expand,
-          children: [
-            // 模糊层包裹 viewer，与实际背景效果一致
-            _blurred(_buildViewer(fit), blur),
-            // 遮罩层
-            IgnorePointer(child: _buildMask(mask)),
-            Align(alignment: Alignment.bottomCenter, child: _buildActionBar(fit, blur, mask)),
-          ],
+        body: ScrollConfiguration(
+          behavior: const MouseDraggableScrollBehavior(),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // 模糊层包裹 viewer，与实际背景效果一致
+              _blurred(_buildViewer(fit), blur),
+              // 遮罩层
+              IgnorePointer(child: _buildMask(mask)),
+              Align(alignment: Alignment.bottomCenter, child: _buildActionBar(fit, blur, mask)),
+            ],
+          ),
         ),
       );
     });

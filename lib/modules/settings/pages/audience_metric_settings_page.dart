@@ -35,60 +35,63 @@ class AudienceMetricSettingsPage extends StatelessWidget {
     final app = SettingsService.to.app;
     return Scaffold(
       appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.audienceMetric),
-      body: ListView(
-        physics: const PureLiveScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        children: [
-          context.buildGroupTitle(i18n('audience_display_mode')),
-          context.buildModernCard([
-            Obx(
-              () => RadioGroup<bool>(
-                groupValue: app.preferRealOnlineCounts.v,
-                onChanged: (value) {
-                  if (value != null) app.preferRealOnlineCounts.v = value;
-                },
-                child: Column(
-                  children: [
-                    const _AudienceModeTile(
-                      key: ValueKey('audience-mode-heat'),
-                      value: false,
-                      titleKey: 'audience_mode_heat',
-                      detailKey: 'audience_mode_heat_desc',
-                    ),
-                    const _AudienceModeTile(
-                      key: ValueKey('audience-mode-online'),
-                      value: true,
-                      titleKey: 'audience_mode_online',
-                      detailKey: 'audience_mode_online_desc',
-                    ),
-                  ],
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: ListView(
+          physics: const PureLiveScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          children: [
+            context.buildGroupTitle(i18n('audience_display_mode')),
+            context.buildModernCard([
+              Obx(
+                () => RadioGroup<bool>(
+                  groupValue: app.preferRealOnlineCounts.v,
+                  onChanged: (value) {
+                    if (value != null) app.preferRealOnlineCounts.v = value;
+                  },
+                  child: Column(
+                    children: [
+                      const _AudienceModeTile(
+                        key: ValueKey('audience-mode-heat'),
+                        value: false,
+                        titleKey: 'audience_mode_heat',
+                        detailKey: 'audience_mode_heat_desc',
+                      ),
+                      const _AudienceModeTile(
+                        key: ValueKey('audience-mode-online'),
+                        value: true,
+                        titleKey: 'audience_mode_online',
+                        detailKey: 'audience_mode_online_desc',
+                      ),
+                    ],
+                  ),
                 ),
               ),
+            ]),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(i18n('audience_ranking_rule_desc'), style: Theme.of(context).textTheme.bodySmall),
             ),
-          ]),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Text(i18n('audience_ranking_rule_desc'), style: Theme.of(context).textTheme.bodySmall),
-          ),
-          const SizedBox(height: 20),
-          context.buildGroupTitle(i18n('audience_online_platforms')),
-          context.buildModernCard([
-            for (final platform in _platforms)
-              _AudiencePlatformTile(
-                id: platform.id,
-                labelKey: platform.labelKey,
-                detailKey: platform.detailKey,
-                app: app,
-              ),
-          ]),
-          const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Text(i18n('audience_metric_fallback_desc'), style: Theme.of(context).textTheme.bodySmall),
-          ),
-          const SizedBox(height: 32),
-        ],
+            const SizedBox(height: 20),
+            context.buildGroupTitle(i18n('audience_online_platforms')),
+            context.buildModernCard([
+              for (final platform in _platforms)
+                _AudiencePlatformTile(
+                  id: platform.id,
+                  labelKey: platform.labelKey,
+                  detailKey: platform.detailKey,
+                  app: app,
+                ),
+            ]),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(i18n('audience_metric_fallback_desc'), style: Theme.of(context).textTheme.bodySmall),
+            ),
+            const SizedBox(height: 32),
+          ],
+        ),
       ),
     );
   }

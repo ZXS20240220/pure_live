@@ -76,54 +76,57 @@ class FontFamilyManagerPage extends GetView<SettingsService> {
           const SizedBox(width: 8),
         ],
       ),
-      body: Obx(() {
-        final fontFolderSizes = SettingsService.to.font.fontFolderSizes;
-        final fontModels = List<FontModel>.from(SettingsService.to.font.fontList)
-          ..sort((a, b) {
-            final aDownloaded = fontFolderSizes.containsKey(a.id) ? 0 : 1;
-            final bDownloaded = fontFolderSizes.containsKey(b.id) ? 0 : 1;
-            if (aDownloaded != bDownloaded) return aDownloaded.compareTo(bDownloaded);
-            return a.id.compareTo(b.id);
-          });
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: Obx(() {
+          final fontFolderSizes = SettingsService.to.font.fontFolderSizes;
+          final fontModels = List<FontModel>.from(SettingsService.to.font.fontList)
+            ..sort((a, b) {
+              final aDownloaded = fontFolderSizes.containsKey(a.id) ? 0 : 1;
+              final bDownloaded = fontFolderSizes.containsKey(b.id) ? 0 : 1;
+              if (aDownloaded != bDownloaded) return aDownloaded.compareTo(bDownloaded);
+              return a.id.compareTo(b.id);
+            });
 
-        return CustomScrollView(
-          physics: const PureLiveScrollPhysics(),
-          slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  context.buildGroupTitle(i18n("factory_default_group")),
-                  _buildPresetEnvironmentCard(theme),
-                  const SizedBox(height: 28),
-                  context.buildGroupTitle(i18n("cloud_font_group")),
-                ]),
-              ),
-            ),
-            if (fontModels.isEmpty)
+          return CustomScrollView(
+            physics: const PureLiveScrollPhysics(),
+            slivers: [
               SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                sliver: SliverToBoxAdapter(
-                  child: SizedBox(
-                    height: 200,
-                    child: AppStatusView(type: AppStatusType.loading, title: "", subtitle: ""),
-                  ),
-                ),
-              )
-            else
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
                 sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) => _buildFontCard(context, theme, fontModels[index]),
-                    childCount: fontModels.length,
-                  ),
+                  delegate: SliverChildListDelegate([
+                    context.buildGroupTitle(i18n("factory_default_group")),
+                    _buildPresetEnvironmentCard(theme),
+                    const SizedBox(height: 28),
+                    context.buildGroupTitle(i18n("cloud_font_group")),
+                  ]),
                 ),
               ),
-            const SliverToBoxAdapter(child: SizedBox(height: 32)),
-          ],
-        );
-      }),
+              if (fontModels.isEmpty)
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  sliver: SliverToBoxAdapter(
+                    child: SizedBox(
+                      height: 200,
+                      child: AppStatusView(type: AppStatusType.loading, title: "", subtitle: ""),
+                    ),
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) => _buildFontCard(context, theme, fontModels[index]),
+                      childCount: fontModels.length,
+                    ),
+                  ),
+                ),
+              const SliverToBoxAdapter(child: SizedBox(height: 32)),
+            ],
+          );
+        }),
+      ),
     );
   }
 

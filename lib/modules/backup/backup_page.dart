@@ -41,144 +41,147 @@ class _BackupPageState extends State<BackupPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.backup),
-      body: ListView(
-        physics: const PureLiveScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        children: [
-          context.buildGroupTitle(i18n("cloud_backup")),
-          context.buildModernCard([
-            context.buildTile(
-              icon: Remix.qr_scan_2_line,
-              title: i18n('remote_sync'),
-              subtitle: i18n('remote_sync_subtitle'),
-              onTap: () => SettingsNavigator.open(SettingsCrumbs.remoteSync),
-            ),
-            context.buildTile(
-              icon: Remix.cloud_line,
-              title: i18n("webdav"),
-              subtitle: i18n("backup_to_webdav"),
-              isLong: true,
-              onTap: () => SettingsNavigator.open(SettingsCrumbs.webdav),
-            ),
-            if (Platform.isAndroid || Platform.isIOS)
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: ListView(
+          physics: const PureLiveScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          children: [
+            context.buildGroupTitle(i18n("cloud_backup")),
+            context.buildModernCard([
               context.buildTile(
-                icon: Remix.qr_code_line,
-                title: i18n("sync_tv_data"),
-                subtitle: i18n("sync_tv_data_subtitle"),
-                isLong: true,
-                onTap: () => Get.to(() => const ScanCodePage()),
+                icon: Remix.qr_scan_2_line,
+                title: i18n('remote_sync'),
+                subtitle: i18n('remote_sync_subtitle'),
+                onTap: () => SettingsNavigator.open(SettingsCrumbs.remoteSync),
               ),
-          ]),
-          const SizedBox(height: 20),
-          context.buildGroupTitle(i18n("local_backup")),
-          context.buildModernCard([
-            context.buildTile(
-              icon: Remix.file_download_line,
-              title: i18n("create_backup"),
-              subtitle: i18n("create_backup_subtitle"),
-              isLong: true,
-              onTap: () async {
-                // 备份目录已设置时直接导出到该目录；未设置时提示用户先设置。
-                await BackupRecoveryService().createAppSettingsBackup(backupDirectory);
-              },
-            ),
-            context.buildTile(
-              icon: Remix.file_zip_line,
-              title: i18n("create_full_backup"),
-              subtitle: i18n("create_full_backup_subtitle"),
-              isLong: true,
-              onTap: () async {
-                // 完整备份将设置、IPTV 数据库、已下载字体打包为 zip。
-                await BackupRecoveryService().createFullBackup(backupDirectory);
-              },
-            ),
-            context.buildTile(
-              icon: Remix.file_upload_line,
-              title: i18n("recover_backup"),
-              subtitle: i18n("recover_backup_subtitle"),
-              isLong: true,
-              onTap: () => BackupRecoveryService().recoverSettingsFromFile(),
-            ),
-          ]),
-          const SizedBox(height: 20),
-          context.buildGroupTitle(i18n("backup_settings")),
-          context.buildModernCard([
-            Obx(
-              () => context.buildTile(
-                icon: Remix.folder_open_line,
-                title: i18n("backup_directory"),
-                subtitle: backupDirectory.isEmpty ? i18n('please_set_backup_directory') : backupDirectory,
+              context.buildTile(
+                icon: Remix.cloud_line,
+                title: i18n("webdav"),
+                subtitle: i18n("backup_to_webdav"),
                 isLong: true,
-                onTap: () async {
-                  await BackupRecoveryService().updateBackupDirectory();
-                },
+                onTap: () => SettingsNavigator.open(SettingsCrumbs.webdav),
               ),
-            ),
-          ]),
-          const SizedBox(height: 20),
-          context.buildGroupTitle(i18n("log_manage")),
-          context.buildModernCard([
-            Obx(() {
-              final applying = logController.isApplyingLogStatus.v;
-              final statusKey = logController.logStatusKey.v;
-              final subtitleKey = applying
-                  ? 'local_log_applying'
-                  : statusKey.isNotEmpty
-                  ? statusKey
-                  : 'enable_local_log_desc';
-              return context.buildTile(
-                icon: Remix.file_text_line,
-                title: i18n("enable_local_log"),
-                subtitle: i18n(subtitleKey),
-                subtitleColor: statusKey.isNotEmpty && !applying ? Theme.of(context).colorScheme.error : null,
-                isLong: true,
-                stackTrailingOnNarrow: true,
-                showNavigationChevronWhenStacked: false,
-                trailing: Switch(
-                  key: const ValueKey('local-log-switch'),
-                  value: logController.storedEnableLog.v,
-                  onChanged: applying ? null : (value) => unawaited(logController.setLoggingEnabled(value)),
+              if (Platform.isAndroid || Platform.isIOS)
+                context.buildTile(
+                  icon: Remix.qr_code_line,
+                  title: i18n("sync_tv_data"),
+                  subtitle: i18n("sync_tv_data_subtitle"),
+                  isLong: true,
+                  onTap: () => Get.to(() => const ScanCodePage()),
                 ),
-                onTap: applying
-                    ? null
-                    : () => unawaited(logController.setLoggingEnabled(!logController.storedEnableLog.v)),
-              );
-            }),
-            Obx(() {
-              if (!logController.enableLog ||
-                  logController.isApplyingLogStatus.v ||
-                  logController.serverPort.value == 0) {
-                return const SizedBox.shrink();
-              }
-              final uri = Uri(
-                scheme: 'http',
-                host: logController.serverAddress.value,
-                port: logController.serverPort.value,
-              );
-              return context.buildTile(
-                icon: Remix.global_line,
-                title: i18n("view_logs_in_browser"),
-                subtitle: uri.toString(),
+            ]),
+            const SizedBox(height: 20),
+            context.buildGroupTitle(i18n("local_backup")),
+            context.buildModernCard([
+              context.buildTile(
+                icon: Remix.file_download_line,
+                title: i18n("create_backup"),
+                subtitle: i18n("create_backup_subtitle"),
                 isLong: true,
-                trailing: const Icon(Remix.arrow_right_s_line),
                 onTap: () async {
-                  if (await canLaunchUrl(uri)) {
-                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                  }
+                  // 备份目录已设置时直接导出到该目录；未设置时提示用户先设置。
+                  await BackupRecoveryService().createAppSettingsBackup(backupDirectory);
                 },
-              );
-            }),
+              ),
+              context.buildTile(
+                icon: Remix.file_zip_line,
+                title: i18n("create_full_backup"),
+                subtitle: i18n("create_full_backup_subtitle"),
+                isLong: true,
+                onTap: () async {
+                  // 完整备份将设置、IPTV 数据库、已下载字体打包为 zip。
+                  await BackupRecoveryService().createFullBackup(backupDirectory);
+                },
+              ),
+              context.buildTile(
+                icon: Remix.file_upload_line,
+                title: i18n("recover_backup"),
+                subtitle: i18n("recover_backup_subtitle"),
+                isLong: true,
+                onTap: () => BackupRecoveryService().recoverSettingsFromFile(),
+              ),
+            ]),
+            const SizedBox(height: 20),
+            context.buildGroupTitle(i18n("backup_settings")),
+            context.buildModernCard([
+              Obx(
+                () => context.buildTile(
+                  icon: Remix.folder_open_line,
+                  title: i18n("backup_directory"),
+                  subtitle: backupDirectory.isEmpty ? i18n('please_set_backup_directory') : backupDirectory,
+                  isLong: true,
+                  onTap: () async {
+                    await BackupRecoveryService().updateBackupDirectory();
+                  },
+                ),
+              ),
+            ]),
+            const SizedBox(height: 20),
+            context.buildGroupTitle(i18n("log_manage")),
+            context.buildModernCard([
+              Obx(() {
+                final applying = logController.isApplyingLogStatus.v;
+                final statusKey = logController.logStatusKey.v;
+                final subtitleKey = applying
+                    ? 'local_log_applying'
+                    : statusKey.isNotEmpty
+                    ? statusKey
+                    : 'enable_local_log_desc';
+                return context.buildTile(
+                  icon: Remix.file_text_line,
+                  title: i18n("enable_local_log"),
+                  subtitle: i18n(subtitleKey),
+                  subtitleColor: statusKey.isNotEmpty && !applying ? Theme.of(context).colorScheme.error : null,
+                  isLong: true,
+                  stackTrailingOnNarrow: true,
+                  showNavigationChevronWhenStacked: false,
+                  trailing: Switch(
+                    key: const ValueKey('local-log-switch'),
+                    value: logController.storedEnableLog.v,
+                    onChanged: applying ? null : (value) => unawaited(logController.setLoggingEnabled(value)),
+                  ),
+                  onTap: applying
+                      ? null
+                      : () => unawaited(logController.setLoggingEnabled(!logController.storedEnableLog.v)),
+                );
+              }),
+              Obx(() {
+                if (!logController.enableLog ||
+                    logController.isApplyingLogStatus.v ||
+                    logController.serverPort.value == 0) {
+                  return const SizedBox.shrink();
+                }
+                final uri = Uri(
+                  scheme: 'http',
+                  host: logController.serverAddress.value,
+                  port: logController.serverPort.value,
+                );
+                return context.buildTile(
+                  icon: Remix.global_line,
+                  title: i18n("view_logs_in_browser"),
+                  subtitle: uri.toString(),
+                  isLong: true,
+                  trailing: const Icon(Remix.arrow_right_s_line),
+                  onTap: () async {
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    }
+                  },
+                );
+              }),
 
-            context.buildTile(
-              icon: Remix.folder_open_line,
-              title: i18n("open_log_dir"),
-              subtitle: i18n("open_log_dir_desc"),
-              isLong: true,
-              onTap: _openLogDirectory,
-            ),
-          ]),
-          const SizedBox(height: 32),
-        ],
+              context.buildTile(
+                icon: Remix.folder_open_line,
+                title: i18n("open_log_dir"),
+                subtitle: i18n("open_log_dir_desc"),
+                isLong: true,
+                onTap: _openLogDirectory,
+              ),
+            ]),
+            const SizedBox(height: 32),
+          ],
+        ),
       ),
     );
   }

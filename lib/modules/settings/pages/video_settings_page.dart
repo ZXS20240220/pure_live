@@ -70,234 +70,237 @@ class _VideoSettingsPageState extends State<VideoSettingsPage> {
 
     return Scaffold(
       appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.video),
-      body: ListView(
-        physics: const PureLiveScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        children: [
-          // 音频设置
-          context.buildGroupTitle(i18n("audio_settings")),
-          context.buildModernCard([
-            // 图标随静音状态切换：外层 Obx 订阅了 globalVolumeMute（非空订阅），
-            // 切换时用新图标重新构建内部自带 Obx 的 buildSwitchTile。
-            Obx(() {
-              final muted = SettingsService.to.vol.globalVolumeMute;
-              return context.buildSwitchTile(
-                title: i18n("global_mute"),
-                subtitle: i18n("global_mute_subtitle"),
-                value: muted,
-                icon: muted.v ? Remix.volume_mute_line : Remix.volume_up_line,
-              );
-            }),
-            if (_isMobile)
-              Obx(
-                () => context.buildSliderTile(
-                  context,
-                  icon: Remix.phone_line,
-                  title: i18n("mobile_default_volume"),
-                  value: SettingsService.to.vol.defaultMobileVolume.v * 100,
-                  min: 0.0,
-                  max: 100.0,
-                  displayValue: "${(SettingsService.to.vol.defaultMobileVolume.v * 100).toStringAsFixed(0)}%",
-                  onChanged: (val) =>
-                      SettingsService.to.vol.defaultMobileVolume.v = double.parse((val / 100).toStringAsFixed(2)),
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: ListView(
+          physics: const PureLiveScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          children: [
+            // 音频设置
+            context.buildGroupTitle(i18n("audio_settings")),
+            context.buildModernCard([
+              // 图标随静音状态切换：外层 Obx 订阅了 globalVolumeMute（非空订阅），
+              // 切换时用新图标重新构建内部自带 Obx 的 buildSwitchTile。
+              Obx(() {
+                final muted = SettingsService.to.vol.globalVolumeMute;
+                return context.buildSwitchTile(
+                  title: i18n("global_mute"),
+                  subtitle: i18n("global_mute_subtitle"),
+                  value: muted,
+                  icon: muted.v ? Remix.volume_mute_line : Remix.volume_up_line,
+                );
+              }),
+              if (_isMobile)
+                Obx(
+                  () => context.buildSliderTile(
+                    context,
+                    icon: Remix.phone_line,
+                    title: i18n("mobile_default_volume"),
+                    value: SettingsService.to.vol.defaultMobileVolume.v * 100,
+                    min: 0.0,
+                    max: 100.0,
+                    displayValue: "${(SettingsService.to.vol.defaultMobileVolume.v * 100).toStringAsFixed(0)}%",
+                    onChanged: (val) =>
+                        SettingsService.to.vol.defaultMobileVolume.v = double.parse((val / 100).toStringAsFixed(2)),
+                  ),
                 ),
-              ),
-            if (_isDesktop)
-              Obx(
-                () => context.buildSliderTile(
-                  context,
-                  icon: Remix.computer_line,
-                  title: i18n("desktop_default_volume"),
-                  value: SettingsService.to.vol.defaultDesktopVolume.v * 100,
-                  min: 0.0,
-                  max: 100.0,
-                  displayValue: "${(SettingsService.to.vol.defaultDesktopVolume.v * 100).toStringAsFixed(0)}%",
-                  onChanged: (val) {
-                    SettingsService.to.vol.defaultDesktopVolume.v = double.parse((val / 100).toStringAsFixed(2));
-                  },
+              if (_isDesktop)
+                Obx(
+                  () => context.buildSliderTile(
+                    context,
+                    icon: Remix.computer_line,
+                    title: i18n("desktop_default_volume"),
+                    value: SettingsService.to.vol.defaultDesktopVolume.v * 100,
+                    min: 0.0,
+                    max: 100.0,
+                    displayValue: "${(SettingsService.to.vol.defaultDesktopVolume.v * 100).toStringAsFixed(0)}%",
+                    onChanged: (val) {
+                      SettingsService.to.vol.defaultDesktopVolume.v = double.parse((val / 100).toStringAsFixed(2));
+                    },
+                  ),
                 ),
-              ),
-          ]),
+            ]),
 
-          const SizedBox(height: 20),
+            const SizedBox(height: 20),
 
-          // 画质设置
-          context.buildGroupTitle(i18n("video_quality_settings")),
-          context.buildModernCard([
-            Obx(
-              () => context.buildTile(
-                icon: Remix.hd_line,
-                title: i18n("prefer_resolution"),
-                subtitle: i18n("prefer_resolution_subtitle"),
-                onTap: _resolutionDialogBusy
-                    ? null
-                    : () => _showPreferredResolutionSelectorDialog(_ResolutionPreferenceTarget.wifi),
-                trailing: Text(
-                  _preferredResolutionLabel(SettingsService.to.player.resolvedPreferResolution),
-                  style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.w600),
-                ),
-                stackTrailingOnNarrow: true,
-              ),
-            ),
-            Obx(
-              () => context.buildTile(
-                icon: Remix.signal_tower_line,
-                title: i18n("mobile_quality"),
-                subtitle: i18n("mobile_quality_subtitle"),
-                onTap: _resolutionDialogBusy
-                    ? null
-                    : () => _showPreferredResolutionSelectorDialog(_ResolutionPreferenceTarget.cellular),
-                trailing: Text(
-                  _preferredResolutionLabel(SettingsService.to.player.resolvedPreferResolutionCellular),
-                  style: AppTextStyles.t13.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.w600),
-                ),
-                stackTrailingOnNarrow: true,
-              ),
-            ),
-          ]),
-
-          const SizedBox(height: 20),
-
-          // 播放行为设置
-          context.buildGroupTitle(i18n("playback_behavior_settings")),
-          context.buildModernCard([
-            // buildSwitchTile 内部自带 Obx，外层不可再包空 Obx（无响应式订阅会抛异常）。
-            context.buildSwitchTile(
-              icon: Icons.fullscreen_rounded,
-              title: i18n('immersive_layout_mode'),
-              subtitle: i18n('immersive_layout_mode_desc'),
-              isLong: true,
-              value: SettingsService.to.player.enableImmersiveLayout,
-              onChanged: (enabled) => SettingsService.to.player.enableImmersiveLayout.v = enabled,
-            ),
-            context.buildTile(
-              title: i18n('audience_metric_settings'),
-              subtitle: i18n('audience_metric_settings_desc'),
-              icon: Icons.groups_2_rounded,
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () => SettingsNavigator.open(SettingsCrumbs.audienceMetric),
-            ),
-            if (_isAndroid)
-              context.buildSwitchTile(
-                icon: Remix.music_2_line,
-                title: i18n("enable_background_play"),
-                subtitle: _backgroundPlayErrorText ?? i18n("enable_background_play_subtitle"),
-                subtitleColor: _backgroundPlayErrorText == null ? null : theme.colorScheme.error,
-                isLong: true,
-                value: SettingsService.to.app.enableBackgroundPlay,
-                enabled: !_backgroundPlayBusy,
-                autoCommit: false,
-                onChanged: (enabled) {
-                  final task = _changeBackgroundPlayback(enabled);
-                  widget.backgroundPlaybackTaskObserver?.call(task);
-                },
-              ),
-            if (_isAndroid)
-              context.buildSwitchTile(
-                icon: Remix.moon_clear_line,
-                title: i18n('asmr_sleep_mode'),
-                subtitle: _asmrModeErrorText ?? i18n('asmr_sleep_mode_desc'),
-                subtitleColor: _asmrModeErrorText == null ? null : theme.colorScheme.error,
-                isLong: true,
-                value: SettingsService.to.app.enableAsmrSleepMode,
-                enabled: !_asmrModeBusy,
-                autoCommit: false,
-                onChanged: _changeAsmrSleepMode,
-              ),
-            if (_isAndroid)
+            // 画质设置
+            context.buildGroupTitle(i18n("video_quality_settings")),
+            context.buildModernCard([
               Obx(
                 () => context.buildTile(
-                  icon: Remix.timer_2_line,
-                  title: i18n('asmr_sleep_timer'),
-                  subtitle: i18n('asmr_sleep_timer_desc'),
+                  icon: Remix.hd_line,
+                  title: i18n("prefer_resolution"),
+                  subtitle: i18n("prefer_resolution_subtitle"),
+                  onTap: _resolutionDialogBusy
+                      ? null
+                      : () => _showPreferredResolutionSelectorDialog(_ResolutionPreferenceTarget.wifi),
                   trailing: Text(
-                    _formatAsmrDuration(SettingsService.to.app.asmrSleepMinutes.v),
+                    _preferredResolutionLabel(SettingsService.to.player.resolvedPreferResolution),
                     style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.w600),
                   ),
-                  onTap: _asmrDialogBusy ? null : _showAsmrSleepTimerDialog,
+                  stackTrailingOnNarrow: true,
                 ),
               ),
-            context.buildSwitchTile(
-              title: i18n("exit_float_window"),
-              subtitle: i18n("exit_float_window_subtitle"),
-              value: SettingsService.to.player.floatPlay,
-              icon: Remix.picture_in_picture_2_line,
-            ),
-            if (_isWindows)
+              Obx(
+                () => context.buildTile(
+                  icon: Remix.signal_tower_line,
+                  title: i18n("mobile_quality"),
+                  subtitle: i18n("mobile_quality_subtitle"),
+                  onTap: _resolutionDialogBusy
+                      ? null
+                      : () => _showPreferredResolutionSelectorDialog(_ResolutionPreferenceTarget.cellular),
+                  trailing: Text(
+                    _preferredResolutionLabel(SettingsService.to.player.resolvedPreferResolutionCellular),
+                    style: AppTextStyles.t13.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.w600),
+                  ),
+                  stackTrailingOnNarrow: true,
+                ),
+              ),
+            ]),
+
+            const SizedBox(height: 20),
+
+            // 播放行为设置
+            context.buildGroupTitle(i18n("playback_behavior_settings")),
+            context.buildModernCard([
+              // buildSwitchTile 内部自带 Obx，外层不可再包空 Obx（无响应式订阅会抛异常）。
               context.buildSwitchTile(
-                title: i18n('windows_pip_always_on_top'),
-                subtitle: _pipAlwaysOnTopErrorText ?? i18n('windows_pip_always_on_top_subtitle'),
-                subtitleColor: _pipAlwaysOnTopErrorText == null ? null : theme.colorScheme.error,
+                icon: Icons.fullscreen_rounded,
+                title: i18n('immersive_layout_mode'),
+                subtitle: i18n('immersive_layout_mode_desc'),
                 isLong: true,
-                value: SettingsService.to.player.windowsPipAlwaysOnTop,
-                icon: Remix.pushpin_line,
-                enabled: !_pipAlwaysOnTopBusy,
-                autoCommit: false,
-                onChanged: _changePipAlwaysOnTop,
+                value: SettingsService.to.player.enableImmersiveLayout,
+                onChanged: (enabled) => SettingsService.to.player.enableImmersiveLayout.v = enabled,
               ),
-            if (_isWindows)
+              context.buildTile(
+                title: i18n('audience_metric_settings'),
+                subtitle: i18n('audience_metric_settings_desc'),
+                icon: Icons.groups_2_rounded,
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => SettingsNavigator.open(SettingsCrumbs.audienceMetric),
+              ),
+              if (_isAndroid)
+                context.buildSwitchTile(
+                  icon: Remix.music_2_line,
+                  title: i18n("enable_background_play"),
+                  subtitle: _backgroundPlayErrorText ?? i18n("enable_background_play_subtitle"),
+                  subtitleColor: _backgroundPlayErrorText == null ? null : theme.colorScheme.error,
+                  isLong: true,
+                  value: SettingsService.to.app.enableBackgroundPlay,
+                  enabled: !_backgroundPlayBusy,
+                  autoCommit: false,
+                  onChanged: (enabled) {
+                    final task = _changeBackgroundPlayback(enabled);
+                    widget.backgroundPlaybackTaskObserver?.call(task);
+                  },
+                ),
+              if (_isAndroid)
+                context.buildSwitchTile(
+                  icon: Remix.moon_clear_line,
+                  title: i18n('asmr_sleep_mode'),
+                  subtitle: _asmrModeErrorText ?? i18n('asmr_sleep_mode_desc'),
+                  subtitleColor: _asmrModeErrorText == null ? null : theme.colorScheme.error,
+                  isLong: true,
+                  value: SettingsService.to.app.enableAsmrSleepMode,
+                  enabled: !_asmrModeBusy,
+                  autoCommit: false,
+                  onChanged: _changeAsmrSleepMode,
+                ),
+              if (_isAndroid)
+                Obx(
+                  () => context.buildTile(
+                    icon: Remix.timer_2_line,
+                    title: i18n('asmr_sleep_timer'),
+                    subtitle: i18n('asmr_sleep_timer_desc'),
+                    trailing: Text(
+                      _formatAsmrDuration(SettingsService.to.app.asmrSleepMinutes.v),
+                      style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.w600),
+                    ),
+                    onTap: _asmrDialogBusy ? null : _showAsmrSleepTimerDialog,
+                  ),
+                ),
               context.buildSwitchTile(
-                title: i18n('windows_pip_remember_position'),
-                subtitle: i18n('windows_pip_remember_position_subtitle'),
-                value: SettingsService.to.window.rememberPipPosition,
-                icon: Remix.terminal_window_fill,
-                onChanged: (value) {
-                  SettingsService.to.window.rememberPipPosition.v = value;
-                },
+                title: i18n("exit_float_window"),
+                subtitle: i18n("exit_float_window_subtitle"),
+                value: SettingsService.to.player.floatPlay,
+                icon: Remix.picture_in_picture_2_line,
               ),
-            if (_isWindows) const _WindowsPipResetTile(),
+              if (_isWindows)
+                context.buildSwitchTile(
+                  title: i18n('windows_pip_always_on_top'),
+                  subtitle: _pipAlwaysOnTopErrorText ?? i18n('windows_pip_always_on_top_subtitle'),
+                  subtitleColor: _pipAlwaysOnTopErrorText == null ? null : theme.colorScheme.error,
+                  isLong: true,
+                  value: SettingsService.to.player.windowsPipAlwaysOnTop,
+                  icon: Remix.pushpin_line,
+                  enabled: !_pipAlwaysOnTopBusy,
+                  autoCommit: false,
+                  onChanged: _changePipAlwaysOnTop,
+                ),
+              if (_isWindows)
+                context.buildSwitchTile(
+                  title: i18n('windows_pip_remember_position'),
+                  subtitle: i18n('windows_pip_remember_position_subtitle'),
+                  value: SettingsService.to.window.rememberPipPosition,
+                  icon: Remix.terminal_window_fill,
+                  onChanged: (value) {
+                    SettingsService.to.window.rememberPipPosition.v = value;
+                  },
+                ),
+              if (_isWindows) const _WindowsPipResetTile(),
 
-            context.buildSwitchTile(
-              title: i18n('enable_fullscreen_default'),
-              subtitle: i18n('enable_fullscreen_default_subtitle'),
-              value: SettingsService.to.app.enableFullScreenDefault,
-              icon: Remix.fullscreen_line,
-            ),
-            if (_isAndroid)
               context.buildSwitchTile(
-                title: i18n('enable_screen_keep_on'),
-                subtitle: i18n('enable_screen_keep_on_subtitle'),
-                value: SettingsService.to.app.enableScreenKeepOn,
-                icon: Remix.lightbulb_line,
+                title: i18n('enable_fullscreen_default'),
+                subtitle: i18n('enable_fullscreen_default_subtitle'),
+                value: SettingsService.to.app.enableFullScreenDefault,
+                icon: Remix.fullscreen_line,
               ),
-          ]),
+              if (_isAndroid)
+                context.buildSwitchTile(
+                  title: i18n('enable_screen_keep_on'),
+                  subtitle: i18n('enable_screen_keep_on_subtitle'),
+                  value: SettingsService.to.app.enableScreenKeepOn,
+                  icon: Remix.lightbulb_line,
+                ),
+            ]),
 
-          const SizedBox(height: 20),
+            const SizedBox(height: 20),
 
-          // 弹幕设置
-          context.buildGroupTitle(i18n("danmaku_settings")),
-          context.buildModernCard([
-            context.buildSwitchTile(
-              title: i18n('show_danmaku'),
-              subtitle: i18n('show_danmaku_subtitle'),
-              value: SettingsService.to.danmaku.enableDanmakuDisplay,
-              icon: Remix.chat_smile_2_line,
-            ),
-            context.buildTile(
-              icon: Remix.picture_in_picture_2_line,
-              title: i18n('pip_danmaku'),
-              subtitle: i18n('pip_danmaku_desc'),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () => SettingsNavigator.open(SettingsCrumbs.pipDanmaku),
-            ),
-            Obx(
-              () => context.buildTile(
-                icon: Remix.font_size,
-                title: i18n("change_danmaku_font_family"),
-                subtitle: "${i18n("current_font_prefix")}: ${SettingsService.to.danmaku.danmakuFontFamilyName.v}",
-                onTap: () => SettingsNavigator.open(SettingsCrumbs.danmakuFontFamily),
+            // 弹幕设置
+            context.buildGroupTitle(i18n("danmaku_settings")),
+            context.buildModernCard([
+              context.buildSwitchTile(
+                title: i18n('show_danmaku'),
+                subtitle: i18n('show_danmaku_subtitle'),
+                value: SettingsService.to.danmaku.enableDanmakuDisplay,
+                icon: Remix.chat_smile_2_line,
               ),
-            ),
+              context.buildTile(
+                icon: Remix.picture_in_picture_2_line,
+                title: i18n('pip_danmaku'),
+                subtitle: i18n('pip_danmaku_desc'),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => SettingsNavigator.open(SettingsCrumbs.pipDanmaku),
+              ),
+              Obx(
+                () => context.buildTile(
+                  icon: Remix.font_size,
+                  title: i18n("change_danmaku_font_family"),
+                  subtitle: "${i18n("current_font_prefix")}: ${SettingsService.to.danmaku.danmakuFontFamilyName.v}",
+                  onTap: () => SettingsNavigator.open(SettingsCrumbs.danmakuFontFamily),
+                ),
+              ),
 
-            context.buildTile(
-              icon: Remix.filter_2_line,
-              title: i18n("danmaku_filter"),
-              subtitle: "",
-              onTap: () => SettingsNavigator.open(SettingsCrumbs.danmakuShield),
-            ),
-          ]),
-          const SizedBox(height: 32),
-        ],
+              context.buildTile(
+                icon: Remix.filter_2_line,
+                title: i18n("danmaku_filter"),
+                subtitle: "",
+                onTap: () => SettingsNavigator.open(SettingsCrumbs.danmakuShield),
+              ),
+            ]),
+            const SizedBox(height: 32),
+          ],
+        ),
       ),
     );
   }

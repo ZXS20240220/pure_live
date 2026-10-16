@@ -132,31 +132,34 @@ class _ChangesSummaryPageState extends State<ChangesSummaryPage> {
           const SizedBox(width: 4),
         ],
       ),
-      body: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(child: _buildContent(theme, config)),
-          ValueListenableBuilder<bool>(
-            valueListenable: _tocExpanded,
-            builder: (context, expanded, _) {
-              // 收起时宽度动画到 0，内部面板保持固定宽并由 ClipRect 裁剪，
-              // 避免目录项在动画过程中随宽度挤压换行。
-              return AnimatedContainer(
-                duration: _animDuration,
-                curve: Curves.easeOutCubic,
-                width: expanded ? _tocWidth : 0,
-                child: ClipRect(
-                  child: OverflowBox(
-                    alignment: Alignment.centerRight,
-                    minWidth: 0,
-                    maxWidth: _tocWidth,
-                    child: _buildTocPanel(theme),
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(child: _buildContent(theme, config)),
+            ValueListenableBuilder<bool>(
+              valueListenable: _tocExpanded,
+              builder: (context, expanded, _) {
+                // 收起时宽度动画到 0，内部面板保持固定宽并由 ClipRect 裁剪，
+                // 避免目录项在动画过程中随宽度挤压换行。
+                return AnimatedContainer(
+                  duration: _animDuration,
+                  curve: Curves.easeOutCubic,
+                  width: expanded ? _tocWidth : 0,
+                  child: ClipRect(
+                    child: OverflowBox(
+                      alignment: Alignment.centerRight,
+                      minWidth: 0,
+                      maxWidth: _tocWidth,
+                      child: _buildTocPanel(theme),
+                    ),
                   ),
-                ),
-              );
-            },
-          ),
-        ],
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

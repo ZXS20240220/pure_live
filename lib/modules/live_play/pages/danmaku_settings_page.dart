@@ -13,7 +13,12 @@ class DanmakuSettingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(body: DanmakuSettingsContent(controller: controller));
+    return Scaffold(
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: DanmakuSettingsContent(controller: controller),
+      ),
+    );
   }
 }
 

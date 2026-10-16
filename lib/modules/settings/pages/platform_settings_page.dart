@@ -9,66 +9,69 @@ class PlatformSettingsPage extends GetView<SettingsService> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.platform),
-      body: ListView(
-        physics: const PureLiveScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        children: [
-          context.buildGroupTitle(i18n("platform_settings")),
-          context.buildModernCard([
-            context.buildTile(
-              icon: Remix.apps_2_line,
-              title: i18n("platform_display"),
-              subtitle: i18n("platform_display_subtitle"),
-              onTap: () => SettingsNavigator.open(SettingsCrumbs.hotAreas),
-            ),
-            Obx(
-              () => context.buildTile(
-                icon: Remix.heart_3_line,
-                title: i18n("prefer_platform"),
-                subtitle: i18n('prefer_platform_subtitle'),
-                isLong: true,
-                stackTrailingOnNarrow: true,
-                showNavigationChevronWhenStacked: false,
-                trailing: Wrap(
-                  spacing: 4,
-                  runSpacing: 2,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Text(
-                      _platformLabel(SettingsService.to.fav.preferPlatform.value),
-                      style: AppTextStyles.t14.copyWith(color: Theme.of(context).hintColor.withValues(alpha: 0.75)),
-                    ),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: Theme.of(context).hintColor.withValues(alpha: 0.4),
-                      size: 20,
-                    ),
-                  ],
-                ),
-                onTap: showPreferPlatformSelectorDialog,
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: ListView(
+          physics: const PureLiveScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          children: [
+            context.buildGroupTitle(i18n("platform_settings")),
+            context.buildModernCard([
+              context.buildTile(
+                icon: Remix.apps_2_line,
+                title: i18n("platform_display"),
+                subtitle: i18n("platform_display_subtitle"),
+                onTap: () => SettingsNavigator.open(SettingsCrumbs.hotAreas),
               ),
-            ),
-            context.buildTile(
-              icon: Remix.accessibility_line,
-              title: i18n('third_party_auth'),
-              subtitle: i18n('third_party_auth_subtitle'),
-              isLong: true,
-              onTap: () {
-                SettingsNavigator.open(SettingsCrumbs.account);
-              },
-            ),
-            context.buildTile(
-              icon: Remix.price_tag_3_line,
-              title: i18n('tag_management'),
-              subtitle: i18n('tag_management_subtitle'),
-              isLong: true,
-              onTap: () {
-                SettingsNavigator.open(SettingsCrumbs.tags);
-              },
-            ),
-          ]),
-          const SizedBox(height: 32),
-        ],
+              Obx(
+                () => context.buildTile(
+                  icon: Remix.heart_3_line,
+                  title: i18n("prefer_platform"),
+                  subtitle: i18n('prefer_platform_subtitle'),
+                  isLong: true,
+                  stackTrailingOnNarrow: true,
+                  showNavigationChevronWhenStacked: false,
+                  trailing: Wrap(
+                    spacing: 4,
+                    runSpacing: 2,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(
+                        _platformLabel(SettingsService.to.fav.preferPlatform.value),
+                        style: AppTextStyles.t14.copyWith(color: Theme.of(context).hintColor.withValues(alpha: 0.75)),
+                      ),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        color: Theme.of(context).hintColor.withValues(alpha: 0.4),
+                        size: 20,
+                      ),
+                    ],
+                  ),
+                  onTap: showPreferPlatformSelectorDialog,
+                ),
+              ),
+              context.buildTile(
+                icon: Remix.accessibility_line,
+                title: i18n('third_party_auth'),
+                subtitle: i18n('third_party_auth_subtitle'),
+                isLong: true,
+                onTap: () {
+                  SettingsNavigator.open(SettingsCrumbs.account);
+                },
+              ),
+              context.buildTile(
+                icon: Remix.price_tag_3_line,
+                title: i18n('tag_management'),
+                subtitle: i18n('tag_management_subtitle'),
+                isLong: true,
+                onTap: () {
+                  SettingsNavigator.open(SettingsCrumbs.tags);
+                },
+              ),
+            ]),
+            const SizedBox(height: 32),
+          ],
+        ),
       ),
     );
   }

@@ -510,27 +510,30 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
           () => RemoteSyncPreviewPage(ip: widget.ip, port: widget.port, settings: widget.settings),
         ),
       ),
-      body: Column(
-        children: [
-          _buildSummary(),
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final leftWidth = (constraints.maxWidth * _leftFraction)
-                    .clamp(220.0, math.max(220.0, constraints.maxWidth - 260.0))
-                    .toDouble();
-                return Row(
-                  children: [
-                    SizedBox(width: leftWidth, child: _buildLeftPanel()),
-                    _buildDragDivider(constraints.maxWidth),
-                    Expanded(child: _buildRightPanel()),
-                  ],
-                );
-              },
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: Column(
+          children: [
+            _buildSummary(),
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final leftWidth = (constraints.maxWidth * _leftFraction)
+                      .clamp(220.0, math.max(220.0, constraints.maxWidth - 260.0))
+                      .toDouble();
+                  return Row(
+                    children: [
+                      SizedBox(width: leftWidth, child: _buildLeftPanel()),
+                      _buildDragDivider(constraints.maxWidth),
+                      Expanded(child: _buildRightPanel()),
+                    ],
+                  );
+                },
+              ),
             ),
-          ),
-          _buildBottomBar(),
-        ],
+            _buildBottomBar(),
+          ],
+        ),
       ),
     );
   }

@@ -62,112 +62,115 @@ class _KeywordBlockPageState extends State<KeywordBlockPage> {
     final dm = settingsService.danmaku;
 
     return Scaffold(
-      body: CustomScrollView(
-        controller: _scrollController,
-        physics: const PureLiveScrollPhysics(),
-        slivers: [
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            sliver: SliverList.list(
-              children: [
-                context.buildGroupTitle(i18n('platform_danmaku_filter')),
-                Obx(
-                  () => context.buildModernCard([
-                    _switch(
-                      theme,
-                      title: i18n('douyu_suspected_automated_filter'),
-                      subtitle: i18n('douyu_suspected_automated_filter_desc'),
-                      value: dm.filterDouyuSuspectedAutomatedMessages.v,
-                      onChanged: (value) => dm.filterDouyuSuspectedAutomatedMessages.v = value,
-                      labelColor: labelColor,
-                    ),
-                    _switch(
-                      theme,
-                      title: i18n('huya_system_message_filter'),
-                      subtitle: i18n('huya_system_message_filter_desc'),
-                      value: dm.filterHuyaSystemMessages.v,
-                      onChanged: (value) => dm.filterHuyaSystemMessages.v = value,
-                      labelColor: labelColor,
-                    ),
-                    _switch(
-                      theme,
-                      title: i18n('douyu_activity_message_filter'),
-                      subtitle: i18n('douyu_activity_message_filter_desc'),
-                      value: dm.filterDouyuActivityMessages.v,
-                      onChanged: (value) => dm.filterDouyuActivityMessages.v = value,
-                      labelColor: labelColor,
-                    ),
-                  ]),
-                ),
-                const SizedBox(height: 20),
-                context.buildGroupTitle(i18n('danmaku_similarity_filter')),
-                Obx(
-                  () => context.buildModernCard([
-                    _switch(
-                      theme,
-                      title: i18n('danmaku_similarity_filter_enable'),
-                      value: dm.enableDanmakuSimilarityFilter.v,
-                      onChanged: (value) => dm.enableDanmakuSimilarityFilter.v = value,
-                      labelColor: labelColor,
-                    ),
-                    if (dm.enableDanmakuSimilarityFilter.v) ...[
-                      _slider(
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: CustomScrollView(
+          controller: _scrollController,
+          physics: const PureLiveScrollPhysics(),
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              sliver: SliverList.list(
+                children: [
+                  context.buildGroupTitle(i18n('platform_danmaku_filter')),
+                  Obx(
+                    () => context.buildModernCard([
+                      _switch(
                         theme,
-                        title: i18n('danmaku_similarity_threshold'),
-                        value: dm.danmakuSimilarityThreshold.v.toDouble(),
-                        min: 50,
-                        max: 100,
-                        stepSize: 1,
-                        display: '${dm.danmakuSimilarityThreshold.v}%',
-                        semanticValueBuilder: (value) => '${value.round()}%',
-                        onChanged: (value) => dm.danmakuSimilarityThreshold.v = value.round(),
+                        title: i18n('douyu_suspected_automated_filter'),
+                        subtitle: i18n('douyu_suspected_automated_filter_desc'),
+                        value: dm.filterDouyuSuspectedAutomatedMessages.v,
+                        onChanged: (value) => dm.filterDouyuSuspectedAutomatedMessages.v = value,
                         labelColor: labelColor,
-                        digitColor: digitColor,
                       ),
-                      _slider(
+                      _switch(
                         theme,
-                        title: i18n('danmaku_similarity_cache_duration'),
-                        value: dm.danmakuSimilarityCacheDuration.v.toDouble(),
-                        min: 1,
-                        max: 60,
-                        stepSize: 1,
-                        display: i18n(
-                          'danmaku_similarity_cache_seconds',
-                          args: {'seconds': '${dm.danmakuSimilarityCacheDuration.v}'},
+                        title: i18n('huya_system_message_filter'),
+                        subtitle: i18n('huya_system_message_filter_desc'),
+                        value: dm.filterHuyaSystemMessages.v,
+                        onChanged: (value) => dm.filterHuyaSystemMessages.v = value,
+                        labelColor: labelColor,
+                      ),
+                      _switch(
+                        theme,
+                        title: i18n('douyu_activity_message_filter'),
+                        subtitle: i18n('douyu_activity_message_filter_desc'),
+                        value: dm.filterDouyuActivityMessages.v,
+                        onChanged: (value) => dm.filterDouyuActivityMessages.v = value,
+                        labelColor: labelColor,
+                      ),
+                    ]),
+                  ),
+                  const SizedBox(height: 20),
+                  context.buildGroupTitle(i18n('danmaku_similarity_filter')),
+                  Obx(
+                    () => context.buildModernCard([
+                      _switch(
+                        theme,
+                        title: i18n('danmaku_similarity_filter_enable'),
+                        value: dm.enableDanmakuSimilarityFilter.v,
+                        onChanged: (value) => dm.enableDanmakuSimilarityFilter.v = value,
+                        labelColor: labelColor,
+                      ),
+                      if (dm.enableDanmakuSimilarityFilter.v) ...[
+                        _slider(
+                          theme,
+                          title: i18n('danmaku_similarity_threshold'),
+                          value: dm.danmakuSimilarityThreshold.v.toDouble(),
+                          min: 50,
+                          max: 100,
+                          stepSize: 1,
+                          display: '${dm.danmakuSimilarityThreshold.v}%',
+                          semanticValueBuilder: (value) => '${value.round()}%',
+                          onChanged: (value) => dm.danmakuSimilarityThreshold.v = value.round(),
+                          labelColor: labelColor,
+                          digitColor: digitColor,
                         ),
-                        semanticValueBuilder: (value) =>
-                            i18n('danmaku_similarity_cache_seconds', args: {'seconds': '${value.round()}'}),
-                        onChanged: (value) => dm.danmakuSimilarityCacheDuration.v = value.round(),
-                        labelColor: labelColor,
-                        digitColor: digitColor,
-                      ),
-                      _slider(
-                        theme,
-                        title: i18n('danmaku_similarity_max_cache_size'),
-                        value: dm.danmakuSimilarityMaxCacheSize.v.toDouble(),
-                        min: 20,
-                        max: 1000,
-                        stepSize: 10,
-                        display: '${dm.danmakuSimilarityMaxCacheSize.v}',
-                        semanticValueBuilder: (value) => '${value.round()}',
-                        onChanged: (value) => dm.danmakuSimilarityMaxCacheSize.v = value.round(),
-                        labelColor: labelColor,
-                        digitColor: digitColor,
-                      ),
-                    ],
-                  ]),
-                ),
-                const SizedBox(height: 20),
-                context.buildGroupTitle(i18n('danmaku_keyword_block')),
-                Obx(() => context.buildModernCard([_buildInput(theme, labelColor)])),
-                const SizedBox(height: 20),
-              ],
+                        _slider(
+                          theme,
+                          title: i18n('danmaku_similarity_cache_duration'),
+                          value: dm.danmakuSimilarityCacheDuration.v.toDouble(),
+                          min: 1,
+                          max: 60,
+                          stepSize: 1,
+                          display: i18n(
+                            'danmaku_similarity_cache_seconds',
+                            args: {'seconds': '${dm.danmakuSimilarityCacheDuration.v}'},
+                          ),
+                          semanticValueBuilder: (value) =>
+                              i18n('danmaku_similarity_cache_seconds', args: {'seconds': '${value.round()}'}),
+                          onChanged: (value) => dm.danmakuSimilarityCacheDuration.v = value.round(),
+                          labelColor: labelColor,
+                          digitColor: digitColor,
+                        ),
+                        _slider(
+                          theme,
+                          title: i18n('danmaku_similarity_max_cache_size'),
+                          value: dm.danmakuSimilarityMaxCacheSize.v.toDouble(),
+                          min: 20,
+                          max: 1000,
+                          stepSize: 10,
+                          display: '${dm.danmakuSimilarityMaxCacheSize.v}',
+                          semanticValueBuilder: (value) => '${value.round()}',
+                          onChanged: (value) => dm.danmakuSimilarityMaxCacheSize.v = value.round(),
+                          labelColor: labelColor,
+                          digitColor: digitColor,
+                        ),
+                      ],
+                    ]),
+                  ),
+                  const SizedBox(height: 20),
+                  context.buildGroupTitle(i18n('danmaku_keyword_block')),
+                  Obx(() => context.buildModernCard([_buildInput(theme, labelColor)])),
+                  const SizedBox(height: 20),
+                ],
+              ),
             ),
-          ),
-          Obx(() => _buildBlockedSliver(theme, users: false)),
-          Obx(() => _buildBlockedSliver(theme, users: true)),
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
-        ],
+            Obx(() => _buildBlockedSliver(theme, users: false)),
+            Obx(() => _buildBlockedSliver(theme, users: true)),
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+          ],
+        ),
       ),
     );
   }

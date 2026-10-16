@@ -48,61 +48,64 @@ class BiliBiliWebLoginPage extends GetView<BiliBiliWebLoginController> {
           }),
         ],
       ),
-      body: Obx(() {
-        if (controller.isSwitchingToQr.value) {
-          return _buildProgressState(
-            key: const ValueKey('bilibili-web-login-switching'),
-            message: i18n('bilibili_opening_qr_login'),
-          );
-        }
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: Obx(() {
+          if (controller.isSwitchingToQr.value) {
+            return _buildProgressState(
+              key: const ValueKey('bilibili-web-login-switching'),
+              message: i18n('bilibili_opening_qr_login'),
+            );
+          }
 
-        return Column(
-          children: [
-            Obx(
-              () => WebViewAddressBar(
-                currentUrl: controller.currentUrl.value,
-                onSubmit: (url) => unawaited(controller.navigateTo(url)),
+          return Column(
+            children: [
+              Obx(
+                () => WebViewAddressBar(
+                  currentUrl: controller.currentUrl.value,
+                  onSubmit: (url) => unawaited(controller.navigateTo(url)),
+                ),
               ),
-            ),
-            Expanded(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (controller.showWebView.value)
-                    InAppWebView(
-                      webViewEnvironment: AppWebView2Environment.optional,
-                      initialUrlRequest: URLRequest(url: WebUri(bilibiliWebLoginUrl)),
-                      onWebViewCreated: controller.onWebViewCreated,
-                      onLoadStart: controller.onLoadStart,
-                      onLoadStop: controller.onLoadStop,
-                      onUpdateVisitedHistory: controller.onUpdateVisitedHistory,
-                      initialSettings: InAppWebViewSettings(
-                        userAgent:
-                            'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) '
-                            'AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 '
-                            'Mobile/15E148 Safari/604.1 Edg/118.0.0.0',
-                        useShouldOverrideUrlLoading: true,
+              Expanded(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (controller.showWebView.value)
+                      InAppWebView(
+                        webViewEnvironment: AppWebView2Environment.optional,
+                        initialUrlRequest: URLRequest(url: WebUri(bilibiliWebLoginUrl)),
+                        onWebViewCreated: controller.onWebViewCreated,
+                        onLoadStart: controller.onLoadStart,
+                        onLoadStop: controller.onLoadStop,
+                        onUpdateVisitedHistory: controller.onUpdateVisitedHistory,
+                        initialSettings: InAppWebViewSettings(
+                          userAgent:
+                              'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) '
+                              'AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 '
+                              'Mobile/15E148 Safari/604.1 Edg/118.0.0.0',
+                          useShouldOverrideUrlLoading: true,
+                        ),
+                        shouldOverrideUrlLoading: (_, navigationAction) async {
+                          return controller.navigationPolicyFor(navigationAction.request.url);
+                        },
+                      )
+                    else
+                      const ColoredBox(color: Colors.transparent),
+                    if (controller.isVerifying.value)
+                      _buildProgressState(
+                        key: const ValueKey('bilibili-web-login-verifying'),
+                        message: i18n('account_verifying'),
+                        backgroundColor: theme.colorScheme.surface.withValues(alpha: 0.94),
                       ),
-                      shouldOverrideUrlLoading: (_, navigationAction) async {
-                        return controller.navigationPolicyFor(navigationAction.request.url);
-                      },
-                    )
-                  else
-                    const ColoredBox(color: Colors.transparent),
-                  if (controller.isVerifying.value)
-                    _buildProgressState(
-                      key: const ValueKey('bilibili-web-login-verifying'),
-                      message: i18n('account_verifying'),
-                      backgroundColor: theme.colorScheme.surface.withValues(alpha: 0.94),
-                    ),
-                  if (!controller.isVerifying.value && controller.errorMessageKey.value.isNotEmpty)
-                    _buildErrorBanner(theme, i18n(controller.errorMessageKey.value)),
-                ],
+                    if (!controller.isVerifying.value && controller.errorMessageKey.value.isNotEmpty)
+                      _buildErrorBanner(theme, i18n(controller.errorMessageKey.value)),
+                  ],
+                ),
               ),
-            ),
-          ],
-        );
-      }),
+            ],
+          );
+        }),
+      ),
     );
   }
 

@@ -238,87 +238,90 @@ class _IptvManagePageState extends State<IptvManagePage> {
           ),
         ],
       ),
-      body: Obx(() {
-        final networkItems = allItems.where((e) => e.isNetwork).toList();
-        final localItems = allItems.where((e) => !e.isNetwork).toList();
-        return CustomScrollView(
-          physics: const PureLiveScrollPhysics(),
-          slivers: [
-            if (_loading) const SliverToBoxAdapter(child: LinearProgressIndicator(minHeight: 2)),
-            if (_loadErrorKey != null)
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                sliver: SliverToBoxAdapter(
-                  child: _buildStateCard(
-                    theme,
-                    icon: Remix.error_warning_line,
-                    title: i18n(_loadErrorKey!),
-                    subtitle: i18n('manage_page_load_failed_subtitle'),
-                    actionLabel: i18n('retry'),
-                    onAction: _loading ? null : _refreshData,
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: Obx(() {
+          final networkItems = allItems.where((e) => e.isNetwork).toList();
+          final localItems = allItems.where((e) => !e.isNetwork).toList();
+          return CustomScrollView(
+            physics: const PureLiveScrollPhysics(),
+            slivers: [
+              if (_loading) const SliverToBoxAdapter(child: LinearProgressIndicator(minHeight: 2)),
+              if (_loadErrorKey != null)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  sliver: SliverToBoxAdapter(
+                    child: _buildStateCard(
+                      theme,
+                      icon: Remix.error_warning_line,
+                      title: i18n(_loadErrorKey!),
+                      subtitle: i18n('manage_page_load_failed_subtitle'),
+                      actionLabel: i18n('retry'),
+                      onAction: _loading ? null : _refreshData,
+                    ),
                   ),
                 ),
-              ),
-            if (!_loading && _loadErrorKey == null && allItems.isEmpty)
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                sliver: SliverToBoxAdapter(
-                  child: _buildStateCard(
-                    theme,
-                    icon: Remix.play_list_add_line,
-                    title: i18n('manage_page_empty_title'),
-                    subtitle: i18n('manage_page_empty_subtitle'),
+              if (!_loading && _loadErrorKey == null && allItems.isEmpty)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  sliver: SliverToBoxAdapter(
+                    child: _buildStateCard(
+                      theme,
+                      icon: Remix.play_list_add_line,
+                      title: i18n('manage_page_empty_title'),
+                      subtitle: i18n('manage_page_empty_subtitle'),
+                    ),
                   ),
                 ),
-              ),
-            if (allItems.isNotEmpty)
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                sliver: SliverToBoxAdapter(child: _buildStatsCard(theme)),
-              ),
-
-            if (networkItems.isNotEmpty) ...[
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
-                sliver: SliverToBoxAdapter(
-                  child: _buildSectionTitle(theme, i18n("network_resource"), Remix.global_line),
+              if (allItems.isNotEmpty)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  sliver: SliverToBoxAdapter(child: _buildStatsCard(theme)),
                 ),
-              ),
 
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                sliver: SliverList.builder(
-                  itemCount: networkItems.length,
-                  itemBuilder: (_, index) {
-                    return _buildItemCard(theme, networkItems[index]);
-                  },
+              if (networkItems.isNotEmpty) ...[
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
+                  sliver: SliverToBoxAdapter(
+                    child: _buildSectionTitle(theme, i18n("network_resource"), Remix.global_line),
+                  ),
                 ),
-              ),
+
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  sliver: SliverList.builder(
+                    itemCount: networkItems.length,
+                    itemBuilder: (_, index) {
+                      return _buildItemCard(theme, networkItems[index]);
+                    },
+                  ),
+                ),
+              ],
+
+              if (localItems.isNotEmpty) ...[
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
+                  sliver: SliverToBoxAdapter(
+                    child: _buildSectionTitle(theme, i18n("local_resource"), Remix.folder_2_line),
+                  ),
+                ),
+
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  sliver: SliverList.builder(
+                    itemCount: localItems.length,
+                    itemBuilder: (_, index) {
+                      return _buildItemCard(theme, localItems[index]);
+                    },
+                  ),
+                ),
+              ],
+
+              const SliverPadding(padding: EdgeInsets.only(bottom: 40)),
             ],
-
-            if (localItems.isNotEmpty) ...[
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
-                sliver: SliverToBoxAdapter(
-                  child: _buildSectionTitle(theme, i18n("local_resource"), Remix.folder_2_line),
-                ),
-              ),
-
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                sliver: SliverList.builder(
-                  itemCount: localItems.length,
-                  itemBuilder: (_, index) {
-                    return _buildItemCard(theme, localItems[index]);
-                  },
-                ),
-              ),
-            ],
-
-            const SliverPadding(padding: EdgeInsets.only(bottom: 40)),
-          ],
-        );
-      }),
+          );
+        }),
+      ),
     );
   }
 

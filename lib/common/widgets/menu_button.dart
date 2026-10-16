@@ -439,13 +439,16 @@ class KeyboardShortcutsDialog extends StatelessWidget {
             ),
             const Divider(height: 1),
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
-                children: [
-                  _ShortcutSection(section: favoriteSection),
-                  const SizedBox(height: 20),
-                  _ShortcutSection(section: playerSection),
-                ],
+              child: ScrollConfiguration(
+                behavior: const MouseDraggableScrollBehavior(),
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+                  children: [
+                    _ShortcutSection(section: favoriteSection),
+                    const SizedBox(height: 20),
+                    _ShortcutSection(section: playerSection),
+                  ],
+                ),
               ),
             ),
             Padding(

@@ -431,13 +431,16 @@ class _WallpaperCatalogPreviewPageState extends State<WallpaperCatalogPreviewPag
               ),
           ],
         ),
-        body: Stack(
-          fit: StackFit.expand,
-          children: [
-            _blurred(_buildViewer(item, fit), blur),
-            IgnorePointer(child: _buildMask(mask)),
-            Align(alignment: Alignment.bottomCenter, child: _buildActionBar(fit, blur, mask)),
-          ],
+        body: ScrollConfiguration(
+          behavior: const MouseDraggableScrollBehavior(),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              _blurred(_buildViewer(item, fit), blur),
+              IgnorePointer(child: _buildMask(mask)),
+              Align(alignment: Alignment.bottomCenter, child: _buildActionBar(fit, blur, mask)),
+            ],
+          ),
         ),
       );
     });

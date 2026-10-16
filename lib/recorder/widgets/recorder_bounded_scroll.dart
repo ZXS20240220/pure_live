@@ -159,6 +159,14 @@ class _RecorderScrollBehavior extends MaterialScrollBehavior {
   const _RecorderScrollBehavior();
 
   @override
+  Set<PointerDeviceKind> get dragDevices => const {
+    PointerDeviceKind.touch,
+    PointerDeviceKind.stylus,
+    PointerDeviceKind.invertedStylus,
+    PointerDeviceKind.mouse,
+  };
+
+  @override
   ScrollPhysics getScrollPhysics(BuildContext context) => const PureLiveBoundedScrollPhysics();
 
   @override

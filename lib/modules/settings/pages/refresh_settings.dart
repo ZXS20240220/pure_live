@@ -10,102 +10,105 @@ class RefreshSettingsPage extends GetView<RefreshConfigController> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.refresh),
-      body: ListView(
-        physics: const PureLiveScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        children: [
-          context.buildGroupTitle(i18n("auto_refresh_settings")),
-          context.buildModernCard([
-            context.buildSwitchTile(
-              icon: Remix.refresh_line,
-              title: i18n("auto_refresh_follow"),
-              subtitle: i18n("auto_refresh_follow_subtitle"),
-              value: controller.autoRefreshFavorite,
-            ),
-            context.buildSwitchTile(
-              icon: Remix.refresh_line,
-              title: i18n("refresh_follow_on_resume"),
-              subtitle: i18n("refresh_follow_on_resume_subtitle"),
-              value: controller.refreshFavoriteOnResume,
-            ),
-            Obx(() {
-              if (!controller.autoRefreshFavorite.value) {
-                return const SizedBox.shrink();
-              }
-              return context.buildTile(
-                icon: Remix.time_line,
-                title: i18n("auto_refresh_interval"),
-                subtitle: _getIntervalText(controller.autoRefreshInterval.value),
-                onTap: () => showRefreshIntervalDialog(context),
-              );
-            }),
-            Obx(
-              () => context.buildTile(
-                icon: Remix.shield_check_line,
-                title: i18n("refresh_success_cooldown"),
-                subtitle:
-                    '${controller.successCooldownSeconds.value <= 0 ? i18n("cooldown_disabled") : "${controller.successCooldownSeconds.value} ${i18n("second")}"} · ${i18n("refresh_success_cooldown_subtitle")}',
-                isLong: true,
-                onTap: () => showSuccessCooldownDialog(context),
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: ListView(
+          physics: const PureLiveScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          children: [
+            context.buildGroupTitle(i18n("auto_refresh_settings")),
+            context.buildModernCard([
+              context.buildSwitchTile(
+                icon: Remix.refresh_line,
+                title: i18n("auto_refresh_follow"),
+                subtitle: i18n("auto_refresh_follow_subtitle"),
+                value: controller.autoRefreshFavorite,
               ),
-            ),
-            Obx(
-              () => context.buildTile(
-                icon: Remix.error_warning_line,
-                title: i18n("refresh_failure_cooldown"),
-                subtitle:
-                    '${controller.failureRetryMinutes.value <= 0 ? i18n("cooldown_disabled") : "${controller.failureRetryMinutes.value} ${i18n("minute")}"} · ${i18n("refresh_failure_cooldown_subtitle")}',
-                isLong: true,
-                onTap: () => showFailureCooldownDialog(context),
+              context.buildSwitchTile(
+                icon: Remix.refresh_line,
+                title: i18n("refresh_follow_on_resume"),
+                subtitle: i18n("refresh_follow_on_resume_subtitle"),
+                value: controller.refreshFavoriteOnResume,
               ),
-            ),
-            Obx(
-              () => context.buildTile(
-                icon: Remix.server_line,
-                title: i18n("max_concurrent_refresh"),
-                subtitle:
-                    '${controller.maxConcurrentRefresh.value} ${i18n('concurrent_tasks')} · ${i18n('max_concurrent_refresh_subtitle')}',
-                isLong: true,
-                onTap: () => showMaxConcurrentDialog(context),
+              Obx(() {
+                if (!controller.autoRefreshFavorite.value) {
+                  return const SizedBox.shrink();
+                }
+                return context.buildTile(
+                  icon: Remix.time_line,
+                  title: i18n("auto_refresh_interval"),
+                  subtitle: _getIntervalText(controller.autoRefreshInterval.value),
+                  onTap: () => showRefreshIntervalDialog(context),
+                );
+              }),
+              Obx(
+                () => context.buildTile(
+                  icon: Remix.shield_check_line,
+                  title: i18n("refresh_success_cooldown"),
+                  subtitle:
+                      '${controller.successCooldownSeconds.value <= 0 ? i18n("cooldown_disabled") : "${controller.successCooldownSeconds.value} ${i18n("second")}"} · ${i18n("refresh_success_cooldown_subtitle")}',
+                  isLong: true,
+                  onTap: () => showSuccessCooldownDialog(context),
+                ),
               ),
-            ),
-            Obx(() {
-              final sites = Sites().availableSites();
-              if (sites.isEmpty) return const SizedBox.shrink();
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final site in sites)
-                    context.buildTile(
-                      icon: Remix.server_line,
-                      title: site.name,
-                      subtitle:
-                          '${controller.platformConcurrencyOf(site.id)} ${i18n('concurrent_tasks')} · ${controller.hasPlatformConcurrencyOverride(site.id) ? i18n('platform_concurrency_custom') : i18n('platform_concurrency_follow_default')}',
-                      onTap: () => showPlatformMaxConcurrentDialog(context, site),
-                    ),
-                ],
-              );
-            }),
-            context.buildSwitchTile(
-              icon: Remix.image_2_line,
-              title: i18n('auto_refresh_thumbnails'),
-              subtitle: i18n('auto_refresh_thumbnails_subtitle'),
-              value: controller.autoRefreshThumbnails,
-            ),
-            Obx(() {
-              if (!controller.autoRefreshThumbnails.value) {
-                return const SizedBox.shrink();
-              }
-              return context.buildTile(
-                icon: Remix.time_line,
-                title: i18n('thumbnail_refresh_interval'),
-                subtitle: _getIntervalText(controller.thumbnailRefreshInterval.value),
-                onTap: () => showThumbnailRefreshIntervalDialog(context),
-              );
-            }),
-          ]),
-          const SizedBox(height: 32),
-        ],
+              Obx(
+                () => context.buildTile(
+                  icon: Remix.error_warning_line,
+                  title: i18n("refresh_failure_cooldown"),
+                  subtitle:
+                      '${controller.failureRetryMinutes.value <= 0 ? i18n("cooldown_disabled") : "${controller.failureRetryMinutes.value} ${i18n("minute")}"} · ${i18n("refresh_failure_cooldown_subtitle")}',
+                  isLong: true,
+                  onTap: () => showFailureCooldownDialog(context),
+                ),
+              ),
+              Obx(
+                () => context.buildTile(
+                  icon: Remix.server_line,
+                  title: i18n("max_concurrent_refresh"),
+                  subtitle:
+                      '${controller.maxConcurrentRefresh.value} ${i18n('concurrent_tasks')} · ${i18n('max_concurrent_refresh_subtitle')}',
+                  isLong: true,
+                  onTap: () => showMaxConcurrentDialog(context),
+                ),
+              ),
+              Obx(() {
+                final sites = Sites().availableSites();
+                if (sites.isEmpty) return const SizedBox.shrink();
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final site in sites)
+                      context.buildTile(
+                        icon: Remix.server_line,
+                        title: site.name,
+                        subtitle:
+                            '${controller.platformConcurrencyOf(site.id)} ${i18n('concurrent_tasks')} · ${controller.hasPlatformConcurrencyOverride(site.id) ? i18n('platform_concurrency_custom') : i18n('platform_concurrency_follow_default')}',
+                        onTap: () => showPlatformMaxConcurrentDialog(context, site),
+                      ),
+                  ],
+                );
+              }),
+              context.buildSwitchTile(
+                icon: Remix.image_2_line,
+                title: i18n('auto_refresh_thumbnails'),
+                subtitle: i18n('auto_refresh_thumbnails_subtitle'),
+                value: controller.autoRefreshThumbnails,
+              ),
+              Obx(() {
+                if (!controller.autoRefreshThumbnails.value) {
+                  return const SizedBox.shrink();
+                }
+                return context.buildTile(
+                  icon: Remix.time_line,
+                  title: i18n('thumbnail_refresh_interval'),
+                  subtitle: _getIntervalText(controller.thumbnailRefreshInterval.value),
+                  onTap: () => showThumbnailRefreshIntervalDialog(context),
+                );
+              }),
+            ]),
+            const SizedBox(height: 32),
+          ],
+        ),
       ),
     );
   }

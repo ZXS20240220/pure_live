@@ -117,112 +117,115 @@ class _IptvPageState extends State<IptvPage> with SingleTickerProviderStateMixin
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.iptv),
-      body: ListView(
-        physics: const PureLiveScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        children: [
-          if (_initializing) ...[
-            LinearProgressIndicator(semanticsLabel: i18n('refresh_loading')),
-            const SizedBox(height: 12),
-          ],
-          if (_initializationErrorKey != null) ...[
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(i18n(_initializationErrorKey!)),
-                    TextButton(onPressed: _initializePageResources, child: Text(i18n('retry'))),
-                  ],
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: ListView(
+          physics: const PureLiveScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          children: [
+            if (_initializing) ...[
+              LinearProgressIndicator(semanticsLabel: i18n('refresh_loading')),
+              const SizedBox(height: 12),
+            ],
+            if (_initializationErrorKey != null) ...[
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(i18n(_initializationErrorKey!)),
+                      TextButton(onPressed: _initializePageResources, child: Text(i18n('retry'))),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-          ],
-          context.buildGroupTitle(i18n("iptv_manage")),
-          context.buildModernCard([
-            context.buildTile(
-              icon: Remix.cloud_line,
-              title: i18n("iptv_list_manage"),
-              subtitle: i18n("download_guide_sub"),
-              onTap: () => SettingsNavigator.open(SettingsCrumbs.iptvManage),
-            ),
-          ]),
-          const SizedBox(height: 20),
-          context.buildGroupTitle(i18n("auto_sync_settings")),
-          context.buildModernCard([
-            context.buildSwitchTile(
-              icon: Remix.refresh_line,
-              title: i18n("auto_sync_title"),
-              subtitle: i18n("auto_sync_desc"),
-              value: SettingsService.to.iptv.isAutoSyncEnabled,
-            ),
-            Obx(() {
-              if (!SettingsService.to.iptv.isAutoSyncEnabled.v) return const SizedBox.shrink();
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  context.buildTile(
-                    icon: Remix.time_line,
-                    title: i18n("sync_interval_title"),
-                    subtitle: i18n(
-                      "sync_interval_hours",
-                      args: {"hour": "${SettingsService.to.iptv.autoSyncHoursInterval.v}"},
+              const SizedBox(height: 12),
+            ],
+            context.buildGroupTitle(i18n("iptv_manage")),
+            context.buildModernCard([
+              context.buildTile(
+                icon: Remix.cloud_line,
+                title: i18n("iptv_list_manage"),
+                subtitle: i18n("download_guide_sub"),
+                onTap: () => SettingsNavigator.open(SettingsCrumbs.iptvManage),
+              ),
+            ]),
+            const SizedBox(height: 20),
+            context.buildGroupTitle(i18n("auto_sync_settings")),
+            context.buildModernCard([
+              context.buildSwitchTile(
+                icon: Remix.refresh_line,
+                title: i18n("auto_sync_title"),
+                subtitle: i18n("auto_sync_desc"),
+                value: SettingsService.to.iptv.isAutoSyncEnabled,
+              ),
+              Obx(() {
+                if (!SettingsService.to.iptv.isAutoSyncEnabled.v) return const SizedBox.shrink();
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    context.buildTile(
+                      icon: Remix.time_line,
+                      title: i18n("sync_interval_title"),
+                      subtitle: i18n(
+                        "sync_interval_hours",
+                        args: {"hour": "${SettingsService.to.iptv.autoSyncHoursInterval.v}"},
+                      ),
+                      onTap: () => _showIntervalSelectionMenu(context),
                     ),
-                    onTap: () => _showIntervalSelectionMenu(context),
-                  ),
-                ],
-              );
-            }),
-            Obx(
-              () => context.buildTile(
-                icon: Remix.tv_line,
-                title: i18n("custom_ua_title"),
-                subtitle: SettingsService.to.iptv.customIptvUserAgent.v,
-                onTap: () => _showEditUserAgentDialog(context),
+                  ],
+                );
+              }),
+              Obx(
+                () => context.buildTile(
+                  icon: Remix.tv_line,
+                  title: i18n("custom_ua_title"),
+                  subtitle: SettingsService.to.iptv.customIptvUserAgent.v,
+                  onTap: () => _showEditUserAgentDialog(context),
+                ),
               ),
-            ),
-          ]),
-          const SizedBox(height: 20),
-          context.buildGroupTitle(i18n("playlist_settings")),
-          context.buildModernCard([
-            context.buildTile(
-              icon: Remix.download_2_line,
-              title: i18n("import_playlist"),
-              subtitle: i18n("playlist_file_type"),
-              onTap: _localImporting || _networkImporting ? null : () => unawaited(showIptvImportDialog()),
-              trailing: _localImporting
-                  ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : null,
-            ),
-          ]),
-          const SizedBox(height: 20),
-          context.buildGroupTitle(i18n("epg_settings")),
-          context.buildModernCard([
-            context.buildTile(
-              icon: Remix.file_add_line,
-              title: i18n("import_epg_source"),
-              subtitle: i18n("epg_file_type"),
-              onTap: _localImporting || _networkImporting ? null : () => unawaited(showEpgImportDialog()),
-              trailing: _localImporting
-                  ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : null,
-            ),
-            Obx(
-              () => context.buildTile(
-                icon: Remix.tv_2_line,
-                title: i18n("active_epg_source"),
-                subtitle: SettingsService.to.iptv.selectedSourceId.v.isEmpty
-                    ? i18n("please_select_epg_source")
-                    : SettingsService.to.iptv.selectedSourceName.v,
-                subtitleColor: SettingsService.to.iptv.selectedSourceId.v.isEmpty ? Colors.orange : null,
-                onTap: () => _showSourceSelectionDialog(),
+            ]),
+            const SizedBox(height: 20),
+            context.buildGroupTitle(i18n("playlist_settings")),
+            context.buildModernCard([
+              context.buildTile(
+                icon: Remix.download_2_line,
+                title: i18n("import_playlist"),
+                subtitle: i18n("playlist_file_type"),
+                onTap: _localImporting || _networkImporting ? null : () => unawaited(showIptvImportDialog()),
+                trailing: _localImporting
+                    ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    : null,
               ),
-            ),
-          ]),
-          const SizedBox(height: 32),
-        ],
+            ]),
+            const SizedBox(height: 20),
+            context.buildGroupTitle(i18n("epg_settings")),
+            context.buildModernCard([
+              context.buildTile(
+                icon: Remix.file_add_line,
+                title: i18n("import_epg_source"),
+                subtitle: i18n("epg_file_type"),
+                onTap: _localImporting || _networkImporting ? null : () => unawaited(showEpgImportDialog()),
+                trailing: _localImporting
+                    ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    : null,
+              ),
+              Obx(
+                () => context.buildTile(
+                  icon: Remix.tv_2_line,
+                  title: i18n("active_epg_source"),
+                  subtitle: SettingsService.to.iptv.selectedSourceId.v.isEmpty
+                      ? i18n("please_select_epg_source")
+                      : SettingsService.to.iptv.selectedSourceName.v,
+                  subtitleColor: SettingsService.to.iptv.selectedSourceId.v.isEmpty ? Colors.orange : null,
+                  onTap: () => _showSourceSelectionDialog(),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 32),
+          ],
+        ),
       ),
     );
   }

@@ -253,171 +253,175 @@ class RoomCard extends StatelessWidget {
     }
 
     Get.dialog(
-      AlertDialog(
-        backgroundColor: theme.colorScheme.surface,
-        elevation: 6,
-        shadowColor: Colors.black.withValues(alpha: 0.12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        titlePadding: const EdgeInsets.fromLTRB(24, 20, 16, 0),
-        contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
-        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
-                shape: BoxShape.circle,
+      ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: AlertDialog(
+          scrollable: true,
+          backgroundColor: theme.colorScheme.surface,
+          elevation: 6,
+          shadowColor: Colors.black.withValues(alpha: 0.12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          titlePadding: const EdgeInsets.fromLTRB(24, 20, 16, 0),
+          contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: Tooltip(
+                  message: Sites.of(room.platform!).name,
+                  waitDuration: const Duration(milliseconds: 400),
+                  child: Image.asset(Sites.of(room.platform!).logo, width: 28, height: 28),
+                ),
               ),
-              child: Tooltip(
-                message: Sites.of(room.platform!).name,
-                waitDuration: const Duration(milliseconds: 400),
-                child: Image.asset(Sites.of(room.platform!).logo, width: 28, height: 28),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Tooltip(
-                message: nick,
-                waitDuration: const Duration(milliseconds: 400),
-                child: InkWell(
-                  onTap: () => _copyText(context, nick),
-                  borderRadius: BorderRadius.circular(6),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: Text(
-                      nick,
-                      style: AppTextStyles.t16.copyWith(fontWeight: FontWeight.w700, letterSpacing: 0.3),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Tooltip(
+                  message: nick,
+                  waitDuration: const Duration(milliseconds: 400),
+                  child: InkWell(
+                    onTap: () => _copyText(context, nick),
+                    borderRadius: BorderRadius.circular(6),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Text(
+                        nick,
+                        style: AppTextStyles.t16.copyWith(fontWeight: FontWeight.w700, letterSpacing: 0.3),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
 
-            IconButton(
-              tooltip: i18n('share'),
-              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-              icon: Icon(RemixIcons.share_forward_line, size: 20, color: theme.colorScheme.primary),
-              onPressed: () {
-                Navigator.pop(context);
-                ShareCommandHandler.instance.onShareRoomPressed(room);
-              },
-            ),
-            SizedBox(width: 6),
-            IconButton(
-              tooltip: i18n('set_room_tags'),
-              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-              icon: Icon(
-                Remix.price_tag_3_line,
-                size: 20,
-                color: isFollowed ? theme.colorScheme.primary : theme.disabledColor.withValues(alpha: 0.6),
+              IconButton(
+                tooltip: i18n('share'),
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                icon: Icon(RemixIcons.share_forward_line, size: 20, color: theme.colorScheme.primary),
+                onPressed: () {
+                  Navigator.pop(context);
+                  ShareCommandHandler.instance.onShareRoomPressed(room);
+                },
               ),
-              onPressed: () {
-                Navigator.pop(context);
-                if (isFollowed) {
-                  unawaited(showTagSelectionGridModal(context, theme, tagController, room));
-                } else {
-                  SmartDialog.showToast(i18n('tags_need_follow_tip'));
-                  showFollowDialog(
-                    context,
-                    theme,
-                    anchorName: room.nick ?? '',
-                    onConfirm: () {
-                      SettingsService.to.fav.addRoom(room);
-                      unawaited(showTagSelectionGridModal(context, theme, tagController, room));
-                    },
-                  );
-                }
-              },
-            ),
-          ],
-        ),
-        content: Container(
-          width: double.maxFinite,
-          constraints: const BoxConstraints(maxWidth: 380),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (title.isNotEmpty) ...[
-                SizedBox(
-                  width: double.infinity,
-                  child: Material(
-                    color: theme.colorScheme.surfaceContainerLow,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.04), width: 0.8),
-                    ),
-                    child: InkWell(
-                      onTap: () => _copyText(context, title),
-                      borderRadius: BorderRadius.circular(16),
-                      child: Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Tooltip(
-                          message: title,
-                          waitDuration: const Duration(milliseconds: 400),
-                          child: Text.rich(
-                            TextSpan(
-                              children: [
-                                TextSpan(
-                                  text: '${i18n('title_label')}：',
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-                                    fontWeight: FontWeight.w700,
+              SizedBox(width: 6),
+              IconButton(
+                tooltip: i18n('set_room_tags'),
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                icon: Icon(
+                  Remix.price_tag_3_line,
+                  size: 20,
+                  color: isFollowed ? theme.colorScheme.primary : theme.disabledColor.withValues(alpha: 0.6),
+                ),
+                onPressed: () {
+                  Navigator.pop(context);
+                  if (isFollowed) {
+                    unawaited(showTagSelectionGridModal(context, theme, tagController, room));
+                  } else {
+                    SmartDialog.showToast(i18n('tags_need_follow_tip'));
+                    showFollowDialog(
+                      context,
+                      theme,
+                      anchorName: room.nick ?? '',
+                      onConfirm: () {
+                        SettingsService.to.fav.addRoom(room);
+                        unawaited(showTagSelectionGridModal(context, theme, tagController, room));
+                      },
+                    );
+                  }
+                },
+              ),
+            ],
+          ),
+          content: Container(
+            width: double.maxFinite,
+            constraints: const BoxConstraints(maxWidth: 380),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (title.isNotEmpty) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: Material(
+                      color: theme.colorScheme.surfaceContainerLow,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.04), width: 0.8),
+                      ),
+                      child: InkWell(
+                        onTap: () => _copyText(context, title),
+                        borderRadius: BorderRadius.circular(16),
+                        child: Padding(
+                          padding: const EdgeInsets.all(14),
+                          child: Tooltip(
+                            message: title,
+                            waitDuration: const Duration(milliseconds: 400),
+                            child: Text.rich(
+                              TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: '${i18n('title_label')}：',
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                   ),
-                                ),
-                                TextSpan(
-                                  text: title,
-                                  style: AppTextStyles.t14.copyWith(
-                                    color: theme.colorScheme.onSurface,
-                                    fontWeight: FontWeight.w500,
-                                    height: 1.45,
+                                  TextSpan(
+                                    text: title,
+                                    style: AppTextStyles.t14.copyWith(
+                                      color: theme.colorScheme.onSurface,
+                                      fontWeight: FontWeight.w500,
+                                      height: 1.45,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 10),
-              ],
-              if (introduction.isNotEmpty) _RoomInfoParagraph(label: i18n('introduction'), text: introduction),
-              if (notice.isNotEmpty) _RoomInfoParagraph(label: i18n('notice'), text: notice),
-              if (introduction.isNotEmpty || notice.isNotEmpty) const SizedBox(height: 6),
-              // 信息网格：每行两列，单元格点击即复制。
-              ...infoRows,
-              if (link.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: _RoomInfoCell(label: i18n('web_link'), value: link),
+                  const SizedBox(height: 10),
+                ],
+                if (introduction.isNotEmpty) _RoomInfoParagraph(label: i18n('introduction'), text: introduction),
+                if (notice.isNotEmpty) _RoomInfoParagraph(label: i18n('notice'), text: notice),
+                if (introduction.isNotEmpty || notice.isNotEmpty) const SizedBox(height: 6),
+                // 信息网格：每行两列，单元格点击即复制。
+                ...infoRows,
+                if (link.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: _RoomInfoCell(label: i18n('web_link'), value: link),
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
+          actions: [
+            FollowButton(room: room),
+            TextButton(
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                i18n('close'),
+                style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
         ),
-        actions: [
-          FollowButton(room: room),
-          TextButton(
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              i18n('close'),
-              style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -569,311 +573,314 @@ class RoomCard extends StatelessWidget {
                     ),
             ],
           ),
-          content: Container(
-            width: isSmallScreen ? screenWidth : 440,
-            constraints: BoxConstraints(
-              maxHeight: isSmallScreen
-                  ? screenHeight * (MediaQuery.textScalerOf(context).scale(1) >= 2 ? 0.30 : 0.54)
-                  : 390,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (showAddSection)
-                  Expanded(
-                    child: SingleChildScrollView(
-                      key: const ValueKey('room-tag-add-form-scroll'),
-                      padding: const EdgeInsets.only(bottom: 14),
-                      child: Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.7),
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: theme.dividerColor.withValues(alpha: 0.03), width: 0.5),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              i18n('add_tag'),
-                              style: AppTextStyles.t12.copyWith(
-                                color: theme.colorScheme.primary,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            TextField(
-                              key: const ValueKey('room-tag-name'),
-                              controller: nameController,
-                              focusNode: nameFocusNode,
-                              autofocus: true,
-                              maxLength: 15,
-                              maxLines: 1,
-                              textInputAction: TextInputAction.next,
-                              onChanged: (_) {
-                                if (nameErrorText != null) setModalState(() => nameErrorText = null);
-                              },
-                              style: AppTextStyles.t13.copyWith(fontWeight: FontWeight.w500),
-                              decoration: InputDecoration(
-                                hintText: i18n('tag_input_hint'),
-                                errorText: nameErrorText,
-                                counterText: '',
-                                hintStyle: TextStyle(color: theme.hintColor.withValues(alpha: 0.5)),
-                                filled: true,
-                                fillColor: theme.colorScheme.surface,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide(color: theme.dividerColor.withValues(alpha: 0.05)),
+          content: ScrollConfiguration(
+            behavior: const MouseDraggableScrollBehavior(),
+            child: Container(
+              width: isSmallScreen ? screenWidth : 440,
+              constraints: BoxConstraints(
+                maxHeight: isSmallScreen
+                    ? screenHeight * (MediaQuery.textScalerOf(context).scale(1) >= 2 ? 0.30 : 0.54)
+                    : 390,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (showAddSection)
+                    Expanded(
+                      child: SingleChildScrollView(
+                        key: const ValueKey('room-tag-add-form-scroll'),
+                        padding: const EdgeInsets.only(bottom: 14),
+                        child: Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.7),
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(color: theme.dividerColor.withValues(alpha: 0.03), width: 0.5),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                i18n('add_tag'),
+                                style: AppTextStyles.t12.copyWith(
+                                  color: theme.colorScheme.primary,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.5,
                                 ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide(
-                                    color: theme.colorScheme.primary.withValues(alpha: 0.5),
-                                    width: 1.2,
+                              ),
+                              const SizedBox(height: 10),
+                              TextField(
+                                key: const ValueKey('room-tag-name'),
+                                controller: nameController,
+                                focusNode: nameFocusNode,
+                                autofocus: true,
+                                maxLength: 15,
+                                maxLines: 1,
+                                textInputAction: TextInputAction.next,
+                                onChanged: (_) {
+                                  if (nameErrorText != null) setModalState(() => nameErrorText = null);
+                                },
+                                style: AppTextStyles.t13.copyWith(fontWeight: FontWeight.w500),
+                                decoration: InputDecoration(
+                                  hintText: i18n('tag_input_hint'),
+                                  errorText: nameErrorText,
+                                  counterText: '',
+                                  hintStyle: TextStyle(color: theme.hintColor.withValues(alpha: 0.5)),
+                                  filled: true,
+                                  fillColor: theme.colorScheme.surface,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: BorderSide(color: theme.dividerColor.withValues(alpha: 0.05)),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: BorderSide(
+                                      color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                                      width: 1.2,
+                                    ),
+                                  ),
+                                  errorBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: BorderSide(color: theme.colorScheme.error.withValues(alpha: 0.75)),
+                                  ),
+                                  focusedErrorBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: BorderSide(color: theme.colorScheme.error, width: 1.2),
+                                  ),
+                                  suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                                    valueListenable: nameController,
+                                    builder: (context, value, _) => value.text.isNotEmpty
+                                        ? Semantics(
+                                            key: const ValueKey('room-tag-clear-name'),
+                                            container: true,
+                                            excludeSemantics: true,
+                                            label: i18n('clear_tag_name'),
+                                            button: true,
+                                            onTap: () => clearName(setModalState),
+                                            child: IconButton(
+                                              tooltip: i18n('clear_tag_name'),
+                                              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                                              icon: const Icon(Icons.clear, size: 18),
+                                              onPressed: () => clearName(setModalState),
+                                            ),
+                                          )
+                                        : const SizedBox.shrink(),
                                   ),
                                 ),
-                                errorBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide(color: theme.colorScheme.error.withValues(alpha: 0.75)),
-                                ),
-                                focusedErrorBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide(color: theme.colorScheme.error, width: 1.2),
-                                ),
-                                suffixIcon: ValueListenableBuilder<TextEditingValue>(
-                                  valueListenable: nameController,
-                                  builder: (context, value, _) => value.text.isNotEmpty
-                                      ? Semantics(
-                                          key: const ValueKey('room-tag-clear-name'),
-                                          container: true,
-                                          excludeSemantics: true,
-                                          label: i18n('clear_tag_name'),
-                                          button: true,
-                                          onTap: () => clearName(setModalState),
-                                          child: IconButton(
-                                            tooltip: i18n('clear_tag_name'),
-                                            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-                                            icon: const Icon(Icons.clear, size: 18),
-                                            onPressed: () => clearName(setModalState),
-                                          ),
-                                        )
-                                      : const SizedBox.shrink(),
-                                ),
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            TextField(
-                              key: const ValueKey('room-tag-description'),
-                              controller: descController,
-                              maxLength: 40,
-                              maxLines: 1,
-                              textInputAction: TextInputAction.done,
-                              onSubmitted: (_) => submitNewTag(setModalState),
-                              style: AppTextStyles.t13.copyWith(fontWeight: FontWeight.w500),
-                              decoration: InputDecoration(
-                                hintText: i18n('tag_desc_hint'),
-                                counterText: '',
-                                hintStyle: TextStyle(color: theme.hintColor.withValues(alpha: 0.5)),
-                                filled: true,
-                                fillColor: theme.colorScheme.surface,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide(color: theme.dividerColor.withValues(alpha: 0.05)),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide(
-                                    color: theme.colorScheme.primary.withValues(alpha: 0.5),
-                                    width: 1.2,
+                              const SizedBox(height: 8),
+                              TextField(
+                                key: const ValueKey('room-tag-description'),
+                                controller: descController,
+                                maxLength: 40,
+                                maxLines: 1,
+                                textInputAction: TextInputAction.done,
+                                onSubmitted: (_) => submitNewTag(setModalState),
+                                style: AppTextStyles.t13.copyWith(fontWeight: FontWeight.w500),
+                                decoration: InputDecoration(
+                                  hintText: i18n('tag_desc_hint'),
+                                  counterText: '',
+                                  hintStyle: TextStyle(color: theme.hintColor.withValues(alpha: 0.5)),
+                                  filled: true,
+                                  fillColor: theme.colorScheme.surface,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: BorderSide(color: theme.dividerColor.withValues(alpha: 0.05)),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: BorderSide(
+                                      color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                                      width: 1.2,
+                                    ),
+                                  ),
+                                  suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                                    valueListenable: descController,
+                                    builder: (context, value, _) => value.text.isNotEmpty
+                                        ? Semantics(
+                                            key: const ValueKey('room-tag-clear-description'),
+                                            container: true,
+                                            excludeSemantics: true,
+                                            label: i18n('clear_tag_description'),
+                                            button: true,
+                                            onTap: descController.clear,
+                                            child: IconButton(
+                                              tooltip: i18n('clear_tag_description'),
+                                              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                                              icon: const Icon(Icons.clear, size: 18),
+                                              onPressed: descController.clear,
+                                            ),
+                                          )
+                                        : const SizedBox.shrink(),
                                   ),
                                 ),
-                                suffixIcon: ValueListenableBuilder<TextEditingValue>(
-                                  valueListenable: descController,
-                                  builder: (context, value, _) => value.text.isNotEmpty
-                                      ? Semantics(
-                                          key: const ValueKey('room-tag-clear-description'),
-                                          container: true,
-                                          excludeSemantics: true,
-                                          label: i18n('clear_tag_description'),
-                                          button: true,
-                                          onTap: descController.clear,
-                                          child: IconButton(
-                                            tooltip: i18n('clear_tag_description'),
-                                            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-                                            icon: const Icon(Icons.clear, size: 18),
-                                            onPressed: descController.clear,
-                                          ),
-                                        )
-                                      : const SizedBox.shrink(),
-                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                if (!showAddSection)
-                  Expanded(
-                    child: tagController.tags.isEmpty
-                        ? SingleChildScrollView(
-                            key: const ValueKey('room-tag-empty-scroll'),
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Remix.price_tag_3_line,
-                                    size: 36,
-                                    color: theme.disabledColor.withValues(alpha: 0.4),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Text(
-                                    i18n('no_tags_tip'),
-                                    textAlign: TextAlign.center,
-                                    style: AppTextStyles.t13.copyWith(color: theme.disabledColor),
-                                  ),
-                                ],
+                  if (!showAddSection)
+                    Expanded(
+                      child: tagController.tags.isEmpty
+                          ? SingleChildScrollView(
+                              key: const ValueKey('room-tag-empty-scroll'),
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Remix.price_tag_3_line,
+                                      size: 36,
+                                      color: theme.disabledColor.withValues(alpha: 0.4),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      i18n('no_tags_tip'),
+                                      textAlign: TextAlign.center,
+                                      style: AppTextStyles.t13.copyWith(color: theme.disabledColor),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                          )
-                        : Scrollbar(
-                            controller: tagScrollController,
-                            thumbVisibility: true,
-                            thickness: 4.0,
-                            radius: const Radius.circular(4),
-                            child: GridView.builder(
-                              key: const ValueKey('room-tag-assignment-list'),
+                            )
+                          : Scrollbar(
                               controller: tagScrollController,
-                              shrinkWrap: true,
-                              physics: const PureLiveScrollPhysics(),
-                              itemCount: tagController.tags.length,
-                              padding: const EdgeInsets.only(right: 10, top: 4, bottom: 4, left: 2),
-                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: isSmallScreen || MediaQuery.textScalerOf(context).scale(1) >= 1.6
-                                    ? 1
-                                    : 2,
-                                mainAxisSpacing: 10,
-                                crossAxisSpacing: 10,
-                                mainAxisExtent: MediaQuery.textScalerOf(context).scale(1) >= 2 ? 136 : 68,
-                              ),
-                              itemBuilder: (context, index) {
-                                final tag = tagController.tags[index];
-                                final isSelected = tempSelectedIds.contains(tag.id);
-                                return Semantics(
-                                  label: tag.name,
-                                  selected: isSelected,
-                                  button: true,
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 180),
-                                    curve: Curves.easeInOut,
-                                    child: InkWell(
-                                      onTap: () {
-                                        if (isSelected) {
-                                          tempSelectedIds.remove(tag.id);
-                                        } else {
-                                          tempSelectedIds.add(tag.id);
-                                        }
-                                        setModalState(() {});
-                                      },
-                                      borderRadius: BorderRadius.circular(14),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                        decoration: BoxDecoration(
-                                          color: isSelected
-                                              ? theme.colorScheme.primary.withValues(alpha: 0.06)
-                                              : theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.6),
-                                          borderRadius: BorderRadius.circular(14),
-                                          border: Border.all(
+                              thumbVisibility: true,
+                              thickness: 4.0,
+                              radius: const Radius.circular(4),
+                              child: GridView.builder(
+                                key: const ValueKey('room-tag-assignment-list'),
+                                controller: tagScrollController,
+                                shrinkWrap: true,
+                                physics: const PureLiveScrollPhysics(),
+                                itemCount: tagController.tags.length,
+                                padding: const EdgeInsets.only(right: 10, top: 4, bottom: 4, left: 2),
+                                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: isSmallScreen || MediaQuery.textScalerOf(context).scale(1) >= 1.6
+                                      ? 1
+                                      : 2,
+                                  mainAxisSpacing: 10,
+                                  crossAxisSpacing: 10,
+                                  mainAxisExtent: MediaQuery.textScalerOf(context).scale(1) >= 2 ? 136 : 68,
+                                ),
+                                itemBuilder: (context, index) {
+                                  final tag = tagController.tags[index];
+                                  final isSelected = tempSelectedIds.contains(tag.id);
+                                  return Semantics(
+                                    label: tag.name,
+                                    selected: isSelected,
+                                    button: true,
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 180),
+                                      curve: Curves.easeInOut,
+                                      child: InkWell(
+                                        onTap: () {
+                                          if (isSelected) {
+                                            tempSelectedIds.remove(tag.id);
+                                          } else {
+                                            tempSelectedIds.add(tag.id);
+                                          }
+                                          setModalState(() {});
+                                        },
+                                        borderRadius: BorderRadius.circular(14),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                          decoration: BoxDecoration(
                                             color: isSelected
-                                                ? theme.colorScheme.primary
-                                                : theme.dividerColor.withValues(alpha: 0.05),
-                                            width: isSelected ? 1.4 : 0.6,
-                                          ),
-                                          boxShadow: isSelected
-                                              ? [
-                                                  BoxShadow(
-                                                    color: theme.colorScheme.primary.withValues(alpha: 0.04),
-                                                    blurRadius: 8,
-                                                    offset: const Offset(0, 2),
-                                                  ),
-                                                ]
-                                              : null,
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                mainAxisAlignment: MainAxisAlignment.center,
-                                                children: [
-                                                  Text(
-                                                    tag.name,
-                                                    style: AppTextStyles.t13.copyWith(
-                                                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                                                      color: isSelected
-                                                          ? theme.colorScheme.primary
-                                                          : theme.colorScheme.onSurface,
+                                                ? theme.colorScheme.primary.withValues(alpha: 0.06)
+                                                : theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.6),
+                                            borderRadius: BorderRadius.circular(14),
+                                            border: Border.all(
+                                              color: isSelected
+                                                  ? theme.colorScheme.primary
+                                                  : theme.dividerColor.withValues(alpha: 0.05),
+                                              width: isSelected ? 1.4 : 0.6,
+                                            ),
+                                            boxShadow: isSelected
+                                                ? [
+                                                    BoxShadow(
+                                                      color: theme.colorScheme.primary.withValues(alpha: 0.04),
+                                                      blurRadius: 8,
+                                                      offset: const Offset(0, 2),
                                                     ),
-                                                    maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
-                                                  ),
-                                                  if (tag.description.isNotEmpty) ...[
-                                                    const SizedBox(height: 3),
+                                                  ]
+                                                : null,
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  children: [
                                                     Text(
-                                                      tag.description,
-                                                      style: AppTextStyles.t11.copyWith(
-                                                        color: theme.colorScheme.onSurfaceVariant.withValues(
-                                                          alpha: 0.5,
-                                                        ),
-                                                        fontWeight: FontWeight.w500,
+                                                      tag.name,
+                                                      style: AppTextStyles.t13.copyWith(
+                                                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                                                        color: isSelected
+                                                            ? theme.colorScheme.primary
+                                                            : theme.colorScheme.onSurface,
                                                       ),
                                                       maxLines: 1,
                                                       overflow: TextOverflow.ellipsis,
                                                     ),
+                                                    if (tag.description.isNotEmpty) ...[
+                                                      const SizedBox(height: 3),
+                                                      Text(
+                                                        tag.description,
+                                                        style: AppTextStyles.t11.copyWith(
+                                                          color: theme.colorScheme.onSurfaceVariant.withValues(
+                                                            alpha: 0.5,
+                                                          ),
+                                                          fontWeight: FontWeight.w500,
+                                                        ),
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                    ],
                                                   ],
-                                                ],
-                                              ),
-                                            ),
-                                            const SizedBox(width: 6),
-                                            AnimatedContainer(
-                                              duration: const Duration(milliseconds: 150),
-                                              width: 18,
-                                              height: 18,
-                                              decoration: BoxDecoration(
-                                                shape: BoxShape.circle,
-                                                color: isSelected ? theme.colorScheme.primary : Colors.transparent,
-                                                border: Border.all(
-                                                  color: isSelected
-                                                      ? Colors.transparent
-                                                      : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.25),
-                                                  width: isSelected ? 0 : 1.5,
                                                 ),
                                               ),
-                                              child: isSelected
-                                                  ? Icon(
-                                                      Icons.check_rounded,
-                                                      size: 12,
-                                                      color: theme.colorScheme.onPrimary,
-                                                    )
-                                                  : null,
-                                            ),
-                                          ],
+                                              const SizedBox(width: 6),
+                                              AnimatedContainer(
+                                                duration: const Duration(milliseconds: 150),
+                                                width: 18,
+                                                height: 18,
+                                                decoration: BoxDecoration(
+                                                  shape: BoxShape.circle,
+                                                  color: isSelected ? theme.colorScheme.primary : Colors.transparent,
+                                                  border: Border.all(
+                                                    color: isSelected
+                                                        ? Colors.transparent
+                                                        : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.25),
+                                                    width: isSelected ? 0 : 1.5,
+                                                  ),
+                                                ),
+                                                child: isSelected
+                                                    ? Icon(
+                                                        Icons.check_rounded,
+                                                        size: 12,
+                                                        color: theme.colorScheme.onPrimary,
+                                                      )
+                                                    : null,
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                       ),
                                     ),
-                                  ),
-                                );
-                              },
+                                  );
+                                },
+                              ),
                             ),
-                          ),
-                  ),
-              ],
+                    ),
+                ],
+              ),
             ),
           ),
           actions: [

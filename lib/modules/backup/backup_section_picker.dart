@@ -64,55 +64,55 @@ class _BackupSectionPickerPageState extends State<BackupSectionPickerPage> {
           const SizedBox(width: 8),
         ],
       ),
-      body: ListView(
-        physics: const PureLiveScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        children: [
-          Text(
-            i18n(_isExport ? 'backup_section_export_hint' : 'backup_section_import_hint'),
-            style: AppTextStyles.t13.copyWith(color: theme.hintColor),
-          ),
-          const SizedBox(height: 12),
-          Card(
-            margin: EdgeInsets.zero,
-            child: Column(
-              children: [
-                for (final name in widget.available)
-                  CheckboxListTile(
-                    key: ValueKey('backup-section-$name'),
-                    dense: false,
-                    controlAffinity: ListTileControlAffinity.leading,
-                    title: Text(backupSectionLabel(name)),
-                    subtitle: Text(name, style: AppTextStyles.t12.copyWith(color: theme.hintColor)),
-                    value: _selected.contains(name),
-                    onChanged: (value) => setState(() {
-                      if (value == true) {
-                        _selected.add(name);
-                      } else {
-                        _selected.remove(name);
-                      }
-                    }),
-                  ),
-              ],
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: ListView(
+          physics: const PureLiveScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          children: [
+            Text(
+              i18n(_isExport ? 'backup_section_export_hint' : 'backup_section_import_hint'),
+              style: AppTextStyles.t13.copyWith(color: theme.hintColor),
             ),
-          ),
-          const SizedBox(height: 12),
-        ],
+            const SizedBox(height: 12),
+            Card(
+              margin: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  for (final name in widget.available)
+                    CheckboxListTile(
+                      key: ValueKey('backup-section-$name'),
+                      dense: false,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      title: Text(backupSectionLabel(name)),
+                      subtitle: Text(name, style: AppTextStyles.t12.copyWith(color: theme.hintColor)),
+                      value: _selected.contains(name),
+                      onChanged: (value) => setState(() {
+                        if (value == true) {
+                          _selected.add(name);
+                        } else {
+                          _selected.remove(name);
+                        }
+                      }),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
       ),
-      bottomNavigationBar: Material(
-        color: theme.colorScheme.surface,
-        child: SafeArea(
-          top: false,
-          minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-          child: SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              key: const ValueKey('backup-section-confirm'),
-              onPressed: _selected.isEmpty
-                  ? null
-                  : () => Navigator.of(Get.context!).pop(_selected.toList(growable: false)),
-              child: Text(i18n('confirm')),
-            ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            key: const ValueKey('backup-section-confirm'),
+            onPressed: _selected.isEmpty
+                ? null
+                : () => Navigator.of(Get.context!).pop(_selected.toList(growable: false)),
+            child: Text(i18n('confirm')),
           ),
         ),
       ),

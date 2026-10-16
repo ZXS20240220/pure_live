@@ -16,209 +16,212 @@ class AccountPage extends GetView<AccountController> {
 
     return Scaffold(
       appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.account),
-      body: ListView(
-        physics: const PureLiveScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        children: [
-          context.buildGroupTitle(i18n('third_party_auth')),
-          context.buildModernCard([
-            Obx(() {
-              final isLogined = BiliBiliAccountService.instance.logined.v;
-              final accountName = BiliBiliAccountService.instance.name.v;
-              return _buildAccountTile(
-                context,
-                logo: 'assets/images/bilibili_2.png',
-                title: i18n("site_bilibili"),
-                subtitle: isLogined
-                    ? accountName.trim().isEmpty
-                          ? i18n('account_verifying')
-                          : accountName
-                    : i18n("not_logged_in"),
-                isLogined: isLogined,
-                // Bilibili has no cookie editor to revisit: tapping the tile
-                // keeps opening the logout confirmation, as before.
-                onTap: () => isLogined
-                    ? _showLogoutDialog(
-                        context,
-                        accountName: i18n('site_bilibili'),
-                        onConfirm: BiliBiliAccountService.instance.logout,
-                      )
-                    : controller.bilibiliTap(),
-                onLogout: isLogined
-                    ? () => _showLogoutDialog(
-                        context,
-                        accountName: i18n('site_bilibili'),
-                        onConfirm: BiliBiliAccountService.instance.logout,
-                      )
-                    : null,
-              );
-            }),
-            Obx(() {
-              // A stored cookie is not the same as a working login: an expired
-              // one is a guest request whatever its length, so the tile follows
-              // the session the cookie actually carries. An expired cookie whose
-              // renewal key is present stays "signed in" because playback
-              // renews it on its own.
-              final session = DouyuUtils.sessionState(cookie.douyuCookie.v);
-              final isLogined = session == DouyuSessionState.valid || session == DouyuSessionState.expiredRefreshable;
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: ListView(
+          physics: const PureLiveScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          children: [
+            context.buildGroupTitle(i18n('third_party_auth')),
+            context.buildModernCard([
+              Obx(() {
+                final isLogined = BiliBiliAccountService.instance.logined.v;
+                final accountName = BiliBiliAccountService.instance.name.v;
+                return _buildAccountTile(
+                  context,
+                  logo: 'assets/images/bilibili_2.png',
+                  title: i18n("site_bilibili"),
+                  subtitle: isLogined
+                      ? accountName.trim().isEmpty
+                            ? i18n('account_verifying')
+                            : accountName
+                      : i18n("not_logged_in"),
+                  isLogined: isLogined,
+                  // Bilibili has no cookie editor to revisit: tapping the tile
+                  // keeps opening the logout confirmation, as before.
+                  onTap: () => isLogined
+                      ? _showLogoutDialog(
+                          context,
+                          accountName: i18n('site_bilibili'),
+                          onConfirm: BiliBiliAccountService.instance.logout,
+                        )
+                      : controller.bilibiliTap(),
+                  onLogout: isLogined
+                      ? () => _showLogoutDialog(
+                          context,
+                          accountName: i18n('site_bilibili'),
+                          onConfirm: BiliBiliAccountService.instance.logout,
+                        )
+                      : null,
+                );
+              }),
+              Obx(() {
+                // A stored cookie is not the same as a working login: an expired
+                // one is a guest request whatever its length, so the tile follows
+                // the session the cookie actually carries. An expired cookie whose
+                // renewal key is present stays "signed in" because playback
+                // renews it on its own.
+                final session = DouyuUtils.sessionState(cookie.douyuCookie.v);
+                final isLogined = session == DouyuSessionState.valid || session == DouyuSessionState.expiredRefreshable;
 
-              return _buildAccountTile(
-                context,
-                logo: 'assets/images/douyu.png',
-                title: i18n('site_douyu'),
-                subtitle: switch (session) {
-                  DouyuSessionState.none => i18n('set_cookie'),
-                  DouyuSessionState.valid => i18n('cookie_saved_local'),
-                  DouyuSessionState.expiredRefreshable => i18n('douyu_session_renewable'),
-                  DouyuSessionState.guest || DouyuSessionState.expired => i18n('douyu_session_needs_cookie'),
-                },
-                isLogined: isLogined,
-                // The tile always opens the editor: saving a cookie must not
-                // lock the viewer out of fixing or replacing it later.
-                onTap: () => Get.toNamed(RoutePath.kDouyuAccountCookie),
-                onLogout: isLogined
-                    ? () => _showLogoutDialog(
-                        context,
-                        accountName: i18n('site_douyu'),
-                        onConfirm: () => cookie.clearDouyuSession(),
-                      )
-                    : null,
-              );
-            }),
-            Obx(() {
-              final isLogined = cookie.huyaCookie.v.isNotEmpty;
-              return _buildAccountTile(
-                context,
-                logo: 'assets/images/huya.png',
-                title: i18n("site_huya"),
-                subtitle: isLogined ? i18n("logined") : i18n("set_cookie"),
-                isLogined: isLogined,
-                onTap: () => Get.toNamed(RoutePath.kHuyaCookie),
-                onLogout: isLogined
-                    ? () => _showLogoutDialog(
-                        context,
-                        accountName: i18n('site_huya'),
-                        onConfirm: () => cookie.huyaCookie.v = "",
-                      )
-                    : null,
-              );
-            }),
-            Obx(() {
-              final isLogined = cookie.douyinCookie.v.isNotEmpty;
-              return _buildAccountTile(
-                context,
-                logo: 'assets/images/douyin.png',
-                title: i18n("site_douyin"),
-                subtitle: isLogined
-                    ? controller.douyinNickName.value.isNotEmpty
-                          ? controller.douyinNickName.value
-                          : i18n("logined")
-                    : i18n("set_cookie"),
-                isLogined: isLogined,
-                onTap: () => Get.toNamed(RoutePath.kDouyinCookie),
-                onLogout: isLogined
-                    ? () => _showLogoutDialog(
-                        context,
-                        accountName: i18n('site_douyin'),
-                        onConfirm: () => cookie.douyinCookie.v = "",
-                      )
-                    : null,
-              );
-            }),
-            Obx(() {
-              final isLogined = cookie.yyCookie.v.isNotEmpty;
-              return _buildAccountTile(
-                context,
-                logo: 'assets/images/yy.png',
-                title: i18n("site_yy"),
-                subtitle: isLogined ? i18n("logined") : i18n("set_cookie"),
-                isLogined: isLogined,
-                onTap: () => Get.toNamed(RoutePath.kYyCookie),
-                onLogout: isLogined
-                    ? () => _showLogoutDialog(
-                        context,
-                        accountName: i18n('site_yy'),
-                        onConfirm: () => cookie.yyCookie.v = "",
-                      )
-                    : null,
-              );
-            }),
-            Obx(() {
-              final isLogined = cookie.taobaoCookie.v.isNotEmpty;
-              return _buildAccountTile(
-                context,
-                logo: 'assets/images/taobao.png',
-                title: i18n('site_taobaolive'),
-                subtitle: isLogined ? i18n('logined') : i18n('set_cookie'),
-                isLogined: isLogined,
-                onTap: () => Get.toNamed(RoutePath.kTaobaoCookie),
-                onLogout: isLogined
-                    ? () => _showLogoutDialog(
-                        context,
-                        accountName: i18n('site_taobaolive'),
-                        onConfirm: () => cookie.taobaoCookie.v = '',
-                      )
-                    : null,
-              );
-            }),
+                return _buildAccountTile(
+                  context,
+                  logo: 'assets/images/douyu.png',
+                  title: i18n('site_douyu'),
+                  subtitle: switch (session) {
+                    DouyuSessionState.none => i18n('set_cookie'),
+                    DouyuSessionState.valid => i18n('cookie_saved_local'),
+                    DouyuSessionState.expiredRefreshable => i18n('douyu_session_renewable'),
+                    DouyuSessionState.guest || DouyuSessionState.expired => i18n('douyu_session_needs_cookie'),
+                  },
+                  isLogined: isLogined,
+                  // The tile always opens the editor: saving a cookie must not
+                  // lock the viewer out of fixing or replacing it later.
+                  onTap: () => Get.toNamed(RoutePath.kDouyuAccountCookie),
+                  onLogout: isLogined
+                      ? () => _showLogoutDialog(
+                          context,
+                          accountName: i18n('site_douyu'),
+                          onConfirm: () => cookie.clearDouyuSession(),
+                        )
+                      : null,
+                );
+              }),
+              Obx(() {
+                final isLogined = cookie.huyaCookie.v.isNotEmpty;
+                return _buildAccountTile(
+                  context,
+                  logo: 'assets/images/huya.png',
+                  title: i18n("site_huya"),
+                  subtitle: isLogined ? i18n("logined") : i18n("set_cookie"),
+                  isLogined: isLogined,
+                  onTap: () => Get.toNamed(RoutePath.kHuyaCookie),
+                  onLogout: isLogined
+                      ? () => _showLogoutDialog(
+                          context,
+                          accountName: i18n('site_huya'),
+                          onConfirm: () => cookie.huyaCookie.v = "",
+                        )
+                      : null,
+                );
+              }),
+              Obx(() {
+                final isLogined = cookie.douyinCookie.v.isNotEmpty;
+                return _buildAccountTile(
+                  context,
+                  logo: 'assets/images/douyin.png',
+                  title: i18n("site_douyin"),
+                  subtitle: isLogined
+                      ? controller.douyinNickName.value.isNotEmpty
+                            ? controller.douyinNickName.value
+                            : i18n("logined")
+                      : i18n("set_cookie"),
+                  isLogined: isLogined,
+                  onTap: () => Get.toNamed(RoutePath.kDouyinCookie),
+                  onLogout: isLogined
+                      ? () => _showLogoutDialog(
+                          context,
+                          accountName: i18n('site_douyin'),
+                          onConfirm: () => cookie.douyinCookie.v = "",
+                        )
+                      : null,
+                );
+              }),
+              Obx(() {
+                final isLogined = cookie.yyCookie.v.isNotEmpty;
+                return _buildAccountTile(
+                  context,
+                  logo: 'assets/images/yy.png',
+                  title: i18n("site_yy"),
+                  subtitle: isLogined ? i18n("logined") : i18n("set_cookie"),
+                  isLogined: isLogined,
+                  onTap: () => Get.toNamed(RoutePath.kYyCookie),
+                  onLogout: isLogined
+                      ? () => _showLogoutDialog(
+                          context,
+                          accountName: i18n('site_yy'),
+                          onConfirm: () => cookie.yyCookie.v = "",
+                        )
+                      : null,
+                );
+              }),
+              Obx(() {
+                final isLogined = cookie.taobaoCookie.v.isNotEmpty;
+                return _buildAccountTile(
+                  context,
+                  logo: 'assets/images/taobao.png',
+                  title: i18n('site_taobaolive'),
+                  subtitle: isLogined ? i18n('logined') : i18n('set_cookie'),
+                  isLogined: isLogined,
+                  onTap: () => Get.toNamed(RoutePath.kTaobaoCookie),
+                  onLogout: isLogined
+                      ? () => _showLogoutDialog(
+                          context,
+                          accountName: i18n('site_taobaolive'),
+                          onConfirm: () => cookie.taobaoCookie.v = '',
+                        )
+                      : null,
+                );
+              }),
 
-            Obx(() {
-              final isLogined = cookie.kuaishouCookie.v.isNotEmpty;
-              return _buildAccountTile(
-                context,
-                logo: 'assets/images/kuaishou.png',
-                title: i18n("site_kuaishou"),
-                subtitle: isLogined ? i18n("logined") : i18n("set_cookie"),
-                isLogined: isLogined,
-                onTap: () => Get.toNamed(RoutePath.kKuaishouCookie),
-                onLogout: isLogined
-                    ? () => _showLogoutDialog(
-                        context,
-                        accountName: i18n('site_kuaishou'),
-                        onConfirm: () => cookie.kuaishouCookie.v = "",
-                      )
-                    : null,
-              );
-            }),
-            Obx(() {
-              final isLogined = cookie.twitchCookie.v.isNotEmpty;
-              return _buildAccountTile(
-                context,
-                logo: 'assets/images/twitch.png',
-                title: i18n("site_twitch"),
-                subtitle: isLogined ? i18n("logined") : i18n("set_cookie"),
-                isLogined: isLogined,
-                onTap: () => Get.toNamed(RoutePath.kTwitchCookie),
-                onLogout: isLogined
-                    ? () => _showLogoutDialog(
-                        context,
-                        accountName: i18n('site_twitch'),
-                        onConfirm: () => cookie.twitchCookie.v = "",
-                      )
-                    : null,
-              );
-            }),
-            Obx(() {
-              final isLogined = cookie.soopCookie.v.isNotEmpty;
-              return _buildAccountTile(
-                context,
-                logo: 'assets/images/soop.png',
-                title: i18n("site_soop"),
-                subtitle: isLogined ? i18n("logined") : i18n("set_cookie"),
-                isLogined: isLogined,
-                onTap: () => Get.toNamed(RoutePath.kSoop),
-                onLogout: isLogined
-                    ? () => _showLogoutDialog(
-                        context,
-                        accountName: i18n('site_soop'),
-                        onConfirm: () => cookie.soopCookie.v = "",
-                      )
-                    : null,
-              );
-            }),
-          ]),
-          const SizedBox(height: 32),
-        ],
+              Obx(() {
+                final isLogined = cookie.kuaishouCookie.v.isNotEmpty;
+                return _buildAccountTile(
+                  context,
+                  logo: 'assets/images/kuaishou.png',
+                  title: i18n("site_kuaishou"),
+                  subtitle: isLogined ? i18n("logined") : i18n("set_cookie"),
+                  isLogined: isLogined,
+                  onTap: () => Get.toNamed(RoutePath.kKuaishouCookie),
+                  onLogout: isLogined
+                      ? () => _showLogoutDialog(
+                          context,
+                          accountName: i18n('site_kuaishou'),
+                          onConfirm: () => cookie.kuaishouCookie.v = "",
+                        )
+                      : null,
+                );
+              }),
+              Obx(() {
+                final isLogined = cookie.twitchCookie.v.isNotEmpty;
+                return _buildAccountTile(
+                  context,
+                  logo: 'assets/images/twitch.png',
+                  title: i18n("site_twitch"),
+                  subtitle: isLogined ? i18n("logined") : i18n("set_cookie"),
+                  isLogined: isLogined,
+                  onTap: () => Get.toNamed(RoutePath.kTwitchCookie),
+                  onLogout: isLogined
+                      ? () => _showLogoutDialog(
+                          context,
+                          accountName: i18n('site_twitch'),
+                          onConfirm: () => cookie.twitchCookie.v = "",
+                        )
+                      : null,
+                );
+              }),
+              Obx(() {
+                final isLogined = cookie.soopCookie.v.isNotEmpty;
+                return _buildAccountTile(
+                  context,
+                  logo: 'assets/images/soop.png',
+                  title: i18n("site_soop"),
+                  subtitle: isLogined ? i18n("logined") : i18n("set_cookie"),
+                  isLogined: isLogined,
+                  onTap: () => Get.toNamed(RoutePath.kSoop),
+                  onLogout: isLogined
+                      ? () => _showLogoutDialog(
+                          context,
+                          accountName: i18n('site_soop'),
+                          onConfirm: () => cookie.soopCookie.v = "",
+                        )
+                      : null,
+                );
+              }),
+            ]),
+            const SizedBox(height: 32),
+          ],
+        ),
       ),
     );
   }

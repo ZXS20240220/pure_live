@@ -55,27 +55,30 @@ class RecorderPage extends GetView<RecorderController> {
             const SizedBox(width: 8),
           ],
         ),
-        body: Column(
-          children: [
-            RecorderStatusSelector(labels: tabs.map(i18n).toList(growable: false)),
-            const Divider(height: 1),
-            Expanded(
-              child: TabBarView(
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  _TaskList(filter: null),
-                  _TaskList(filter: (e) => e.status == RecordStatus.running),
-                  _TaskList(filter: (e) => e.status == RecordStatus.waitingLive),
-                  _TaskList(filter: (e) => e.status == RecordStatus.queued),
-                  _TaskList(filter: (e) => e.status == RecordStatus.reconnecting),
-                  _TaskList(filter: (e) => e.status == RecordStatus.processing),
-                  _CompletedGroupedList(),
-                  _TaskList(filter: (e) => e.status == RecordStatus.failed),
-                  _TaskList(filter: (e) => e.status == RecordStatus.stopped),
-                ],
+        body: ScrollConfiguration(
+          behavior: const MouseDraggableScrollBehavior(),
+          child: Column(
+            children: [
+              RecorderStatusSelector(labels: tabs.map(i18n).toList(growable: false)),
+              const Divider(height: 1),
+              Expanded(
+                child: TabBarView(
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: [
+                    _TaskList(filter: null),
+                    _TaskList(filter: (e) => e.status == RecordStatus.running),
+                    _TaskList(filter: (e) => e.status == RecordStatus.waitingLive),
+                    _TaskList(filter: (e) => e.status == RecordStatus.queued),
+                    _TaskList(filter: (e) => e.status == RecordStatus.reconnecting),
+                    _TaskList(filter: (e) => e.status == RecordStatus.processing),
+                    _CompletedGroupedList(),
+                    _TaskList(filter: (e) => e.status == RecordStatus.failed),
+                    _TaskList(filter: (e) => e.status == RecordStatus.stopped),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -794,6 +797,10 @@ class _CompletedGroupedListState extends State<_CompletedGroupedList> {
   final List<_HostRecordingGroup> _groups = [];
   bool _loading = true;
   Worker? _taskWorker;
+  final EasyRefreshController _refreshController = EasyRefreshController(
+    controlFinishRefresh: true,
+    controlFinishLoad: true,
+  );
 
   @override
   void initState() {
@@ -806,6 +813,7 @@ class _CompletedGroupedListState extends State<_CompletedGroupedList> {
   @override
   void dispose() {
     _taskWorker?.dispose();
+    _refreshController.dispose();
     super.dispose();
   }
 
@@ -862,19 +870,38 @@ class _CompletedGroupedListState extends State<_CompletedGroupedList> {
     });
   }
 
+  Future<void> _refresh() async {
+    final sw = Stopwatch()..start();
+    await _scan();
+    final elapsed = sw.elapsedMilliseconds;
+    if (elapsed < 600) {
+      await Future<void>.delayed(Duration(milliseconds: 600 - elapsed));
+    }
+    _refreshController.finishRefresh(IndicatorResult.success);
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (_groups.isEmpty) {
-      return const _EmptyView();
-    }
-    return ListView.separated(
-      padding: const EdgeInsets.all(14),
-      itemCount: _groups.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 14),
-      itemBuilder: (_, i) => _CompletedHostCard(group: _groups[i]),
+    return buildCommonPullToRefresh(
+      context: context,
+      refreshKey: 'recorder_completed',
+      onRefresh: _refresh,
+      controller: _refreshController,
+      childBuilder: (_, physics) {
+        if (_groups.isEmpty) {
+          return const _EmptyView();
+        }
+        return ListView.separated(
+          physics: physics,
+          padding: const EdgeInsets.all(14),
+          itemCount: _groups.length,
+          separatorBuilder: (_, _) => const SizedBox(height: 14),
+          itemBuilder: (_, i) => _CompletedHostCard(group: _groups[i]),
+        );
+      },
     );
   }
 }

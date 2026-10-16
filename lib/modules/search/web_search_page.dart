@@ -53,7 +53,7 @@ class _WebSearchPageState extends State<WebSearchPage> {
               ),
           ],
         ),
-        body: _buildBody(context),
+        body: ScrollConfiguration(behavior: const MouseDraggableScrollBehavior(), child: _buildBody(context)),
       ),
     );
   }

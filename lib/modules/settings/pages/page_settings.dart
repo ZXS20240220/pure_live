@@ -11,42 +11,45 @@ class PageSettingsPage extends GetView<SettingsService> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.pageSettings),
-      body: ListView(
-        physics: const PureLiveScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        children: [
-          context.buildGroupTitle(i18n("paging_controller")),
-          context.buildModernCard([
-            context.buildSwitchTile(
-              title: i18n('show_page_size_selector'),
-              subtitle: i18n('show_page_size_selector_subtitle'),
-              value: SettingsService.to.page.showPageSizeSelector,
-              icon: Remix.list_settings_line,
-            ),
-            context.buildSwitchTile(
-              title: i18n('show_goto_button'),
-              subtitle: i18n('show_goto_button_subtitle'),
-              value: SettingsService.to.page.showGotoButton,
-              icon: Remix.skip_forward_mini_line,
-            ),
-            context.buildSwitchTile(
-              title: i18n('show_scroll_to_top'),
-              subtitle: i18n('show_scroll_to_top_subtitle'),
-              value: SettingsService.to.page.showScrollToTopBtn,
-              icon: Remix.arrow_up_circle_line,
-            ),
-            Obx(
-              () => context.buildTile(
-                icon: Remix.list_check_2,
-                title: i18n("page_size_options_manage"),
-                subtitle: SettingsService.to.page.pageSizeOptions.join(', '),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => _showManageOptionsDialog(context),
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: ListView(
+          physics: const PureLiveScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          children: [
+            context.buildGroupTitle(i18n("paging_controller")),
+            context.buildModernCard([
+              context.buildSwitchTile(
+                title: i18n('show_page_size_selector'),
+                subtitle: i18n('show_page_size_selector_subtitle'),
+                value: SettingsService.to.page.showPageSizeSelector,
+                icon: Remix.list_settings_line,
               ),
-            ),
-          ]),
-          const SizedBox(height: 32),
-        ],
+              context.buildSwitchTile(
+                title: i18n('show_goto_button'),
+                subtitle: i18n('show_goto_button_subtitle'),
+                value: SettingsService.to.page.showGotoButton,
+                icon: Remix.skip_forward_mini_line,
+              ),
+              context.buildSwitchTile(
+                title: i18n('show_scroll_to_top'),
+                subtitle: i18n('show_scroll_to_top_subtitle'),
+                value: SettingsService.to.page.showScrollToTopBtn,
+                icon: Remix.arrow_up_circle_line,
+              ),
+              Obx(
+                () => context.buildTile(
+                  icon: Remix.list_check_2,
+                  title: i18n("page_size_options_manage"),
+                  subtitle: SettingsService.to.page.pageSizeOptions.join(', '),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => _showManageOptionsDialog(context),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 32),
+          ],
+        ),
       ),
     );
   }

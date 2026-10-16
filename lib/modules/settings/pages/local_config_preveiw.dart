@@ -76,49 +76,57 @@ class _LocalConfigPreviewPageState extends State<LocalConfigPreviewPage> {
     return Scaffold(
       backgroundColor: wallpaperActive ? Colors.transparent : theme.colorScheme.surfaceContainerLowest,
       appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.configPreview, elevation: 0, scrolledUnderElevation: 1),
-      body: LayoutBuilder(
-        builder: (context, viewportConstraints) {
-          final rawPreviewHeight = (viewportConstraints.maxHeight * 0.7).clamp(320.0, 720.0).toDouble();
-          return CustomScrollView(
-            key: const ValueKey('local-config-scroll-view'),
-            physics: const PureLiveScrollPhysics(),
-            slivers: [
-              SliverToBoxAdapter(
-                child: _buildSummaryCard(context, theme: theme, backupVersion: backupVersion, moduleCount: moduleCount),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-                  child: context.buildGroupTitle(i18n('local_config_raw_preview')),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: SizedBox(
-                  height: rawPreviewHeight,
-                  child: Container(
-                    key: const ValueKey('local-config-raw-preview'),
-                    margin: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerLow,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: theme.shadowColor.withValues(alpha: 0.03),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                      border: Border.all(color: theme.dividerColor.withValues(alpha: 0.3), width: 0.5),
-                    ),
-                    child: JsonWidget(json: _configData, initialExpandDepth: 2),
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: LayoutBuilder(
+          builder: (context, viewportConstraints) {
+            final rawPreviewHeight = (viewportConstraints.maxHeight * 0.7).clamp(320.0, 720.0).toDouble();
+            return CustomScrollView(
+              key: const ValueKey('local-config-scroll-view'),
+              physics: const PureLiveScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: _buildSummaryCard(
+                    context,
+                    theme: theme,
+                    backupVersion: backupVersion,
+                    moduleCount: moduleCount,
                   ),
                 ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 20)),
-            ],
-          );
-        },
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                    child: context.buildGroupTitle(i18n('local_config_raw_preview')),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: rawPreviewHeight,
+                    child: Container(
+                      key: const ValueKey('local-config-raw-preview'),
+                      margin: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: theme.shadowColor.withValues(alpha: 0.03),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.3), width: 0.5),
+                      ),
+                      child: JsonWidget(json: _configData, initialExpandDepth: 2),
+                    ),
+                  ),
+                ),
+                const SliverToBoxAdapter(child: SizedBox(height: 20)),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

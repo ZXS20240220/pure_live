@@ -15,21 +15,24 @@ class BiliBiliQRLoginPage extends GetView<BiliBiliQRLoginController> {
 
     return Scaffold(
       appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.bilibiliQrLogin),
-      body: ListView(
-        key: const ValueKey('bilibili-qr-scroll-view'),
-        physics: const PureLiveScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        children: [
-          _buildTipBanner(theme),
-          const SizedBox(height: 28),
-          Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 440),
-              child: Obx(() => _buildQrState(theme)),
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: ListView(
+          key: const ValueKey('bilibili-qr-scroll-view'),
+          physics: const PureLiveScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          children: [
+            _buildTipBanner(theme),
+            const SizedBox(height: 28),
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 440),
+                child: Obx(() => _buildQrState(theme)),
+              ),
             ),
-          ),
-          const SizedBox(height: 32),
-        ],
+            const SizedBox(height: 32),
+          ],
+        ),
       ),
     );
   }

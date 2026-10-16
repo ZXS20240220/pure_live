@@ -27,114 +27,121 @@ class VersionPage extends GetView<VersionController> {
         toolbarHeight: toolbarHeight,
         title: Text(i18n('version_update'), maxLines: 2, overflow: TextOverflow.ellipsis),
       ),
-      body: Obx(() {
-        if (controller.loading.value) {
-          return const AppStatusView(type: AppStatusType.loading, title: '', subtitle: '');
-        }
-        if (controller.error.value) {
-          return _buildErrorState(context);
-        }
+      body: ScrollConfiguration(
+        behavior: const MouseDraggableScrollBehavior(),
+        child: Obx(() {
+          if (controller.loading.value) {
+            return const AppStatusView(type: AppStatusType.loading, title: '', subtitle: '');
+          }
+          if (controller.error.value) {
+            return _buildErrorState(context);
+          }
 
-        return ListView(
-          key: const ValueKey('version-update-scroll'),
-          physics: const PureLiveScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          children: [
-            if (PlatformUtils.isWindows) ...[
-              _buildPlatformCard(
-                context,
-                title: "Windows",
-                subtitle: i18n("windows_desc"),
-                icon: Remix.windows_line,
-                children: [
-                  _buildDownloadSection(context, title: i18n("exe_installer"), urls: controller.windowsSetupUrl.value),
-                  const SizedBox(height: 16),
-                  if (controller.windowsMsixUrl.value.isNotEmpty) ...[
+          return ListView(
+            key: const ValueKey('version-update-scroll'),
+            physics: const PureLiveScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            children: [
+              if (PlatformUtils.isWindows) ...[
+                _buildPlatformCard(
+                  context,
+                  title: "Windows",
+                  subtitle: i18n("windows_desc"),
+                  icon: Remix.windows_line,
+                  children: [
                     _buildDownloadSection(
                       context,
-                      title: i18n("msix_installer"),
-                      urls: controller.windowsMsixUrl.value,
+                      title: i18n("exe_installer"),
+                      urls: controller.windowsSetupUrl.value,
                     ),
                     const SizedBox(height: 16),
-                  ],
-                  _buildDownloadSection(
-                    context,
-                    title: i18n("portable_package"),
-                    urls: controller.windowsPortableUrl.value,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-            ],
-            if (PlatformUtils.isMacOS) ...[
-              _buildPlatformCard(
-                context,
-                title: "macOS",
-                subtitle: i18n("macos_desc"),
-                icon: Remix.macbook_line,
-                children: [
-                  _buildDownloadSection(context, title: i18n("macos_package"), urls: controller.macosUrl.value),
-                ],
-              ),
-              const SizedBox(height: 20),
-            ],
-
-            context.buildGroupTitle(i18n("update_log")),
-            const SizedBox(height: 8),
-            context.buildModernCard([
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Align(
-                        alignment: Alignment.topLeft,
-                        child: Builder(
-                          builder: (context) {
-                            final theme = Theme.of(context);
-                            final textTheme = theme.textTheme;
-                            final isDark = theme.brightness == Brightness.dark;
-
-                            final baseConfig = isDark ? MarkdownConfig.darkConfig : MarkdownConfig.defaultConfig;
-
-                            return MarkdownBlock(
-                              data: controller.updateLog.value,
-                              config: baseConfig.copy(
-                                configs: [
-                                  PConfig(textStyle: textTheme.bodyMedium ?? const TextStyle()),
-
-                                  H1Config(
-                                    style: (textTheme.titleLarge ?? const TextStyle()).copyWith(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  H2Config(
-                                    style: (textTheme.titleMedium ?? const TextStyle()).copyWith(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  H3Config(
-                                    style: (textTheme.titleSmall ?? const TextStyle()).copyWith(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  //
-                                ],
-                              ),
-                            );
-                          },
-                        ),
+                    if (controller.windowsMsixUrl.value.isNotEmpty) ...[
+                      _buildDownloadSection(
+                        context,
+                        title: i18n("msix_installer"),
+                        urls: controller.windowsMsixUrl.value,
                       ),
+                      const SizedBox(height: 16),
                     ],
+                    _buildDownloadSection(
+                      context,
+                      title: i18n("portable_package"),
+                      urls: controller.windowsPortableUrl.value,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+              ],
+              if (PlatformUtils.isMacOS) ...[
+                _buildPlatformCard(
+                  context,
+                  title: "macOS",
+                  subtitle: i18n("macos_desc"),
+                  icon: Remix.macbook_line,
+                  children: [
+                    _buildDownloadSection(context, title: i18n("macos_package"), urls: controller.macosUrl.value),
+                  ],
+                ),
+                const SizedBox(height: 20),
+              ],
+
+              context.buildGroupTitle(i18n("update_log")),
+              const SizedBox(height: 8),
+              context.buildModernCard([
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Align(
+                          alignment: Alignment.topLeft,
+                          child: Builder(
+                            builder: (context) {
+                              final theme = Theme.of(context);
+                              final textTheme = theme.textTheme;
+                              final isDark = theme.brightness == Brightness.dark;
+
+                              final baseConfig = isDark ? MarkdownConfig.darkConfig : MarkdownConfig.defaultConfig;
+
+                              return MarkdownBlock(
+                                data: controller.updateLog.value,
+                                config: baseConfig.copy(
+                                  configs: [
+                                    PConfig(textStyle: textTheme.bodyMedium ?? const TextStyle()),
+
+                                    H1Config(
+                                      style: (textTheme.titleLarge ?? const TextStyle()).copyWith(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    H2Config(
+                                      style: (textTheme.titleMedium ?? const TextStyle()).copyWith(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    H3Config(
+                                      style: (textTheme.titleSmall ?? const TextStyle()).copyWith(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    //
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ]),
-          ],
-        );
-      }),
+              ]),
+            ],
+          );
+        }),
+      ),
     );
   }
 
