@@ -74,17 +74,10 @@ class RecorderStatusSelector extends StatelessWidget {
           }
           rows.add(Row(children: children));
         }
-        return Obx(() {
-          final wallpaperActive = SettingsService.hasWallpaper;
-          final surfaceBg = theme.colorScheme.surface;
-          return ColoredBox(
-            color: wallpaperActive ? surfaceBg.withValues(alpha: 0.6) : surfaceBg,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
-              child: Column(mainAxisSize: MainAxisSize.min, children: rows),
-            ),
-          );
-        });
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
+          child: Column(mainAxisSize: MainAxisSize.min, children: rows),
+        );
       },
     );
   }
