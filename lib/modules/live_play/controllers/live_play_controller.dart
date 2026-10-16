@@ -370,13 +370,9 @@ class LivePlayController extends GetxController
   }
 
   /// Whether a Douyu voice_trlt packet has been received for the current
-  /// session. The history SC fetch is only meaningful after the server has
-  /// pushed the current SC state via WebSocket.
+  /// session. Recorded for diagnostics only; manual refresh no longer waits
+  /// on this flag before issuing the HTTP queryQueue request.
   bool _douyuVoiceTrltReceived = false;
-
-  /// Whether the user has manually requested a history SC refresh for the
-  /// current session. Manual refresh is the only way to trigger the fetch.
-  bool _douyuManualScRefreshRequested = false;
 
   @override
   void onVoiceTrltReceived() {
@@ -384,10 +380,6 @@ class LivePlayController extends GetxController
       CoreLog.i('Douyu SC history: voice_trlt received, room=${state.value.room.detail?.roomId}');
     }
     _douyuVoiceTrltReceived = true;
-    if (_douyuManualScRefreshRequested) {
-      _douyuManualScRefreshRequested = false;
-      _triggerDouyuHistoryScFetch();
-    }
   }
 
   void _triggerDouyuHistoryScFetch() {
@@ -400,21 +392,15 @@ class LivePlayController extends GetxController
     unawaited(getSuperChatMessage(roomId, platform: platform, loadEpoch: loadEpoch));
   }
 
-  /// Manually refreshes the history SC list. For Douyu, the actual HTTP
-  /// request is deferred until a voice_trlt packet has been received, because
-  /// the queryQueue endpoint expects the WebSocket session to be established
-  /// first. Returns immediately if already pending.
+  /// Manually refreshes the history SC list. For Douyu the HTTP request is
+  /// issued immediately regardless of voice_trlt state; the endpoint may
+  /// still reject the request server-side (anti-bot/edge), which is handled
+  /// by the caller's retry logic.
   Future<void> manualRefreshDouyuHistorySc() async {
     final detail = state.value.room.detail;
     if (detail?.platform != Sites.douyuSite) return;
-    CoreLog.i(
-      'Douyu SC history: manual refresh requested, room=${detail?.roomId}, voiceTrltReceived=$_douyuVoiceTrltReceived',
-    );
-    if (_douyuVoiceTrltReceived) {
-      _triggerDouyuHistoryScFetch();
-    } else {
-      _douyuManualScRefreshRequested = true;
-    }
+    CoreLog.i('Douyu SC history: manual refresh requested, room=${detail?.roomId}');
+    _triggerDouyuHistoryScFetch();
   }
 
   /// 斗鱼：进入/重载房间时，把进程内缓存的未到期 SC 恢复到当前列表。
@@ -532,7 +518,6 @@ class LivePlayController extends GetxController
     if (superChats.isNotEmpty) superChats.clear();
     if (lockedSuperChatIds.isNotEmpty) lockedSuperChatIds.clear();
     _douyuVoiceTrltReceived = false;
-    _douyuManualScRefreshRequested = false;
   }
 
   /// 切换某条 SC 的锁定状态。
