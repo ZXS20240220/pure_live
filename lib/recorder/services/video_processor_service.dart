@@ -75,6 +75,7 @@ class VideoProcessorService extends GetxService {
     Future<void>? execution;
     CacheService? directoryOwner;
     String? protectedDirectory;
+    String? protectedFilePrefix;
 
     Future<void> cleanup() async {
       await subscription?.cancel();
@@ -86,7 +87,9 @@ class VideoProcessorService extends GetxService {
           // Never delete the source segments on failed/cancelled finalization.
         }
       }
-      if (protectedDirectory != null) directoryOwner?.releaseDirectory(protectedDirectory);
+      if (protectedDirectory != null && protectedFilePrefix != null) {
+        directoryOwner?.releaseFilePrefix(protectedDirectory, protectedFilePrefix);
+      }
       if (identical(_operations[taskId], operation)) _operations.remove(taskId);
     }
 
@@ -120,7 +123,8 @@ class VideoProcessorService extends GetxService {
       if (Get.isRegistered<CacheService>()) {
         directoryOwner = CacheService.to;
         protectedDirectory = resolvedDirectoryPath;
-        directoryOwner.protectDirectory(resolvedDirectoryPath);
+        protectedFilePrefix = resolvedFilePrefix;
+        directoryOwner.protectFilePrefix(resolvedDirectoryPath, resolvedFilePrefix);
       }
 
       final tsDirectory = Directory(resolvedDirectoryPath);

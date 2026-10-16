@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:path/path.dart' as p;
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/plugins/cache_manager.dart';
@@ -6,6 +9,7 @@ import 'package:pure_live/recorder/models/record_status.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:pure_live/recorder/models/live_record_task.dart';
 import 'package:pure_live/recorder/models/recorder_task_ordering.dart';
+import 'package:pure_live/recorder/services/cache_service.dart';
 import 'package:pure_live/recorder/widgets/recorder_bounded_scroll.dart';
 import 'package:pure_live/recorder/pages/recorder/recorder_controller.dart';
 
@@ -65,7 +69,7 @@ class RecorderPage extends GetView<RecorderController> {
                   _TaskList(filter: (e) => e.status == RecordStatus.queued),
                   _TaskList(filter: (e) => e.status == RecordStatus.reconnecting),
                   _TaskList(filter: (e) => e.status == RecordStatus.processing),
-                  _TaskList(filter: (e) => e.status == RecordStatus.completed),
+                  _CompletedGroupedList(),
                   _TaskList(filter: (e) => e.status == RecordStatus.failed),
                   _TaskList(filter: (e) => e.status == RecordStatus.stopped),
                 ],
@@ -705,6 +709,316 @@ class _TaskCard extends GetView<RecorderController> {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Mp4Entry {
+  _Mp4Entry({
+    required this.path,
+    required this.platform,
+    required this.safeNick,
+    required this.modified,
+    required this.size,
+  });
+
+  final String path;
+  final String platform;
+  final String safeNick;
+  final DateTime modified;
+  final int size;
+
+  String? originalNick;
+  String? cover;
+  String? avatar;
+  String? title;
+
+  void mergeTask(LiveRecordTask task) {
+    originalNick = task.nick;
+    cover = task.cover;
+    avatar = task.avatar;
+    title = task.title;
+  }
+
+  String get displayNick => originalNick ?? safeNick;
+}
+
+class _HostRecordingGroup {
+  _HostRecordingGroup({required this.platform, required this.safeNick});
+
+  final String platform;
+  final String safeNick;
+  final List<_Mp4Entry> mp4s = [];
+
+  DateTime get latestModified =>
+      mp4s.fold(DateTime.fromMillisecondsSinceEpoch(0), (prev, e) => e.modified.isAfter(prev) ? e.modified : prev);
+
+  String get displayNick {
+    for (final e in mp4s) {
+      if (e.originalNick != null) return e.originalNick!;
+    }
+    return safeNick;
+  }
+
+  String? get cover {
+    for (final e in mp4s) {
+      if (e.cover != null && e.cover!.isNotEmpty) return e.cover;
+    }
+    return null;
+  }
+
+  String? get avatar {
+    for (final e in mp4s) {
+      if (e.avatar != null && e.avatar!.isNotEmpty) return e.avatar;
+    }
+    return null;
+  }
+
+  String get latestTitle {
+    final latest = mp4s.reduce((a, b) => a.modified.isAfter(b.modified) ? a : b);
+    return latest.title ?? '本地录制';
+  }
+}
+
+class _CompletedGroupedList extends StatefulWidget {
+  const _CompletedGroupedList();
+
+  @override
+  State<_CompletedGroupedList> createState() => _CompletedGroupedListState();
+}
+
+class _CompletedGroupedListState extends State<_CompletedGroupedList> {
+  final List<_HostRecordingGroup> _groups = [];
+  bool _loading = true;
+  Worker? _taskWorker;
+
+  @override
+  void initState() {
+    super.initState();
+    _scan();
+    final controller = Get.find<RecorderController>();
+    _taskWorker = ever(controller.tasks, (_) => _scan());
+  }
+
+  @override
+  void dispose() {
+    _taskWorker?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _scan() async {
+    final recordDir = await CacheService.to.getRecordDir();
+    final mp4Map = <String, _Mp4Entry>{};
+
+    await for (final entity in recordDir.list(recursive: true, followLinks: false)) {
+      if (entity is! File) continue;
+      if (!entity.path.toLowerCase().endsWith('.mp4')) continue;
+      try {
+        final stat = await entity.stat();
+        final rel = p.relative(entity.path, from: recordDir.path);
+        final segs = p.split(rel);
+        if (segs.length < 2) continue;
+        mp4Map[entity.path] = _Mp4Entry(
+          path: entity.path,
+          platform: segs[0],
+          safeNick: segs[1],
+          modified: stat.modified,
+          size: stat.size,
+        );
+      } catch (_) {}
+    }
+
+    final controller = Get.find<RecorderController>();
+    for (final task in controller.tasks) {
+      final taskDir = task.outputDir?.trim() ?? '';
+      if (taskDir.isEmpty) continue;
+      for (final mp4 in mp4Map.values) {
+        if (p.dirname(mp4.path).toLowerCase() == taskDir.toLowerCase()) {
+          mp4.mergeTask(task);
+        }
+      }
+    }
+
+    final groupMap = <String, _HostRecordingGroup>{};
+    for (final mp4 in mp4Map.values) {
+      final key = '${mp4.platform}|${mp4.safeNick}';
+      groupMap
+          .putIfAbsent(key, () => _HostRecordingGroup(platform: mp4.platform, safeNick: mp4.safeNick))
+          .mp4s
+          .add(mp4);
+    }
+
+    final groups = groupMap.values.toList()..sort((a, b) => b.latestModified.compareTo(a.latestModified));
+
+    if (!mounted) return;
+    setState(() {
+      _groups
+        ..clear()
+        ..addAll(groups);
+      _loading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_groups.isEmpty) {
+      return const _EmptyView();
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.all(14),
+      itemCount: _groups.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 14),
+      itemBuilder: (_, i) => _CompletedHostCard(group: _groups[i]),
+    );
+  }
+}
+
+class _CompletedHostCard extends StatelessWidget {
+  const _CompletedHostCard({required this.group});
+  final _HostRecordingGroup group;
+
+  Color _platformColor(String platform) {
+    switch (platform.toLowerCase()) {
+      case Sites.bilibiliSite:
+        return const Color(0xFFFB7299);
+      case Sites.douyuSite:
+        return const Color(0xFFFF7700);
+      case Sites.huyaSite:
+        return const Color(0xFFFFB000);
+      case Sites.douyinSite:
+        return const Color(0xFF000000);
+      case Sites.ccSite:
+        return const Color.fromARGB(253, 13, 145, 233);
+      case Sites.iptvSite:
+        return const Color.fromARGB(255, 204, 71, 9);
+      case Sites.twitchSite:
+        return const Color(0xFF9146FF);
+      case Sites.soopSite:
+        return const Color(0xFF0675E8);
+      default:
+        return const Color.fromARGB(255, 11, 223, 117);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final platformColor = _platformColor(group.platform);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: SettingsService.hasWallpaper
+            ? theme.colorScheme.surface.withValues(alpha: 0.35)
+            : theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.08)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 18, offset: const Offset(0, 6))],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {},
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: SizedBox(
+                      width: 150,
+                      height: 90,
+                      child: (group.cover != null && normalizeNetworkImageUrl(group.cover!).isNotEmpty)
+                          ? CachedNetworkImage(
+                              imageUrl: normalizeNetworkImageUrl(group.cover!),
+                              cacheKey: normalizeNetworkImageUrl(group.cover!),
+                              cacheManager: CustomImageCacheManager.instance,
+                              httpHeaders: networkImageHeaders(normalizeNetworkImageUrl(group.cover!)),
+                              fit: BoxFit.cover,
+                              fadeInDuration: Duration.zero,
+                              fadeOutDuration: Duration.zero,
+                              errorWidget: (_, _, _) => const ColoredBox(color: Colors.black12),
+                            )
+                          : const ColoredBox(color: Colors.black12),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: platformColor.withValues(alpha: 0.9),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 0.5),
+                              ),
+                              child: Text(
+                                group.platform.toUpperCase(),
+                                style: AppTextStyles.t11.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '已完成 ${group.mp4s.length} 段录制',
+                              style: AppTextStyles.t12.copyWith(
+                                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          group.latestTitle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.t15.copyWith(fontWeight: FontWeight.w700, height: 1.2),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 12,
+                              backgroundImage:
+                                  (group.avatar != null && normalizeNetworkImageUrl(group.avatar!).isNotEmpty)
+                                  ? NetworkImage(normalizeNetworkImageUrl(group.avatar!))
+                                  : null,
+                            ),
+                            const SizedBox(width: 7),
+                            Expanded(
+                              child: Text(
+                                group.displayNick,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTextStyles.t13.copyWith(
+                                  color: theme.colorScheme.onSurface.withValues(alpha: 0.85),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton.filled(
+                    onPressed: () {},
+                    icon: const Icon(Remix.play_large_line),
+                    tooltip: '播放本地录制',
+                    style: IconButton.styleFrom(backgroundColor: platformColor, foregroundColor: Colors.white),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),

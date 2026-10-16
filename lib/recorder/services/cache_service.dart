@@ -124,7 +124,35 @@ class CacheService extends GetxService {
 
   bool isDirectoryProtected(String directoryPath) {
     final normalized = _normalizedAbsolute(directoryPath);
-    return _protectedDirectories.keys.any((root) => _sameOrWithin(root, normalized));
+    if (_protectedDirectories.keys.any((root) => _sameOrWithin(root, normalized))) return true;
+    if (_protectedFilePrefixes.containsKey(normalized)) return true;
+    for (final dir in _protectedFilePrefixes.keys) {
+      if (_sameOrWithin(dir, normalized)) return true;
+    }
+    return false;
+  }
+
+  final Map<String, Map<String, int>> _protectedFilePrefixes = <String, Map<String, int>>{};
+
+  void protectFilePrefix(String directoryPath, String filePrefix) {
+    final dir = _normalizedAbsolute(directoryPath);
+    if (dir.isEmpty || filePrefix.isEmpty) return;
+    final counts = _protectedFilePrefixes.putIfAbsent(dir, () => <String, int>{});
+    counts[filePrefix] = (counts[filePrefix] ?? 0) + 1;
+  }
+
+  void releaseFilePrefix(String directoryPath, String filePrefix) {
+    final dir = _normalizedAbsolute(directoryPath);
+    if (dir.isEmpty || filePrefix.isEmpty) return;
+    final counts = _protectedFilePrefixes[dir];
+    if (counts == null) return;
+    final count = counts[filePrefix] ?? 0;
+    if (count <= 1) {
+      counts.remove(filePrefix);
+      if (counts.isEmpty) _protectedFilePrefixes.remove(dir);
+    } else {
+      counts[filePrefix] = count - 1;
+    }
   }
 
   Future<List<File>> _managedFiles({bool excludeProtected = false}) async {
@@ -246,7 +274,16 @@ class CacheService extends GetxService {
 
   bool _isProtectedPath(String value) {
     final candidate = _normalizedAbsolute(value);
-    return _protectedDirectories.keys.any((root) => _sameOrWithin(root, candidate));
+    if (_protectedDirectories.keys.any((root) => _sameOrWithin(root, candidate))) return true;
+    final dir = p.dirname(candidate);
+    final prefixes = _protectedFilePrefixes[dir];
+    if (prefixes != null && prefixes.isNotEmpty) {
+      final basename = p.basename(candidate);
+      for (final prefix in prefixes.keys) {
+        if (basename.startsWith(prefix)) return true;
+      }
+    }
+    return false;
   }
 
   bool _sameOrWithin(String root, String candidate) => root == candidate || p.isWithin(root, candidate);
@@ -265,15 +302,9 @@ class CacheService extends GetxService {
     bool usePinyinForFolder = false,
   }) async {
     final base = await getRecordDir();
-    final now = DateTime.now();
-    final date = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-    final time =
-        '${now.hour.toString().padLeft(2, '0')}-'
-        '${now.minute.toString().padLeft(2, '0')}-'
-        '${now.second.toString().padLeft(2, '0')}';
     final safePlatform = usePinyinForFolder ? PathHelper.toSafePinyin(platform) : PathHelper.toSafeComponent(platform);
     final safeNick = usePinyinForFolder ? PathHelper.toSafePinyin(nick) : PathHelper.toSafeComponent(nick);
-    final dir = Directory(p.join(base.path, safePlatform, safeNick, date, time));
+    final dir = Directory(p.join(base.path, safePlatform, safeNick));
     await dir.create(recursive: true);
     return dir;
   }

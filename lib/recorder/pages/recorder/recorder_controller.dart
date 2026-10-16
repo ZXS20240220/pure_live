@@ -488,9 +488,8 @@ class RecorderController extends GetxService {
         return;
       }
 
-      if (failed) {
-        task.status = RecordStatus.failed;
-        task.retryCount = 0;
+      if (!failed) {
+        task.status = RecordStatus.completed;
         updateTask(task);
         return;
       }
@@ -504,7 +503,8 @@ class RecorderController extends GetxService {
         _completeLifecycle(task.taskId);
         _schedulePoll(task, delay: const Duration(seconds: 1));
       } else {
-        task.status = RecordStatus.completed;
+        task.status = RecordStatus.failed;
+        task.retryCount = 0;
         updateTask(task);
       }
     } catch (error, stackTrace) {
@@ -837,6 +837,7 @@ class RecorderController extends GetxService {
     final lifecycle = Completer<void>();
     _lifecycleCompleters[task.taskId] = lifecycle;
     String? protectedDirectory;
+    String? protectedPrefix;
     CacheService? directoryOwner;
     final discovery = LiveQualityDiscoveryScope();
     token.onCancel = () async {
@@ -886,7 +887,8 @@ class RecorderController extends GetxService {
         usePinyinForFolder: settings.usePinyinForFolder.value,
       );
       protectedDirectory = directory.path;
-      directoryOwner.protectDirectory(directory.path);
+      protectedPrefix = task.recordingFilePrefix;
+      directoryOwner.protectFilePrefix(directory.path, protectedPrefix);
       if (token.isCancelled) return;
 
       final recipe = resolved.inputRecipe;
@@ -1000,7 +1002,9 @@ class RecorderController extends GetxService {
       if (identical(_lifecycleCompleters[task.taskId], lifecycle)) {
         _lifecycleCompleters.remove(task.taskId);
       }
-      if (protectedDirectory != null) directoryOwner?.releaseDirectory(protectedDirectory);
+      if (protectedDirectory != null && protectedPrefix != null) {
+        directoryOwner?.releaseFilePrefix(protectedDirectory, protectedPrefix);
+      }
       // Preserve the same lease over signed-source rotation and short retries.
       // A user stop keeps it through any remaining pending-attempt merge.
       if (!identical(_stopRequests[task.taskId]?.task, task) &&
@@ -1501,7 +1505,16 @@ class RecorderController extends GetxService {
                 }.contains(task.status)) {
               resumeTaskIds.add(task.taskId);
             }
-            if (!task.status.isFinished) task.status = RecordStatus.stopped;
+            if (!task.status.isFinished) {
+              final dir = task.outputDir?.trim() ?? '';
+              var hasMp4 = false;
+              if (dir.isNotEmpty) {
+                try {
+                  hasMp4 = await Directory(dir).list().any((e) => e is File && e.path.toLowerCase().endsWith('.mp4'));
+                } catch (_) {}
+              }
+              task.status = hasMp4 ? RecordStatus.completed : RecordStatus.stopped;
+            }
             restored.add(task);
           } catch (error) {
             developer.log('Skipped malformed recorder task: $error', name: 'RecorderController');
@@ -1573,10 +1586,9 @@ class RecorderController extends GetxService {
     }
     if (_isClosing || !_ownsTask(task) || task.pendingAttempts.isEmpty) return;
 
-    final directories = task.pendingAttempts.map((attempt) => attempt.directoryPath).toSet();
     final directoryOwner = CacheService.to;
-    for (final path in directories) {
-      directoryOwner.protectDirectory(path);
+    for (final attempt in task.pendingAttempts) {
+      directoryOwner.protectFilePrefix(attempt.directoryPath, attempt.filePrefix);
     }
     try {
       task.status = RecordStatus.processing;
@@ -1588,8 +1600,8 @@ class RecorderController extends GetxService {
       updateTask(task);
       await settings.refreshCacheSize();
     } finally {
-      for (final path in directories) {
-        directoryOwner.releaseDirectory(path);
+      for (final attempt in task.pendingAttempts) {
+        directoryOwner.releaseFilePrefix(attempt.directoryPath, attempt.filePrefix);
       }
     }
   }
