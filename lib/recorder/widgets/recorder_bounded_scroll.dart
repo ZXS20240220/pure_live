@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:pure_live/common/index.dart';
 
 /// A fixed, adaptive status selector.
@@ -15,70 +16,78 @@ class RecorderStatusSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = DefaultTabController.of(context);
     final theme = Theme.of(context);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 900
-            ? labels.length
-            : constraints.maxWidth >= 600
-            ? 5
-            : 3;
-        final rows = <Widget>[];
-        for (var start = 0; start < labels.length; start += columns) {
-          final children = <Widget>[];
-          for (var column = 0; column < columns; column++) {
-            final index = start + column;
-            if (index >= labels.length) {
-              children.add(const Expanded(child: SizedBox.shrink()));
-              continue;
-            }
-            children.add(
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 3),
-                  child: AnimatedBuilder(
-                    animation: controller,
-                    builder: (context, _) {
-                      final selected = controller.index == index;
-                      return Material(
-                        color: selected
-                            ? theme.colorScheme.primaryContainer
-                            : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.46),
-                        borderRadius: BorderRadius.circular(11),
-                        clipBehavior: Clip.hardEdge,
-                        child: InkWell(
-                          key: ValueKey('recorder-status-$index'),
-                          onTap: () => controller.animateTo(index),
-                          child: SizedBox(
-                            height: 36,
-                            child: Center(
-                              child: Text(
-                                labels[index],
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.labelMedium?.copyWith(
-                                  color: selected
-                                      ? theme.colorScheme.onPrimaryContainer
-                                      : theme.colorScheme.onSurfaceVariant,
-                                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+    return Listener(
+      onPointerSignal: (event) {
+        if (event is! PointerScrollEvent) return;
+        final dir = event.scrollDelta.dy > 0 ? 1 : -1;
+        final nextIndex = (controller.index + dir) % labels.length;
+        controller.animateTo(nextIndex);
+      },
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final columns = constraints.maxWidth >= 900
+              ? labels.length
+              : constraints.maxWidth >= 600
+              ? 5
+              : 3;
+          final rows = <Widget>[];
+          for (var start = 0; start < labels.length; start += columns) {
+            final children = <Widget>[];
+            for (var column = 0; column < columns; column++) {
+              final index = start + column;
+              if (index >= labels.length) {
+                children.add(const Expanded(child: SizedBox.shrink()));
+                continue;
+              }
+              children.add(
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 3),
+                    child: AnimatedBuilder(
+                      animation: controller,
+                      builder: (context, _) {
+                        final selected = controller.index == index;
+                        return Material(
+                          color: selected
+                              ? theme.colorScheme.primaryContainer
+                              : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.46),
+                          borderRadius: BorderRadius.circular(11),
+                          clipBehavior: Clip.hardEdge,
+                          child: InkWell(
+                            key: ValueKey('recorder-status-$index'),
+                            onTap: () => controller.animateTo(index),
+                            child: SizedBox(
+                              height: 36,
+                              child: Center(
+                                child: Text(
+                                  labels[index],
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.labelMedium?.copyWith(
+                                    color: selected
+                                        ? theme.colorScheme.onPrimaryContainer
+                                        : theme.colorScheme.onSurfaceVariant,
+                                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
                 ),
-              ),
-            );
+              );
+            }
+            rows.add(Row(children: children));
           }
-          rows.add(Row(children: children));
-        }
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
-          child: Column(mainAxisSize: MainAxisSize.min, children: rows),
-        );
-      },
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
+            child: Column(mainAxisSize: MainAxisSize.min, children: rows),
+          );
+        },
+      ),
     );
   }
 }
