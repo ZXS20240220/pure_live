@@ -480,7 +480,9 @@ class _TaskCard extends GetView<RecorderController> {
       duration: const Duration(milliseconds: 250),
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
+        color: SettingsService.hasWallpaper
+            ? theme.colorScheme.surface.withValues(alpha: 0.35)
+            : theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.08)),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 18, offset: const Offset(0, 6))],
