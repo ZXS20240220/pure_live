@@ -9,7 +9,6 @@ import 'package:pure_live/core/common/hls_source_query_policy.dart';
 
 import 'dart:developer' as developer;
 
-import 'package:flutter/scheduler.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/core/common/core_log.dart';
 import 'package:pure_live/core/site/douyu/douyu_superchat_cache.dart';
@@ -1293,17 +1292,8 @@ class LivePlayController extends GetxController
   /// observer, which waits for the recorder route's reverse
   /// transition to finish before attaching a Windows texture again.
   Future<void> openRecordCenter() async {
-    updateUI(displayVideoLayer: false);
-    await SchedulerBinding.instance.endOfFrame;
-    try {
-      await Get.toNamed(RoutePath.kRecordPage);
-    } catch (_) {
-      // A failed navigation never reaches the observer's didPop callback.
-      if (!isClosed) {
-        updateUI(displayVideoLayer: true);
-      }
-      rethrow;
-    }
+    _suppressAppFloatingOnNextPop = true;
+    await Get.offNamed(RoutePath.kRecordPage);
   }
 
   bool takeSuppressAppFloatingOnNextPop() {

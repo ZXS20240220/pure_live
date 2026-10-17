@@ -107,4 +107,6 @@ class RoutePath {
   static const kSettingsTags = '/settingTags';
 
   static const kRemoteSync = '/remote_sync';
+
+  static const kLocalPlayback = '/local_playback';
 }

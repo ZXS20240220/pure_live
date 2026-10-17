@@ -254,6 +254,9 @@ class WindowHelper {
   Size _savedSize = const Size(1280, 720);
   Offset _savedPosition = Offset.zero;
   bool _savedAlwaysOnTop = false;
+  bool _savedMaximized = false;
+  bool _savedMinimized = false;
+  bool _savedFullScreen = false;
   Future<void> _hostQueue = Future<void>.value();
   Future<void>? _pipTransition;
 
@@ -288,6 +291,20 @@ class WindowHelper {
   }
 
   Future<void> _enterPiP(double videoRatio, {int? videoWidth, int? videoHeight}) async {
+    _savedMaximized = await _host.isMaximized();
+    _savedMinimized = await _host.isMinimized();
+    _savedFullScreen = await _host.isFullScreen();
+
+    if (_savedFullScreen) {
+      await windowManager.setFullScreen(false);
+    }
+    if (_savedMaximized) {
+      await windowManager.unmaximize();
+    }
+    if (_savedMinimized) {
+      await windowManager.restore();
+    }
+
     final normalSize = await _host.getSize();
     final normalPosition = await _host.getPosition();
     final normalAlwaysOnTop = await _host.isAlwaysOnTop();
@@ -467,14 +484,21 @@ class WindowHelper {
     final pipAlwaysOnTop = await _host.isAlwaysOnTop();
 
     try {
-      // 恢复进入 PiP 前的窗口置顶状态（可能是直播间播放页的置顶开关），
-      // 而非强制关闭，避免退出小窗后丢失用户的置顶偏好。
       await _host.setAlwaysOnTop(_savedAlwaysOnTop);
       await _host.setMinimumSize(const Size(WindowSizeController.minWindowWidth, WindowSizeController.minWindowHeight));
       await _host.setSize(_savedSize);
       await _host.setPosition(_savedPosition);
-      // 退出 PiP 后解除宽高比锁定，恢复普通窗口的自由缩放。
       await _host.setAspectRatio(0);
+
+      if (_savedMaximized) {
+        await windowManager.maximize();
+      }
+      if (_savedFullScreen) {
+        await windowManager.setFullScreen(true);
+      }
+      if (_savedMinimized) {
+        await windowManager.minimize();
+      }
     } catch (error, stackTrace) {
       await _restoreHostWindow(
         alwaysOnTop: pipAlwaysOnTop,

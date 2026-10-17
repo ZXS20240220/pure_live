@@ -62,6 +62,15 @@ class BarrageController {
     _onClear?.call();
   }
 
+  void setClockScale(double scale) {
+    final currentEngine = _engine;
+    if (currentEngine != null) {
+      try {
+        currentEngine.setClockScale(scale);
+      } catch (_) {}
+    }
+  }
+
   bool triggerItemAt(double x, double y, {required bool longPress, bool holdOnHit = false}) {
     final currentEngine = _engine;
     if (currentEngine == null) return false;

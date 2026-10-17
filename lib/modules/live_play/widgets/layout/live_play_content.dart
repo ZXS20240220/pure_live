@@ -84,7 +84,7 @@ class _LivePlayNormalLayoutState extends State<LivePlayNormalLayout> {
                   final wallpaperActive = SettingsService.hasWallpaper;
                   final surface = Theme.of(context).colorScheme.surface;
                   return ColoredBox(
-                    color: wallpaperActive ? surface.withValues(alpha: 0.8) : surface,
+                    color: wallpaperActive ? surface.withValues(alpha: 0.6) : surface,
                     child: widget.danmaku,
                   );
                 }),
@@ -119,7 +119,7 @@ class _LivePlayNormalLayoutState extends State<LivePlayNormalLayout> {
                   child: Obx(() {
                     final wallpaperActive = SettingsService.hasWallpaper;
                     return ColoredBox(
-                      color: wallpaperActive ? surface.withValues(alpha: 0.8) : surface,
+                      color: wallpaperActive ? surface.withValues(alpha: 0.6) : surface,
                       child: Column(
                         children: [
                           widget.resolution,

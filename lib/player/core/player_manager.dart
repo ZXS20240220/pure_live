@@ -3080,6 +3080,14 @@ class PlayerManager {
     await _currentPlayer?.setVolume(volume.clamp(0.0, 1.0));
   }
 
+  Future<void> setPlaybackSpeed(double speed) async {
+    final player = _currentPlayer;
+    if (player is! MediaKitPlayerAccessor) return;
+    try {
+      await (player as MediaKitPlayerAccessor).mediaKitPlayer.setRate(speed.clamp(0.25, 4.0));
+    } catch (_) {}
+  }
+
   double _savedRoomVolume() => (currentFloatRoom?.getSavedVolume() ?? 1.0).clamp(0.0, 1.0).toDouble();
 
   /// Last audible compact volume, used to restore a sensible level when the

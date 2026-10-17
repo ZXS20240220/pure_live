@@ -63,6 +63,8 @@ import 'package:pure_live/modules/account/kuaishou/kuaishou_cookie_binding.dart'
 import 'package:pure_live/modules/backup/remote_receiver/remote_sync_binding.dart';
 import 'package:pure_live/recorder/pages/record_settings/record_settings_page.dart';
 import 'package:pure_live/recorder/pages/record_settings/record_settings_binding.dart';
+import 'package:pure_live/recorder/pages/local_playback/local_playback_page.dart';
+import 'package:pure_live/recorder/pages/local_playback/local_playback_binding.dart';
 
 class AppPages {
   AppPages._();
@@ -244,6 +246,11 @@ class AppPages {
       name: RoutePath.kRecordSettings,
       page: _smoothPage(() => const RecordSettingsPage()),
       bindings: [RecordSettingsBinding()],
+    ),
+    GetPage(
+      name: RoutePath.kLocalPlayback,
+      page: _smoothPage(() => const LocalPlaybackPage()),
+      bindings: [LocalPlaybackBinding()],
     ),
     GetPage(name: RoutePath.kWebSearch, page: _smoothPage(() => const WebSearchPage()), bindings: [WebSearchBinding()]),
 

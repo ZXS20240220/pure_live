@@ -121,6 +121,10 @@ class BarrageEngine extends FlameGame with TapCallbacks {
     _stopFramePulses();
   }
 
+  void setClockScale(double scale) {
+    clock.scale = scale.clamp(0.01, 16.0);
+  }
+
   void resume() {
     if (!isPaused) return;
     clock.resume();
@@ -161,7 +165,7 @@ class BarrageEngine extends FlameGame with TapCallbacks {
   }
 
   void _onFrameTick(Duration elapsed) {
-    if (isPaused || !_appActive || !_initialized || !isAttached || (_waiting.isEmpty && _currentAliveCount == 0)) {
+    if (isPaused || !_appActive || !_initialized || !isAttached) {
       _stopFramePulses();
       return;
     }
@@ -189,6 +193,10 @@ class BarrageEngine extends FlameGame with TapCallbacks {
     _elapsedSinceStepMicros = 0;
     _frameStepCount++;
     stepEngine(stepTime: stepMicros / Duration.microsecondsPerSecond);
+
+    if (_waiting.isEmpty && _currentAliveCount == 0) {
+      _stopFramePulses();
+    }
   }
 
   void _stopFramePulses() {
@@ -749,6 +757,7 @@ class BarrageEngine extends FlameGame with TapCallbacks {
       track.locked = false;
       track.lockedUntil = 0;
     }
+    _suspendLoopIfIdle();
   }
 
   String buildCacheKey(BarrageItem item) {

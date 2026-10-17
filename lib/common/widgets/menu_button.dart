@@ -309,6 +309,7 @@ class KeyboardShortcutsDialog extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isZh = Localizations.localeOf(context).languageCode == 'zh';
+    final currentRoute = Get.currentRoute;
 
     final favoriteSection = isZh
         ? _ShortcutSectionData(
@@ -346,7 +347,7 @@ class KeyboardShortcutsDialog extends StatelessWidget {
 
     final playerSection = isZh
         ? _ShortcutSectionData(
-            title: '播放页',
+            title: '直播播放页',
             items: [
               _ShortcutItem(keys: const ['Space'], desc: '播放 / 暂停'),
               _ShortcutItem(keys: const ['F5'], desc: '刷新当前直播'),
@@ -355,8 +356,8 @@ class KeyboardShortcutsDialog extends StatelessWidget {
               _ShortcutItem(keys: const ['Ctrl', 'S'], desc: '截取当前画面并保存'),
               _ShortcutItem(keys: const ['Ctrl', 'D'], desc: '弹幕显示开关'),
               _ShortcutItem(keys: const ['Ctrl', 'W'], desc: '全局静音开关'),
-              _ShortcutItem(keys: const ['1'], desc: '切换到上一个直播间'),
-              _ShortcutItem(keys: const ['2'], desc: '切换到下一个直播间'),
+              _ShortcutItem(keys: const ['1'], desc: '切换到上一个 tab'),
+              _ShortcutItem(keys: const ['2'], desc: '切换到下一个 tab'),
               _ShortcutItem(keys: const ['↑'], desc: '音量 +5%'),
               _ShortcutItem(keys: const ['↓'], desc: '音量 -5%'),
               _ShortcutItem(keys: const ['←'], desc: '后退 5 秒'),
@@ -374,7 +375,7 @@ class KeyboardShortcutsDialog extends StatelessWidget {
             ],
           )
         : _ShortcutSectionData(
-            title: 'Player Page',
+            title: 'Live Player',
             items: [
               _ShortcutItem(keys: const ['Space'], desc: 'Play / Pause'),
               _ShortcutItem(keys: const ['F5'], desc: 'Refresh current stream'),
@@ -382,6 +383,7 @@ class KeyboardShortcutsDialog extends StatelessWidget {
               _ShortcutItem(keys: const ['Ctrl', 'E'], desc: 'Seek to live edge'),
               _ShortcutItem(keys: const ['Ctrl', 'S'], desc: 'Take screenshot'),
               _ShortcutItem(keys: const ['Ctrl', 'D'], desc: 'Toggle danmaku display'),
+              _ShortcutItem(keys: const ['Ctrl', 'W'], desc: 'Toggle global mute'),
               _ShortcutItem(keys: const ['1'], desc: 'Previous room'),
               _ShortcutItem(keys: const ['2'], desc: 'Next room'),
               _ShortcutItem(keys: const ['↑'], desc: 'Volume +5%'),
@@ -404,6 +406,57 @@ class KeyboardShortcutsDialog extends StatelessWidget {
               _ShortcutItem(keys: const ['Esc'], desc: 'Exit fullscreen / Close page'),
             ],
           );
+
+    final localPlayerSection = isZh
+        ? _ShortcutSectionData(
+            title: '本地播放页',
+            items: [
+              _ShortcutItem(keys: const ['Space'], desc: '播放 / 暂停'),
+              _ShortcutItem(keys: const ['Ctrl', 'F'], desc: '窗口全屏切换'),
+              _ShortcutItem(keys: const ['Ctrl', 'S'], desc: '截取当前画面并保存'),
+              _ShortcutItem(keys: const ['Ctrl', 'D'], desc: '弹幕显示开关'),
+              _ShortcutItem(keys: const ['Ctrl', 'W'], desc: '静音开关'),
+              _ShortcutItem(keys: const ['Ctrl', 'B'], desc: '小窗播放（PiP）'),
+              _ShortcutItem(keys: const ['↑'], desc: '音量 +5%'),
+              _ShortcutItem(keys: const ['↓'], desc: '音量 -5%'),
+              _ShortcutItem(keys: const ['←'], desc: '后退 5 秒'),
+              _ShortcutItem(keys: const ['→'], desc: '前进 5 秒'),
+              _ShortcutItem(keys: const ['shift', '←'], desc: '后退 30 秒'),
+              _ShortcutItem(keys: const ['shift', '→'], desc: '前进 30 秒'),
+              _ShortcutItem(keys: const ['Mouse Wheel'], desc: '调节音量'),
+              _ShortcutItem(keys: const ['Ctrl', 'Mouse Wheel'], desc: '调节播放倍速（0.5x ~ 3.0x）'),
+              _ShortcutItem(keys: const ['Double Click'], desc: '双击视频切换全屏 / 窗口全屏'),
+              _ShortcutItem(keys: const ['Esc'], desc: '退出 PiP / 全屏 / 关闭页面'),
+            ],
+          )
+        : _ShortcutSectionData(
+            title: 'Local Player',
+            items: [
+              _ShortcutItem(keys: const ['Space'], desc: 'Play / Pause'),
+              _ShortcutItem(keys: const ['Ctrl', 'F'], desc: 'Toggle window fullscreen'),
+              _ShortcutItem(keys: const ['Ctrl', 'S'], desc: 'Take screenshot'),
+              _ShortcutItem(keys: const ['Ctrl', 'D'], desc: 'Toggle danmaku display'),
+              _ShortcutItem(keys: const ['Ctrl', 'W'], desc: 'Toggle mute'),
+              _ShortcutItem(keys: const ['Ctrl', 'B'], desc: 'Toggle PiP mode'),
+              _ShortcutItem(keys: const ['↑'], desc: 'Volume +5%'),
+              _ShortcutItem(keys: const ['↓'], desc: 'Volume -5%'),
+              _ShortcutItem(keys: const ['←'], desc: 'Back 5s (Shift 30s)'),
+              _ShortcutItem(keys: const ['→'], desc: 'Forward 5s (Shift 30s)'),
+              _ShortcutItem(keys: const ['Mouse Wheel'], desc: 'Adjust volume'),
+              _ShortcutItem(keys: const ['Ctrl', 'Mouse Wheel'], desc: 'Adjust playback speed (0.5x ~ 3.0x)'),
+              _ShortcutItem(keys: const ['Double Click'], desc: 'Double-click video to toggle fullscreen'),
+              _ShortcutItem(keys: const ['Esc'], desc: 'Exit PiP / fullscreen / Close page'),
+            ],
+          );
+
+    final sections = <_ShortcutSectionData>[];
+    if (currentRoute == RoutePath.kLocalPlayback) {
+      sections.add(localPlayerSection);
+    } else if (currentRoute == RoutePath.kLivePlay || currentRoute == RoutePath.kMultiview) {
+      sections.add(playerSection);
+    } else {
+      sections.addAll([favoriteSection, playerSection]);
+    }
 
     return Dialog(
       backgroundColor: colorScheme.surface,
@@ -444,9 +497,10 @@ class KeyboardShortcutsDialog extends StatelessWidget {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
                   children: [
-                    _ShortcutSection(section: favoriteSection),
-                    const SizedBox(height: 20),
-                    _ShortcutSection(section: playerSection),
+                    for (int i = 0; i < sections.length; i++) ...[
+                      _ShortcutSection(section: sections[i]),
+                      if (i != sections.length - 1) const SizedBox(height: 20),
+                    ],
                   ],
                 ),
               ),

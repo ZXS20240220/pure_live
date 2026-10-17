@@ -19,6 +19,10 @@ class LiveRouteObserver extends RouteObserver<PageRoute<dynamic>> {
         break;
       case RoutePath.kMultiview:
         _onMultiviewEnter();
+        break;
+      case RoutePath.kLocalPlayback:
+        _onLocalPlaybackEnter();
+        break;
       case RoutePath.kRecordPage:
         _setVideoLayerVisible(false);
         break;
@@ -41,6 +45,11 @@ class LiveRouteObserver extends RouteObserver<PageRoute<dynamic>> {
   void _onLivePlayEnter() {
     final playerManager = GlobalPlayerService.instance.player;
     playerManager.setVideoPresentationVisible(true);
+    unawaited(playerManager.closeAppFloating());
+  }
+
+  void _onLocalPlaybackEnter() {
+    final playerManager = GlobalPlayerService.instance.player;
     unawaited(playerManager.closeAppFloating());
   }
 

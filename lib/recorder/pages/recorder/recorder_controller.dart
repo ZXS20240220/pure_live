@@ -23,6 +23,7 @@ import 'package:pure_live/recorder/ffmpeg/ffmpeg_manager.dart';
 import 'package:pure_live/recorder/ffmpeg/ffmpeg_scheduler.dart';
 import 'package:pure_live/recorder/ffmpeg/ffmpeg_types.dart';
 import 'package:pure_live/recorder/models/live_record_task.dart';
+import 'package:pure_live/recorder/models/recording_group.dart';
 import 'package:pure_live/recorder/models/record_status.dart';
 import 'package:pure_live/recorder/pages/record_settings/record_settings_controller.dart';
 import 'package:pure_live/recorder/services/cache_service.dart';
@@ -910,6 +911,7 @@ class RecorderController extends GetxService {
         ..selectedLine = resolved.lineLabel
         ..outputDir = directory.path;
       updateTask(task);
+      unawaited(_writeRecordingMetaSidecar(task, directory.path));
 
       final pendingLease = ownedSource == null
           ? _PendingRecorderLease(sourceUrl: resolved.url, stream: resolved)
@@ -1712,6 +1714,24 @@ class RecorderController extends GetxService {
     // release, rather than starting an untracked write after clearing dirty.
     unawaited(_flushPersist());
     super.onClose();
+  }
+
+  Future<void> _writeRecordingMetaSidecar(LiveRecordTask task, String outputDir) async {
+    try {
+      final dir = Directory(outputDir);
+      if (!await dir.exists()) return;
+      final sidecar = File(Mp4Entry.sidecarPathForDirectory(outputDir));
+      await sidecar.writeAsString(
+        jsonEncode({
+          'nick': task.nick,
+          'cover': task.cover,
+          'avatar': task.avatar,
+          'title': task.title,
+          'platform': task.platform,
+          'roomId': task.roomId,
+        }),
+      );
+    } catch (_) {}
   }
 }
 

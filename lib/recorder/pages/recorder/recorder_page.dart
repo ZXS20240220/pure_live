@@ -10,6 +10,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:pure_live/recorder/models/live_record_task.dart';
 import 'package:pure_live/recorder/models/recorder_task_ordering.dart';
 import 'package:pure_live/recorder/services/cache_service.dart';
+import 'package:pure_live/recorder/models/recording_group.dart';
 import 'package:pure_live/recorder/widgets/recorder_bounded_scroll.dart';
 import 'package:pure_live/recorder/pages/recorder/recorder_controller.dart';
 
@@ -719,73 +720,6 @@ class _TaskCard extends GetView<RecorderController> {
   }
 }
 
-class _Mp4Entry {
-  _Mp4Entry({
-    required this.path,
-    required this.platform,
-    required this.safeNick,
-    required this.modified,
-    required this.size,
-  });
-
-  final String path;
-  final String platform;
-  final String safeNick;
-  final DateTime modified;
-  final int size;
-
-  String? originalNick;
-  String? cover;
-  String? avatar;
-  String? title;
-
-  void mergeTask(LiveRecordTask task) {
-    originalNick = task.nick;
-    cover = task.cover;
-    avatar = task.avatar;
-    title = task.title;
-  }
-
-  String get displayNick => originalNick ?? safeNick;
-}
-
-class _HostRecordingGroup {
-  _HostRecordingGroup({required this.platform, required this.safeNick});
-
-  final String platform;
-  final String safeNick;
-  final List<_Mp4Entry> mp4s = [];
-
-  DateTime get latestModified =>
-      mp4s.fold(DateTime.fromMillisecondsSinceEpoch(0), (prev, e) => e.modified.isAfter(prev) ? e.modified : prev);
-
-  String get displayNick {
-    for (final e in mp4s) {
-      if (e.originalNick != null) return e.originalNick!;
-    }
-    return safeNick;
-  }
-
-  String? get cover {
-    for (final e in mp4s) {
-      if (e.cover != null && e.cover!.isNotEmpty) return e.cover;
-    }
-    return null;
-  }
-
-  String? get avatar {
-    for (final e in mp4s) {
-      if (e.avatar != null && e.avatar!.isNotEmpty) return e.avatar;
-    }
-    return null;
-  }
-
-  String get latestTitle {
-    final latest = mp4s.reduce((a, b) => a.modified.isAfter(b.modified) ? a : b);
-    return latest.title ?? '本地录制';
-  }
-}
-
 class _CompletedGroupedList extends StatefulWidget {
   const _CompletedGroupedList();
 
@@ -794,7 +728,7 @@ class _CompletedGroupedList extends StatefulWidget {
 }
 
 class _CompletedGroupedListState extends State<_CompletedGroupedList> {
-  final List<_HostRecordingGroup> _groups = [];
+  final List<HostRecordingGroup> _groups = [];
   bool _loading = true;
   Worker? _taskWorker;
   final EasyRefreshController _refreshController = EasyRefreshController(
@@ -819,7 +753,7 @@ class _CompletedGroupedListState extends State<_CompletedGroupedList> {
 
   Future<void> _scan() async {
     final recordDir = await CacheService.to.getRecordDir();
-    final mp4Map = <String, _Mp4Entry>{};
+    final mp4Map = <String, Mp4Entry>{};
 
     await for (final entity in recordDir.list(recursive: true, followLinks: false)) {
       if (entity is! File) continue;
@@ -829,7 +763,7 @@ class _CompletedGroupedListState extends State<_CompletedGroupedList> {
         final rel = p.relative(entity.path, from: recordDir.path);
         final segs = p.split(rel);
         if (segs.length < 2) continue;
-        mp4Map[entity.path] = _Mp4Entry(
+        mp4Map[entity.path] = Mp4Entry(
           path: entity.path,
           platform: segs[0],
           safeNick: segs[1],
@@ -850,13 +784,14 @@ class _CompletedGroupedListState extends State<_CompletedGroupedList> {
       }
     }
 
-    final groupMap = <String, _HostRecordingGroup>{};
+    for (final mp4 in mp4Map.values) {
+      await mp4.mergeSidecar();
+    }
+
+    final groupMap = <String, HostRecordingGroup>{};
     for (final mp4 in mp4Map.values) {
       final key = '${mp4.platform}|${mp4.safeNick}';
-      groupMap
-          .putIfAbsent(key, () => _HostRecordingGroup(platform: mp4.platform, safeNick: mp4.safeNick))
-          .mp4s
-          .add(mp4);
+      groupMap.putIfAbsent(key, () => HostRecordingGroup(platform: mp4.platform, safeNick: mp4.safeNick)).mp4s.add(mp4);
     }
 
     final groups = groupMap.values.toList()..sort((a, b) => b.latestModified.compareTo(a.latestModified));
@@ -899,7 +834,7 @@ class _CompletedGroupedListState extends State<_CompletedGroupedList> {
           padding: const EdgeInsets.all(14),
           itemCount: _groups.length,
           separatorBuilder: (_, _) => const SizedBox(height: 14),
-          itemBuilder: (_, i) => _CompletedHostCard(group: _groups[i]),
+          itemBuilder: (_, i) => _CompletedHostCard(group: _groups[i], onChanged: _scan),
         );
       },
     );
@@ -907,8 +842,9 @@ class _CompletedGroupedListState extends State<_CompletedGroupedList> {
 }
 
 class _CompletedHostCard extends StatelessWidget {
-  const _CompletedHostCard({required this.group});
-  final _HostRecordingGroup group;
+  const _CompletedHostCard({required this.group, this.onChanged});
+  final HostRecordingGroup group;
+  final VoidCallback? onChanged;
 
   Color _platformColor(String platform) {
     switch (platform.toLowerCase()) {
@@ -933,6 +869,60 @@ class _CompletedHostCard extends StatelessWidget {
     }
   }
 
+  Future<void> _openDirectory() async {
+    if (group.mp4s.isEmpty) return;
+    final dirPath = p.dirname(group.mp4s.first.path);
+    await Process.run('explorer', [dirPath]);
+  }
+
+  Future<void> _deleteGroup(BuildContext context) async {
+    if (group.mp4s.isEmpty) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      useRootNavigator: false,
+      builder: (ctx) => AlertDialog(
+        scrollable: true,
+        title: const Text('删除全部录制'),
+        content: Text('确定要删除「${group.displayNick}」的全部 ${group.mp4s.length} 段录制吗？\n此操作将同时删除磁盘上的视频文件和弹幕文件，不可恢复。'),
+        actionsOverflowDirection: VerticalDirection.down,
+        actions: [
+          TextButton(
+            style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(i18n('cancel')),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red, minimumSize: const Size(48, 48)),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(i18n('confirm')),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    final dirsToDelete = <String>{};
+    for (final mp4 in group.mp4s) {
+      dirsToDelete.add(p.dirname(mp4.path));
+      try {
+        final f = File(mp4.path);
+        if (await f.exists()) await f.delete();
+        final xml = File(p.setExtension(mp4.path, '.xml'));
+        if (await xml.exists()) await xml.delete();
+      } catch (_) {}
+    }
+    for (final dirPath in dirsToDelete) {
+      try {
+        final dir = Directory(dirPath);
+        if (await dir.exists()) {
+          final remaining = await dir.list().toList();
+          if (remaining.isEmpty) await dir.delete();
+        }
+      } catch (_) {}
+    }
+    onChanged?.call();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -949,103 +939,129 @@ class _CompletedHostCard extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(18),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () {},
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Row(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
-                    child: SizedBox(
-                      width: 150,
-                      height: 90,
-                      child: (group.cover != null && normalizeNetworkImageUrl(group.cover!).isNotEmpty)
-                          ? CachedNetworkImage(
-                              imageUrl: normalizeNetworkImageUrl(group.cover!),
-                              cacheKey: normalizeNetworkImageUrl(group.cover!),
-                              cacheManager: CustomImageCacheManager.instance,
-                              httpHeaders: networkImageHeaders(normalizeNetworkImageUrl(group.cover!)),
-                              fit: BoxFit.cover,
-                              fadeInDuration: Duration.zero,
-                              fadeOutDuration: Duration.zero,
-                              errorWidget: (_, _, _) => const ColoredBox(color: Colors.black12),
-                            )
-                          : const ColoredBox(color: Colors.black12),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: platformColor.withValues(alpha: 0.9),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 0.5),
-                              ),
-                              child: Text(
-                                group.platform.toUpperCase(),
-                                style: AppTextStyles.t11.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '已完成 ${group.mp4s.length} 段录制',
-                              style: AppTextStyles.t12.copyWith(
-                                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                              ),
-                            ),
-                          ],
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () => Get.toNamed(RoutePath.kLocalPlayback, arguments: group),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(14),
+                        child: SizedBox(
+                          width: 150,
+                          height: 90,
+                          child: (group.cover != null && normalizeNetworkImageUrl(group.cover!).isNotEmpty)
+                              ? CachedNetworkImage(
+                                  imageUrl: normalizeNetworkImageUrl(group.cover!),
+                                  cacheKey: normalizeNetworkImageUrl(group.cover!),
+                                  cacheManager: CustomImageCacheManager.instance,
+                                  httpHeaders: networkImageHeaders(normalizeNetworkImageUrl(group.cover!)),
+                                  fit: BoxFit.cover,
+                                  fadeInDuration: Duration.zero,
+                                  fadeOutDuration: Duration.zero,
+                                  errorWidget: (_, _, _) => const ColoredBox(color: Colors.black12),
+                                )
+                              : const ColoredBox(color: Colors.black12),
                         ),
-                        const SizedBox(height: 10),
-                        Text(
-                          group.latestTitle,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTextStyles.t15.copyWith(fontWeight: FontWeight.w700, height: 1.2),
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            CircleAvatar(
-                              radius: 12,
-                              backgroundImage:
-                                  (group.avatar != null && normalizeNetworkImageUrl(group.avatar!).isNotEmpty)
-                                  ? NetworkImage(normalizeNetworkImageUrl(group.avatar!))
-                                  : null,
-                            ),
-                            const SizedBox(width: 7),
-                            Expanded(
-                              child: Text(
-                                group.displayNick,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTextStyles.t13.copyWith(
-                                  color: theme.colorScheme.onSurface.withValues(alpha: 0.85),
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: platformColor.withValues(alpha: 0.9),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 0.5),
+                                  ),
+                                  child: Text(
+                                    group.platform.toUpperCase(),
+                                    style: AppTextStyles.t11.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
+                                  ),
                                 ),
-                              ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '已完成 ${group.mp4s.length} 段录制',
+                                  style: AppTextStyles.t12.copyWith(
+                                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              group.latestTitle,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTextStyles.t15.copyWith(fontWeight: FontWeight.w700, height: 1.2),
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 12,
+                                  backgroundImage:
+                                      (group.avatar != null && normalizeNetworkImageUrl(group.avatar!).isNotEmpty)
+                                      ? NetworkImage(normalizeNetworkImageUrl(group.avatar!))
+                                      : null,
+                                ),
+                                const SizedBox(width: 7),
+                                Expanded(
+                                  child: Text(
+                                    group.displayNick,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppTextStyles.t13.copyWith(
+                                      color: theme.colorScheme.onSurface.withValues(alpha: 0.85),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  IconButton.filled(
-                    onPressed: () {},
-                    icon: const Icon(Remix.play_large_line),
-                    tooltip: '播放本地录制',
-                    style: IconButton.styleFrom(backgroundColor: platformColor, foregroundColor: Colors.white),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    onPressed: _openDirectory,
+                    icon: Icon(
+                      Remix.folder_open_line,
+                      size: 18,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                    tooltip: '打开目录',
+                    splashRadius: 18,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    padding: EdgeInsets.zero,
+                  ),
+                  IconButton(
+                    onPressed: () => _deleteGroup(context),
+                    icon: Icon(Remix.delete_bin_line, size: 18, color: Colors.red.withValues(alpha: 0.8)),
+                    tooltip: '删除全部',
+                    splashRadius: 18,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    padding: EdgeInsets.zero,
                   ),
                 ],
               ),
-            ),
+            ],
           ),
         ),
       ),

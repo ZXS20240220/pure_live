@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:pure_live/plugins/locale_helper.dart';
 import 'package:pure_live/common/global/platform_utils.dart';
 import 'package:pure_live/common/services/utils/hive_rx.dart';
 import 'package:pure_live/common/services/settings_service.dart';
@@ -295,7 +294,7 @@ class _OverlayVolumeControlState extends State<OverlayVolumeControl> {
         child: IconButton(
           onPressed: _handleToggleMute,
           icon: Icon(icon, color: Colors.white, size: 24),
-          tooltip: _volume == 0 ? i18n('cancel_mute') : i18n('mute'),
+          tooltip: '',
         ),
       ),
     );
