@@ -524,8 +524,8 @@ class _DanmakuSettingsContentState extends State<DanmakuSettingsContent> {
   }
 
   void _saveTemplate() {
-    final settings = SettingsService.to.danmaku;
-    settings.savedDanmakuTemplate.v = DanmakuViewingTemplate(
+    final dm = SettingsService.to.danmaku;
+    dm.savedDanmakuTemplate.v = DanmakuViewingTemplate(
       noEmojiMode: controller.noEmojiMode.v,
       area: controller.danmakuArea.v,
       top: controller.danmakuTopArea.v,
@@ -537,7 +537,30 @@ class _DanmakuSettingsContentState extends State<DanmakuSettingsContent> {
       opacity: controller.danmakuOpacity.v,
       stroke: controller.enableDanmakuStroke.v,
       fps: controller.danmakuFps.v,
-      autoFps: settings.danmakuAutoFps.v,
+      autoFps: dm.danmakuAutoFps.v,
+      densityMode: dm.danmakuDensityMode.v,
+      widthAdaptiveSpeed: dm.danmakuWidthAdaptiveSpeed.v,
+      maxVisibleCount: dm.danmakuMaxVisibleCount.v,
+      massMode: dm.danmakuMassMode.v,
+      letterSpacing: dm.danmakuLetterSpacing.v,
+      aggregateRepeatedDanmaku: dm.aggregateRepeatedDanmaku.v,
+      collapseRepeatedDanmaku: dm.collapseRepeatedDanmaku.v,
+      repeatedDanmakuWindowSeconds: dm.repeatedDanmakuWindowSeconds.v,
+      enableDanmakuTapInteraction: dm.enableDanmakuTapInteraction.v,
+      enablePipDanmaku: dm.enablePipDanmaku.v,
+      pipDanmakuNoEmojiMode: dm.pipDanmakuNoEmojiMode.v,
+      pipDanmakuAutoScale: dm.pipDanmakuAutoScale.v,
+      pipDanmakuUseOriginalColor: dm.pipDanmakuUseOriginalColor.v,
+      pipDanmakuColor: dm.pipDanmakuColor.v,
+      pipDanmakuFontSize: dm.pipDanmakuFontSize.v,
+      pipDanmakuFontWeight: dm.pipDanmakuFontWeight.v,
+      pipDanmakuSpeed: dm.pipDanmakuSpeed.v,
+      pipDanmakuOpacity: dm.pipDanmakuOpacity.v,
+      pipDanmakuArea: dm.pipDanmakuArea.v,
+      pipDanmakuMaxVisibleCount: dm.pipDanmakuMaxVisibleCount.v,
+      pipDanmakuEmitInterval: dm.pipDanmakuEmitInterval.v,
+      pipDanmakuAutoFps: dm.pipDanmakuAutoFps.v,
+      pipDanmakuFps: dm.pipDanmakuFps.v,
     ).encode();
     ToastUtil.show(i18n('danmaku_template_saved'));
   }
@@ -548,14 +571,37 @@ class _DanmakuSettingsContentState extends State<DanmakuSettingsContent> {
       ToastUtil.show(i18n('danmaku_template_empty'));
       return;
     }
-    final settings = SettingsService.to.danmaku;
+    final dm = SettingsService.to.danmaku;
     final template = DanmakuViewingTemplate.tryDecode(
       raw,
       fallbackNoEmojiMode: controller.noEmojiMode.v,
       fallbackFontWeight: controller.danmakuFontWeight.v,
       fallbackStroke: controller.enableDanmakuStroke.v,
       fallbackFps: controller.danmakuFps.v,
-      fallbackAutoFps: settings.danmakuAutoFps.v,
+      fallbackAutoFps: dm.danmakuAutoFps.v,
+      fallbackDensityMode: dm.danmakuDensityMode.v,
+      fallbackWidthAdaptiveSpeed: dm.danmakuWidthAdaptiveSpeed.v,
+      fallbackMaxVisibleCount: dm.danmakuMaxVisibleCount.v,
+      fallbackMassMode: dm.danmakuMassMode.v,
+      fallbackLetterSpacing: dm.danmakuLetterSpacing.v,
+      fallbackAggregateRepeatedDanmaku: dm.aggregateRepeatedDanmaku.v,
+      fallbackCollapseRepeatedDanmaku: dm.collapseRepeatedDanmaku.v,
+      fallbackRepeatedDanmakuWindowSeconds: dm.repeatedDanmakuWindowSeconds.v,
+      fallbackEnableDanmakuTapInteraction: dm.enableDanmakuTapInteraction.v,
+      fallbackEnablePipDanmaku: dm.enablePipDanmaku.v,
+      fallbackPipDanmakuNoEmojiMode: dm.pipDanmakuNoEmojiMode.v,
+      fallbackPipDanmakuAutoScale: dm.pipDanmakuAutoScale.v,
+      fallbackPipDanmakuUseOriginalColor: dm.pipDanmakuUseOriginalColor.v,
+      fallbackPipDanmakuColor: dm.pipDanmakuColor.v,
+      fallbackPipDanmakuFontSize: dm.pipDanmakuFontSize.v,
+      fallbackPipDanmakuFontWeight: dm.pipDanmakuFontWeight.v,
+      fallbackPipDanmakuSpeed: dm.pipDanmakuSpeed.v,
+      fallbackPipDanmakuOpacity: dm.pipDanmakuOpacity.v,
+      fallbackPipDanmakuArea: dm.pipDanmakuArea.v,
+      fallbackPipDanmakuMaxVisibleCount: dm.pipDanmakuMaxVisibleCount.v,
+      fallbackPipDanmakuEmitInterval: dm.pipDanmakuEmitInterval.v,
+      fallbackPipDanmakuAutoFps: dm.pipDanmakuAutoFps.v,
+      fallbackPipDanmakuFps: dm.pipDanmakuFps.v,
     );
     if (template == null) {
       ToastUtil.show(i18n('danmaku_template_invalid'));
@@ -572,7 +618,30 @@ class _DanmakuSettingsContentState extends State<DanmakuSettingsContent> {
     controller.danmakuOpacity.v = template.opacity;
     controller.enableDanmakuStroke.v = template.stroke;
     controller.danmakuFps.v = template.fps;
-    settings.danmakuAutoFps.v = template.autoFps;
+    dm.danmakuAutoFps.v = template.autoFps;
+    dm.danmakuDensityMode.v = template.densityMode;
+    dm.danmakuWidthAdaptiveSpeed.v = template.widthAdaptiveSpeed;
+    dm.danmakuMaxVisibleCount.v = template.maxVisibleCount;
+    dm.danmakuMassMode.v = template.massMode;
+    dm.danmakuLetterSpacing.v = template.letterSpacing;
+    dm.aggregateRepeatedDanmaku.v = template.aggregateRepeatedDanmaku;
+    dm.collapseRepeatedDanmaku.v = template.collapseRepeatedDanmaku;
+    dm.repeatedDanmakuWindowSeconds.v = template.repeatedDanmakuWindowSeconds;
+    dm.enableDanmakuTapInteraction.v = template.enableDanmakuTapInteraction;
+    dm.enablePipDanmaku.v = template.enablePipDanmaku;
+    dm.pipDanmakuNoEmojiMode.v = template.pipDanmakuNoEmojiMode;
+    dm.pipDanmakuAutoScale.v = template.pipDanmakuAutoScale;
+    dm.pipDanmakuUseOriginalColor.v = template.pipDanmakuUseOriginalColor;
+    dm.pipDanmakuColor.v = template.pipDanmakuColor;
+    dm.pipDanmakuFontSize.v = template.pipDanmakuFontSize;
+    dm.pipDanmakuFontWeight.v = template.pipDanmakuFontWeight;
+    dm.pipDanmakuSpeed.v = template.pipDanmakuSpeed;
+    dm.pipDanmakuOpacity.v = template.pipDanmakuOpacity;
+    dm.pipDanmakuArea.v = template.pipDanmakuArea;
+    dm.pipDanmakuMaxVisibleCount.v = template.pipDanmakuMaxVisibleCount;
+    dm.pipDanmakuEmitInterval.v = template.pipDanmakuEmitInterval;
+    dm.pipDanmakuAutoFps.v = template.pipDanmakuAutoFps;
+    dm.pipDanmakuFps.v = template.pipDanmakuFps;
     ToastUtil.show(i18n('danmaku_template_applied'));
   }
 

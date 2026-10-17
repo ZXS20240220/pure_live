@@ -108,7 +108,11 @@ class DanmakuViewingPreset {
   }
 }
 
-/// A validated, transaction-ready snapshot of the visual danmaku controls.
+/// A validated, transaction-ready snapshot of every danmaku setting that the
+/// user can directly adjust on the live danmaku settings surface — main room
+/// visual style, repeat/filter policy, tap interaction, and the entire PiP
+/// danmaku sub-section. Local interaction mode and preset selection buttons
+/// are intentionally excluded (those are actions, not visual values).
 ///
 /// Decoding finishes before the settings surface mutates any Rx value. This
 /// prevents a damaged saved template from applying only the fields that happen
@@ -127,9 +131,32 @@ class DanmakuViewingTemplate {
     required this.stroke,
     required this.fps,
     required this.autoFps,
+    required this.densityMode,
+    required this.widthAdaptiveSpeed,
+    required this.maxVisibleCount,
+    required this.massMode,
+    required this.letterSpacing,
+    required this.aggregateRepeatedDanmaku,
+    required this.collapseRepeatedDanmaku,
+    required this.repeatedDanmakuWindowSeconds,
+    required this.enableDanmakuTapInteraction,
+    required this.enablePipDanmaku,
+    required this.pipDanmakuNoEmojiMode,
+    required this.pipDanmakuAutoScale,
+    required this.pipDanmakuUseOriginalColor,
+    required this.pipDanmakuColor,
+    required this.pipDanmakuFontSize,
+    required this.pipDanmakuFontWeight,
+    required this.pipDanmakuSpeed,
+    required this.pipDanmakuOpacity,
+    required this.pipDanmakuArea,
+    required this.pipDanmakuMaxVisibleCount,
+    required this.pipDanmakuEmitInterval,
+    required this.pipDanmakuAutoFps,
+    required this.pipDanmakuFps,
   });
 
-  static const int schemaVersion = 2;
+  static const int schemaVersion = 3;
 
   final bool noEmojiMode;
   final double area;
@@ -143,6 +170,31 @@ class DanmakuViewingTemplate {
   final bool stroke;
   final int fps;
   final bool autoFps;
+
+  final int densityMode;
+  final bool widthAdaptiveSpeed;
+  final int maxVisibleCount;
+  final bool massMode;
+  final double letterSpacing;
+  final bool aggregateRepeatedDanmaku;
+  final bool collapseRepeatedDanmaku;
+  final int repeatedDanmakuWindowSeconds;
+  final bool enableDanmakuTapInteraction;
+
+  final bool enablePipDanmaku;
+  final bool pipDanmakuNoEmojiMode;
+  final bool pipDanmakuAutoScale;
+  final bool pipDanmakuUseOriginalColor;
+  final int pipDanmakuColor;
+  final double pipDanmakuFontSize;
+  final int pipDanmakuFontWeight;
+  final double pipDanmakuSpeed;
+  final double pipDanmakuOpacity;
+  final double pipDanmakuArea;
+  final int pipDanmakuMaxVisibleCount;
+  final double pipDanmakuEmitInterval;
+  final bool pipDanmakuAutoFps;
+  final int pipDanmakuFps;
 
   String encode() => jsonEncode({
     'version': schemaVersion,
@@ -158,6 +210,29 @@ class DanmakuViewingTemplate {
     'stroke': stroke,
     'fps': fps,
     'autoFps': autoFps,
+    'densityMode': densityMode,
+    'widthAdaptiveSpeed': widthAdaptiveSpeed,
+    'maxVisibleCount': maxVisibleCount,
+    'massMode': massMode,
+    'letterSpacing': letterSpacing,
+    'aggregateRepeatedDanmaku': aggregateRepeatedDanmaku,
+    'collapseRepeatedDanmaku': collapseRepeatedDanmaku,
+    'repeatedDanmakuWindowSeconds': repeatedDanmakuWindowSeconds,
+    'enableDanmakuTapInteraction': enableDanmakuTapInteraction,
+    'enablePipDanmaku': enablePipDanmaku,
+    'pipDanmakuNoEmojiMode': pipDanmakuNoEmojiMode,
+    'pipDanmakuAutoScale': pipDanmakuAutoScale,
+    'pipDanmakuUseOriginalColor': pipDanmakuUseOriginalColor,
+    'pipDanmakuColor': pipDanmakuColor,
+    'pipDanmakuFontSize': pipDanmakuFontSize,
+    'pipDanmakuFontWeight': pipDanmakuFontWeight,
+    'pipDanmakuSpeed': pipDanmakuSpeed,
+    'pipDanmakuOpacity': pipDanmakuOpacity,
+    'pipDanmakuArea': pipDanmakuArea,
+    'pipDanmakuMaxVisibleCount': pipDanmakuMaxVisibleCount,
+    'pipDanmakuEmitInterval': pipDanmakuEmitInterval,
+    'pipDanmakuAutoFps': pipDanmakuAutoFps,
+    'pipDanmakuFps': pipDanmakuFps,
   });
 
   static DanmakuViewingTemplate? tryDecode(
@@ -167,6 +242,29 @@ class DanmakuViewingTemplate {
     required bool fallbackStroke,
     required int fallbackFps,
     required bool fallbackAutoFps,
+    required int fallbackDensityMode,
+    required bool fallbackWidthAdaptiveSpeed,
+    required int fallbackMaxVisibleCount,
+    required bool fallbackMassMode,
+    required double fallbackLetterSpacing,
+    required bool fallbackAggregateRepeatedDanmaku,
+    required bool fallbackCollapseRepeatedDanmaku,
+    required int fallbackRepeatedDanmakuWindowSeconds,
+    required bool fallbackEnableDanmakuTapInteraction,
+    required bool fallbackEnablePipDanmaku,
+    required bool fallbackPipDanmakuNoEmojiMode,
+    required bool fallbackPipDanmakuAutoScale,
+    required bool fallbackPipDanmakuUseOriginalColor,
+    required int fallbackPipDanmakuColor,
+    required double fallbackPipDanmakuFontSize,
+    required int fallbackPipDanmakuFontWeight,
+    required double fallbackPipDanmakuSpeed,
+    required double fallbackPipDanmakuOpacity,
+    required double fallbackPipDanmakuArea,
+    required int fallbackPipDanmakuMaxVisibleCount,
+    required double fallbackPipDanmakuEmitInterval,
+    required bool fallbackPipDanmakuAutoFps,
+    required int fallbackPipDanmakuFps,
   }) {
     try {
       final decoded = jsonDecode(raw);
@@ -184,6 +282,55 @@ class DanmakuViewingTemplate {
         stroke: _optionalBool(decoded, 'stroke', fallbackStroke),
         fps: _optionalInt(decoded, 'fps', fallbackFps, 30, 240),
         autoFps: _optionalBool(decoded, 'autoFps', fallbackAutoFps),
+        densityMode: _optionalInt(decoded, 'densityMode', fallbackDensityMode, 0, 2),
+        widthAdaptiveSpeed: _optionalBool(decoded, 'widthAdaptiveSpeed', fallbackWidthAdaptiveSpeed),
+        maxVisibleCount: _optionalInt(decoded, 'maxVisibleCount', fallbackMaxVisibleCount, 10, 200),
+        massMode: _optionalBool(decoded, 'massMode', fallbackMassMode),
+        letterSpacing: _optionalDouble(decoded, 'letterSpacing', fallbackLetterSpacing, -2, 8),
+        aggregateRepeatedDanmaku: _optionalBool(decoded, 'aggregateRepeatedDanmaku', fallbackAggregateRepeatedDanmaku),
+        collapseRepeatedDanmaku: _optionalBool(decoded, 'collapseRepeatedDanmaku', fallbackCollapseRepeatedDanmaku),
+        repeatedDanmakuWindowSeconds: _optionalInt(
+          decoded,
+          'repeatedDanmakuWindowSeconds',
+          fallbackRepeatedDanmakuWindowSeconds,
+          1,
+          30,
+        ),
+        enableDanmakuTapInteraction: _optionalBool(
+          decoded,
+          'enableDanmakuTapInteraction',
+          fallbackEnableDanmakuTapInteraction,
+        ),
+        enablePipDanmaku: _optionalBool(decoded, 'enablePipDanmaku', fallbackEnablePipDanmaku),
+        pipDanmakuNoEmojiMode: _optionalBool(decoded, 'pipDanmakuNoEmojiMode', fallbackPipDanmakuNoEmojiMode),
+        pipDanmakuAutoScale: _optionalBool(decoded, 'pipDanmakuAutoScale', fallbackPipDanmakuAutoScale),
+        pipDanmakuUseOriginalColor: _optionalBool(
+          decoded,
+          'pipDanmakuUseOriginalColor',
+          fallbackPipDanmakuUseOriginalColor,
+        ),
+        pipDanmakuColor: _optionalInt(decoded, 'pipDanmakuColor', fallbackPipDanmakuColor, 0, 0xFFFFFFFF),
+        pipDanmakuFontSize: _optionalDouble(decoded, 'pipDanmakuFontSize', fallbackPipDanmakuFontSize, 8, 40),
+        pipDanmakuFontWeight: _optionalFontWeight(decoded, fallbackPipDanmakuFontWeight, key: 'pipDanmakuFontWeight'),
+        pipDanmakuSpeed: _optionalDouble(decoded, 'pipDanmakuSpeed', fallbackPipDanmakuSpeed, 20, 400),
+        pipDanmakuOpacity: _optionalDouble(decoded, 'pipDanmakuOpacity', fallbackPipDanmakuOpacity, 0.1, 1),
+        pipDanmakuArea: _optionalDouble(decoded, 'pipDanmakuArea', fallbackPipDanmakuArea, 0.1, 1),
+        pipDanmakuMaxVisibleCount: _optionalInt(
+          decoded,
+          'pipDanmakuMaxVisibleCount',
+          fallbackPipDanmakuMaxVisibleCount,
+          1,
+          80,
+        ),
+        pipDanmakuEmitInterval: _optionalDouble(
+          decoded,
+          'pipDanmakuEmitInterval',
+          fallbackPipDanmakuEmitInterval,
+          0.05,
+          2,
+        ),
+        pipDanmakuAutoFps: _optionalBool(decoded, 'pipDanmakuAutoFps', fallbackPipDanmakuAutoFps),
+        pipDanmakuFps: _optionalInt(decoded, 'pipDanmakuFps', fallbackPipDanmakuFps, 15, 240),
       );
     } on FormatException {
       return null;
@@ -199,6 +346,17 @@ class DanmakuViewingTemplate {
     if (!result.isFinite || result < min || result > max) {
       throw FormatException('Template field out of range: $key');
     }
+    return result;
+  }
+
+  static double _optionalDouble(Map<String, dynamic> value, String key, double fallback, double min, double max) {
+    if (!value.containsKey(key)) return fallback.clamp(min, max).toDouble();
+    final raw = value[key];
+    if (raw is! num || !raw.toDouble().isFinite) {
+      throw FormatException('Invalid numeric template field: $key');
+    }
+    final result = raw.toDouble();
+    if (result < min || result > max) throw FormatException('Template field out of range: $key');
     return result;
   }
 
@@ -223,11 +381,12 @@ class DanmakuViewingTemplate {
     return result;
   }
 
-  static int _optionalFontWeight(Map<String, dynamic> value, int fallback) {
-    final raw = value['fontWeight'];
+  static int _optionalFontWeight(Map<String, dynamic> value, int fallback, {String key = 'fontWeight'}) {
+    if (!value.containsKey(key)) return _normalizeFontWeight(fallback);
+    final raw = value[key];
     if (raw == null) return _normalizeFontWeight(fallback);
     if (raw is! num || !raw.toDouble().isFinite || raw.toDouble() != raw.toInt().toDouble() || raw < 100 || raw > 900) {
-      throw const FormatException('Invalid font-weight template field');
+      throw FormatException('Invalid font-weight template field: $key');
     }
     return _normalizeFontWeight(raw.toInt());
   }
