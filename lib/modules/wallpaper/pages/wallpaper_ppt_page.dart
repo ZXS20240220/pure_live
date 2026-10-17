@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
@@ -213,7 +214,7 @@ class _WallpaperPptPageState extends State<WallpaperPptPage> {
                   final visible = controller.list;
                   final allVisibleSelected =
                       visible.isNotEmpty &&
-                      visible.every((item) => settingsController.pptImagePaths.contains(item.path));
+                      visible.every((item) => settingsController.pptImagePaths.contains(p.basename(item.path)));
                   return Tooltip(
                     message: allVisibleSelected ? '取消全选' : '全选当前页',
                     child: IconButton(
@@ -225,9 +226,7 @@ class _WallpaperPptPageState extends State<WallpaperPptPage> {
                                 settingsController.pptImagePaths.clear();
                               } else {
                                 for (final item in visible) {
-                                  if (!settingsController.pptImagePaths.contains(item.path)) {
-                                    settingsController.pptImagePaths.add(item.path);
-                                  }
+                                  settingsController.togglePptImage(item.path, true);
                                 }
                               }
                               _lastClickedIndex = null;
@@ -254,7 +253,7 @@ class _WallpaperPptPageState extends State<WallpaperPptPage> {
         settingsController.togglePptImage(list[i].path, true);
       }
     } else {
-      final selected = settingsController.pptImagePaths.contains(item.path);
+      final selected = settingsController.pptImagePaths.contains(p.basename(item.path));
       settingsController.togglePptImage(item.path, !selected);
       _lastClickedIndex = index;
     }
@@ -294,7 +293,7 @@ class _WallpaperPptPageState extends State<WallpaperPptPage> {
             itemBuilder: (context, index) {
               final item = displayList[index];
               return Obx(() {
-                final selected = settingsController.pptImagePaths.contains(item.path);
+                final selected = settingsController.pptImagePaths.contains(p.basename(item.path));
                 return _PptImageTile(
                   item: item,
                   selected: selected,

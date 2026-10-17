@@ -190,7 +190,10 @@ class SavedWallpapersController extends ServerAllPageController<SavedWallpaperIt
     if (!controller.hasWallpaper) return false;
     final source = controller.wallpaperSource.v;
     if (source.isEmpty) return false;
-    return source == item.path || source.endsWith('/${item.name}') || source.endsWith('\\${item.name}');
+    if (source.contains('\\') || source.contains('/')) {
+      return source == item.path || source.endsWith('/${item.name}') || source.endsWith('\\${item.name}');
+    }
+    return source == item.name;
   }
 
   /// 应用壁纸
@@ -215,8 +218,8 @@ class SavedWallpapersController extends ServerAllPageController<SavedWallpaperIt
     if (item.isVideo) {
       await WallpaperThumbnailService.to.deleteThumbnail(item.path);
     }
-    // 同步从 PPT 选中列表中移除
-    WallpaperSettingsController.to.pptImagePaths.remove(item.path);
+    // 同步从 PPT 选中列表中移除（basename 匹配）
+    WallpaperSettingsController.to.removeInvalidPptImage(item.path);
     // 若删除的是当前壁纸，清除壁纸状态
     if (isCurrent(item)) {
       WallpaperSettingsController.to.clearWallpaper();

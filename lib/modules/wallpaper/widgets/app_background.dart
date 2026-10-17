@@ -19,7 +19,7 @@ class AppBackground extends StatelessWidget {
 
     return Obx(() {
       final type = controller.wallpaperType;
-      final source = controller.wallpaperSource.v;
+      final source = controller.resolveWallpaperSourcePath();
 
       Widget background;
       if (!controller.hasWallpaper || type == WallpaperType.none) {
@@ -245,8 +245,7 @@ class _SlideshowBackgroundState extends State<_SlideshowBackground> {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      // 按文件名排序播放，与界面显示顺序保持一致
-      final paths = controller.pptImagePaths.toList()
+      final paths = controller.resolvePptPaths()
         ..sort((a, b) => p.basename(a).toLowerCase().compareTo(p.basename(b).toLowerCase()));
       if (paths.isEmpty) return const SizedBox.shrink();
       if (_currentIndex >= paths.length) _currentIndex = 0;

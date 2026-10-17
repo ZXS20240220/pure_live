@@ -69,6 +69,37 @@ class WallpaperSettingsController extends GetxController {
     return ColorWallpaperData.deserialize(wallpaperSource.v);
   }
 
+  // ===== 路径解析（basename ↔ 绝对路径）=====
+
+  /// 当前运行时 WALLPAPER 目录的绝对路径（同步，AppPathManager 初始化后可用）
+  String get _wallpaperDirPath => p.join(AppPathManager().basePath, AppPathManager.dirWallpaper);
+
+  /// 将任意路径或文件名统一为 basename。
+  /// 输入绝对路径 → 输出文件名；输入已是文件名 → 原样返回。
+  static String _toName(String pathOrName) => p.basename(pathOrName);
+
+  /// 将存储的值解析为运行时可用的绝对路径。
+  /// 自动兼容旧数据（绝对路径）和新数据（basename）。
+  /// 对 color / online / slideshow 等非本地类型原样返回。
+  String resolveWallpaperSourcePath() {
+    final source = wallpaperSource.v;
+    if (source.isEmpty) return source;
+    final type = wallpaperType;
+    if (!type.isLocal) return source;
+    if (source.contains('\\') || source.contains('/')) return source;
+    return p.join(_wallpaperDirPath, source);
+  }
+
+  /// 将存储的 PPT 文件名列表解析为绝对路径列表。
+  /// 自动兼容旧数据（绝对路径）和新数据（basename）。
+  List<String> resolvePptPaths() {
+    final dir = _wallpaperDirPath;
+    return pptImagePaths.map((stored) {
+      if (stored.contains('\\') || stored.contains('/')) return stored;
+      return p.join(dir, stored);
+    }).toList();
+  }
+
   // ===== 类型解析 =====
   static WallpaperType _parseType(String name) {
     return WallpaperType.values.firstWhere((e) => e.name == name, orElse: () => WallpaperType.none);
@@ -78,7 +109,6 @@ class WallpaperSettingsController extends GetxController {
   Future<void> applyWallpaper(WallpaperItem item) async {
     final savedUrl = await _saveWallpaperFileIfNeeded(item);
 
-    // 在线类型下载成功后转为本地类型，确保 wallpaperSource 始终指向本地文件
     WallpaperType finalType = item.type;
     if (item.type.isOnline) {
       if (File(savedUrl).existsSync()) {
@@ -87,7 +117,11 @@ class WallpaperSettingsController extends GetxController {
     }
 
     wallpaperType = finalType;
-    wallpaperSource.v = savedUrl;
+    if (finalType.isLocal) {
+      wallpaperSource.v = _toName(savedUrl);
+    } else {
+      wallpaperSource.v = savedUrl;
+    }
     _syncWindowEffect();
   }
 
@@ -96,7 +130,15 @@ class WallpaperSettingsController extends GetxController {
   /// 不再限制最少图片数量：1 张时静态展示，≥2 张时轮播。
   /// 若过滤失效文件后列表为空，则保持关闭状态。
   void applyPpt() {
-    final valid = pptImagePaths.where((p) => File(p).existsSync()).toList();
+    final names = pptImagePaths.toList();
+    final dir = _wallpaperDirPath;
+    final valid = <String>[];
+    for (final name in names) {
+      final path = (name.contains('\\') || name.contains('/')) ? name : p.join(dir, name);
+      if (File(path).existsSync()) {
+        valid.add(_toName(path));
+      }
+    }
     pptImagePaths.assignAll(valid);
     if (valid.isEmpty) {
       clearWallpaper();
@@ -107,18 +149,21 @@ class WallpaperSettingsController extends GetxController {
     _syncWindowEffect();
   }
 
-  /// 切换某张图片在 PPT 列表中的选中状态
+  /// 切换某张图片在 PPT 列表中的选中状态。
+  /// 无论传入绝对路径还是文件名，内部统一存储 basename。
   void togglePptImage(String path, bool selected) {
+    final name = _toName(path);
     if (selected) {
-      if (!pptImagePaths.contains(path)) pptImagePaths.add(path);
+      if (!pptImagePaths.contains(name)) pptImagePaths.add(name);
     } else {
-      pptImagePaths.remove(path);
+      pptImagePaths.remove(name);
     }
   }
 
-  /// PPT 播放时移除失效路径（文件不存在）
+  /// PPT 播放时移除失效路径（文件不存在）。
+  /// 兼容传入绝对路径或 basename。
   void removeInvalidPptImage(String path) {
-    pptImagePaths.remove(path);
+    pptImagePaths.remove(_toName(path));
   }
 
   /// 将壁纸文件保存到应用数据目录的 WALLPAPER 文件夹，返回保存后的路径。
@@ -278,48 +323,25 @@ class WallpaperSettingsController extends GetxController {
     super.onInit();
     everAll([wallpaperTypeName, wallpaperSource], (_) => _syncWindowEffect());
     _syncWindowEffect();
-    _fixWallpaperPathIfNeeded();
+    _normalizeStorage();
   }
 
-  /// 跨设备恢复时，wallpaperSource 中的绝对路径可能指向旧设备。
-  /// 若文件不存在但 WALLPAPER 目录中有同名文件，则更新为当前设备的路径。
-  Future<void> _fixWallpaperPathIfNeeded() async {
+  /// 将旧备份中的绝对路径统一迁移为 basename。
+  /// - 对 wallpaperSource：仅 imageLocal / videoLocal 类型需要迁移
+  /// - 对 pptImagePaths：全部条目迁移
+  /// 幂等：已是 basename 的值不会重复触发 assignAll，避免无谓的 UI 刷新。
+  void _normalizeStorage() {
     final type = wallpaperType;
-    if (type != WallpaperType.imageLocal && type != WallpaperType.videoLocal) return;
-    final source = wallpaperSource.v;
-    if (source.isEmpty) return;
-    if (File(source).existsSync()) return;
-
-    try {
-      final wallpaperDir = await AppPathManager().getDir(AppPathManager.dirWallpaper);
-      final fileName = p.basename(source);
-      final candidate = File(p.join(wallpaperDir.path, fileName));
-      if (candidate.existsSync()) {
-        wallpaperSource.v = candidate.path;
+    if ((type == WallpaperType.imageLocal || type == WallpaperType.videoLocal)) {
+      final source = wallpaperSource.v;
+      if (source.isNotEmpty && (source.contains('\\') || source.contains('/'))) {
+        wallpaperSource.v = _toName(source);
       }
-    } catch (_) {}
-  }
-
-  /// 跨设备恢复时，PPT 图片路径列表中的绝对路径可能指向旧设备。
-  /// 对每个不存在的路径，尝试在 WALLPAPER 目录中按文件名匹配修复；
-  /// 仍找不到则从列表中移除。
-  Future<void> _fixPptPathsIfNeeded() async {
-    try {
-      final wallpaperDir = await AppPathManager().getDir(AppPathManager.dirWallpaper);
-      final fixed = <String>[];
-      for (final path in pptImagePaths.toList()) {
-        if (File(path).existsSync()) {
-          fixed.add(path);
-          continue;
-        }
-        final fileName = p.basename(path);
-        final candidate = File(p.join(wallpaperDir.path, fileName));
-        if (candidate.existsSync()) {
-          fixed.add(candidate.path);
-        }
-      }
-      pptImagePaths.assignAll(fixed);
-    } catch (_) {}
+    }
+    final hasOldPaths = pptImagePaths.any((s) => s.contains('\\') || s.contains('/'));
+    if (hasOldPaths) {
+      pptImagePaths.assignAll(pptImagePaths.map(_toName).toList());
+    }
   }
 
   // ===== 序列化（对齐 ThemeSettingsController 模式）=====
@@ -375,30 +397,23 @@ class WallpaperSettingsController extends GetxController {
     pptInterval.v = parsed['pptInterval'] as int;
     pptMode.v = parsed['pptMode'] as String;
 
-    // 兼容旧备份：若导入的是在线壁纸 URL，异步下载到本地并转为本地类型
+    _normalizeStorage();
+
     final type = wallpaperType;
     if (type.isOnline && wallpaperSource.v.isNotEmpty) {
       _downloadOnlineWallpaperToLocal(type, wallpaperSource.v);
-    } else if (type == WallpaperType.slideshow) {
-      // PPT 模式跨设备恢复时修正路径列表
-      _fixPptPathsIfNeeded();
-    } else {
-      // 本地壁纸跨设备恢复时修正路径
-      _fixWallpaperPathIfNeeded();
     }
   }
 
-  /// 将在线壁纸下载到本地，成功后转为本地类型。
+  /// 将在线壁纸下载到本地，成功后转为本地类型并存储 basename。
   Future<void> _downloadOnlineWallpaperToLocal(WallpaperType type, String url) async {
     try {
       final localPath = await WallpaperMediaStore.download(url);
       if (File(localPath).existsSync()) {
-        wallpaperSource.v = localPath;
+        wallpaperSource.v = _toName(localPath);
         wallpaperType = type == WallpaperType.videoOnline ? WallpaperType.videoLocal : WallpaperType.imageLocal;
       }
-    } catch (_) {
-      // 下载失败保持原样，渲染层会用 CachedNetworkImage 兜底
-    }
+    } catch (_) {}
   }
 
   static Map<String, dynamic> extractConfig(Map<String, dynamic>? rootConfig) {
@@ -449,9 +464,11 @@ class WallpaperSettingsController extends GetxController {
       return true;
     }
 
-    // 图片/视频：比较 URL 或文件名
     final name = item.file.split('?').first.split('/').last;
-    return source == item.file || source.endsWith('/$name');
+    if (wallpaperType.isOnline) {
+      return source == item.file || source.endsWith('/$name') || source == name;
+    }
+    return source == name;
   }
 
   // ===== 工具方法 =====
