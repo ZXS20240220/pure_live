@@ -1161,7 +1161,14 @@ class _RemoveMonitorButtonState extends State<_RemoveMonitorButton> {
   Widget build(BuildContext context) {
     return TextButton(
       onPressed: _busy ? null : _remove,
-      child: Text(i18n('remove'), style: AppTextStyles.t15.copyWith(color: _busy ? null : Colors.red)),
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+        minimumSize: const Size(0, 34),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        textStyle: AppTextStyles.t12.copyWith(fontWeight: FontWeight.w700),
+        foregroundColor: Colors.red,
+      ),
+      child: Text(i18n('remove'), style: TextStyle(color: _busy ? null : Colors.red)),
     );
   }
 }
