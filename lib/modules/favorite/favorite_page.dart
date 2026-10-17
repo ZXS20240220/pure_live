@@ -14,109 +14,111 @@ class FavoritePage extends GetView<FavoriteController> {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraint) {
-        return Obx(() {
-          bool showAction = Get.width <= 680;
-          final availableSitesList = controller.availableFavoriteSites;
-          final siteKey = ValueKey(availableSitesList.map((e) => e.id).join('|'));
+    return ShortcutFocusGuard(
+      child: LayoutBuilder(
+        builder: (context, constraint) {
+          return Obx(() {
+            bool showAction = Get.width <= 680;
+            final availableSitesList = controller.availableFavoriteSites;
+            final siteKey = ValueKey(availableSitesList.map((e) => e.id).join('|'));
 
-          return Scaffold(
-            appBar: AppBar(
-              centerTitle: true,
-              leading: showAction ? const MenuButton() : null,
-              actions: showAction ? [CommonAppBarActions()] : null,
-              title: Obx(() {
-                return Listener(
-                  onPointerSignal: (event) {
-                    if (event is! PointerScrollEvent) return;
-                    final ctrl = controller.tabController;
-                    if (ctrl.length == 0) return;
-                    final dir = event.scrollDelta.dy > 0 ? 1 : -1;
-                    final next = (ctrl.index + dir) % ctrl.length;
-                    ctrl.animateTo(next);
-                  },
-                  child: ScrollConfiguration(
-                    behavior: const MouseDraggableScrollBehavior(),
-                    child: TabBar(
-                      key: const ValueKey('favorite-status-tabs'),
-                      controller: controller.tabController,
-                      isScrollable: true,
-                      tabAlignment: TabAlignment.center,
-                      physics: const PureLiveBoundedScrollPhysics(),
-                      tabs: [
-                        Tab(
-                          text:
-                              '${i18n('recorder_tab_all')} (${controller.onlineRooms.length + controller.replayRooms.length + controller.offlineRooms.length})',
-                        ),
-                        Tab(text: '${i18n('online_room_title')} (${controller.onlineRooms.length})'),
-                        Tab(text: '${i18n('recording_room_title')} (${controller.replayRooms.length})'),
-                        Tab(text: '${i18n('offline_room_title')} (${controller.offlineRooms.length})'),
-                        Tab(text: '暂时弃用 (${controller.dormantRooms.length})'),
-                      ],
+            return Scaffold(
+              appBar: AppBar(
+                centerTitle: true,
+                leading: showAction ? const MenuButton() : null,
+                actions: showAction ? [CommonAppBarActions()] : null,
+                title: Obx(() {
+                  return Listener(
+                    onPointerSignal: (event) {
+                      if (event is! PointerScrollEvent) return;
+                      final ctrl = controller.tabController;
+                      if (ctrl.length == 0) return;
+                      final dir = event.scrollDelta.dy > 0 ? 1 : -1;
+                      final next = (ctrl.index + dir) % ctrl.length;
+                      ctrl.animateTo(next);
+                    },
+                    child: ScrollConfiguration(
+                      behavior: const MouseDraggableScrollBehavior(),
+                      child: TabBar(
+                        key: const ValueKey('favorite-status-tabs'),
+                        controller: controller.tabController,
+                        isScrollable: true,
+                        tabAlignment: TabAlignment.center,
+                        physics: const PureLiveBoundedScrollPhysics(),
+                        tabs: [
+                          Tab(
+                            text:
+                                '${i18n('recorder_tab_all')} (${controller.onlineRooms.length + controller.replayRooms.length + controller.offlineRooms.length})',
+                          ),
+                          Tab(text: '${i18n('online_room_title')} (${controller.onlineRooms.length})'),
+                          Tab(text: '${i18n('recording_room_title')} (${controller.replayRooms.length})'),
+                          Tab(text: '${i18n('offline_room_title')} (${controller.offlineRooms.length})'),
+                          Tab(text: '暂时弃用 (${controller.dormantRooms.length})'),
+                        ],
+                      ),
                     ),
+                  );
+                }),
+              ),
+              body: Stack(
+                children: [
+                  _FavoriteSiteTabs(key: siteKey, controller: controller, availableSitesList: availableSitesList),
+                  Positioned(
+                    right: 14,
+                    bottom: 4,
+                    child: Obx(() {
+                      final count = controller.getFilteredRooms().length;
+                      final cardBg = Theme.of(context).colorScheme.surfaceContainerHighest;
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: cardBg,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: Theme.of(context).dividerColor.withValues(alpha: 0.2)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.12),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.view_list_rounded,
+                              size: 14,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              '$count',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              i18n('rooms_count'),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.75),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
                   ),
-                );
-              }),
-            ),
-            body: Stack(
-              children: [
-                _FavoriteSiteTabs(key: siteKey, controller: controller, availableSitesList: availableSitesList),
-                Positioned(
-                  right: 14,
-                  bottom: 4,
-                  child: Obx(() {
-                    final count = controller.getFilteredRooms().length;
-                    final cardBg = Theme.of(context).colorScheme.surfaceContainerHighest;
-                    return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: cardBg,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: Theme.of(context).dividerColor.withValues(alpha: 0.2)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.12),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.view_list_rounded,
-                            size: 14,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                          ),
-                          const SizedBox(width: 5),
-                          Text(
-                            '$count',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            i18n('rooms_count'),
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.75),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-                ),
-              ],
-            ),
-          );
-        });
-      },
+                ],
+              ),
+            );
+          });
+        },
+      ),
     );
   }
 }

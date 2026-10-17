@@ -32,31 +32,33 @@ class LocalPlaybackPage extends GetView<LocalPlaybackController> {
 
   @override
   Widget build(BuildContext context) {
-    return Obx(() {
-      final isPip = controller.isPipMode.value;
-      if (isPip) {
-        return _buildPipOverlay(context);
-      }
-      final immersive = controller.isWindowFullscreen.value || controller.isFullscreen.value;
-      final wallpaperActive = SettingsService.hasWallpaper;
-      return Scaffold(
-        backgroundColor: wallpaperActive ? Colors.transparent : null,
-        body: Column(
-          children: [
-            if (!immersive) _buildAppBar(),
-            Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: _buildVideoArea()),
-                  if (!immersive) _buildPlaylistPanel(context),
-                ],
+    return ShortcutFocusGuard(
+      child: Obx(() {
+        final isPip = controller.isPipMode.value;
+        if (isPip) {
+          return _buildPipOverlay(context);
+        }
+        final immersive = controller.isWindowFullscreen.value || controller.isFullscreen.value;
+        final wallpaperActive = SettingsService.hasWallpaper;
+        return Scaffold(
+          backgroundColor: wallpaperActive ? Colors.transparent : null,
+          body: Column(
+            children: [
+              if (!immersive) _buildAppBar(),
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: _buildVideoArea()),
+                    if (!immersive) _buildPlaylistPanel(context),
+                  ],
+                ),
               ),
-            ),
-          ],
-        ),
-      );
-    });
+            ],
+          ),
+        );
+      }),
+    );
   }
 
   Widget _buildPipOverlay(BuildContext context) {

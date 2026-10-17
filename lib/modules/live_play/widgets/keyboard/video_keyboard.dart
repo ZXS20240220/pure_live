@@ -192,11 +192,9 @@ class _VideoKeyboardShortcutsState extends State<VideoKeyboardShortcuts> {
 
   @override
   Widget build(BuildContext context) {
-    // No more CallbackShortcuts — all shortcuts go through the
-    // HardwareKeyboard global handler (_handleGlobalKey) above.
-    // This avoids breakage caused by nested Focus/FocusScope widgets
-    // further down the tree stealing the keyboard focus.
-    return widget.child;
+    // ShortcutFocusGuard 阻止 Flutter 原生焦点系统对空格/回车/方向键的默认响应
+    // （焦点遍历、按钮激活），HardwareKeyboard 全局回调仍然并行执行快捷键逻辑。
+    return ShortcutFocusGuard(child: widget.child);
   }
 }
 
