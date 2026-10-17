@@ -7,8 +7,8 @@ import 'package:pure_live/modules/live_play/widgets/video_player/video_controlle
 
 class VideoPlayer extends StatefulWidget {
   final VideoController controller;
-  final Color surfaceColor;
-  const VideoPlayer({super.key, required this.controller, this.surfaceColor = Colors.black});
+  final Color? surfaceColor;
+  const VideoPlayer({super.key, required this.controller, this.surfaceColor});
 
   @override
   State<VideoPlayer> createState() => _VideoPlayerState();
@@ -22,6 +22,7 @@ class _VideoPlayerState extends State<VideoPlayer> {
       final state = controller.livePlayController.state.value;
       final displayVideo = state.ui.displayVideoLayer;
       final hasError = controller.hasPlaybackError;
+      final surfaceColor = widget.surfaceColor ?? (SettingsService.hasWallpaper ? Colors.transparent : Colors.black);
 
       return StableVideoLayer(
         visible: displayVideo,
@@ -47,6 +48,7 @@ class _VideoPlayerState extends State<VideoPlayer> {
             // 绘制到视频表面之外（例如盖住沉浸模式右侧弹幕面板）。
             VideoZoomTransform(
               controller: controller,
+              surfaceColor: surfaceColor,
               child: PlaybackFailureOverlay(
                 hasError: hasError,
                 onRetry: controller.refresh,
@@ -55,7 +57,7 @@ class _VideoPlayerState extends State<VideoPlayer> {
                   fitList: SettingsService.to.player.videoFitArray,
                   trackPipSource: true,
                   audioOnlyOverride: audioOnly,
-                  surfaceColor: widget.surfaceColor,
+                  surfaceColor: surfaceColor,
                 ),
               ),
             ),
@@ -115,9 +117,10 @@ class StableVideoLayer extends StatelessWidget {
 /// 变换矩阵约定：映射点 p -> scale * p + pan（原点为左上角），
 /// 与 [VideoController.zoomVideoAt] 的锚点计算公式保持一致。
 class VideoZoomTransform extends StatefulWidget {
-  const VideoZoomTransform({super.key, required this.controller, required this.child});
+  const VideoZoomTransform({super.key, required this.controller, required this.surfaceColor, required this.child});
 
   final VideoController controller;
+  final Color surfaceColor;
   final Widget child;
 
   @override
@@ -158,8 +161,8 @@ class _VideoZoomTransformState extends State<VideoZoomTransform> {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // 缩小画面时纹理外露出的区域统一填充黑色。
-                const ColoredBox(color: Colors.black),
+                // 缩小画面时纹理外露出的区域填充表面色（壁纸模式下透明）。
+                ColoredBox(color: widget.surfaceColor),
                 Transform(transform: matrix, child: widget.child),
               ],
             ),

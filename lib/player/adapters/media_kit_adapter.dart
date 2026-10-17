@@ -74,6 +74,10 @@ class MediaKitAdapter
   /// 都必须使用同一套属性（seek 白名单、探测时长、LiveBufferPolicy 缓冲上限、
   /// 网络超时、音频驱动、代理、macOS 硬解关闭），避免两处配置漂移。
   static Future<void> applyNativeLiveProperties(dynamic native) async {
+    // 壁纸模式下让 mpv 背景透明，使播放器宽高比不匹配时的黑边透出壁纸。
+    // 注意：此属性在 DXGI 渲染路径下可能被忽略，需配合 native 层处理。
+    await native.setProperty('background', 'transparent');
+
     await native.setProperty('force-seekable', 'yes');
 
     await native.setProperty(
@@ -1233,6 +1237,8 @@ class MediaKitAdapter
       controller: _controller,
       controls: NoVideoControls,
       fit: effectiveFit,
+      // 壁纸模式下填充透明，使视频宽高比不匹配时露出的区域透出壁纸。
+      fill: SettingsService.hasWallpaper ? Colors.transparent : const Color(0xFF000000),
       // PlaybackLifecycleCoordinator is the single lifecycle authority.
       // Letting Video apply a second, settings-only policy paused audio-only
       // rooms on Home/lock even though the background policy kept them alive.

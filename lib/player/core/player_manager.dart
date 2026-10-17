@@ -4683,6 +4683,7 @@ class PlayerManager {
       return RepaintBoundary(
         key: trackPipSource ? _pipSourceKey : null,
         child: PureLivePipWidget(
+          color: surfaceColor,
           child: Container(
             color: surfaceColor,
             padding: EdgeInsets.zero,

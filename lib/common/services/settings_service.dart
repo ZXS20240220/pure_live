@@ -37,6 +37,23 @@ class SettingsService extends GetxService {
     return Get.find<WallpaperSettingsController>().hasWallpaper;
   }
 
+  Worker? _wallpaperSyncWorker;
+
+  void _initWallpaperSync() {
+    final wc = Get.find<WallpaperSettingsController>();
+    _wallpaperState.value = wc.hasWallpaper;
+    _wallpaperSyncWorker?.dispose();
+    _wallpaperSyncWorker = everAll([wc.wallpaperTypeName, wc.wallpaperSource], (_) {
+      _wallpaperState.value = wc.hasWallpaper;
+    });
+  }
+
+  @override
+  void onClose() {
+    _wallpaperSyncWorker?.dispose();
+    super.onClose();
+  }
+
   AppSettingsController get app => Get.find<AppSettingsController>();
   ExitSettingsController get exit => Get.find<ExitSettingsController>();
   StartupController get startup => Get.find<StartupController>();
@@ -66,6 +83,7 @@ class SettingsService extends GetxService {
   void onInit() {
     super.onInit();
     _registerSettingsControllers();
+    _initWallpaperSync();
   }
 
   void _registerSettingsControllers() {

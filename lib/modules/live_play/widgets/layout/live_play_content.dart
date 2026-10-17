@@ -158,45 +158,51 @@ class LivePlayContent extends StatelessWidget {
     }
 
     if (mode == VideoMode.normal) {
-      return ColoredBox(
-        key: const ValueKey('normal'),
-        color: Theme.of(context).scaffoldBackgroundColor,
-        child: _buildNormalView(context),
-      );
+      return Obx(() {
+        return ColoredBox(
+          key: const ValueKey('normal'),
+          color: SettingsService.hasWallpaper ? Colors.transparent : Theme.of(context).scaffoldBackgroundColor,
+          child: _buildNormalView(context),
+        );
+      });
     }
 
-    return Container(
-      key: const ValueKey('fullscreen-standard-video'),
-      color: Colors.black,
-      child: LivePlayVideo(controller: controller, expandToParent: true),
-    );
+    return Obx(() {
+      return Container(
+        key: const ValueKey('fullscreen-standard-video'),
+        color: SettingsService.hasWallpaper ? Colors.transparent : Colors.black,
+        child: LivePlayVideo(controller: controller, expandToParent: true),
+      );
+    });
   }
 
   Widget _buildNormalView(BuildContext context) {
     final compactHeader = MediaQuery.sizeOf(context).width < 690;
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: LivePlayHeader(controller: controller, compactHeader: compactHeader),
-      body: SafeArea(
-        child: Obx(() {
-          // 沉浸模式：视频铺满播放区，侧栏悬停右缘自动展开（live_play_shell）。
-          if (SettingsService.to.player.enableImmersiveLayout.v) {
-            return LivePlayShell(
-              controller: controller,
+    return Obx(() {
+      return Scaffold(
+        backgroundColor: SettingsService.hasWallpaper ? Colors.transparent : Theme.of(context).scaffoldBackgroundColor,
+        appBar: LivePlayHeader(controller: controller, compactHeader: compactHeader),
+        body: SafeArea(
+          child: Obx(() {
+            // 沉浸模式：视频铺满播放区，侧栏悬停右缘自动展开（live_play_shell）。
+            if (SettingsService.to.player.enableImmersiveLayout.v) {
+              return LivePlayShell(
+                controller: controller,
+                danmaku: _buildDanmaku(),
+                showPanel: controller.site != Sites.iptvSite,
+              );
+            }
+            return LivePlayNormalLayout(
+              video: LivePlayVideo(controller: controller),
+              resolution: const ResolutionsRow(),
               danmaku: _buildDanmaku(),
               showPanel: controller.site != Sites.iptvSite,
             );
-          }
-          return LivePlayNormalLayout(
-            video: LivePlayVideo(controller: controller),
-            resolution: const ResolutionsRow(),
-            danmaku: _buildDanmaku(),
-            showPanel: controller.site != Sites.iptvSite,
-          );
-        }),
-      ),
-    );
+          }),
+        ),
+      );
+    });
   }
 
   Widget _buildDanmaku() {

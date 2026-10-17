@@ -15,32 +15,35 @@ class LivePlayVideo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LivePlayVideoFrame(
-      expandToParent: expandToParent,
-      child: ColoredBox(
-        color: Colors.black,
-        child: Obx(() {
-          final state = controller.state.value;
-          final videoController = state.player.videoController;
-          if (videoController == null) {
-            return switch (livePlayPlaceholderFor(state.room)) {
-              LivePlayPlaceholder.loading => const VideoLoading(),
-              LivePlayPlaceholder.loadFailed => RoomLoadFailedWidget(onRetry: controller.onInitPlayerState),
-              LivePlayPlaceholder.notLiving => NotLivingVideoWidget(controller: controller),
-            };
-          }
-          return Stack(
-            fit: StackFit.expand,
-            children: [
-              ColoredBox(
-                color: Colors.black,
-                child: VideoPlayer(controller: videoController),
-              ),
-            ],
-          );
-        }),
-      ),
-    );
+    return Obx(() {
+      final bgColor = SettingsService.hasWallpaper ? Colors.transparent : Colors.black;
+      return LivePlayVideoFrame(
+        expandToParent: expandToParent,
+        child: ColoredBox(
+          color: bgColor,
+          child: Obx(() {
+            final state = controller.state.value;
+            final videoController = state.player.videoController;
+            if (videoController == null) {
+              return switch (livePlayPlaceholderFor(state.room)) {
+                LivePlayPlaceholder.loading => const VideoLoading(),
+                LivePlayPlaceholder.loadFailed => RoomLoadFailedWidget(onRetry: controller.onInitPlayerState),
+                LivePlayPlaceholder.notLiving => NotLivingVideoWidget(controller: controller),
+              };
+            }
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                ColoredBox(
+                  color: bgColor,
+                  child: VideoPlayer(controller: videoController),
+                ),
+              ],
+            );
+          }),
+        ),
+      );
+    });
   }
 }
 

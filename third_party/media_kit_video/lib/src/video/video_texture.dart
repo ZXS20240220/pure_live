@@ -7,11 +7,11 @@ import 'dart:io';
 import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter/services.dart';
+import 'package:media_kit/media_kit.dart' show VideoParams;
 import 'package:media_kit_video/media_kit_video_controls/media_kit_video_controls.dart';
 
 import 'package:media_kit_video/src/subtitle/subtitle_view.dart';
-import 'package:media_kit_video/media_kit_video_controls/media_kit_video_controls.dart'
-    as media_kit_video_controls;
+import 'package:media_kit_video/media_kit_video_controls/media_kit_video_controls.dart' as media_kit_video_controls;
 import 'package:media_kit_video/src/utils/dispose_safe_notifer.dart';
 
 import 'package:media_kit_video/src/utils/wakelock.dart';
@@ -188,8 +188,7 @@ class VideoState extends State<Video> with WidgetsBindingObserver {
     VideoControlsBuilder? controls,
     SubtitleViewConfiguration? subtitleViewConfiguration,
   }) {
-    videoViewParametersNotifier.value =
-        videoViewParametersNotifier.value.copyWith(
+    videoViewParametersNotifier.value = videoViewParametersNotifier.value.copyWith(
       width: width,
       height: height,
       fit: fit,
@@ -204,28 +203,26 @@ class VideoState extends State<Video> with WidgetsBindingObserver {
 
   @override
   void didChangeDependencies() {
-    videoViewParametersNotifier =
-        media_kit_video_controls.VideoStateInheritedWidget.maybeOf(
-              context,
-            )?.videoViewParametersNotifier ??
-            ValueNotifier<VideoViewParameters>(
-              VideoViewParameters(
-                width: widget.width,
-                height: widget.height,
-                fit: widget.fit,
-                fill: widget.fill,
-                alignment: widget.alignment,
-                aspectRatio: widget.aspectRatio,
-                filterQuality: widget.filterQuality,
-                controls: widget.controls,
-                subtitleViewConfiguration: widget.subtitleViewConfiguration,
-              ),
-            );
-    _disposeNotifiers =
-        media_kit_video_controls.VideoStateInheritedWidget.maybeOf(
-              context,
-            )?.disposeNotifiers ??
-            true;
+    videoViewParametersNotifier = media_kit_video_controls.VideoStateInheritedWidget.maybeOf(
+          context,
+        )?.videoViewParametersNotifier ??
+        ValueNotifier<VideoViewParameters>(
+          VideoViewParameters(
+            width: widget.width,
+            height: widget.height,
+            fit: widget.fit,
+            fill: widget.fill,
+            alignment: widget.alignment,
+            aspectRatio: widget.aspectRatio,
+            filterQuality: widget.filterQuality,
+            controls: widget.controls,
+            subtitleViewConfiguration: widget.subtitleViewConfiguration,
+          ),
+        );
+    _disposeNotifiers = media_kit_video_controls.VideoStateInheritedWidget.maybeOf(
+          context,
+        )?.disposeNotifiers ??
+        true;
     super.didChangeDependencies();
   }
 
@@ -236,27 +233,16 @@ class VideoState extends State<Video> with WidgetsBindingObserver {
     final currentParams = videoViewParametersNotifier.value;
 
     final newParams = currentParams.copyWith(
-      width:
-          widget.width != oldWidget.width ? widget.width : currentParams.width,
-      height: widget.height != oldWidget.height
-          ? widget.height
-          : currentParams.height,
+      width: widget.width != oldWidget.width ? widget.width : currentParams.width,
+      height: widget.height != oldWidget.height ? widget.height : currentParams.height,
       fit: widget.fit != oldWidget.fit ? widget.fit : currentParams.fit,
       fill: widget.fill != oldWidget.fill ? widget.fill : currentParams.fill,
-      alignment: widget.alignment != oldWidget.alignment
-          ? widget.alignment
-          : currentParams.alignment,
-      aspectRatio: widget.aspectRatio != oldWidget.aspectRatio
-          ? widget.aspectRatio
-          : currentParams.aspectRatio,
-      filterQuality: widget.filterQuality != oldWidget.filterQuality
-          ? widget.filterQuality
-          : currentParams.filterQuality,
-      controls: widget.controls != oldWidget.controls
-          ? widget.controls
-          : currentParams.controls,
-      subtitleViewConfiguration: widget.subtitleViewConfiguration !=
-              oldWidget.subtitleViewConfiguration
+      alignment: widget.alignment != oldWidget.alignment ? widget.alignment : currentParams.alignment,
+      aspectRatio: widget.aspectRatio != oldWidget.aspectRatio ? widget.aspectRatio : currentParams.aspectRatio,
+      filterQuality:
+          widget.filterQuality != oldWidget.filterQuality ? widget.filterQuality : currentParams.filterQuality,
+      controls: widget.controls != oldWidget.controls ? widget.controls : currentParams.controls,
+      subtitleViewConfiguration: widget.subtitleViewConfiguration != oldWidget.subtitleViewConfiguration
           ? widget.subtitleViewConfiguration
           : currentParams.subtitleViewConfiguration,
     );
@@ -280,8 +266,7 @@ class VideoState extends State<Video> with WidgetsBindingObserver {
           widget.controller.player.pause();
         }
       } else {
-        if (widget.resumeUponEnteringForegroundMode &&
-            _pauseDueToPauseUponEnteringBackgroundMode) {
+        if (widget.resumeUponEnteringForegroundMode && _pauseDueToPauseUponEnteringBackgroundMode) {
           _pauseDueToPauseUponEnteringBackgroundMode = false;
           widget.controller.player.play();
         }
@@ -388,49 +373,90 @@ class VideoState extends State<Video> with WidgetsBindingObserver {
                           : ValueListenableBuilder<int?>(
                               valueListenable: notifier.id,
                               builder: (context, id, _) {
-                                return ValueListenableBuilder<Rect?>(
-                                  valueListenable: notifier.rect,
-                                  builder: (context, rect, _) {
-                                    if (id != null &&
-                                        rect != null &&
-                                        _visible) {
-                                      return SizedBox(
-                                        // Apply aspect ratio if provided.
-                                        width:
-                                            videoViewParameters.aspectRatio ==
-                                                    null
-                                                ? rect.width
-                                                : rect.height *
-                                                    videoViewParameters
-                                                        .aspectRatio!,
-                                        height: rect.height,
-                                        child: Stack(
-                                          children: [
-                                            const SizedBox(),
-                                            Positioned.fill(
-                                              child: Texture(
-                                                textureId: id,
-                                                filterQuality:
-                                                    videoViewParameters
-                                                        .filterQuality,
+                                // 响应式监听 videoParams：纹理（rect）通常先于
+                                // videoParams 到达，若只在 rect 变化时读取
+                                // state.videoParams 会拿到初始空值导致裁剪失效。
+                                return StreamBuilder<VideoParams>(
+                                  stream: widget.controller.player.stream.videoParams,
+                                  initialData: widget.controller.player.state.videoParams,
+                                  builder: (context, paramsSnapshot) {
+                                    final videoParams = paramsSnapshot.data;
+                                    // 【临时调试日志】用于定位黑边根因，确认后可删除。
+                                    debugPrint(
+                                      '[BlackBorderDebug] videoParams: w=${videoParams?.w} h=${videoParams?.h} '
+                                      'dw=${videoParams?.dw} dh=${videoParams?.dh} '
+                                      'aspect=${videoParams?.aspect} par=${videoParams?.par} '
+                                      'pixelformat=${videoParams?.pixelformat} hwPixelformat=${videoParams?.hwPixelformat}',
+                                    );
+                                    return ValueListenableBuilder<Rect?>(
+                                      valueListenable: notifier.rect,
+                                      builder: (context, rect, _) {
+                                        if (id != null && rect != null && _visible) {
+                                          // 【临时调试日志】
+                                          debugPrint(
+                                            '[BlackBorderDebug] rect: ${rect.width}x${rect.height}',
+                                          );
+
+                                          // 计算视频实际显示宽高比，用于裁剪 D3D 纹理内部
+                                          // 可能存在的黑边（mpv 居中渲染时留出的填充区域）。
+                                          double videoAspect;
+                                          if (videoViewParameters.aspectRatio != null) {
+                                            videoAspect = videoViewParameters.aspectRatio!;
+                                          } else if (videoParams?.aspect != null && videoParams!.aspect! > 0) {
+                                            videoAspect = videoParams.aspect!;
+                                          } else {
+                                            final dw = videoParams?.dw ?? videoParams?.w ?? rect.width;
+                                            final dh = videoParams?.dh ?? videoParams?.h ?? rect.height;
+                                            videoAspect = (dw > 0 && dh > 0) ? dw / dh : rect.width / rect.height;
+                                          }
+
+                                          // 视频在纹理内的实际显示区域（mpv 居中、等比缩放渲染）。
+                                          // 同时处理左右黑边（pillarbox）和上下黑边（letterbox）。
+                                          final double displayWidth;
+                                          final double displayHeight;
+                                          if (rect.height * videoAspect <= rect.width) {
+                                            displayHeight = rect.height;
+                                            displayWidth = rect.height * videoAspect;
+                                          } else {
+                                            displayWidth = rect.width;
+                                            displayHeight = rect.width / videoAspect;
+                                          }
+                                          final textureLeft = (displayWidth - rect.width) / 2;
+                                          final textureTop = (displayHeight - rect.height) / 2;
+
+                                          return ClipRect(
+                                            child: SizedBox(
+                                              width: displayWidth,
+                                              height: displayHeight,
+                                              child: Stack(
+                                                children: [
+                                                  // 裁剪区域内填充透明，壁纸模式下透出壁纸。
+                                                  Positioned.fill(
+                                                    child: Container(color: const Color(0x00000000)),
+                                                  ),
+                                                  Positioned(
+                                                    left: textureLeft,
+                                                    top: textureTop,
+                                                    width: rect.width,
+                                                    height: rect.height,
+                                                    child: Texture(
+                                                      textureId: id,
+                                                      filterQuality: videoViewParameters.filterQuality,
+                                                    ),
+                                                  ),
+                                                  // 首帧渲染前隐藏 1px 占位纹理。
+                                                  if (rect.width <= 1.0 && rect.height <= 1.0)
+                                                    Positioned.fill(
+                                                      child: Container(color: videoViewParameters.fill),
+                                                    ),
+                                                ],
                                               ),
                                             ),
-                                            // Keep the |Texture| hidden before the first frame renders. In native implementation, if no default frame size is passed (through VideoController), a starting 1 pixel sized texture/surface is created to initialize the render context & check for H/W support.
-                                            // This is then resized based on the video dimensions & accordingly texture ID, texture, EGLDisplay, EGLSurface etc. (depending upon platform) are also changed. Just don't show that 1 pixel texture to the UI.
-                                            // NOTE: Unmounting |Texture| causes the |MarkTextureFrameAvailable| to not do anything on GNU/Linux.
-                                            if (rect.width <= 1.0 &&
-                                                rect.height <= 1.0)
-                                              Positioned.fill(
-                                                child: Container(
-                                                  color:
-                                                      videoViewParameters.fill,
-                                                ),
-                                              ),
-                                          ],
-                                        ),
-                                      );
-                                    }
-                                    return const SizedBox.shrink();
+                                          );
+                                        }
+                                        return const SizedBox.shrink();
+                                      },
+                                    );
                                   },
                                 );
                               },
@@ -439,14 +465,12 @@ class VideoState extends State<Video> with WidgetsBindingObserver {
                   ),
                 ),
                 if (videoViewParameters.subtitleViewConfiguration.visible &&
-                    !(widget.controller.player.platform?.configuration.libass ??
-                        false))
+                    !(widget.controller.player.platform?.configuration.libass ?? false))
                   Positioned.fill(
                     child: SubtitleView(
                       controller: widget.controller,
                       key: _subtitleViewKey,
-                      configuration:
-                          videoViewParameters.subtitleViewConfiguration,
+                      configuration: videoViewParameters.subtitleViewConfiguration,
                     ),
                   ),
                 if (videoViewParameters.controls != null)
@@ -484,12 +508,8 @@ Future<void> defaultEnterNativeFullscreen() async {
           ),
         ],
       );
-    } else if (Platform.isMacOS ||
-        Platform.isWindows ||
-        Platform.isLinux ||
-        Platform.operatingSystem == 'ohos') {
-      await const MethodChannel('com.alexmercerind/media_kit_video')
-          .invokeMethod(
+    } else if (Platform.isMacOS || Platform.isWindows || Platform.isLinux || Platform.operatingSystem == 'ohos') {
+      await const MethodChannel('com.alexmercerind/media_kit_video').invokeMethod(
         'Utils.EnterNativeFullscreen',
       );
     }
@@ -514,12 +534,8 @@ Future<void> defaultExitNativeFullscreen() async {
           ),
         ],
       );
-    } else if (Platform.isMacOS ||
-        Platform.isWindows ||
-        Platform.isLinux ||
-        Platform.operatingSystem == 'ohos') {
-      await const MethodChannel('com.alexmercerind/media_kit_video')
-          .invokeMethod(
+    } else if (Platform.isMacOS || Platform.isWindows || Platform.isLinux || Platform.operatingSystem == 'ohos') {
+      await const MethodChannel('com.alexmercerind/media_kit_video').invokeMethod(
         'Utils.ExitNativeFullscreen',
       );
     }

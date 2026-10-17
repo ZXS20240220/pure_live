@@ -498,99 +498,98 @@ class LocalPlaybackPage extends GetView<LocalPlaybackController> {
 
   Widget _buildVideoArea() {
     final immersive = controller.isWindowFullscreen.value || controller.isFullscreen.value;
+    final videoBgColor = SettingsService.hasWallpaper ? Colors.transparent : Colors.black;
     return Container(
-      color: immersive ? Colors.black : Colors.transparent,
-      child: Center(
-        child: Obx(() {
-          final vw = controller.videoWidth.value;
-          final vh = controller.videoHeight.value;
-          final videoRatio = (vw > 0 && vh > 0) ? vw / vh : 16.0 / 9.0;
-          final videoInner = _LocalPlayerInteractions(
-            controller: controller,
-            child: MouseRegion(
-              onHover: (_) => controller.enableController(),
-              onExit: (_) => controller.enableController(),
-              child: Listener(
-                behavior: HitTestBehavior.translucent,
-                onPointerSignal: (event) {
-                  if (event is! PointerScrollEvent) return;
-                  if (HardwareKeyboard.instance.isControlPressed) {
-                    final step = event.scrollDelta.dy > 0 ? -0.1 : 0.1;
-                    final next = (controller.playbackSpeed.value + step).clamp(0.5, 3.0);
-                    controller.setSpeed((next * 10).round() / 10);
-                    controller.enableController();
-                  }
-                },
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Obx(() {
-                      final audioOnly = controller.isAudioOnly.value;
-                      if (audioOnly) {
-                        return Container(
-                          color: Colors.black,
-                          child: Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Remix.headphone_fill, color: Colors.white38, size: 72),
-                                const SizedBox(height: 16),
-                                Text('纯音频模式', style: AppTextStyles.t14.copyWith(color: Colors.white38)),
-                              ],
-                            ),
-                          ),
-                        );
-                      }
-                      final hasVideo = controller.currentMp4Path != null;
-                      if (!hasVideo) {
-                        return Center(
-                          child: Text('加载中…', style: AppTextStyles.t14.copyWith(color: Colors.white54)),
-                        );
-                      }
-                      final fitIndex = SettingsService.to.player.videoFitIndex.v;
-                      final fitList = SettingsService.to.player.videoFitArray;
-                      final fit = (fitIndex >= 0 && fitIndex < fitList.length) ? fitList[fitIndex] : BoxFit.contain;
+      color: immersive ? videoBgColor : Colors.transparent,
+      child: Obx(() {
+        // 监听视频尺寸变化以便切换视频时重建。不再用 AspectRatio 约束播放区域：
+        // 纹理已按内容精确渲染，透明填充让壁纸透出，顶栏/底栏控件也能获得完整宽度。
+        controller.videoWidth.value;
+        controller.videoHeight.value;
+        final videoInner = _LocalPlayerInteractions(
+          controller: controller,
+          child: MouseRegion(
+            onHover: (_) => controller.enableController(),
+            onExit: (_) => controller.enableController(),
+            child: Listener(
+              behavior: HitTestBehavior.translucent,
+              onPointerSignal: (event) {
+                if (event is! PointerScrollEvent) return;
+                if (HardwareKeyboard.instance.isControlPressed) {
+                  final step = event.scrollDelta.dy > 0 ? -0.1 : 0.1;
+                  final next = (controller.playbackSpeed.value + step).clamp(0.5, 3.0);
+                  controller.setSpeed((next * 10).round() / 10);
+                  controller.enableController();
+                }
+              },
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Obx(() {
+                    final audioOnly = controller.isAudioOnly.value;
+                    if (audioOnly) {
                       return Container(
                         color: Colors.black,
-                        child: mk_video.Video(
-                          controller: controller.videoController,
-                          fit: fit,
-                          fill: Colors.black,
-                          controls: null,
+                        child: Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Remix.headphone_fill, color: Colors.white38, size: 72),
+                              const SizedBox(height: 16),
+                              Text('纯音频模式', style: AppTextStyles.t14.copyWith(color: Colors.white38)),
+                            ],
+                          ),
                         ),
                       );
-                    }),
-                    Obx(
-                      () => LocalPlaybackDanmakuOverlay(
-                        barrageController: controller.barrageController,
-                        enabled: controller.danmakuEnabled.value,
+                    }
+                    final hasVideo = controller.currentMp4Path != null;
+                    if (!hasVideo) {
+                      return Center(
+                        child: Text('加载中…', style: AppTextStyles.t14.copyWith(color: Colors.white54)),
+                      );
+                    }
+                    final fitIndex = SettingsService.to.player.videoFitIndex.v;
+                    final fitList = SettingsService.to.player.videoFitArray;
+                    final fit = (fitIndex >= 0 && fitIndex < fitList.length) ? fitList[fitIndex] : BoxFit.contain;
+                    return Container(
+                      color: videoBgColor,
+                      child: mk_video.Video(
+                        controller: controller.videoController,
+                        fit: fit,
+                        fill: videoBgColor,
+                        controls: null,
                       ),
+                    );
+                  }),
+                  Obx(
+                    () => LocalPlaybackDanmakuOverlay(
+                      barrageController: controller.barrageController,
+                      enabled: controller.danmakuEnabled.value,
                     ),
-                    GestureDetector(
-                      onTapDown: (_) => controller.enableController(),
-                      onDoubleTap: () {
-                        if (HardwareKeyboard.instance.isControlPressed) return;
-                        if (controller.isWindowFullscreen.value) {
-                          controller.toggleWindowFullScreen();
-                        } else {
-                          controller.toggleFullScreen();
-                        }
-                      },
-                      child: _VolumeDragArea(controller: controller),
-                    ),
-                    _SpeedHudOverlay(controller: controller),
-                    _buildLeftScreenshotButton(),
-                    _buildTopOverlayBar(),
-                    _buildBottomBar(),
-                  ],
-                ),
+                  ),
+                  GestureDetector(
+                    onTapDown: (_) => controller.enableController(),
+                    onDoubleTap: () {
+                      if (HardwareKeyboard.instance.isControlPressed) return;
+                      if (controller.isWindowFullscreen.value) {
+                        controller.toggleWindowFullScreen();
+                      } else {
+                        controller.toggleFullScreen();
+                      }
+                    },
+                    child: _VolumeDragArea(controller: controller),
+                  ),
+                  _SpeedHudOverlay(controller: controller),
+                  _buildLeftScreenshotButton(),
+                  _buildTopOverlayBar(),
+                  _buildBottomBar(),
+                ],
               ),
             ),
-          );
-          if (immersive) return SizedBox.expand(child: videoInner);
-          return AspectRatio(aspectRatio: videoRatio, child: videoInner);
-        }),
-      ),
+          ),
+        );
+        return SizedBox.expand(child: videoInner);
+      }),
     );
   }
 

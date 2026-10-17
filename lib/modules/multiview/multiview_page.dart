@@ -369,75 +369,81 @@ class _MultiviewPageState extends State<MultiviewPage> {
 
   @override
   Widget build(BuildContext context) {
-    return LivePlayBackScope(
-      presentationActive: _displayMode != _DisplayMode.normal,
-      onExitPresentation: _handleBackIntent,
-      child: switch (_displayMode) {
-        _DisplayMode.normal => Scaffold(
-          appBar: AppBar(
-            title: Text(i18n('multiview_title')),
-            actions: [
-              IconButton(
-                tooltip: i18n('multiview_immersive'),
-                icon: const Icon(Remix.expand_diagonal_line),
-                onPressed: () => unawaited(_changeDisplayMode(_DisplayMode.immersive)),
-              ),
-              IconButton(
-                tooltip: i18n('multiview_fullscreen'),
-                icon: const Icon(Remix.fullscreen_line),
-                onPressed: () => unawaited(_changeDisplayMode(_DisplayMode.fullscreen)),
-              ),
-              const SizedBox(width: 4),
-            ],
+    return Obx(() {
+      final bgColor = SettingsService.hasWallpaper ? Colors.transparent : Colors.black;
+      return LivePlayBackScope(
+        presentationActive: _displayMode != _DisplayMode.normal,
+        onExitPresentation: _handleBackIntent,
+        child: switch (_displayMode) {
+          _DisplayMode.normal => Scaffold(
+            backgroundColor: SettingsService.hasWallpaper
+                ? Colors.transparent
+                : Theme.of(context).scaffoldBackgroundColor,
+            appBar: AppBar(
+              title: Text(i18n('multiview_title')),
+              actions: [
+                IconButton(
+                  tooltip: i18n('multiview_immersive'),
+                  icon: const Icon(Remix.expand_diagonal_line),
+                  onPressed: () => unawaited(_changeDisplayMode(_DisplayMode.immersive)),
+                ),
+                IconButton(
+                  tooltip: i18n('multiview_fullscreen'),
+                  icon: const Icon(Remix.fullscreen_line),
+                  onPressed: () => unawaited(_changeDisplayMode(_DisplayMode.fullscreen)),
+                ),
+                const SizedBox(width: 4),
+              ],
+            ),
+            body: LayoutBuilder(
+              builder: (context, constraints) {
+                // 侧板选台是桌面形态；手机横屏保持全宽网格 + 底部弹窗选台。
+                final isWide = PlatformUtils.isDesktop && constraints.maxWidth > _wideBreakpoint;
+                return Stack(
+                  children: [
+                    Column(
+                      children: [
+                        _buildToolbar(),
+                        Expanded(child: _buildContentArea(isWide: isWide)),
+                      ],
+                    ),
+                    _buildRoomPanel(),
+                  ],
+                );
+              },
+            ),
           ),
-          body: LayoutBuilder(
-            builder: (context, constraints) {
-              // 侧板选台是桌面形态；手机横屏保持全宽网格 + 底部弹窗选台。
-              final isWide = PlatformUtils.isDesktop && constraints.maxWidth > _wideBreakpoint;
-              return Stack(
-                children: [
-                  Column(
-                    children: [
-                      _buildToolbar(),
-                      Expanded(child: _buildContentArea(isWide: isWide)),
-                    ],
-                  ),
-                  _buildRoomPanel(),
-                ],
-              );
-            },
+          // 沉浸：无工具条/侧板/AppBar，仅右下角一个小恢复钮。
+          // 黑底画布让格缝读作视频墙的一部分，与播放器观感一致。
+          _DisplayMode.immersive => Scaffold(
+            backgroundColor: bgColor,
+            body: Stack(
+              children: [
+                // 沉浸/全屏下没有可见侧板：空格点击一律走底部选台弹窗。
+                _buildContentArea(isWide: false),
+                Positioned(
+                  right: 16,
+                  bottom: 16,
+                  child: _ImmersiveRestoreButton(onTap: () => unawaited(_changeDisplayMode(_DisplayMode.normal))),
+                ),
+              ],
+            ),
           ),
-        ),
-        // 沉浸：无工具条/侧板/AppBar，仅右下角一个小恢复钮。
-        // 黑底画布让格缝读作视频墙的一部分，与播放器观感一致。
-        _DisplayMode.immersive => Scaffold(
-          backgroundColor: Colors.black,
-          body: Stack(
-            children: [
-              // 沉浸/全屏下没有可见侧板：空格点击一律走底部选台弹窗。
-              _buildContentArea(isWide: false),
-              Positioned(
-                right: 16,
-                bottom: 16,
-                child: _ImmersiveRestoreButton(onTap: () => unawaited(_changeDisplayMode(_DisplayMode.normal))),
-              ),
-            ],
+          // 全屏：复用 WindowService 真全屏（移动端隐藏系统栏、桌面端无边框
+          // 占满整屏），网格保持 edge-to-edge；左上角仅保留避让刘海/挖孔的
+          // 显式退出钮。返回手势与 Esc 仍是等价回退路径，格子其余区域的
+          // 点击继续只切换音源焦点。
+          _DisplayMode.fullscreen => Scaffold(
+            backgroundColor: bgColor,
+            body: MultiviewFullscreenSurface(
+              exitTooltip: i18n('multiview_fullscreen_exit'),
+              onExit: () => unawaited(_changeDisplayMode(_DisplayMode.normal)),
+              child: _buildContentArea(isWide: false),
+            ),
           ),
-        ),
-        // 全屏：复用 WindowService 真全屏（移动端隐藏系统栏、桌面端无边框
-        // 占满整屏），网格保持 edge-to-edge；左上角仅保留避让刘海/挖孔的
-        // 显式退出钮。返回手势与 Esc 仍是等价回退路径，格子其余区域的
-        // 点击继续只切换音源焦点。
-        _DisplayMode.fullscreen => Scaffold(
-          backgroundColor: Colors.black,
-          body: MultiviewFullscreenSurface(
-            exitTooltip: i18n('multiview_fullscreen_exit'),
-            onExit: () => unawaited(_changeDisplayMode(_DisplayMode.normal)),
-            child: _buildContentArea(isWide: false),
-          ),
-        ),
-      },
-    );
+        },
+      );
+    });
   }
 
   /// 内容区：宽屏且 normal 时为「网格 + 分隔线 + 选台侧板」，否则仅网格。
@@ -1063,12 +1069,15 @@ class _MultiviewCellView extends StatelessWidget {
     final videoController = state.videoController;
     final showVideo = state.status == MultiviewCellStatus.playing && videoController != null;
     final isDark = theme.brightness == Brightness.dark;
+    final cellBgColor = SettingsService.hasWallpaper
+        ? Colors.transparent
+        : (showVideo || isDark ? Colors.black : theme.colorScheme.surfaceContainerLow);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOut,
       clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(color: showVideo || isDark ? Colors.black : theme.colorScheme.surfaceContainerLow),
+      decoration: BoxDecoration(color: cellBgColor),
       child: Material(
         type: MaterialType.transparency,
         child: InkWell(
@@ -1087,6 +1096,8 @@ class _MultiviewCellView extends StatelessWidget {
       final video = Video(
         controller: videoController,
         controls: NoVideoControls,
+        // 壁纸模式下填充透明，使视频宽高比与格子不匹配时露出的区域透出壁纸。
+        fill: SettingsService.hasWallpaper ? Colors.transparent : const Color(0xFF000000),
         // multiview 页面自持每格生命周期，禁用 Video 内置的后台暂停策略，
         // 与主播放器 LivePlay 的单一生命周期权威原则保持一致。
         pauseUponEnteringBackgroundMode: false,
