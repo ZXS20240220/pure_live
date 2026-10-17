@@ -62,6 +62,9 @@ class LocalPlaybackController extends GetxController {
   Timer? _hideTimer;
   Timer? _speedHudHideTimer;
 
+  bool? _alwaysOnTopBeforePlay;
+  bool? _isFullscreenBeforePlay;
+
   final EasyRefreshController playlistRefreshController = EasyRefreshController(
     controlFinishRefresh: true,
     controlFinishLoad: false,
@@ -109,9 +112,30 @@ class LocalPlaybackController extends GetxController {
 
     volume.value = SettingsService.to.vol.currentPlatformDefaultVolume;
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!isClosed) enableController();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!isClosed) {
+        await _captureWindowState();
+        enableController();
+      }
     });
+  }
+
+  Future<void> _captureWindowState() async {
+    try {
+      _alwaysOnTopBeforePlay = await windowManager.isAlwaysOnTop();
+      _isFullscreenBeforePlay = await windowManager.isFullScreen();
+    } catch (_) {}
+  }
+
+  Future<void> _restoreWindowState() async {
+    try {
+      if (_alwaysOnTopBeforePlay != null) {
+        await windowManager.setAlwaysOnTop(_alwaysOnTopBeforePlay!);
+      }
+      if (_isFullscreenBeforePlay != null && await windowManager.isFullScreen() != _isFullscreenBeforePlay) {
+        await windowManager.setFullScreen(_isFullscreenBeforePlay!);
+      }
+    } catch (_) {}
   }
 
   void _setupStreams() {
@@ -583,8 +607,12 @@ class LocalPlaybackController extends GetxController {
       try {
         WindowHelper.instance.exitPiP();
       } catch (_) {}
-      GlobalPlayerState.to.isPipMode.value = false;
     }
+    GlobalPlayerState.to
+      ..isFullscreen.value = false
+      ..isWindowFullscreen.value = false
+      ..isPipMode.value = false;
+    unawaited(_restoreWindowState());
     _player.dispose();
     super.onClose();
   }
