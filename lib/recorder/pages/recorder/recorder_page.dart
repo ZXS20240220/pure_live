@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/plugins/cache_manager.dart';
+import 'package:pure_live/plugins/file_utils.dart';
 import 'package:pure_live/routes/app_navigation.dart';
 import 'package:pure_live/recorder/models/record_status.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -872,7 +873,7 @@ class _CompletedHostCard extends StatelessWidget {
   Future<void> _openDirectory() async {
     if (group.mp4s.isEmpty) return;
     final dirPath = p.dirname(group.mp4s.first.path);
-    await Process.run('explorer', [dirPath]);
+    await FileUtils.openFileOrUrl(dirPath);
   }
 
   Future<void> _deleteGroup(BuildContext context) async {

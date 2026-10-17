@@ -6,6 +6,7 @@ import 'package:media_kit_video/media_kit_video.dart' as mk_video;
 import 'package:path/path.dart' as p;
 import 'package:flame_barrage/flame_barrage.dart';
 import 'package:pure_live/common/index.dart';
+import 'package:pure_live/plugins/file_utils.dart';
 import 'package:pure_live/modules/live_play/controllers/player_state.dart';
 import 'package:pure_live/player/utils/window_helper.dart';
 import 'package:pure_live/recorder/models/recording_group.dart';
@@ -358,7 +359,7 @@ class LocalPlaybackController extends GetxController {
     if (path == null) return;
     final dir = p.dirname(path);
     try {
-      await Process.run('explorer', [dir]);
+      await FileUtils.openFileOrUrl(dir);
     } catch (e) {
       debugPrint('LocalPlaybackController.openCurrentDirectory error: $e');
     }

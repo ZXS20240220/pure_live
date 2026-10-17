@@ -135,31 +135,18 @@ class FileUtils {
 
     if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
       try {
-        if (Platform.isWindows) {
-          await Process.start('explorer.exe', [p.context.canonicalize(trimmedPath)], mode: ProcessStartMode.detached);
-        } else if (Platform.isMacOS) {
-          final result = await Process.run('open', [trimmedPath]);
-          if (result.exitCode != 0) return false;
-        } else if (Platform.isLinux) {
-          final result = await Process.run('xdg-open', [trimmedPath]);
-          if (result.exitCode != 0) return false;
-        }
-        return true;
+        final result = await OpenFilex.open(trimmedPath);
+        if (result.type == ResultType.done) return true;
       } catch (_) {}
     }
 
     try {
-      final result = await OpenFilex.open(trimmedPath);
-      return result.type == ResultType.done;
-    } catch (_) {
-      try {
-        final String cleanPath = trimmedPath.startsWith('file://') ? trimmedPath : 'file://$trimmedPath';
-        final Uri fileUri = Uri.parse(cleanPath);
-        if (await canLaunchUrl(fileUri)) {
-          return await launchUrl(fileUri);
-        }
-      } catch (_) {}
-    }
+      final String cleanPath = trimmedPath.startsWith('file://') ? trimmedPath : 'file://$trimmedPath';
+      final Uri fileUri = Uri.parse(cleanPath);
+      if (await canLaunchUrl(fileUri)) {
+        return await launchUrl(fileUri);
+      }
+    } catch (_) {}
 
     return false;
   }
