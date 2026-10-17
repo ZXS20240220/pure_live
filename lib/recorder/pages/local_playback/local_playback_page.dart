@@ -1475,6 +1475,7 @@ class _SpeedControlState extends State<_SpeedControl> {
   bool _isMouseInIcon = false;
   bool _isMouseInBar = false;
   Timer? _hideTimer;
+  Worker? _speedWorker;
 
   double _currentSpeed = 1.0;
 
@@ -1487,10 +1488,23 @@ class _SpeedControlState extends State<_SpeedControl> {
   void initState() {
     super.initState();
     _currentSpeed = (widget.controller.playbackSpeed.value * 10).round() / 10;
+    _speedWorker = ever(widget.controller.playbackSpeed, (v) {
+      if (!mounted) return;
+      final rounded = (v * 10).round() / 10;
+      if ((rounded - _currentSpeed).abs() < 0.001) {
+        _overlayEntry?.markNeedsBuild();
+        return;
+      }
+      setState(() {
+        _currentSpeed = rounded;
+      });
+      _overlayEntry?.markNeedsBuild();
+    });
   }
 
   @override
   void dispose() {
+    _speedWorker?.dispose();
     _hideTimer?.cancel();
     _overlayEntry?.remove();
     _overlayEntry?.dispose();
@@ -1574,9 +1588,14 @@ class _SpeedControlState extends State<_SpeedControl> {
                     style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                   ),
                   Expanded(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.translucent,
-                      onVerticalDragUpdate: (details) => _handleDrag(details, trackHeight),
+                    child: Listener(
+                      behavior: HitTestBehavior.opaque,
+                      onPointerDown: (event) => _updateSpeedFromPosition(event.localPosition.dy, trackHeight),
+                      onPointerMove: (event) {
+                        if (event.buttons != 0) {
+                          _updateSpeedFromPosition(event.localPosition.dy, trackHeight);
+                        }
+                      },
                       child: Stack(
                         alignment: Alignment.bottomCenter,
                         children: [
@@ -1614,12 +1633,11 @@ class _SpeedControlState extends State<_SpeedControl> {
     );
   }
 
-  void _handleDrag(DragUpdateDetails details, double trackHeight) {
+  void _updateSpeedFromPosition(double dy, double trackHeight) {
     if (trackHeight <= 0) return;
-    final deltaRatio = -details.delta.dy / trackHeight;
-    final currentFrac = _speedToFrac(_currentSpeed);
-    final newFrac = (currentFrac + deltaRatio).clamp(0.0, 1.0);
-    final newSpeed = _fracToSpeed(newFrac);
+    // dy=0 是顶部（最大速度），dy=trackHeight 是底部（最小速度）
+    final frac = (1.0 - (dy / trackHeight)).clamp(0.0, 1.0);
+    final newSpeed = _fracToSpeed(frac);
     final rounded = (newSpeed * 10).round() / 10;
     if ((rounded - _currentSpeed).abs() < 0.001) return;
     setState(() {
