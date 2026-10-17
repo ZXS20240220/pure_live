@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:pure_live/common/global/app_path_manager.dart';
+import 'package:pure_live/plugins/file_utils.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
@@ -81,6 +83,13 @@ class _WallpaperHistoryPageState extends State<WallpaperHistoryPage> {
     }
   }
 
+  Future<void> _openWallpaperDir() async {
+    try {
+      final dir = await AppPathManager().getDir(AppPathManager.dirWallpaper);
+      await FileUtils.openFileOrUrl(dir.path);
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -90,6 +99,11 @@ class _WallpaperHistoryPageState extends State<WallpaperHistoryPage> {
             node: SettingsCrumbs.wallpaperHistory,
             actions: [
               _ExtensionFilterButton(controller: controller),
+              IconButton(
+                tooltip: '打开壁纸目录',
+                icon: const Icon(Remix.folder_open_line),
+                onPressed: () => _openWallpaperDir(),
+              ),
               IconButton(tooltip: '清空所有壁纸', icon: const Icon(Remix.delete_bin_line), onPressed: _clearAll),
             ],
           ),

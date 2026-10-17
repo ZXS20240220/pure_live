@@ -3,6 +3,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
+import 'package:pure_live/common/global/app_path_manager.dart';
+import 'package:pure_live/plugins/file_utils.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/modules/settings/settings_breadcrumb.dart';
@@ -91,7 +93,21 @@ class _WallpaperPptPageState extends State<WallpaperPptPage> {
     return Stack(
       children: [
         Scaffold(
-          appBar: SettingsBreadcrumbAppBar(node: SettingsCrumbs.wallpaperPpt),
+          appBar: SettingsBreadcrumbAppBar(
+            node: SettingsCrumbs.wallpaperPpt,
+            actions: [
+              IconButton(
+                tooltip: '打开壁纸目录',
+                icon: const Icon(Remix.folder_open_line),
+                onPressed: () async {
+                  try {
+                    final dir = await AppPathManager().getDir(AppPathManager.dirWallpaper);
+                    await FileUtils.openFileOrUrl(dir.path);
+                  } catch (_) {}
+                },
+              ),
+            ],
+          ),
           body: Column(
             children: [
               _buildSettingsCard(context),
