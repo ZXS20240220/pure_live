@@ -157,6 +157,7 @@ class MultiviewController extends GetxController {
           source: bindOwnedInput(recipe),
           qualities: choices,
           qualityIndex: appliedIndex < 0 ? qualityIndex : appliedIndex,
+          detail: detail,
         );
       }
       final headers = await PlayerController.resolvePlaybackHeaders(site: site, room: detail);
@@ -168,6 +169,7 @@ class MultiviewController extends GetxController {
         qualityIndex: appliedIndex < 0 ? qualityIndex : appliedIndex,
         sourceQueryPolicies: resolution.sourceQueryPolicies,
         leaseFor: _leaseLookup(site, detail, applied, nextUrls),
+        detail: detail,
       );
     }
 
@@ -181,6 +183,7 @@ class MultiviewController extends GetxController {
         qualities: initial.qualities,
         qualityIndex: initial.qualityIndex,
         qualityLoader: loadQuality,
+        detail: detail,
       );
     }
     return MultiviewStreamSource(
@@ -191,6 +194,7 @@ class MultiviewController extends GetxController {
       qualityLoader: loadQuality,
       lines: initial.lines,
       sourceQueryPolicies: initial.sourceQueryPolicies,
+      detail: detail,
     );
   }
 
@@ -199,11 +203,7 @@ class MultiviewController extends GetxController {
   /// 小窗显示尺寸小，固定最低档可显著降低解码与带宽成本，档位切换不向
   /// 小窗开放；解析链路、headers、FLV 租约等与多画面格完全一致。
   static Future<MultiviewStreamSource> resolveRoomStream(LiveRoom room) {
-    return resolveStreamForSite(
-      room,
-      site: Sites.of(room.platform!),
-      preferLowest: true,
-    );
+    return resolveStreamForSite(room, site: Sites.of(room.platform!), preferLowest: true);
   }
 
   /// 供进程内小窗复用：把已解析的直播源提交给独立播放器实例（静音起播）。
@@ -788,9 +788,12 @@ class MultiviewController extends GetxController {
     _playIntent[cellIndex] = true;
     playingFlags[cellIndex] = true;
     _watchCellSourceEnd(cellIndex, epoch, handle);
+    // 起播成功：用完整详情（含弹幕连接参数）替换列表级房间对象。
+    final detailRoom = source.detail ?? room;
     _updateCell(
       cellIndex,
       cells[cellIndex].copyWith(
+        room: detailRoom,
         status: MultiviewCellStatus.playing,
         videoController: handle.videoController,
         ownedSource: source.ownedSource,

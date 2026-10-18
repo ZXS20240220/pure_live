@@ -142,6 +142,7 @@ class MultiviewStreamSource {
     this.lineIndex = 0,
     this.sourceQueryPolicies = const <String, HlsSourceQueryPolicy>{},
     this.leaseFor,
+    this.detail,
   }) : ownedSource = null;
 
   const MultiviewStreamSource.owned({
@@ -149,6 +150,7 @@ class MultiviewStreamSource {
     this.qualities = const <LivePlayQuality>[],
     this.qualityIndex = 0,
     this.qualityLoader,
+    this.detail,
   }) : ownedSource = source,
        url = '',
        headers = const {},
@@ -186,6 +188,10 @@ class MultiviewStreamSource {
 
   /// FLV 到期租约查找；非空时到期前由本地续流服务自动换源续播。
   final MultiviewLeaseLookup? leaseFor;
+
+  /// 房间完整详情（getRoomDetail 的返回）；携带仅详情接口才下发的弹幕连接
+  /// 参数等补充信息。解析器未提供时为 null，调用方保留原始房间对象即可。
+  final LiveRoom? detail;
 }
 
 /// multiview 单格的不可变状态快照。
