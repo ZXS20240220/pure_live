@@ -28,8 +28,6 @@ import 'package:flutter/services.dart' show HardwareKeyboard;
 
 import '../models/player_exception.dart';
 
-import 'package:remixicon/remixicon.dart';
-
 import '../models/player_error_type.dart';
 
 import 'package:rxdart/rxdart.dart' hide Rx;
@@ -4467,190 +4465,16 @@ class PlayerManager {
   }
 
   Widget buildAudioOnlyUI(BuildContext context, LiveRoom? detail) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final maxWidth = constraints.maxWidth;
-        final maxHeight = constraints.maxHeight;
-        final compact = maxHeight < 500;
-        final avatarSize = compact ? (maxHeight * 0.22).clamp(50.0, 76.0) : 100.0;
-        final titleSize = compact ? 14.0 : 22.0;
-        final nickSize = compact ? 11.0 : 13.0;
-        final badgeTextSize = compact ? 11.0 : 13.0;
-        final gapLarge = compact ? 10.0 : 24.0;
-        final gapMedium = compact ? 8.0 : 16.0;
-        final gapSmall = compact ? 4.0 : 8.0;
-
-        final avatar = detail?.avatar ?? '';
-        final title = detail?.title ?? '';
-        final nick = detail?.nick ?? '';
-
-        final background = avatar.isEmpty
-            ? const SizedBox.expand()
-            : Positioned.fill(
-                child: Opacity(
-                  opacity: 0.22,
-                  child: ColorFiltered(
-                    colorFilter: const ColorFilter.mode(Color(0xFF273047), BlendMode.modulate),
-                    child: Image.network(avatar, fit: BoxFit.cover, errorBuilder: (_, _, _) => const SizedBox.expand()),
-                  ),
-                ),
-              );
-
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            background,
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: <Color>[Color(0xE8121827), Color(0xF20B0E16), Color(0xF0151020)],
-                ),
-              ),
-            ),
-            Container(
-              width: maxWidth,
-              height: maxHeight,
-              alignment: Alignment.center,
-              child: SingleChildScrollView(
-                physics: compact ? const ClampingScrollPhysics() : const NeverScrollableScrollPhysics(),
-                padding: EdgeInsets.symmetric(horizontal: compact ? 16 : 24, vertical: compact ? 4 : 24),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: compact ? maxWidth : 460),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      TweenAnimationBuilder<double>(
-                        tween: Tween(begin: 0.95, end: 1.05),
-                        duration: const Duration(milliseconds: 1500),
-                        curve: Curves.easeInOut,
-                        builder: (context, scale, child) {
-                          return Transform.scale(scale: scale, child: child);
-                        },
-                        child: Container(
-                          width: avatarSize,
-                          height: avatarSize,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.15), width: 1.5),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.white.withValues(alpha: 0.04),
-                                blurRadius: compact ? 10 : 20,
-                                spreadRadius: compact ? 4 : 8,
-                              ),
-                            ],
-                          ),
-                          child: ClipOval(
-                            child: avatar.isNotEmpty
-                                ? Image.network(
-                                    avatar,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) =>
-                                        const Icon(Remix.user_3_line, color: Colors.white24),
-                                  )
-                                : const Icon(Remix.user_3_line, color: Colors.white24),
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: gapLarge),
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 24),
-                        child: Text(
-                          title,
-                          textAlign: TextAlign.center,
-                          maxLines: compact ? 1 : 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: titleSize,
-                            fontWeight: FontWeight.w700,
-                            height: 1.25,
-                            letterSpacing: 0.3,
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: gapSmall),
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 14, vertical: compact ? 2 : 5),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.06),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-                        ),
-                        child: Text(
-                          nick,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.75),
-                            fontSize: nickSize,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: gapMedium),
-                      Obx(() {
-                        final restoring = isVideoRestorePending.value;
-                        return AnimatedContainer(
-                          duration: const Duration(milliseconds: 180),
-                          curve: Curves.easeOutCubic,
-                          padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 16, vertical: compact ? 5 : 8),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(30),
-                            color: restoring
-                                ? const Color(0xFF5B67F1).withValues(alpha: 0.28)
-                                : Colors.white.withValues(alpha: 0.08),
-                            border: Border.all(
-                              color: restoring
-                                  ? const Color(0xFF8B94FF).withValues(alpha: 0.62)
-                                  : Colors.white.withValues(alpha: 0.1),
-                            ),
-                          ),
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 160),
-                            switchInCurve: Curves.easeOut,
-                            switchOutCurve: Curves.easeIn,
-                            child: Row(
-                              key: ValueKey<bool>(restoring),
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (restoring)
-                                  SizedBox.square(
-                                    dimension: compact ? 12 : 15,
-                                    child: const CircularProgressIndicator(strokeWidth: 1.8, color: Colors.white),
-                                  )
-                                else
-                                  Icon(
-                                    Remix.headphone_line,
-                                    color: Colors.white.withValues(alpha: 0.85),
-                                    size: compact ? 12 : 16,
-                                  ),
-                                SizedBox(width: compact ? 4 : 8),
-                                Text(
-                                  i18n(restoring ? "restoring_live_video" : "audio_only_mode"),
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: badgeTextSize,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 0.2,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
+    return Obx(() {
+      final restoring = isVideoRestorePending.value;
+      return AudioOnlyPanel(
+        avatarUrl: detail?.avatar ?? '',
+        title: detail?.title ?? '',
+        subtitle: detail?.nick ?? '',
+        restoring: restoring,
+        statusText: i18n(restoring ? "restoring_live_video" : "audio_only_mode"),
+      );
+    });
   }
 
   Widget getVideoWidget(

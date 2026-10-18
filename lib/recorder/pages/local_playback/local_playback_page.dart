@@ -88,9 +88,15 @@ class LocalPlaybackPage extends GetView<LocalPlaybackController> {
                       child: Obx(() {
                         final audioOnly = controller.isAudioOnly.value;
                         if (audioOnly) {
-                          return Container(
-                            color: Colors.black,
-                            child: const Center(child: Icon(Remix.headphone_fill, color: Colors.white38, size: 48)),
+                          final entry = controller.currentEntry;
+                          return AudioOnlyPanel(
+                            avatarUrl: entry?.avatar ?? '',
+                            title: entry?.title ?? '',
+                            subtitle: entry?.displayNick ?? '',
+                            statusText: '纯音频模式',
+                            fallbackIcon: Remix.headphone_fill,
+                            scrollable: false,
+                            opaqueBackground: true,
                           );
                         }
                         return Container(
@@ -532,18 +538,13 @@ class LocalPlaybackPage extends GetView<LocalPlaybackController> {
                   Obx(() {
                     final audioOnly = controller.isAudioOnly.value;
                     if (audioOnly) {
-                      return Container(
-                        color: Colors.black,
-                        child: Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Remix.headphone_fill, color: Colors.white38, size: 72),
-                              const SizedBox(height: 16),
-                              Text('纯音频模式', style: AppTextStyles.t14.copyWith(color: Colors.white38)),
-                            ],
-                          ),
-                        ),
+                      final entry = controller.currentEntry;
+                      return AudioOnlyPanel(
+                        avatarUrl: entry?.avatar ?? '',
+                        title: entry?.title ?? '',
+                        subtitle: entry?.displayNick ?? '',
+                        statusText: '纯音频模式',
+                        fallbackIcon: Remix.headphone_fill,
                       );
                     }
                     final hasVideo = controller.currentMp4Path != null;
