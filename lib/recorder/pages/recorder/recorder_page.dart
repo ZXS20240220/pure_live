@@ -1280,6 +1280,11 @@ class _PlatformFilterButtonState extends State<_PlatformFilterButton> {
     if (mounted) setState(() {});
   }
 
+  void _disposeOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
   Widget _buildPanel() {
     final theme = Theme.of(context);
     return Material(
@@ -1326,7 +1331,7 @@ class _PlatformFilterButtonState extends State<_PlatformFilterButton> {
 
   @override
   void dispose() {
-    _close();
+    _disposeOverlay();
     super.dispose();
   }
 
