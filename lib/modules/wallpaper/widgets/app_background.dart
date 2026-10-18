@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -193,17 +192,36 @@ class _SlideshowBackgroundState extends State<_SlideshowBackground> {
   int _currentIndex = 0;
   Worker? _pathsWorker;
   Worker? _intervalWorker;
+  final _shuffleQueue = <int>[];
+  int _shufflePos = 0;
 
   @override
   void initState() {
     super.initState();
     controller = Get.find<WallpaperSettingsController>();
     _pathsWorker = ever(controller.pptImagePaths, (_) {
-      _currentIndex = 0;
+      _resetShuffle();
+      _alignInitialIndex();
       _restartTimer();
     });
     _intervalWorker = ever(controller.pptInterval, (_) => _restartTimer());
+    _alignInitialIndex();
     _restartTimer();
+  }
+
+  void _alignInitialIndex() {
+    final length = controller.pptImagePaths.length;
+    if (length <= 1) {
+      _currentIndex = 0;
+      return;
+    }
+    if (controller.pptMode.v == PptMode.random.name) {
+      _ensureShuffleQueue(length);
+      _currentIndex = _shuffleQueue[_shufflePos];
+      _shufflePos++;
+    } else {
+      _currentIndex = 0;
+    }
   }
 
   @override
@@ -230,13 +248,27 @@ class _SlideshowBackgroundState extends State<_SlideshowBackground> {
     if (mounted) setState(() => _currentIndex = next);
   }
 
+  void _resetShuffle() {
+    _shuffleQueue.clear();
+    _shufflePos = 0;
+  }
+
+  void _ensureShuffleQueue(int length) {
+    if (_shuffleQueue.isEmpty || _shufflePos >= _shuffleQueue.length) {
+      _shuffleQueue
+        ..clear()
+        ..addAll(List<int>.generate(length, (i) => i))
+        ..shuffle();
+      _shufflePos = 0;
+    }
+  }
+
   int _nextIndex(int length) {
     if (length <= 1) return 0;
     if (controller.pptMode.v == PptMode.random.name) {
-      int next;
-      do {
-        next = math.Random().nextInt(length);
-      } while (next == _currentIndex);
+      _ensureShuffleQueue(length);
+      final next = _shuffleQueue[_shufflePos];
+      _shufflePos++;
       return next;
     }
     return (_currentIndex + 1) % length;
