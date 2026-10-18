@@ -381,22 +381,10 @@ class VideoState extends State<Video> with WidgetsBindingObserver {
                                   initialData: widget.controller.player.state.videoParams,
                                   builder: (context, paramsSnapshot) {
                                     final videoParams = paramsSnapshot.data;
-                                    // 【临时调试日志】用于定位黑边根因，确认后可删除。
-                                    debugPrint(
-                                      '[BlackBorderDebug] videoParams: w=${videoParams?.w} h=${videoParams?.h} '
-                                      'dw=${videoParams?.dw} dh=${videoParams?.dh} '
-                                      'aspect=${videoParams?.aspect} par=${videoParams?.par} '
-                                      'pixelformat=${videoParams?.pixelformat} hwPixelformat=${videoParams?.hwPixelformat}',
-                                    );
                                     return ValueListenableBuilder<Rect?>(
                                       valueListenable: notifier.rect,
                                       builder: (context, rect, _) {
                                         if (id != null && rect != null && _visible) {
-                                          // 【临时调试日志】
-                                          debugPrint(
-                                            '[BlackBorderDebug] rect: ${rect.width}x${rect.height}',
-                                          );
-
                                           // 计算视频实际显示宽高比，用于裁剪 D3D 纹理内部
                                           // 可能存在的黑边（mpv 居中渲染时留出的填充区域）。
                                           double videoAspect;

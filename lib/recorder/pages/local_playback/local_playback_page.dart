@@ -70,17 +70,21 @@ class LocalPlaybackPage extends GetView<LocalPlaybackController> {
           backgroundColor: Colors.transparent,
           body: MouseRegion(
             onEnter: (_) => controller.isPipHovered.value = true,
+            onHover: (_) => controller.isPipHovered.value = true,
             onExit: (_) => controller.isPipHovered.value = false,
             child: _wrapPipWheel(
               Container(
                 clipBehavior: Clip.antiAlias,
                 decoration: const BoxDecoration(color: Colors.black),
+                // fit: expand 是必须的：弹幕关闭时弹幕层为 0×0，loose 的 Stack 会
+                // 退化为按视频子节点固有尺寸收缩，导致整个 PIP 布局塌陷（白色遮罩假象）。
                 child: Stack(
+                  fit: StackFit.expand,
                   children: [
                     GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onPanStart: (_) => windowManager.startDragging(),
-                      onDoubleTap: () => controller.exitPiP(),
+                      onDoubleTap: controller.exitPiP,
                       child: Obx(() {
                         final audioOnly = controller.isAudioOnly.value;
                         if (audioOnly) {

@@ -14,7 +14,11 @@ class LocalPlaybackDanmakuOverlay extends StatelessWidget {
     final appSettings = SettingsService.to.app;
 
     return Obx(() {
-      if (!enabled || settings.hideDanmaku.v || !settings.enableDanmakuDisplay.v) {
+      // 必须先无条件读取 observable：`!enabled` 短路会让本次构建零订阅，
+      // 每次重建都触发 GetX "improper use of a GetX" 警告刷屏。
+      final hidden = settings.hideDanmaku.v;
+      final displayEnabled = settings.enableDanmakuDisplay.v;
+      if (!enabled || hidden || !displayEnabled) {
         return const SizedBox.shrink();
       }
       return CompactDanmakuSurface(

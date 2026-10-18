@@ -533,6 +533,10 @@ class LocalPlaybackController extends GetxController {
       if (isPipMode.value) {
         isPipAlwaysOnTop.value = true;
         await windowManager.setAlwaysOnTop(true);
+        // 进入小窗时窗口可能在静止鼠标下移动缩放，MouseRegion 的悬停状态会滞留
+        // （指针不移动就不再触发 onExit），导致悬浮控件常驻不消。重置为未悬停，
+        // 此后指针在窗内的任意移动会通过 onHover 重新显示控件。
+        isPipHovered.value = false;
       } else {
         isPipAlwaysOnTop.value = false;
       }
