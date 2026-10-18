@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:path/path.dart' as p;
 import 'package:pure_live/common/global/app_path_manager.dart';
+import 'package:pure_live/core/common/core_error.dart';
 import 'package:pure_live/core/common/http_client.dart';
 
 /// 壁纸媒体文件缓存层。
@@ -17,10 +18,11 @@ class WallpaperMediaStore {
   /// 下载 [url] 到 WALLPAPER 目录并返回本地路径。
   ///
   /// 若文件已存在且非空则直接复用，避免重复下载。
+  /// 图片内容以魔数为准校验并修正扩展名（见 [_verifyImageFile]）。
   static Future<String> download(String url, {void Function(int received, int total)? onProgress}) async {
     final dir = await AppPathManager().getDir(AppPathManager.dirWallpaper);
     final file = File(p.join(dir.path, _fileName(url)));
-    if (await file.exists() && await file.length() > 0) return file.path;
+    if (await file.exists() && await file.length() > 0) return _verifyImageFile(file);
 
     await HttpClient.instance.download(
       url,
@@ -28,7 +30,66 @@ class WallpaperMediaStore {
       header: wallpaperVideoHttpHeaders(),
       onReceiveProgress: onProgress,
     );
-    return file.path;
+    return _verifyImageFile(file);
+  }
+
+  /// 视频扩展名集合，下载后不做图片魔数校验。
+  static const Set<String> _videoExtensions = <String>{
+    '.mp4',
+    '.avi',
+    '.wmv',
+    '.rmvb',
+    '.mpg',
+    '.mpeg',
+    '.3gp',
+    '.webm',
+    '.mov',
+    '.mkv',
+  };
+
+  /// Flutter 无法解码的图片格式，下载即废弃。
+  static const Set<String> _undecodableFormats = <String>{'avif', 'heic'};
+
+  /// 校验下载内容并按魔数修正图片扩展名。
+  ///
+  /// iTab 服务端曾在 webp/avif 之间反复切换下发格式，且字节内容与 URL
+  /// 扩展名可能不一致（如 webp/avif 字节走 .jpeg 路径）。按 URL 命名会得到
+  /// 应用和系统都无法解码的坏文件，此处统一以魔数为准；内容不是图片或属于
+  /// 不可解码格式时删除文件并报错，避免在壁纸库中堆积"空的无用图片"。
+  static Future<String> _verifyImageFile(File file) async {
+    final ext = p.extension(file.path).toLowerCase();
+    if (_videoExtensions.contains(ext)) return file.path;
+
+    final raf = await file.open();
+    final Uint8List head;
+    try {
+      head = await raf.read(12);
+    } finally {
+      await raf.close();
+    }
+
+    final format = imageFormatOf(head);
+    if (format == null || _undecodableFormats.contains(format)) {
+      try {
+        await file.delete();
+      } catch (_) {}
+      throw HttpError(format == null ? '下载内容不是可识别的图片' : '下载内容为不支持解码的 $format 图片');
+    }
+
+    final correctExt = '.$format';
+    final normalizedExt = ext == '.jpeg' ? '.jpg' : ext;
+    if (normalizedExt == correctExt) return file.path;
+
+    final corrected = File(p.join(file.parent.path, '${p.basenameWithoutExtension(file.path)}$correctExt'));
+    if (await corrected.exists() && await corrected.length() > 0) {
+      // 同内容的正确扩展名文件已存在，删除刚下载的重复文件并复用
+      try {
+        await file.delete();
+      } catch (_) {}
+      return corrected.path;
+    }
+    final renamed = await file.rename(corrected.path);
+    return renamed.path;
   }
 
   /// 将用户选择的本地文件复制到 WALLPAPER 目录，返回新路径。

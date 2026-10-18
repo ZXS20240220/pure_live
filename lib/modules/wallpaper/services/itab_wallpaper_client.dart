@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:pure_live/core/common/http_client.dart';
+import 'package:pure_live/modules/wallpaper/data/wallpaper_catalog.dart';
 
 /// iTab 壁纸 API 客户端
 ///
@@ -99,10 +100,12 @@ class VideoWallpaperItem {
   static VideoWallpaperItem? fromJson(Map<String, dynamic> row) {
     final url = row['url']?.toString() ?? '';
     if (url.isEmpty) return null;
+    final thumb = row['thumb']?.toString();
+    final poster = row['poster']?.toString();
     return VideoWallpaperItem(
       url: url,
-      thumb: row['thumb']?.toString(),
-      poster: row['poster']?.toString(),
+      thumb: thumb == null ? null : normalizeImageUrl(thumb),
+      poster: poster == null ? null : normalizeImageUrl(poster),
       name: row['name']?.toString() ?? _stem(url),
       id: (row['id'] ?? row['_id'])?.toString(),
     );

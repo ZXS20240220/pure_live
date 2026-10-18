@@ -248,6 +248,16 @@ class WallpaperCatalog {
 /// CDN 缩略图处理参数
 const String kThumbProcess = 'x-oss-process=image/resize,limit_0,m_fill,w_400,h_225/quality,q_72/format,webp';
 
+/// 将图片 URL 中的 `format,avif` 改写为 `format,webp`。
+///
+/// iTab 服务端曾在 webp/avif 之间反复切换下发格式，而 Flutter 内置解码
+/// 不支持 AVIF（仅 JPEG/PNG/GIF/WebP/BMP/WBMP），下发 avif 时封面全灭、
+/// 下载的壁纸文件也无法使用。此处统一改写兜底，保证取到的内容可解码。
+String normalizeImageUrl(String url) {
+  if (!url.contains('format,avif')) return url;
+  return url.replaceAll('format,avif', 'format,webp');
+}
+
 /// 为 URL 附加 CDN 缩略图处理
 String cdnThumb(String url) {
   if (url.isEmpty || url.contains('x-oss-process')) return url;

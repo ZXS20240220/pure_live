@@ -88,9 +88,10 @@ class WallpaperRepository {
     var raw = (video ? row['url'] : (row['raw'] ?? row['url']))?.toString() ?? '';
     if (raw.isEmpty) return null;
     if (uhd) raw = _bingUhd(raw);
+    raw = normalizeImageUrl(raw);
 
-    final thumb = row['thumb']?.toString() ?? '';
-    final poster = row['poster']?.toString() ?? '';
+    final thumb = normalizeImageUrl(row['thumb']?.toString() ?? '');
+    final poster = normalizeImageUrl(row['poster']?.toString() ?? '');
     String name = row['name']?.toString() ?? '';
     if (name.isEmpty && nameKey != null) name = row[nameKey]?.toString() ?? '';
     if (name.isEmpty) name = _stem(raw);
