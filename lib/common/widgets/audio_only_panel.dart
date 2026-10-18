@@ -109,13 +109,7 @@ class AudioOnlyPanel extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      TweenAnimationBuilder<double>(
-                        tween: Tween(begin: 0.95, end: 1.05),
-                        duration: const Duration(milliseconds: 1500),
-                        curve: Curves.easeInOut,
-                        builder: (context, scale, child) {
-                          return Transform.scale(scale: scale, child: child);
-                        },
+                      _BreathingScale(
                         child: Container(
                           width: avatarSize,
                           height: avatarSize,
@@ -237,6 +231,43 @@ class AudioOnlyPanel extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// 头像持续呼吸缩放动画：0.95 ↔ 1.05 往返循环，单程 1.5 秒。
+class _BreathingScale extends StatefulWidget {
+  const _BreathingScale({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_BreathingScale> createState() => _BreathingScaleState();
+}
+
+class _BreathingScaleState extends State<_BreathingScale> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1500),
+  )..repeat(reverse: true);
+
+  late final Animation<double> _scale = Tween<double>(
+    begin: 0.95,
+    end: 1.05,
+  ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _scale,
+      builder: (context, child) => Transform.scale(scale: _scale.value, child: child),
+      child: widget.child,
     );
   }
 }
