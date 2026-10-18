@@ -82,6 +82,28 @@ class RecorderController extends GetxService {
   late final Future<void> Function(String) _backgroundInterruptionListener;
   final RxList<LiveRecordTask> tasks = <LiveRecordTask>[].obs;
 
+  final RxSet<String> selectedPlatforms = <String>{}.obs;
+  final RxList<String> completedPlatforms = <String>[].obs;
+
+  List<String> get availablePlatforms {
+    final platformSet = <String>{};
+    for (final task in tasks) {
+      final p = task.platform.toLowerCase();
+      if (p.isNotEmpty) platformSet.add(p);
+    }
+    for (final p in completedPlatforms) {
+      if (p.isNotEmpty) platformSet.add(p.toLowerCase());
+    }
+    return platformSet.toList()..sort();
+  }
+
+  bool isPlatformAllowed(String platform) {
+    if (selectedPlatforms.isEmpty) return true;
+    final p = platform.toLowerCase();
+    if (selectedPlatforms.contains(p)) return true;
+    return false;
+  }
+
   final Map<String, Timer> _pollTimers = <String, Timer>{};
   final Map<String, int> _pollFailures = <String, int>{};
   final Map<String, _RecorderPollRequest> _pollInFlight = <String, _RecorderPollRequest>{};

@@ -44,6 +44,7 @@ class RecorderPage extends GetView<RecorderController> {
           leading: canGoBack ? const BackButton() : (showAction ? const MenuButton() : null),
 
           actions: [
+            _PlatformFilterButton(),
             IconButton(
               tooltip: i18n("recorder_open_folder"),
               icon: const Icon(Remix.folder_video_line, size: 22),
@@ -96,7 +97,14 @@ class _TaskList extends GetView<RecorderController> {
     return Obx(() {
       final source = controller.tasks;
 
-      final list = filter != null ? source.where(filter!).toList() : RecorderTaskOrdering.forDisplay(source);
+      Iterable<LiveRecordTask> iter;
+      if (filter != null) {
+        iter = source.where(filter!);
+      } else {
+        iter = RecorderTaskOrdering.forDisplay(source);
+      }
+      iter = iter.where((task) => controller.isPlatformAllowed(task.platform));
+      final list = iter.toList();
 
       if (list.isEmpty) {
         return const _EmptyView();
@@ -798,6 +806,13 @@ class _CompletedGroupedListState extends State<_CompletedGroupedList> {
     final groups = groupMap.values.toList()..sort((a, b) => b.latestModified.compareTo(a.latestModified));
 
     if (!mounted) return;
+    final platforms = <String>{};
+    for (final g in groups) {
+      if (g.platform.isNotEmpty) platforms.add(g.platform.toLowerCase());
+    }
+    controller.completedPlatforms
+      ..clear()
+      ..addAll(platforms.toList()..sort());
     setState(() {
       _groups
         ..clear()
@@ -821,24 +836,30 @@ class _CompletedGroupedListState extends State<_CompletedGroupedList> {
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
-    return buildCommonPullToRefresh(
-      context: context,
-      refreshKey: 'recorder_completed',
-      onRefresh: _refresh,
-      controller: _refreshController,
-      childBuilder: (_, physics) {
-        if (_groups.isEmpty) {
-          return const _EmptyView();
-        }
-        return ListView.separated(
-          physics: physics,
-          padding: const EdgeInsets.all(14),
-          itemCount: _groups.length,
-          separatorBuilder: (_, _) => const SizedBox(height: 14),
-          itemBuilder: (_, i) => _CompletedHostCard(group: _groups[i], onChanged: _scan),
-        );
-      },
-    );
+    return Obx(() {
+      final controller = Get.find<RecorderController>();
+      final filteredGroups = controller.selectedPlatforms.isEmpty
+          ? _groups
+          : _groups.where((g) => controller.isPlatformAllowed(g.platform)).toList();
+      return buildCommonPullToRefresh(
+        context: context,
+        refreshKey: 'recorder_completed',
+        onRefresh: _refresh,
+        controller: _refreshController,
+        childBuilder: (_, physics) {
+          if (filteredGroups.isEmpty) {
+            return const _EmptyView();
+          }
+          return ListView.separated(
+            physics: physics,
+            padding: const EdgeInsets.all(14),
+            itemCount: filteredGroups.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 14),
+            itemBuilder: (_, i) => _CompletedHostCard(group: filteredGroups[i], onChanged: _scan),
+          );
+        },
+      );
+    });
   }
 }
 
@@ -1202,6 +1223,185 @@ class _EmptyView extends StatelessWidget {
             style: AppTextStyles.t13.copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PlatformFilterButton extends StatefulWidget {
+  @override
+  State<_PlatformFilterButton> createState() => _PlatformFilterButtonState();
+}
+
+class _PlatformFilterButtonState extends State<_PlatformFilterButton> {
+  final LayerLink _layerLink = LayerLink();
+  OverlayEntry? _overlayEntry;
+
+  bool get _isOpen => _overlayEntry != null;
+
+  void _toggle() {
+    if (_isOpen) {
+      _close();
+    } else {
+      _open();
+    }
+  }
+
+  void _open() {
+    if (!mounted) return;
+    final overlay = Overlay.of(context);
+    final renderBox = context.findRenderObject() as RenderBox?;
+    final buttonHeight = renderBox?.size.height ?? 40;
+
+    _overlayEntry = OverlayEntry(
+      builder: (overlayContext) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(behavior: HitTestBehavior.translucent, onTap: _close),
+          ),
+          Positioned(
+            width: 200,
+            child: CompositedTransformFollower(
+              link: _layerLink,
+              showWhenUnlinked: false,
+              offset: Offset(0, buttonHeight + 6),
+              child: _buildPanel(),
+            ),
+          ),
+        ],
+      ),
+    );
+    overlay.insert(_overlayEntry!);
+  }
+
+  void _close() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+    if (mounted) setState(() {});
+  }
+
+  Widget _buildPanel() {
+    final theme = Theme.of(context);
+    return Material(
+      elevation: 8,
+      color: theme.colorScheme.surface,
+      surfaceTintColor: Colors.transparent,
+      borderRadius: BorderRadius.circular(10),
+      clipBehavior: Clip.antiAlias,
+      child: Obx(() {
+        final controller = Get.find<RecorderController>();
+        final platforms = controller.availablePlatforms;
+        final selected = controller.selectedPlatforms;
+        final allSelected = selected.isEmpty;
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _FilterTile(title: '全部', selected: allSelected, onTap: () => controller.selectedPlatforms.clear()),
+            if (platforms.isNotEmpty) const Divider(height: 1, thickness: 1),
+            if (platforms.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Text('暂无平台', style: AppTextStyles.t13Muted),
+              )
+            else
+              ...platforms.map(
+                (platform) => _FilterTile(
+                  title: platform.toUpperCase(),
+                  selected: selected.contains(platform),
+                  onTap: () {
+                    if (selected.contains(platform)) {
+                      controller.selectedPlatforms.remove(platform);
+                    } else {
+                      controller.selectedPlatforms.add(platform);
+                    }
+                  },
+                ),
+              ),
+          ],
+        );
+      }),
+    );
+  }
+
+  @override
+  void dispose() {
+    _close();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: Obx(() {
+        final controller = Get.find<RecorderController>();
+        final selected = controller.selectedPlatforms;
+        final isFiltering = selected.isNotEmpty;
+        final label = selected.isEmpty
+            ? '全部'
+            : selected.length == 1
+            ? selected.first.toUpperCase()
+            : '${selected.length} 项';
+        return InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: _toggle,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Remix.filter_line, size: 18, color: isFiltering ? Theme.of(context).colorScheme.primary : null),
+                const SizedBox(width: 4),
+                Text(
+                  label,
+                  style: AppTextStyles.t13.copyWith(
+                    color: isFiltering ? Theme.of(context).colorScheme.primary : null,
+                    fontWeight: isFiltering ? FontWeight.w600 : null,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }),
+    );
+  }
+}
+
+class _FilterTile extends StatelessWidget {
+  final String title;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _FilterTile({required this.title, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          children: [
+            Icon(
+              selected ? Remix.checkbox_circle_fill : Remix.checkbox_blank_circle_line,
+              size: 18,
+              color: selected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                title,
+                style: AppTextStyles.t14.copyWith(
+                  color: selected ? colorScheme.primary : colorScheme.onSurface,
+                  fontWeight: selected ? FontWeight.w600 : null,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
