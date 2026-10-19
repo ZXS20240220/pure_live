@@ -20,6 +20,7 @@ class AudioOnlyPanel extends StatelessWidget {
     this.fallbackIcon = Remix.user_3_line,
     this.scrollable = true,
     this.opaqueBackground = false,
+    this.breathing = true,
   });
 
   /// 铺底暗化背景的头像 URL，为空时不显示背景图。
@@ -48,6 +49,9 @@ class AudioOnlyPanel extends StatelessWidget {
   /// 默认 false 时跟随壁纸设置：开启壁纸则降低遮罩不透明度透出壁纸。
   /// 画中画等没有壁纸的独立窗口应传 true，避免低透明度渐变叠在黑底上。
   final bool opaqueBackground;
+
+  /// 头像呼吸动画开关：false 时头像缩放停住（用于播放暂停时暂停动画）。
+  final bool breathing;
 
   @override
   Widget build(BuildContext context) {
@@ -110,6 +114,7 @@ class AudioOnlyPanel extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       _BreathingScale(
+                        active: breathing,
                         child: Container(
                           width: avatarSize,
                           height: avatarSize,
@@ -236,9 +241,11 @@ class AudioOnlyPanel extends StatelessWidget {
 }
 
 /// 头像持续呼吸缩放动画：0.95 ↔ 1.05 往返循环，单程 1.5 秒。
+/// [active] 为 false 时暂停在当前缩放位置，恢复后从停住处继续。
 class _BreathingScale extends StatefulWidget {
-  const _BreathingScale({required this.child});
+  const _BreathingScale({required this.active, required this.child});
 
+  final bool active;
   final Widget child;
 
   @override
@@ -249,12 +256,32 @@ class _BreathingScaleState extends State<_BreathingScale> with SingleTickerProvi
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1500),
-  )..repeat(reverse: true);
+  );
 
   late final Animation<double> _scale = Tween<double>(
     begin: 0.95,
     end: 1.05,
   ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+
+  @override
+  void initState() {
+    super.initState();
+    _syncRunning();
+  }
+
+  @override
+  void didUpdateWidget(covariant _BreathingScale oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.active != widget.active) _syncRunning();
+  }
+
+  void _syncRunning() {
+    if (widget.active) {
+      _controller.repeat(reverse: true);
+    } else {
+      _controller.stop();
+    }
+  }
 
   @override
   void dispose() {

@@ -97,6 +97,7 @@ class LocalPlaybackPage extends GetView<LocalPlaybackController> {
                             fallbackIcon: Remix.headphone_fill,
                             scrollable: false,
                             opaqueBackground: true,
+                            breathing: controller.isPlaying.value,
                           );
                         }
                         return Container(
@@ -545,6 +546,7 @@ class LocalPlaybackPage extends GetView<LocalPlaybackController> {
                         subtitle: entry?.displayNick ?? '',
                         statusText: '纯音频模式',
                         fallbackIcon: Remix.headphone_fill,
+                        breathing: controller.isPlaying.value,
                       );
                     }
                     final hasVideo = controller.currentMp4Path != null;

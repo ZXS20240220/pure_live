@@ -405,6 +405,9 @@ class PlayerManager {
 
   final RxBool isInitialized = false.obs;
   final RxBool hasError = false.obs;
+
+  /// 响应式播放状态，镜像 [_playingSubject]，供 Obx 订阅。
+  final RxBool isPlayingRx = false.obs;
   final RxBool isVerticalVideo = false.obs;
   final Rx<VideoGeometrySnapshot> videoGeometry = const VideoGeometrySnapshot.unknown().obs;
   final RxBool isInPip = false.obs;
@@ -554,6 +557,11 @@ class PlayerManager {
   Stream<int?> get width => _widthSubject.stream;
   Stream<int?> get height => _heightSubject.stream;
   bool get isPlayingNow => _playingSubject.value;
+  set _isPlayingNow(bool value) {
+    _playingSubject.add(value);
+    isPlayingRx.value = value;
+  }
+
   bool get isAudioOnlyMode => _runtimeAudioOnly;
   bool get desiredAudioOnlyMode => _requestedAudioOnly;
 
@@ -2240,7 +2248,7 @@ class PlayerManager {
         // the failed transport, disabled the frame watchdog and never restored
         // its recovery budget.
         if (candidate.isPlayingNow) {
-          _playingSubject.add(true);
+          _isPlayingNow = true;
           _loadingSubject.add(false);
           _stateSubject.add(PlayerState.playing);
           hasError.value = false;
@@ -2250,7 +2258,7 @@ class PlayerManager {
           _scheduleProactiveSourceRefresh(candidate, sessionId);
           _scheduleActiveContentProbe();
         } else {
-          _playingSubject.add(false);
+          _isPlayingNow = false;
           _loadingSubject.add(true);
           _stateSubject.add(PlayerState.preparing);
         }
@@ -2433,7 +2441,7 @@ class PlayerManager {
       await _bindPlayerStreams(candidate, sessionId: newSessionId);
       installed = true;
       _stateSubject.add(PlayerState.playing);
-      _playingSubject.add(true);
+      _isPlayingNow = true;
       _loadingSubject.add(false);
       hasError.value = false;
       _errorDedupeSession = newSessionId;
@@ -2914,7 +2922,7 @@ class PlayerManager {
     _cancelTransientLiveRetry();
     _errorDedupeSignatures.remove('${retry.error.type.name}:${retry.error.code ?? '-'}:${retry.error.message}');
     final playing = _currentPlayer?.isPlayingNow == true;
-    _playingSubject.add(playing);
+    _isPlayingNow = playing;
     _loadingSubject.add(_nativeLoading);
     _stateSubject.add(_nativeLoading ? PlayerState.buffering : (playing ? PlayerState.playing : PlayerState.paused));
     hasError.value = false;
@@ -4472,6 +4480,7 @@ class PlayerManager {
         title: detail?.title ?? '',
         subtitle: detail?.nick ?? '',
         restoring: restoring,
+        breathing: isPlayingRx.value,
         statusText: i18n(restoring ? "restoring_live_video" : "audio_only_mode"),
       );
     });
@@ -4701,7 +4710,7 @@ class PlayerManager {
       await player?.softStop();
       if (player != null) await _closeSourceTransport(player);
       _stateSubject.add(PlayerState.idle);
-      _playingSubject.add(false);
+      _isPlayingNow = false;
     } catch (e) {
       await _hardDisposeInternal();
     }
@@ -4749,7 +4758,7 @@ class PlayerManager {
     // aggregated state here or observers of onPlaying/onLoading (e.g. watch
     // time tracking) keep believing the session is still playing after the
     // room has been closed.
-    _playingSubject.add(false);
+    _isPlayingNow = false;
     _loadingSubject.add(false);
   }
 
@@ -5001,7 +5010,7 @@ class PlayerManager {
         final loading = _playbackRequested && _playbackSuspensions.isEmpty && _nativeLoading;
         final playing = activeAtStart.isPlayingNow;
         _loadingSubject.add(loading);
-        _playingSubject.add(playing);
+        _isPlayingNow = playing;
         _stateSubject.add(loading ? PlayerState.buffering : (playing ? PlayerState.playing : PlayerState.paused));
         if (loading) {
           _scheduleBufferingStallRecovery(activeAtStart, request.sessionId);
@@ -5420,7 +5429,7 @@ class PlayerManager {
       player.onPlaying.distinct().listen((event) {
         if (!_isPlayerEventCurrent(player, sessionId)) return;
         _traceWindowsRecovery('playing=$event', sessionId: sessionId);
-        _playingSubject.add(event);
+        _isPlayingNow = event;
         if (event) {
           _playingRecoveryRevision++;
           _retireTransientLiveRetryForProgress(playingResumed: true);
