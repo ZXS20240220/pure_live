@@ -51,20 +51,36 @@ class _MyAppState extends State<MyApp> with DesktopWindowMixin {
   SharedMediaReceiver? _sharedMediaReceiver;
   bool _dynamicThemeChangeScheduled = false;
 
-  static TextTheme _applyShadowToTextTheme(TextTheme base, Shadow shadow) {
+  /// 壁纸激活时全局文字的辨识度阴影：第一层紧贴文字形成描边式对比，
+  /// 第二层向下柔和扩散。深色主题用黑色阴影衬托亮色文字，浅色主题
+  /// 用白色光晕衬托深色文字。构建期一次性创建，渲染期零额外开销。
+  static List<Shadow> _wallpaperTextShadows(Brightness brightness) {
+    if (brightness == Brightness.dark) {
+      return <Shadow>[
+        Shadow(color: Colors.black.withValues(alpha: 0.85), blurRadius: 1),
+        Shadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 5, offset: const Offset(0, 1)),
+      ];
+    }
+    return <Shadow>[
+      Shadow(color: Colors.white.withValues(alpha: 0.95), blurRadius: 1),
+      Shadow(color: Colors.white.withValues(alpha: 0.6), blurRadius: 5, offset: const Offset(0, 1)),
+    ];
+  }
+
+  static TextTheme _applyShadowToTextTheme(TextTheme base, List<Shadow> shadows) {
     return base.copyWith(
-      bodySmall: base.bodySmall?.copyWith(shadows: [shadow]),
-      bodyMedium: base.bodyMedium?.copyWith(shadows: [shadow]),
-      bodyLarge: base.bodyLarge?.copyWith(shadows: [shadow]),
-      titleSmall: base.titleSmall?.copyWith(shadows: [shadow]),
-      titleMedium: base.titleMedium?.copyWith(shadows: [shadow]),
-      titleLarge: base.titleLarge?.copyWith(shadows: [shadow]),
-      labelSmall: base.labelSmall?.copyWith(shadows: [shadow]),
-      labelMedium: base.labelMedium?.copyWith(shadows: [shadow]),
-      labelLarge: base.labelLarge?.copyWith(shadows: [shadow]),
-      headlineSmall: base.headlineSmall?.copyWith(shadows: [shadow]),
-      headlineMedium: base.headlineMedium?.copyWith(shadows: [shadow]),
-      headlineLarge: base.headlineLarge?.copyWith(shadows: [shadow]),
+      bodySmall: base.bodySmall?.copyWith(shadows: shadows),
+      bodyMedium: base.bodyMedium?.copyWith(shadows: shadows),
+      bodyLarge: base.bodyLarge?.copyWith(shadows: shadows),
+      titleSmall: base.titleSmall?.copyWith(shadows: shadows),
+      titleMedium: base.titleMedium?.copyWith(shadows: shadows),
+      titleLarge: base.titleLarge?.copyWith(shadows: shadows),
+      labelSmall: base.labelSmall?.copyWith(shadows: shadows),
+      labelMedium: base.labelMedium?.copyWith(shadows: shadows),
+      labelLarge: base.labelLarge?.copyWith(shadows: shadows),
+      headlineSmall: base.headlineSmall?.copyWith(shadows: shadows),
+      headlineMedium: base.headlineMedium?.copyWith(shadows: shadows),
+      headlineLarge: base.headlineLarge?.copyWith(shadows: shadows),
     );
   }
 
@@ -172,7 +188,6 @@ class _MyAppState extends State<MyApp> with DesktopWindowMixin {
       if (scaffoldBg != null) {
         final scheme = themeToApply.colorScheme;
         final textTheme = themeToApply.textTheme;
-        final shadow = Shadow(color: Colors.black.withValues(alpha: 0.55), blurRadius: 3, offset: const Offset(0, 1));
         themeToApply = themeToApply.copyWith(
           scaffoldBackgroundColor: scaffoldBg,
           appBarTheme: themeToApply.appBarTheme.copyWith(
@@ -185,7 +200,7 @@ class _MyAppState extends State<MyApp> with DesktopWindowMixin {
             surfaceContainerLow: scheme.surfaceContainerLow.withValues(alpha: 0.24),
             surfaceContainerHighest: scheme.surfaceContainerHighest.withValues(alpha: 0.24),
           ),
-          textTheme: _applyShadowToTextTheme(textTheme, shadow),
+          textTheme: _applyShadowToTextTheme(textTheme, _wallpaperTextShadows(brightness)),
           dialogTheme: DialogThemeData(
             titleTextStyle: textTheme.titleLarge,
             contentTextStyle: textTheme.bodyMedium,
@@ -280,11 +295,6 @@ class _MyAppState extends State<MyApp> with DesktopWindowMixin {
                       ? () {
                           final scheme = baseTheme.colorScheme;
                           final baseTextTheme = baseTheme.textTheme;
-                          final shadow = Shadow(
-                            color: Colors.black.withValues(alpha: 0.65),
-                            blurRadius: 3,
-                            offset: const Offset(0, 1),
-                          );
                           return baseTheme.copyWith(
                             scaffoldBackgroundColor: Colors.transparent,
                             appBarTheme: baseTheme.appBarTheme.copyWith(
@@ -297,7 +307,10 @@ class _MyAppState extends State<MyApp> with DesktopWindowMixin {
                               surfaceContainerLow: scheme.surfaceContainerLow.withValues(alpha: 0.24),
                               surfaceContainerHighest: scheme.surfaceContainerHighest.withValues(alpha: 0.24),
                             ),
-                            textTheme: _applyShadowToTextTheme(baseTextTheme, shadow),
+                            textTheme: _applyShadowToTextTheme(
+                              baseTextTheme,
+                              _wallpaperTextShadows(baseTheme.brightness),
+                            ),
                             dialogTheme: DialogThemeData(
                               titleTextStyle: baseTextTheme.titleLarge,
                               contentTextStyle: baseTextTheme.bodyMedium,
