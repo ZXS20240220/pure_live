@@ -444,9 +444,16 @@ class LocalPlaybackController extends GetxController {
   }
 
   void enableController() {
+    _armHideTimer();
+    showController.value = true;
+  }
+
+  /// 仅重新 arm auto-hide Timer，不改变 [showController] 当前状态。
+  /// 用于鼠标真正离开控件区域（或 synthetic onExit）的场景，此时
+  /// 不应强制把刚被 BottomControlSurface 动画滑出的控件拉回来。
+  void _armHideTimer() {
     _hideTimer?.cancel();
     _hideTimer = Timer(_controllerHideDelay, _doHideController);
-    showController.value = true;
   }
 
   void stopHideController() {
@@ -476,7 +483,9 @@ class LocalPlaybackController extends GetxController {
   }
 
   void onMouseEnterController(Object _) => holdController();
-  void onMouseExitController(Object _) => enableController();
+  // 只 arm Timer 不强制 showController=true，避免 BottomControlSurface
+  // visible=false 时 ControlHoverRegion 的 synthetic onExit 重新拉起控件。
+  void onMouseExitController(Object _) => _armHideTimer();
 
   Future<void> toggleFullScreen() async {
     showLocked.value = false;
