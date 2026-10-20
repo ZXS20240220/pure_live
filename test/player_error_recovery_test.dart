@@ -758,7 +758,9 @@ void main() {
     mediaKit._height.add(1080);
     final snapshot = await manager.videoGeometry.stream
         .firstWhere((snapshot) => snapshot.orientation == VideoSourceOrientation.landscape && snapshot.isStable)
-        .timeout(const Duration(seconds: 2));
+        // 生产管线固定为 120ms 观察 + 500ms 稳定提交；全套件高负载下定时器
+        // 可能延迟数秒，超时预算需要足够冗余，只对管线真正失效失败。
+        .timeout(const Duration(seconds: 10));
     expect(snapshot.effectiveAspectRatio, closeTo(16 / 9, 0.001));
     expect(manager.isVerticalVideo.value, isFalse);
     await manager.dispose();
@@ -777,7 +779,8 @@ void main() {
     );
     await manager.videoGeometry.stream
         .firstWhere((snapshot) => snapshot.orientation == VideoSourceOrientation.portrait && snapshot.isStable)
-        .timeout(const Duration(seconds: 2));
+        // 同上：为高负载下的定时器延迟留足冗余。
+        .timeout(const Duration(seconds: 10));
 
     expect(manager.videoGeometry.value.width, 720);
     expect(manager.videoGeometry.value.height, 1280);

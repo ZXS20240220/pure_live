@@ -117,6 +117,8 @@ void main() {
   });
   for (final timeout in [false, true]) {
     test('late owned resolution after ${timeout ? 'timeout' : 'cancel'} has no side effects', () async {
+      // 取消路径不能与 100ms 真实计时器竞速：全套件高负载下计时器可能先触发。
+      if (!timeout) scope = ToolBoxActionScope();
       final resolved = resolvedSite();
       final pending = Completer<LivePlayUrlResolution>();
       resolved.resolutionReply = pending.future;
@@ -195,6 +197,8 @@ void main() {
     expect(notices, ['toolbox_copy_failed']);
   });
   test('cancel during clipboard completion suppresses late success', () async {
+    // 取消必须先于计时器触发，不能被高负载下的 100ms 超时抢先。
+    scope = ToolBoxActionScope();
     final pending = Completer<void>();
     copyReply = pending.future;
     final action = run();
@@ -238,6 +242,8 @@ void main() {
   });
   for (final stage in ['detail', 'qualities', 'urls', 'qualityChoice', 'lineChoice']) {
     test('cancelling $stage releases the action and ignores its late result', () async {
+      // 取消路径不能与 100ms 真实计时器竞速：全套件高负载下计时器可能先触发。
+      scope = ToolBoxActionScope();
       final detail = Completer<LiveRoom>();
       final qualities = Completer<List<LivePlayQuality>>();
       final urls = Completer<List<String>>();

@@ -177,6 +177,10 @@ void main() {
       expect(controller.hasMore.value, isFalse);
     } finally {
       controller.onClose();
+      // 等待 FavoriteRoomController 迁移触发的 ever→Hive 异步写入落盘，
+      // 避免用例结束后写入撞上 tearDownAll 的 Hive.close。
+      await Future<void>.delayed(Duration.zero);
+      await Hive.box<dynamic>('app_settings').flush();
     }
   });
 }

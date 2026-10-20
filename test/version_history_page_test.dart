@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:pure_live/common/models/release_model.dart';
@@ -96,6 +97,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(clipboardText, 'https://example.test/PureLive-3.2.0-portable.zip');
     expect(find.text('Copied to clipboard'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
 
     final downloadAction = find.byTooltip('Download');
     await tester.scrollUntilVisible(downloadAction, 120, scrollable: detailsScroll, maxScrolls: 10);
@@ -198,6 +201,8 @@ void main() {
       find.text('The release history could not be refreshed. Existing entries are still available.'),
       findsOneWidget,
     );
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
     expect(calls, 2);
     expect(tester.takeException(), isNull);
   });
@@ -255,9 +260,12 @@ Future<void> _pumpPage(
           locale: context.locale,
           localizationsDelegates: context.localizationDelegates,
           supportedLocales: context.supportedLocales,
-          builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(textScale)),
-            child: child!,
+          navigatorObservers: [FlutterSmartDialog.observer],
+          builder: FlutterSmartDialog.init(
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(textScale)),
+              child: child!,
+            ),
           ),
           home: VersionHistoryPage(
             releaseLoader: loader,

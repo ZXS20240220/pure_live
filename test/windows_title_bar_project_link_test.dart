@@ -3,10 +3,14 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pure_live/common/global/platform/desktop_manager.dart';
+import 'package:pure_live/common/utils/toast_util.dart';
 
 void main() {
+  setUp(ToastUtil.debugResetThrottle);
+
   test('Windows title-bar project link owns accessibility and external launch state', () {
     final source = File('lib/common/global/platform/desktop_manager.dart').readAsStringSync();
     final projectLinkSource = source.substring(
@@ -17,7 +21,7 @@ void main() {
     expect(projectLinkSource, contains('link: true'));
     expect(projectLinkSource, contains('enabled: !_busy'));
     expect(projectLinkSource, contains('mode: LaunchMode.externalApplication'));
-    expect(projectLinkSource, contains('Text(widget.failureMessage)'));
+    expect(projectLinkSource, contains('ToastUtil.error(widget.failureMessage)'));
   });
 
   testWidgets('project link exposes its purpose, focus and keyboard action', (tester) async {
@@ -74,6 +78,8 @@ void main() {
     firstLaunch.complete(false);
     await tester.pump();
     expect(find.text('Browser did not open'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(tester.widget<InkWell>(find.byType(InkWell)).onTap, isNotNull);
 
@@ -97,6 +103,8 @@ void main() {
     await tester.tap(find.byType(TitleBarProjectLink));
     await tester.pump();
     expect(find.text('Browser did not open'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     await tester.tap(find.byType(TitleBarProjectLink));
     await tester.pump();
@@ -127,6 +135,8 @@ Widget _link({
   TextStyle textStyle = const TextStyle(color: Colors.black),
 }) {
   return MaterialApp(
+    navigatorObservers: [FlutterSmartDialog.observer],
+    builder: FlutterSmartDialog.init(),
     home: Scaffold(
       body: Center(
         child: SizedBox(

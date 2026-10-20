@@ -26,6 +26,13 @@ class ToastUtil {
   /// 失败提示：保留标题，使用错误容器色以维持警示效果。
   static void error(String? message) => _present(message, title: i18nOr('failed', '失败'), isError: true);
 
+  /// 测试辅助：清空去重窗口，避免相邻用例因相同签名吞掉本应出现的提示。
+  @visibleForTesting
+  static void debugResetThrottle() {
+    _lastShowTime = null;
+    _lastSignature = null;
+  }
+
   static void _present(String? message, {String? title, bool isError = false}) {
     if (message == null || message.trim().isEmpty) return;
     // 同一条提示在 3 秒内重复触发时去重，避免连续回调刷屏。
@@ -89,16 +96,18 @@ class _ToastCard extends StatelessWidget {
           BoxShadow(color: colors.shadow.withValues(alpha: 0.18), blurRadius: 18, offset: const Offset(0, 6)),
         ],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (title != null) ...[
-            Text(title!, style: titleStyle.copyWith(color: foreground)),
-            const SizedBox(height: 2),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (title != null) ...[
+              Text(title!, style: titleStyle.copyWith(color: foreground)),
+              const SizedBox(height: 2),
+            ],
+            Text(message, style: bodyStyle.copyWith(color: foreground)),
           ],
-          Text(message, style: bodyStyle.copyWith(color: foreground)),
-        ],
+        ),
       ),
     );
   }

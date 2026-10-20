@@ -4,6 +4,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pure_live/common/global/platform/desktop_manager.dart';
 
@@ -95,6 +96,8 @@ void main() {
     await tester.pump();
     expect(tester.takeException(), isNull);
     expect(find.text('Window action failed'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
     await tester.tap(find.byType(WindowControlButton));
     await tester.pump();
     expect(calls, 2);
@@ -103,6 +106,8 @@ void main() {
 
 Widget _button({required Future<void> Function() onPressed}) {
   return MaterialApp(
+    navigatorObservers: [FlutterSmartDialog.observer],
+    builder: FlutterSmartDialog.init(),
     home: Scaffold(
       body: Center(
         child: WindowControlButton(
