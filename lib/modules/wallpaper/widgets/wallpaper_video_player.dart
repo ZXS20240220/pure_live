@@ -15,19 +15,60 @@ class WallpaperVideoPlayer extends StatefulWidget {
   State<WallpaperVideoPlayer> createState() => _WallpaperVideoPlayerState();
 }
 
-class _WallpaperVideoPlayerState extends State<WallpaperVideoPlayer> {
+class _WallpaperVideoPlayerState extends State<WallpaperVideoPlayer> with WidgetsBindingObserver {
   Player? _player;
   VideoController? _controller;
   StreamSubscription<bool>? _playingSub;
   Worker? _volumeWorker;
   Worker? _pauseOnLiveWorker;
+  Worker? _loopWorker;
   bool _disposed = false;
+
+  /// 窗口最小化/不可见时置 true，恢复可见后清除。
+  bool _windowHidden = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initPlayer();
   }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.paused:
+        _windowHidden = true;
+        _syncPlayback();
+      case AppLifecycleState.resumed:
+      case AppLifecycleState.inactive:
+        if (_windowHidden) {
+          _windowHidden = false;
+          _syncPlayback();
+        }
+      default:
+        break;
+    }
+  }
+
+  /// 统一计算“当前是否应当播放”：
+  /// 窗口不可见，或设置了“直播时暂停”且直播正在播放时暂停，其余情况播放。
+  /// 合并可见性与直播两个暂停来源，避免恢复时相互覆盖。
+  void _syncPlayback() {
+    if (_disposed || _player == null) return;
+    final wallpaper = SettingsService.to.wallpaper;
+    final livePlaying =
+        GlobalPlayerService.instance.initialized && GlobalPlayerService.instance.playerManager.isPlayingNow;
+    final shouldPlay = !_windowHidden && !(wallpaper.pauseVideoWhenLivePlaying.v && livePlaying);
+    if (shouldPlay) {
+      _player!.play();
+    } else {
+      _player!.pause();
+    }
+  }
+
+  static PlaylistMode _resolveLoopMode(bool loop) => loop ? PlaylistMode.loop : PlaylistMode.none;
 
   @override
   void didUpdateWidget(WallpaperVideoPlayer oldWidget) {
@@ -57,8 +98,8 @@ class _WallpaperVideoPlayerState extends State<WallpaperVideoPlayer> {
     // 初始音量
     await player.setVolume(wallpaper.videoVolume.v * 100);
 
-    // 循环播放
-    await player.setPlaylistMode(PlaylistMode.loop);
+    // 循环模式跟随设置
+    await player.setPlaylistMode(_resolveLoopMode(wallpaper.videoLoop.v));
 
     await _openSource();
 
@@ -69,29 +110,22 @@ class _WallpaperVideoPlayerState extends State<WallpaperVideoPlayer> {
       }
     });
 
-    // 监听"直播时暂停"开关变化
+    // 监听“直播时暂停”开关变化
     _pauseOnLiveWorker = ever(wallpaper.pauseVideoWhenLivePlaying, (bool pauseOnLive) {
-      if (_disposed || _player == null) return;
-      if (!GlobalPlayerService.instance.initialized) return;
-      final isLivePlaying = GlobalPlayerService.instance.playerManager.isPlayingNow;
-      if (pauseOnLive && isLivePlaying) {
-        _player!.pause();
-      } else {
-        _player!.play();
+      _syncPlayback();
+    });
+
+    // 监听循环开关变化
+    _loopWorker = ever(wallpaper.videoLoop, (bool loop) {
+      if (!_disposed && _player != null) {
+        _player!.setPlaylistMode(_resolveLoopMode(loop));
       }
     });
 
     // 监听直播播放状态：直播播放时暂停壁纸视频
     if (GlobalPlayerService.instance.initialized) {
       _playingSub = GlobalPlayerService.instance.playerManager.onPlaying.listen((playing) {
-        if (_disposed || _player == null) return;
-        if (wallpaper.pauseVideoWhenLivePlaying.v) {
-          if (playing) {
-            _player!.pause();
-          } else {
-            _player!.play();
-          }
-        }
+        _syncPlayback();
       });
     }
   }
@@ -107,9 +141,11 @@ class _WallpaperVideoPlayerState extends State<WallpaperVideoPlayer> {
   @override
   void dispose() {
     _disposed = true;
+    WidgetsBinding.instance.removeObserver(this);
     _playingSub?.cancel();
     _volumeWorker?.dispose();
     _pauseOnLiveWorker?.dispose();
+    _loopWorker?.dispose();
     _player?.dispose();
     super.dispose();
   }
