@@ -239,7 +239,13 @@ class _LivePlayShellState extends State<LivePlayShell> with SingleTickerProvider
                 onExit: (_) {
                   _openTimer?.cancel();
                 },
-                child: const SizedBox.expand(),
+                // 触屏设备没有 MouseRegion 事件，GestureDetector.onTap
+                // 保证点击/触摸这块热区也能触发侧栏展开。
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _openPanel,
+                  child: const SizedBox.expand(),
+                ),
               ),
             ),
         ],
