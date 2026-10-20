@@ -2049,19 +2049,22 @@ class BottomActionBar extends StatelessWidget {
                         // （居中发送框 + 清晰度/线路合并胶囊），与宽屏全屏底栏一致。
                         final immersive = !fullscreen && !isPipMode && enableImmersiveLayout;
                         final fullscreenStyle = fullscreen || immersive;
-                        final compact = constraints.maxWidth < 700;
-                        final left = _buildLeftActions(
-                          compact: compact && localInteractionEnabled,
-                          enableDanmakuDisplay: enableDanmakuDisplay,
-                        );
-                        final right = _buildRightActions(
-                          compact: compact,
-                          showStreamSelector: fullscreen || (!isPipMode && enableImmersiveLayout),
-                          isFullscreen: isFullscreen,
-                          isWindowFullscreen: isWindowFullscreen,
-                        );
+
+                        // 两套独立阈值：沉浸/全屏模式一套，普通模式一套，互不影响。
+                        final compactImmersive = constraints.maxWidth < 700;
+                        final compactRegular = constraints.maxWidth < 700;
 
                         if (fullscreenStyle) {
+                          final left = _buildLeftActions(
+                            compact: compactImmersive && localInteractionEnabled,
+                            enableDanmakuDisplay: enableDanmakuDisplay,
+                          );
+                          final right = _buildRightActions(
+                            compact: compactImmersive,
+                            showStreamSelector: fullscreen || (!isPipMode && enableImmersiveLayout),
+                            isFullscreen: isFullscreen,
+                            isWindowFullscreen: isWindowFullscreen,
+                          );
                           return Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 8),
                             child: Row(
@@ -2084,6 +2087,16 @@ class BottomActionBar extends StatelessWidget {
                           );
                         }
 
+                        final left = _buildLeftActions(
+                          compact: compactRegular,
+                          enableDanmakuDisplay: enableDanmakuDisplay,
+                        );
+                        final right = _buildRightActions(
+                          compact: compactRegular,
+                          showStreamSelector: false,
+                          isFullscreen: isFullscreen,
+                          isWindowFullscreen: isWindowFullscreen,
+                        );
                         return SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
                           physics: const PureLiveBoundedScrollPhysics(),
