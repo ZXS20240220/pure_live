@@ -356,6 +356,14 @@ class CustomTitleBar extends StatelessWidget {
                                 decoration: TextDecoration.none,
                               ),
                             ),
+                            const SizedBox(width: 6),
+                            Obx(
+                              () => Text(
+                                AppUptimeTracker.instance.uptimeText.value,
+                                maxLines: 1,
+                                style: AppTextStyles.t12.copyWith(color: iconColor.withValues(alpha: 0.6)),
+                              ),
+                            ),
                             if (showSizeText) ...[
                               const SizedBox(width: 6),
                               Text(

@@ -27,6 +27,7 @@ void main(List<String> args) async {
     FlutterError.dumpErrorToConsole(details, forceReport: true);
   };
 
+  AppUptimeTracker.instance.start();
   await AppInitializer().initialize(args);
 
   runApp(
