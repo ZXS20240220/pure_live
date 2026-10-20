@@ -9,7 +9,7 @@
 #   本仓库默认分支即 dev_from_v3.1.4，GitHub 的 schedule 事件只在
 #   默认分支上生效，因此本文件随 dev_from_v3.1.4 推送后定时任务即会生效，
 #   无需同步到 master。job 仍显式 checkout 该分支，避免默认分支调整后误写。
-name: 自动同步 release
+name: 定时更新 release
 
 on:
   workflow_dispatch:
