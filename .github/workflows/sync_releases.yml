@@ -16,7 +16,7 @@ on:
   schedule:
     # GitHub 在整点高负载时 cron 任务常被延迟，避开整点。
     # - cron: '23 */12 * * *'  # 每 12 小时（UTC 00:23 / 12:23）
-    - cron: '*/6 * * * *'     # 每 6 分钟一次(测试)
+    - cron: '*/5 * * * *'     # 每 5 分钟一次(测试)
 
 permissions:
   contents: read
