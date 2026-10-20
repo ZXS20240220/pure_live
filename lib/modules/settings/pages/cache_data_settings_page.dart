@@ -24,7 +24,11 @@ class _CacheDataSettingsPageState extends State<CacheDataSettingsPage> {
 
   void _showCacheMessage(String message, {bool failed = false}) {
     if (!mounted) return;
-    Get.snackbar(failed ? i18n('error') : i18n('done'), message, snackPosition: SnackPosition.bottom);
+    if (failed) {
+      ToastUtil.error(message);
+    } else {
+      ToastUtil.success(message);
+    }
   }
 
   Future<void> _refreshThumbnails() async {

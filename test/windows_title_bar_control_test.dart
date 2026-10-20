@@ -16,7 +16,7 @@ void main() {
     expect(source, contains('label: widget.semanticLabel'));
     expect(source, contains('Future<void> _runAction()'));
     expect(source, contains('enabled: !_busy'));
-    expect(source, contains('ScaffoldMessenger.maybeOf(context)?.showSnackBar'));
+    expect(source, contains('ToastUtil.error(widget.failureMessage)'));
     for (final key in ['window_minimize', 'window_maximize_restore', 'window_close']) {
       expect(source, contains("i18nOr('$key'"));
     }

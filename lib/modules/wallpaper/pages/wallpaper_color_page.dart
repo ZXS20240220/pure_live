@@ -104,7 +104,7 @@ class _WallpaperColorPageState extends State<WallpaperColorPage> {
 
   Future<void> _apply(ColorEntry entry) async {
     await WallpaperSettingsController.to.applyColorWallpaper(entry.toColorData());
-    SmartDialog.showToast('已设为壁纸');
+    ToastUtil.show('已设为壁纸');
   }
 }
 

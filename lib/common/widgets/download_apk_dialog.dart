@@ -196,8 +196,7 @@ class _DownloadApkDialogState extends State<DownloadApkDialog> {
       });
 
       if (_runtimePlatform == DownloadRuntimePlatform.android && _resolvedFileName.toLowerCase().endsWith('.apk')) {
-        ScaffoldMessenger.maybeOf(context)
-            ?.showSnackBar(SnackBar(content: Text(i18n('install_tip')), duration: const Duration(seconds: 2)));
+        ToastUtil.show(i18n('install_tip'));
       }
 
       if (widget.completionDelay > Duration.zero) {
@@ -354,9 +353,8 @@ class _DownloadApkDialogState extends State<DownloadApkDialog> {
   }
 
   void _showErrorAndClose(String message) {
-    final messenger = ScaffoldMessenger.maybeOf(context);
     if (Navigator.canPop(context)) Navigator.pop(context, false);
-    messenger?.showSnackBar(SnackBar(content: Text(message)));
+    ToastUtil.error(message);
   }
 
   @override

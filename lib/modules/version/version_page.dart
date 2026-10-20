@@ -417,7 +417,7 @@ class VersionPage extends GetView<VersionController> {
                   await Clipboard.setData(ClipboardData(text: targetUrl));
                   if (!dialogContext.mounted) return;
                   Navigator.of(dialogContext).pop();
-                  if (pageContext.mounted) _showMessage(pageContext, 'copied_to_clipboard');
+                  if (pageContext.mounted) ToastUtil.success(i18n('copied_to_clipboard'));
                 },
                 icon: const Icon(Remix.clipboard_line, size: 20),
                 label: Text(i18n('copy_link'), textAlign: TextAlign.center),
@@ -446,11 +446,7 @@ class VersionPage extends GetView<VersionController> {
         await downloadAndInstallApk(targetUrl);
       }
     } catch (_) {
-      if (context.mounted) _showMessage(context, 'version_update_download_failed');
+      if (context.mounted) ToastUtil.error(i18n('version_update_download_failed'));
     }
-  }
-
-  void _showMessage(BuildContext context, String key) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(i18n(key))));
   }
 }

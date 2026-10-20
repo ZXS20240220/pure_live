@@ -322,7 +322,7 @@ class RoomCard extends StatelessWidget {
                   if (isFollowed) {
                     unawaited(showTagSelectionGridModal(context, theme, tagController, room));
                   } else {
-                    SmartDialog.showToast(i18n('tags_need_follow_tip'));
+                    ToastUtil.show(i18n('tags_need_follow_tip'));
                     showFollowDialog(
                       context,
                       theme,

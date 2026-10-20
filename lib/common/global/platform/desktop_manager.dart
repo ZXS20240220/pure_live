@@ -489,7 +489,7 @@ class _TitleBarProjectLinkState extends State<TitleBarProjectLink> {
 
   void _showFailure() {
     if (mounted) {
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(widget.failureMessage)));
+      ToastUtil.error(widget.failureMessage);
     }
   }
 
@@ -667,7 +667,7 @@ class _WindowControlButtonState extends State<WindowControlButton> {
     } catch (error, stackTrace) {
       debugPrint('Desktop window control failed (${widget.semanticLabel}): $error\n$stackTrace');
       if (mounted) {
-        ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(widget.failureMessage)));
+        ToastUtil.error(widget.failureMessage);
       }
     } finally {
       if (mounted) setState(() => _busy = false);

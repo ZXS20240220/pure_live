@@ -93,10 +93,10 @@ class _WallpaperApiPreviewPageState extends State<WallpaperApiPreviewPage> {
     try {
       final ok = await WallpaperSettingsController.to.applyImageBytes(bytes);
       if (ok) {
-        SmartDialog.showToast('已设为壁纸');
+        ToastUtil.show('已设为壁纸');
         if (mounted) Get.back<void>();
       } else {
-        SmartDialog.showToast('应用失败');
+        ToastUtil.error('应用失败');
       }
     } finally {
       SmartDialog.dismiss();

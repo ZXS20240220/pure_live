@@ -124,9 +124,7 @@ class _AccountCookieEditorPageState extends State<AccountCookieEditorPage> {
       _savedCookie = value;
       _dirty = false;
     });
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(i18n('cookie_saved_local')), behavior: SnackBarBehavior.floating));
+    ToastUtil.success(i18n('cookie_saved_local'));
   }
 
   Future<void> _confirmDiscard() async {

@@ -1920,7 +1920,7 @@ class MediaKitAdapter
     _pendingSeekAt = null;
     _cacheStateEpoch++;
     if (!_suppressSeekToast) {
-      SnackBarUtil.error('该位置缓存已失效，已自动恢复至直播边缘');
+      ToastUtil.error('该位置缓存已失效，已自动恢复至直播边缘');
     }
     await seekToLiveEdge();
   }
@@ -1969,7 +1969,7 @@ class MediaKitAdapter
         'redirecting to earliest=${streamStartPosition.inSeconds}s',
       );
       if (!_suppressSeekToast) {
-        SnackBarUtil.error('该位置缓存已失效，已跳转至最早可用时间');
+        ToastUtil.error('该位置缓存已失效，已跳转至最早可用时间');
       }
       // Seek to the real earliest available position (streamStartPosition,
       // which equals max(earliestCachedPosition, min seekable-range start)

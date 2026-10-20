@@ -126,7 +126,7 @@ class RecordSettingsPage extends GetView<RecordSettingsController> {
 
                     if (ok == true) {
                       await controller.clearCache();
-                      Get.snackbar(i18n("done"), i18n("cache_cleared"), snackPosition: SnackPosition.bottom);
+                      ToastUtil.success(i18n("cache_cleared"));
                     }
                   },
                 ),

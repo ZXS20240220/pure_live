@@ -279,13 +279,7 @@ class ToolBoxController extends GetxController {
     if (fillRoom || fillUrl) {
       if (fillRoom) roomJumpToController.text = text;
       if (fillUrl) getUrlController.text = text;
-      Get.snackbar(
-        i18n("toolbox_detect_link"),
-        i18n("toolbox_auto_fill"),
-        snackPosition: SnackPosition.bottom,
-        duration: const Duration(seconds: 2),
-        margin: const EdgeInsets.all(15),
-      );
+      ToastUtil.show(i18n("toolbox_auto_fill"), title: i18n("toolbox_detect_link"));
     }
   }
 

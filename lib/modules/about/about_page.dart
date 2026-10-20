@@ -206,7 +206,7 @@ class _AboutPageState extends State<AboutPage> {
     if (!context.mounted) return;
     Navigator.of(context, rootNavigator: true).pop();
     if (!succeeded) {
-      SmartDialog.showToast(i18n("check_update_failed"));
+      ToastUtil.error(i18n("check_update_failed"));
       return;
     }
     showDialog(

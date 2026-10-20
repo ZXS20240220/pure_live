@@ -1,25 +1,8 @@
 import 'package:pure_live/common/index.dart';
 
+/// 兼容层：成功/失败提示统一由 [ToastUtil] 渲染，保证全应用只有一套样式。
 class SnackBarUtil {
-  static void success(String text) {
-    Get.snackbar(
-      'Success',
-      text,
-      duration: const Duration(seconds: 2),
-      backgroundColor: Get.theme.colorScheme.surfaceContainerHighest,
-      colorText: Get.theme.colorScheme.onSurfaceVariant,
-      snackPosition: SnackPosition.bottom,
-    );
-  }
+  static void success(String text) => ToastUtil.success(text);
 
-  static void error(String text) {
-    Get.snackbar(
-      'Error',
-      text,
-      duration: const Duration(seconds: 2),
-      backgroundColor: Get.theme.colorScheme.errorContainer,
-      colorText: Get.theme.colorScheme.onErrorContainer,
-      snackPosition: SnackPosition.bottom,
-    );
-  }
+  static void error(String text) => ToastUtil.error(text);
 }

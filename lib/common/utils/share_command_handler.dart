@@ -68,11 +68,11 @@ class ShareCommandHandler {
   static bool _isDesktopPlatform() => PlatformUtils.isDesktop;
 
   static void _showSuccess(String localizationKey) {
-    SnackBarUtil.success(i18n(localizationKey));
+    ToastUtil.success(i18n(localizationKey));
   }
 
   static void _showFailure(String localizationKey) {
-    SnackBarUtil.error(i18n(localizationKey));
+    ToastUtil.error(i18n(localizationKey));
   }
 
   static bool _hasUsableRoomIdentity(Map<String, dynamic> roomMap) {

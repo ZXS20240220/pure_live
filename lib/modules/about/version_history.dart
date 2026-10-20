@@ -128,7 +128,7 @@ class _VersionHistoryPageState extends State<VersionHistoryPage> {
     } catch (_) {
       if (!mounted) return;
       historyError.value = true;
-      if (allReleased.isNotEmpty) _showMessage(context, 'version_history_load_failed');
+      if (allReleased.isNotEmpty) ToastUtil.error(i18n('version_history_load_failed'));
     } finally {
       if (mounted) historyLoading.value = false;
     }
@@ -456,14 +456,14 @@ class _VersionHistoryPageState extends State<VersionHistoryPage> {
     } catch (_) {
       opened = false;
     }
-    if (context.mounted && !opened) _showMessage(context, 'external_browser_not_opened');
+    if (context.mounted && !opened) ToastUtil.show(i18n('external_browser_not_opened'));
   }
 
   Future<void> _copyDownloadLink(BuildContext context, ReleaseFileModel file) async {
     final uri = releaseHistoryWebUri(file.url);
     if (uri == null) return;
     await Clipboard.setData(ClipboardData(text: uri.toString()));
-    if (context.mounted) _showMessage(context, 'copied_to_clipboard');
+    if (context.mounted) ToastUtil.success(i18n('copied_to_clipboard'));
   }
 
   Future<void> _confirmDownload(BuildContext context, ReleaseFileModel file) async {
@@ -517,14 +517,10 @@ class _VersionHistoryPageState extends State<VersionHistoryPage> {
         await downloadAndInstallApk(uri.toString(), fileName: file.name);
       }
     } catch (_) {
-      if (mounted && context.mounted) _showMessage(context, 'version_history_download_failed');
+      if (mounted && context.mounted) ToastUtil.error(i18n('version_history_download_failed'));
     } finally {
       _downloadInProgress = false;
     }
-  }
-
-  void _showMessage(BuildContext context, String key) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(i18n(key))));
   }
 }
 

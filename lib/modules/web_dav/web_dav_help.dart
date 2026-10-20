@@ -4,6 +4,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:photo_view/photo_view.dart';
+import 'package:pure_live/common/utils/toast_util.dart';
 import 'package:pure_live/common/widgets/pure_live_scroll_physics.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -288,7 +289,7 @@ class WebDavHelpPage extends StatelessWidget {
   Future<void> _copyServerAddress(BuildContext context) async {
     await Clipboard.setData(const ClipboardData(text: _davUrl));
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.tr('copied_to_clipboard'))));
+    ToastUtil.success(context.tr('copied_to_clipboard'));
   }
 
   Future<void> _openOfficialHelp(BuildContext context) async {
@@ -301,7 +302,7 @@ class WebDavHelpPage extends StatelessWidget {
       opened = false;
     }
     if (!context.mounted || opened) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.tr('external_browser_not_opened'))));
+    ToastUtil.show(context.tr('external_browser_not_opened'));
   }
 
   void _openImage(BuildContext context, String imgUrl) {
