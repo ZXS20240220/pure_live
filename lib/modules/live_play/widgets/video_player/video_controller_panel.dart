@@ -2052,7 +2052,7 @@ class BottomActionBar extends StatelessWidget {
 
                         // 两套独立阈值：沉浸/全屏模式一套，普通模式一套，互不影响。
                         final compactImmersive = constraints.maxWidth < 700;
-                        final compactRegular = constraints.maxWidth < 700;
+                        final compactRegular = constraints.maxWidth < 450;
 
                         if (fullscreenStyle) {
                           final left = _buildLeftActions(
