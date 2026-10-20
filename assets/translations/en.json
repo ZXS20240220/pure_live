@@ -939,7 +939,6 @@
   "delete_failed": "Failed to delete, please try again later",
   "download_failed": "Download failed, please try again later",
   "download_success": "Downloaded successfully",
-  "show_danmaku": "Show Danmaku",
   "show_danmaku_subtitle": "Enable danmaku display by default during playback",
   "global_mute": "Global Mute",
   "global_mute_subtitle": "Mute all live rooms",
