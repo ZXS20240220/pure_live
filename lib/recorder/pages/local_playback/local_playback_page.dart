@@ -714,36 +714,41 @@ class LocalPlaybackPage extends GetView<LocalPlaybackController> {
           enabled: visible,
           onEnter: controller.onMouseEnterController,
           onExit: controller.onMouseExitController,
-          child: Container(
-            height: 56 + 28,
-            alignment: Alignment.bottomLeft,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Colors.transparent, Colors.black.withValues(alpha: 0.6)],
-              ),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                _ProgressBar(controller: controller, formatDuration: _formatDuration),
-                SizedBox(
-                  height: 56,
-                  child: Container(
-                    alignment: Alignment.centerLeft,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Row(
-                      children: [
-                        _LeftActions(controller: controller),
-                        const Spacer(),
-                        _RightActions(controller: controller),
-                      ],
-                    ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final narrow = constraints.maxWidth < 600;
+              return Container(
+                height: 56 + 28,
+                alignment: Alignment.bottomLeft,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Colors.black.withValues(alpha: 0.6)],
                   ),
                 ),
-              ],
-            ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    _ProgressBar(controller: controller, formatDuration: _formatDuration),
+                    SizedBox(
+                      height: 56,
+                      child: Container(
+                        alignment: Alignment.centerLeft,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Row(
+                          children: [
+                            _LeftActions(controller: controller, showSegmentButtons: !narrow),
+                            const Spacer(),
+                            _RightActions(controller: controller, showFitSetting: !narrow),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
         ),
       );
@@ -1080,7 +1085,8 @@ class _ProgressPainter extends CustomPainter {
 
 class _LeftActions extends StatelessWidget {
   final LocalPlaybackController controller;
-  const _LeftActions({required this.controller});
+  final bool showSegmentButtons;
+  const _LeftActions({required this.controller, this.showSegmentButtons = true});
 
   @override
   Widget build(BuildContext context) {
@@ -1108,22 +1114,24 @@ class _LeftActions extends StatelessWidget {
           onTap: () => controller.seekRelative(const Duration(seconds: 10)),
           icon: const Icon(Icons.forward_10_rounded, color: Colors.white),
         ),
-        Obx(() {
-          final canPrev = controller.currentIndex.value > 0;
-          return _IconAction(
-            tooltip: '上一段',
-            onTap: canPrev ? controller.prevFile : null,
-            icon: Icon(Remix.skip_back_line, color: canPrev ? Colors.white : Colors.white38),
-          );
-        }),
-        Obx(() {
-          final canNext = controller.currentIndex.value < controller.group.value.mp4s.length - 1;
-          return _IconAction(
-            tooltip: '下一段',
-            onTap: canNext ? controller.nextFile : null,
-            icon: Icon(Remix.skip_forward_line, color: canNext ? Colors.white : Colors.white38),
-          );
-        }),
+        if (showSegmentButtons) ...[
+          Obx(() {
+            final canPrev = controller.currentIndex.value > 0;
+            return _IconAction(
+              tooltip: '上一段',
+              onTap: canPrev ? controller.prevFile : null,
+              icon: Icon(Remix.skip_back_line, color: canPrev ? Colors.white : Colors.white38),
+            );
+          }),
+          Obx(() {
+            final canNext = controller.currentIndex.value < controller.group.value.mp4s.length - 1;
+            return _IconAction(
+              tooltip: '下一段',
+              onTap: canNext ? controller.nextFile : null,
+              icon: Icon(Remix.skip_forward_line, color: canNext ? Colors.white : Colors.white38),
+            );
+          }),
+        ],
         const SizedBox(width: 6),
         _DanmakuToggleButton(controller: controller),
         _IconAction(
@@ -1190,7 +1198,8 @@ class _DanmakuToggleButton extends StatelessWidget {
 
 class _RightActions extends StatelessWidget {
   final LocalPlaybackController controller;
-  const _RightActions({required this.controller});
+  final bool showFitSetting;
+  const _RightActions({required this.controller, this.showFitSetting = true});
 
   @override
   Widget build(BuildContext context) {
@@ -1198,7 +1207,7 @@ class _RightActions extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         _SpeedControl(controller: controller),
-        _VideoFitSetting(controller: controller),
+        if (showFitSetting) _VideoFitSetting(controller: controller),
         _OverlayVolumeControl(controller: controller),
         Obx(() {
           if (controller.isFullscreen.value) return const SizedBox.shrink();
