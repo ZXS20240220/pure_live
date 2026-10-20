@@ -62,6 +62,15 @@ class LocalPlaybackController extends GetxController {
   Timer? _hideTimer;
   Timer? _speedHudHideTimer;
 
+  /// 真实鼠标设备持有的控件 hover owner 集合。
+  ///
+  /// ControlHoverRegion 的 didUpdateWidget/dispose 也会调用 onExit，
+  /// 但 Set.remove 返回 false 时表示没有真实设备在持锁——此时 arm
+  /// auto-hide Timer 会导致控件抖动。只有真实 MouseRegion.onEnter/onExit
+  /// 才会让 Set 的 add/remove 返回 true。（参考 live_play 的 video_controller）
+  final _controlHoverOwners = <Object>{};
+  bool get _isMouseOverController => _controlHoverOwners.isNotEmpty;
+
   bool? _alwaysOnTopBeforePlay;
   bool? _isFullscreenBeforePlay;
 
@@ -444,14 +453,21 @@ class LocalPlaybackController extends GetxController {
   }
 
   void enableController() {
-    _armHideTimer();
+    _hideTimer?.cancel();
+    _hideTimer = null;
     showController.value = true;
+    _armHideTimer();
   }
 
-  /// 仅重新 arm auto-hide Timer，不改变 [showController] 当前状态。
-  /// 用于鼠标真正离开控件区域（或 synthetic onExit）的场景，此时
-  /// 不应强制把刚被 BottomControlSurface 动画滑出的控件拉回来。
+  /// 重新 arm auto-hide Timer；鼠标仍在控件区时跳过。
+  ///
+  /// 与 [enableController] 分离：后者用于用户主动操作后（切换全屏等），
+  /// 需要先强制 showController=true 再 arm；本方法仅用于鼠标离场，
+  /// 或 synthetic onExit（由 BottomControlSurface visible=false 触发
+  /// 的 ControlHoverRegion.didUpdateWidget → _relinquish → onMouseExitController），
+  /// 此时不能改 visible，也不能在鼠标仍在场时 arm。
   void _armHideTimer() {
+    if (_isMouseOverController) return;
     _hideTimer?.cancel();
     _hideTimer = Timer(_controllerHideDelay, _doHideController);
   }
@@ -474,6 +490,9 @@ class LocalPlaybackController extends GetxController {
 
   void _doHideController() {
     _hideTimer = null;
+    // Timer 触发时再检查一次——如果鼠标在 Timer 等待期间又移回控件区，
+    // 不能真正隐藏。这与 live_play 的 _handleControllerHideDeadline 双重守卫一致。
+    if (_isMouseOverController) return;
     if (isMenuOpen.value) {
       enableController();
       return;
@@ -482,10 +501,20 @@ class LocalPlaybackController extends GetxController {
     showController.value = false;
   }
 
-  void onMouseEnterController(Object _) => holdController();
-  // 只 arm Timer 不强制 showController=true，避免 BottomControlSurface
-  // visible=false 时 ControlHoverRegion 的 synthetic onExit 重新拉起控件。
-  void onMouseExitController(Object _) => _armHideTimer();
+  void onMouseEnterController(Object owner) {
+    // Set.add 返回 false 表示同一 owner 已经 add 过（重复 onEnter），
+    // 跳过避免 holdController 重复执行。
+    if (!_controlHoverOwners.add(owner)) return;
+    holdController();
+  }
+
+  void onMouseExitController(Object owner) {
+    // Set.remove 返回 false 表示没有真实设备持有该 owner：
+    // 要么 ControlHoverRegion.didUpdateWidget/dispose 触发了 synthetic exit，
+    // 要么同一 owner 已经被 remove 过。两种情况都不应 arm auto-hide Timer。
+    if (!_controlHoverOwners.remove(owner)) return;
+    _armHideTimer();
+  }
 
   Future<void> toggleFullScreen() async {
     showLocked.value = false;
