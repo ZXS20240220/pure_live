@@ -1,22 +1,21 @@
-# 定时/手动刷新 dev_from_v3.1.4 发布通道的 releases.json
+# 刷新 dev_from_v3.1.4 发布通道的 releases.json（外部定时触发）
 #
 # 与 update_releases.yml（master 的上游全量历史）不同，本工作流只同步
 # 本 Fork 自己的 Release，并始终写入 dev_from_v3.1.4 —— 这才是
 # Windows 客户端“历史版本更新记录”实际读取的分支（见
 # lib/common/utils/version_util.dart 中的 branch: 'dev_from_v3.1.4'）。
 #
-# 分支注意事项：
-#   本仓库默认分支即 dev_from_v3.1.4，GitHub 的 schedule 事件只在
-#   默认分支上生效，因此本文件随 dev_from_v3.1.4 推送后定时任务即会生效，
-#   无需同步到 master。job 仍显式 checkout 该分支，避免默认分支调整后误写。
-name: 定时更新 release
+# 触发方式：
+#   本仓库是公开 Fork，GitHub 原生 schedule 在此不可靠（会被自动停用），
+#   故改为纯 workflow_dispatch，由外部定时器（如 cron-job.org）调用 REST API：
+#     POST /repos/{owner}/{repo}/actions/workflows/update_release.yml/dispatches
+#     Body: {"ref":"dev_from_v3.1.4"}
+#   job 仍显式 checkout 默认分支，避免默认分支调整后误写。
+name: 定时更新历史发布记录
 
 on:
+  # 仅外部/手动触发；不再依赖 GitHub 原生 schedule（见文件头说明）。
   workflow_dispatch:
-  schedule:
-    # GitHub 在整点高负载时 cron 任务常被延迟，避开整点。
-    # - cron: '23 */12 * * *'  # 每 12 小时（UTC 00:23 / 12:23）
-    - cron: '*/5 * * * *'     # 每 5 分钟一次(测试)
 
 permissions:
   contents: read
@@ -36,7 +35,7 @@ jobs:
 
     steps:
       # 无论从哪个分支触发，都固定检出并回写 dev_from_v3.1.4，
-      # 避免 schedule 在 master 上触发时误改 master 的上游历史 feed。
+      # 避免误改 master 的上游历史 feed。
       - name: Checkout fork release branch
         uses: actions/checkout@v7
         with:
