@@ -994,7 +994,9 @@ class LockButton extends StatelessWidget {
         child: Align(
           alignment: Alignment.centerRight,
           child: AbsorbPointer(
-            absorbing: !controller.showController.value,
+            // 与可见性条件保持一致：普通模式（非全屏）下按钮透明时
+            // 不响应命中，否则悬浮仍会触发 tooltip 且可被点击。
+            absorbing: !(GlobalPlayerState.to.fullscreenUI && controller.showController.value),
             child: Container(
               margin: const EdgeInsets.only(right: 20.0),
               child: IconButton(
