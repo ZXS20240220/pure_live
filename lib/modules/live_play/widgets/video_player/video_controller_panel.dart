@@ -2051,11 +2051,11 @@ class BottomActionBar extends StatelessWidget {
                         final fullscreenStyle = fullscreen || immersive;
                         final compact = constraints.maxWidth < 700;
                         final left = _buildLeftActions(
-                          compact: fullscreenStyle && compact && localInteractionEnabled,
+                          compact: compact && localInteractionEnabled,
                           enableDanmakuDisplay: enableDanmakuDisplay,
                         );
                         final right = _buildRightActions(
-                          compact: fullscreenStyle && compact,
+                          compact: compact,
                           showStreamSelector: fullscreen || (!isPipMode && enableImmersiveLayout),
                           isFullscreen: isFullscreen,
                           isWindowFullscreen: isWindowFullscreen,

@@ -716,7 +716,7 @@ class LocalPlaybackPage extends GetView<LocalPlaybackController> {
           onExit: controller.onMouseExitController,
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final narrow = constraints.maxWidth < 600;
+              final narrow = constraints.maxWidth < 465;
               return Container(
                 height: 56 + 28,
                 alignment: Alignment.bottomLeft,
