@@ -341,6 +341,23 @@ class MediaKitAdapter
   /// streams) stays in sync even if the duration stream event is delayed.
   Timer? _cacheStateTimer;
 
+  /// When true, eviction / reconnect toasts are suppressed so we don't spam
+  /// the user during a rapid drag-seek gesture. The UI layer sets this flag
+  /// during `onHorizontalDragStart` and clears it on `onHorizontalDragEnd`.
+  bool _suppressSeekToast = false;
+
+  /// repeating post-seek verifier started by [_seekAbsolute]. Confirms the
+  /// decoder actually landed near the requested position; a land far below
+  /// the target means mpv performed a silent reconnect (PTS base reset).
+  Timer? _reconnectWatch;
+
+  /// Bumped whenever the mpv timeline is reset (reconnect recovery, source
+  /// switch). `_refreshCacheState` captures this before its awaits and
+  /// discards its results if the epoch moved, so a property read that was
+  /// made against the pre-reconnect timeline can never write back a stale
+  /// large `duration` / old cache ranges after the reset.
+  int _cacheStateEpoch = 0;
+
   // =========================
   // init
   // =========================
@@ -676,6 +693,9 @@ class MediaKitAdapter
     _lastDuration = Duration.zero;
     _seekableRanges = const [];
     _backBufferBytes = 0;
+    _reconnectWatch?.cancel();
+    _reconnectWatch = null;
+    _cacheStateEpoch++;
     _videoBitrate = 0.0;
     _audioBitrate = 0.0;
     _pendingSeekTarget = null;
@@ -1150,39 +1170,52 @@ class MediaKitAdapter
   void _startCacheStatePolling() {
     _cacheStateTimer?.cancel();
     _cacheStateTimer = Timer.periodic(const Duration(milliseconds: 500), (_) async {
-      if (_disposed || _player.platform is! NativePlayer) return;
-      try {
-        final native = _player.platform as NativePlayer;
-        final raw = await native.getProperty('demuxer-cache-state');
-        if (_disposed) return;
-        _seekableRanges = parseSeekableRanges(raw);
-        _backBufferBytes = _parseBackBytes(raw);
-        // For live streams mpv's `duration` keeps growing (highest buffered
-        // PTS minus stream start). Poll it as a backstop for the duration
-        // stream subscription, which can lag property updates slightly.
-        final durationRaw = await native.getProperty('duration');
-        if (_disposed) return;
-        final seconds = double.tryParse(durationRaw);
-        if (seconds != null && seconds.isFinite && seconds >= 0) {
-          final d = Duration(microseconds: (seconds * 1e6).round());
-          if (d > _lastDuration) _lastDuration = d;
-        }
-        // Bitrate is needed to convert back-buffer bytes into a time span.
-        // These properties can be absent for some live sources; we keep the
-        // previous reading instead of zeroing it out on a transient failure.
-        try {
-          final vbr = double.tryParse(await native.getProperty('video-bitrate'));
-          final abr = double.tryParse(await native.getProperty('audio-bitrate'));
-          if (vbr != null && vbr > 0) _videoBitrate = vbr;
-          if (abr != null && abr > 0) _audioBitrate = abr;
-        } catch (_) {
-          // Transient property failures are fine; keep the last known bitrate.
-        }
-      } catch (_) {
-        // Property lookup can fail while the player is switching sources;
-        // the next tick will retry.
-      }
+      await _refreshCacheState();
     });
+  }
+
+  /// Reads `demuxer-cache-state` and related live-stream properties from mpv
+  /// and updates all derived fields (`_seekableRanges`, `_backBufferBytes`,
+  /// `_lastDuration`, bitrates). Called on a 500 ms timer and also right
+  /// before every in-cache seek so we clamp against the freshest possible
+  /// window, avoiding stale-data seeks that would trigger an mpv reconnect.
+  Future<void> _refreshCacheState() async {
+    if (_disposed || _player.platform is! NativePlayer) return;
+    // Guard against writing pre-reset data back after a timeline reset
+    // (reconnect recovery / source switch). See [_cacheStateEpoch].
+    final epoch = _cacheStateEpoch;
+    try {
+      final native = _player.platform as NativePlayer;
+      final raw = await native.getProperty('demuxer-cache-state');
+      if (_disposed || epoch != _cacheStateEpoch) return;
+      _seekableRanges = parseSeekableRanges(raw);
+      _backBufferBytes = _parseBackBytes(raw);
+      // For live streams mpv's `duration` keeps growing (highest buffered
+      // PTS minus stream start). Poll it as a backstop for the duration
+      // stream subscription, which can lag property updates slightly.
+      final durationRaw = await native.getProperty('duration');
+      if (_disposed || epoch != _cacheStateEpoch) return;
+      final seconds = double.tryParse(durationRaw);
+      if (seconds != null && seconds.isFinite && seconds >= 0) {
+        final d = Duration(microseconds: (seconds * 1e6).round());
+        if (d > _lastDuration) _lastDuration = d;
+      }
+      // Bitrate is needed to convert back-buffer bytes into a time span.
+      // These properties can be absent for some live sources; we keep the
+      // previous reading instead of zeroing it out on a transient failure.
+      try {
+        final vbr = double.tryParse(await native.getProperty('video-bitrate'));
+        final abr = double.tryParse(await native.getProperty('audio-bitrate'));
+        if (_disposed || epoch != _cacheStateEpoch) return;
+        if (vbr != null && vbr > 0) _videoBitrate = vbr;
+        if (abr != null && abr > 0) _audioBitrate = abr;
+      } catch (_) {
+        // Transient property failures are fine; keep the last known bitrate.
+      }
+    } catch (_) {
+      // Property lookup can fail while the player is switching sources;
+      // the next tick will retry.
+    }
   }
 
   /// Extracts the `bw-bytes` field from mpv's `demuxer-cache-state` string.
@@ -1199,6 +1232,8 @@ class MediaKitAdapter
   void _stopCacheStatePolling() {
     _cacheStateTimer?.cancel();
     _cacheStateTimer = null;
+    _reconnectWatch?.cancel();
+    _reconnectWatch = null;
   }
 
   // =========================
@@ -1289,6 +1324,9 @@ class MediaKitAdapter
     _lastDuration = Duration.zero;
     _seekableRanges = const [];
     _backBufferBytes = 0;
+    _reconnectWatch?.cancel();
+    _reconnectWatch = null;
+    _cacheStateEpoch++;
     _videoBitrate = 0.0;
     _audioBitrate = 0.0;
     _pendingSeekTarget = null;
@@ -1705,7 +1743,11 @@ class MediaKitAdapter
     return target;
   }
 
-  Future<void> _seekAbsolute(Duration position, {required bool exact}) async {
+  Future<void> _seekAbsolute(Duration position, {required bool exact, Duration? expectedTarget}) async {
+    // A new seek supersedes any watch still running from the previous one —
+    // otherwise a stale watch can fire during (and misjudge) this seek.
+    _reconnectWatch?.cancel();
+    _reconnectWatch = null;
     if (_disposed || _player.platform is! NativePlayer) return;
     final safePos = position < Duration.zero
         ? Duration.zero
@@ -1724,14 +1766,181 @@ class MediaKitAdapter
       final mode = exact ? 'absolute+exact' : 'absolute+keyframes';
       await native.command(['seek', seconds.toStringAsFixed(3), mode]);
     } catch (e) {
-      debugPrint('MediaKitAdapter: seekAbsolute failed: $e');
+      debugPrint('[LiveSeek] mpv seek command failed: $e');
+      return;
     }
+
+    // Post-seek reconnect guard.
+    //
+    // Even with the pre-seek `_refreshCacheState()` check above, a seek can
+    // still land outside every cached range if mpv silently evicts frames
+    // between our property-read and the actual seek command. When that
+    // happens, mpv performs a low-level stream reconnect, the PTS base resets
+    // to ~0, and `time-pos` jumps back to the far left of the progress bar.
+    //
+    // A reconnect involves an actual network re-connection and typically takes
+    // 1–3 s to complete, so a single delayed check is unreliable (the old
+    // position may still be reported at +350 ms). We therefore poll `time-pos`
+    // every 400 ms for ~4 s until it either lands near the target (success) or
+    // drops near zero (reconnect → recover to the live edge).
+    //
+    // Suppressed when the target itself was near the live edge, because
+    // landing at a low `time-pos` after a seek-edge is indistinguishable
+    // from a normal reconnect and we'd otherwise recurse.
+    if (expectedTarget == null || expectedTarget < const Duration(seconds: 1)) {
+      return; // nothing meaningful to detect
+    }
+    if (expectedTarget > liveEdgePosition - const Duration(seconds: 3)) {
+      return; // target was near live edge; skip reconnect watch
+    }
+    _startReconnectWatch(expectedTarget);
+  }
+
+  /// Polls `time-pos` after a seek until the decoder demonstrably *stays* at
+  /// the target, or a reconnect shows up. See the comment above the call site
+  /// in [_seekAbsolute] for the rationale.
+  ///
+  /// The first tick that reads `time-pos ≈ target` is deliberately NOT taken
+  /// as success: on a rejected seek mpv briefly reports the requested position
+  /// (the optimistic result of the seek command) and only later reconnects
+  /// back to the live edge. We therefore require the position to hold steady
+  /// for a short stability window, and separately flag a large forward jump.
+  void _startReconnectWatch(Duration target) {
+    _reconnectWatch?.cancel();
+    var attempts = 0;
+    int? confirmedTick;
+    const maxAttempts = 25; // 25 × 400 ms ≈ 10 s budget (slow reconnects happen)
+    const confirmWindow = 7; // after first landing, watch ~2.8 s more
+    const interval = Duration(milliseconds: 400);
+    // Normal playback advances only ~3 s across the confirm window, so a jump
+    // this far past the target can only be a reconnect that landed back at the
+    // live edge.
+    const edgeJump = Duration(seconds: 30);
+    debugPrint('[LiveSeek] watch started: target=${target.inSeconds}s');
+    _reconnectWatch = Timer.periodic(interval, (timer) async {
+      attempts++;
+      if (_disposed || attempts > maxAttempts) {
+        if (!_disposed) {
+          debugPrint(
+            '[LiveSeek] watch gave up after $maxAttempts attempts: '
+            'target=${target.inSeconds}s, last pos=${_lastPosition.inSeconds}s',
+          );
+        }
+        timer.cancel();
+        return;
+      }
+      // Read a fresh `time-pos` — `_lastPosition` may be stale while mpv is
+      // still seeking / buffering.
+      double? actualSeconds;
+      try {
+        final platform = _player.platform;
+        if (platform is! NativePlayer) {
+          timer.cancel();
+          return;
+        }
+        final raw = await platform.getProperty('time-pos');
+        // getProperty can outlast one tick when mpv is busy reconnecting;
+        // an overlapping tick may already have cancelled this timer and taken
+        // over. Re-check before acting so we never double-toast / double-recover.
+        if (_disposed || !timer.isActive) return;
+        actualSeconds = double.tryParse(raw);
+      } catch (_) {
+        return; // transient property failure — retry on the next tick
+      }
+      if (actualSeconds == null) return;
+      final actual = Duration(microseconds: (actualSeconds * 1e6).round());
+      final diff = (actual - target).abs();
+
+      final landedAt = confirmedTick;
+      if (landedAt == null) {
+        // The seek has not landed yet. A large `|actual − target|` here means
+        // nothing: mpv has not finished seeking and `time-pos` still reports
+        // the pre-seek position, which for a backward seek is naturally far
+        // *ahead* of the target. Treating that as a reconnect was the
+        // false-positive that spammed the toast on every valid click.
+        //
+        // The one genuine reconnect signature that IS trustworthy before
+        // landing is the PTS-reset one: a far target with a near-zero position.
+        if (target > const Duration(seconds: 10) && actual < const Duration(seconds: 2)) {
+          timer.cancel();
+          await _handleReconnectDetected(target, actual, 'near-zero PTS');
+          return;
+        }
+        if (diff < const Duration(seconds: 2)) {
+          confirmedTick = attempts;
+          debugPrint(
+            '[LiveSeek] landed near target at tick $attempts; watching '
+            '$confirmWindow more tick(s) to confirm it sticks',
+          );
+        }
+        // Still seeking/buffering — keep polling until the budget runs out.
+        return;
+      }
+
+      // The position has reached the target at least once. Only now does a
+      // large forward jump mean something: the seek was overturned and
+      // playback reconnected at the live edge.
+      if (actual - target > edgeJump) {
+        timer.cancel();
+        await _handleReconnectDetected(target, actual, 'jumped past target after landing');
+        return;
+      }
+      // Position stayed put — normal playback advances only a few seconds
+      // across this window, far below [edgeJump]. Accept the seek.
+      if (attempts - landedAt >= confirmWindow) {
+        debugPrint(
+          '[LiveSeek] watch OK: position stable near ${actual.inSeconds}s '
+          '(target ${target.inSeconds}s)',
+        );
+        timer.cancel();
+      }
+    });
+  }
+
+  /// Shared reconnect recovery: resets the app-side timeline bookkeeping (mpv
+  /// has restarted its own), notifies the user, and jumps back to the live
+  /// edge. Every detection path funnels through here so the reset lives in one
+  /// place.
+  Future<void> _handleReconnectDetected(Duration target, Duration actual, String reason) async {
+    debugPrint(
+      '[LiveSeek] reconnect detected ($reason): target=${target.inSeconds}s, '
+      'now=${actual.inSeconds}s — resetting timeline and recovering to live edge',
+    );
+    // The reconnect reset mpv's time base: duration shrank back to a few
+    // seconds and all old cache ranges are gone. Our monotonic duration
+    // tracking must be reset too, otherwise the fraction space stays anchored
+    // to the pre-reconnect timeline and the bar never recovers. `_lastPosition`
+    // and the pending-seek state are equally stale; the epoch bump discards any
+    // in-flight `_refreshCacheState` result read against the old timeline.
+    _lastPosition = Duration.zero;
+    _lastDuration = Duration.zero;
+    _seekableRanges = const [];
+    _backBufferBytes = 0;
+    _pendingSeekTarget = null;
+    _pendingSeekAt = null;
+    _cacheStateEpoch++;
+    if (!_suppressSeekToast) {
+      SnackBarUtil.error('该位置缓存已失效，已自动恢复至直播边缘');
+    }
+    await seekToLiveEdge();
   }
 
   /// Seek to a 0.0–1.0 fraction of the *cached seekable window*
   /// [earliestCachedPosition, duration]. The fraction is back-converted to an
   /// absolute time, snapped into the cached seekable ranges, and sent to mpv.
+  ///
+  /// If the refresh reveals that the requested fraction maps to a position
+  /// mpv has already evicted (snapped target differs from original by more
+  /// than a couple of seconds) we block the original seek, show a brief
+  /// toast explaining that the cache has expired, and seek instead to the
+  /// earliest still-usable position — which is the leftmost point in the
+  /// freshly-refreshed cached window.
   Future<void> seekToFraction(double fraction, {bool exact = false}) async {
+    if (!canSeek) return;
+    // Pre-seek refresh: discard stale ranges that may have been evicted since
+    // the last 500 ms poll. This is the primary guard against reconnect seeks
+    // that happen when we clamp against a window mpv has already dropped.
+    await _refreshCacheState();
     if (!canSeek) return;
     final totalMicros = _lastDuration.inMicroseconds.toDouble();
     if (totalMicros <= 0) return;
@@ -1744,9 +1953,34 @@ class MediaKitAdapter
     final targetMicros = rangeMicros > 0
         ? (earliestMicros + f * rangeMicros).round()
         : (f * totalMicros).round(); // fallback: no eviction yet
-    final target = Duration(microseconds: targetMicros);
-    final snapped = _seekableRanges.isNotEmpty ? (_clampToSeekable(target) ?? target) : target;
-    await _seekAbsolute(snapped, exact: exact);
+    final originalTarget = Duration(microseconds: targetMicros);
+    final snapped = _seekableRanges.isNotEmpty ? (_clampToSeekable(originalTarget) ?? originalTarget) : originalTarget;
+
+    // Detect a significant eviction: if snapping pushed the target forward by
+    // more than a couple of seconds, the user asked for a position that has
+    // already fallen off the back buffer. Surface a toast so they understand
+    // why the seek didn't land where they tapped, and redirect them to the
+    // *actual* earliest usable point rather than the expired one.
+    final deltaMicros = (snapped.inMicroseconds - originalTarget.inMicroseconds).abs();
+    if (deltaMicros > const Duration(seconds: 2).inMicroseconds) {
+      debugPrint(
+        '[LiveSeek] EXPIRED position blocked: original=${originalTarget.inSeconds}s '
+        'snapped=${snapped.inSeconds}s '
+        'redirecting to earliest=${streamStartPosition.inSeconds}s',
+      );
+      if (!_suppressSeekToast) {
+        SnackBarUtil.error('该位置缓存已失效，已跳转至最早可用时间');
+      }
+      // Seek to the real earliest available position (streamStartPosition,
+      // which equals max(earliestCachedPosition, min seekable-range start)
+      // after the fresh refresh). This is NOT the original expired target —
+      // we are actively redirecting to a position we know is still cached.
+      final earliestUsable = streamStartPosition;
+      await _seekAbsolute(earliestUsable, exact: exact, expectedTarget: earliestUsable);
+      return;
+    }
+
+    await _seekAbsolute(snapped, exact: exact, expectedTarget: snapped);
   }
 
   @override
@@ -1773,6 +2007,10 @@ class MediaKitAdapter
     return liveEdgePosition - _lastPosition > const Duration(seconds: 2);
   }
 
+  /// Suppresses the "cache expired" toast during rapid drag-seek gestures.
+  /// The UI layer sets `true` on drag-start and `false` on drag-end.
+  set suppressSeekToast(bool value) => _suppressSeekToast = value;
+
   @override
   bool get canSeek {
     if (!_initialized || _disposed || _player.platform is! NativePlayer) {
@@ -1793,6 +2031,9 @@ class MediaKitAdapter
   @override
   Future<void> seekTo(Duration position) async {
     if (!canSeek) return;
+    // Pre-seek refresh so the clamp uses current eviction boundaries.
+    await _refreshCacheState();
+    if (!canSeek) return;
     _pendingSeekTarget = null;
     _pendingSeekAt = null;
     final Duration clamped;
@@ -1802,11 +2043,14 @@ class MediaKitAdapter
       final upper = _lastDuration > Duration.zero ? _lastDuration : position;
       clamped = position < Duration.zero ? Duration.zero : (position > upper ? upper : position);
     }
-    await _seekAbsolute(clamped, exact: true);
+    await _seekAbsolute(clamped, exact: true, expectedTarget: clamped);
   }
 
   @override
   Future<void> seekRelative(Duration offset) async {
+    if (!canSeek) return;
+    // Pre-seek refresh for the same stale-window reason as seekToFraction.
+    await _refreshCacheState();
     if (!canSeek) return;
     final now = DateTime.now();
     final pending = _pendingSeekTarget;
@@ -1836,11 +2080,15 @@ class MediaKitAdapter
     if (snapped > upperBound) snapped = upperBound;
     _pendingSeekTarget = snapped;
     _pendingSeekAt = now;
-    await _seekAbsolute(snapped, exact: false);
+    await _seekAbsolute(snapped, exact: false, expectedTarget: snapped);
   }
 
   @override
   Future<void> seekToLiveEdge() async {
+    if (!canSeek) return;
+    // Freshness matters here too — `liveEdgePosition` / `_clampToSeekable`
+    // both read `_seekableRanges` which may be stale by up to 500 ms.
+    await _refreshCacheState();
     if (!canSeek) return;
     final Duration target;
     if (_seekableRanges.isNotEmpty) {
@@ -1866,7 +2114,9 @@ class MediaKitAdapter
     }
     _pendingSeekTarget = null;
     _pendingSeekAt = null;
-    await _seekAbsolute(target, exact: true);
+    // expectedTarget == target means we accept landing at (or near) the live
+    // edge — the post-seek reconnect detection is suppressed in that case.
+    await _seekAbsolute(target, exact: true, expectedTarget: target);
   }
 }
 

@@ -65,6 +65,11 @@ class _LiveProgressBarState extends State<LiveProgressBar> {
   @override
   void dispose() {
     _tickTimer?.cancel();
+    // If the widget is torn down mid-drag the cancel/end callbacks never ran;
+    // clear the suppression flag so toasts stay functional afterwards.
+    if (_isDragging) {
+      GlobalPlayerService.instance.player.suppressSeekToast = false;
+    }
     super.dispose();
   }
 
@@ -170,6 +175,9 @@ class _LiveProgressBarState extends State<LiveProgressBar> {
     final player = GlobalPlayerService.instance.player;
     if (!player.canSeek) return;
     widget.controller.holdController();
+    // Suppress eviction toasts while the user is actively dragging — each
+    // pointer move issues a seek and we don't want a toast per tick.
+    player.suppressSeekToast = true;
     setState(() {
       _isDragging = true;
       _dragFrac = _snapFraction(_fracFromGlobalPosition(details.globalPosition));
@@ -195,9 +203,25 @@ class _LiveProgressBarState extends State<LiveProgressBar> {
   void _onDragEnd(DragEndDetails details) {
     if (!_isDragging) return;
     // Final exact seek on release for precise positioning.
+    final player = GlobalPlayerService.instance.player;
+    player.suppressSeekToast = false;
     if (_dragFrac != null) {
-      GlobalPlayerService.instance.player.seekToFraction(_dragFrac!, exact: true);
+      player.seekToFraction(_dragFrac!, exact: true);
     }
+    setState(() {
+      _isDragging = false;
+      _dragFrac = null;
+    });
+    widget.controller.releaseController();
+  }
+
+  /// Fired instead of [_onDragEnd] when the gesture is aborted (window loses
+  /// focus on desktop, pointer capture lost, gesture arena claimed by another
+  /// handler). Without this, `suppressSeekToast` would stay `true` forever and
+  /// mute every later "cache expired" toast.
+  void _onDragCancel() {
+    if (!_isDragging) return;
+    GlobalPlayerService.instance.player.suppressSeekToast = false;
     setState(() {
       _isDragging = false;
       _dragFrac = null;
@@ -261,6 +285,7 @@ class _LiveProgressBarState extends State<LiveProgressBar> {
                 onHorizontalDragStart: _onDragStart,
                 onHorizontalDragUpdate: _onDragUpdate,
                 onHorizontalDragEnd: _onDragEnd,
+                onHorizontalDragCancel: _onDragCancel,
               ),
             ),
           ],
@@ -286,6 +311,7 @@ class _ProgressBarArea extends StatefulWidget {
     required this.onHorizontalDragStart,
     required this.onHorizontalDragUpdate,
     required this.onHorizontalDragEnd,
+    required this.onHorizontalDragCancel,
   });
 
   final double height;
@@ -297,6 +323,7 @@ class _ProgressBarArea extends StatefulWidget {
   final GestureDragStartCallback onHorizontalDragStart;
   final GestureDragUpdateCallback onHorizontalDragUpdate;
   final GestureDragEndCallback onHorizontalDragEnd;
+  final GestureDragCancelCallback onHorizontalDragCancel;
 
   @override
   State<_ProgressBarArea> createState() => _ProgressBarAreaState();
@@ -311,6 +338,7 @@ class _ProgressBarAreaState extends State<_ProgressBarArea> {
       onHorizontalDragStart: widget.onHorizontalDragStart,
       onHorizontalDragUpdate: widget.onHorizontalDragUpdate,
       onHorizontalDragEnd: widget.onHorizontalDragEnd,
+      onHorizontalDragCancel: widget.onHorizontalDragCancel,
       child: Center(
         child: SizedBox(
           height: widget.height,

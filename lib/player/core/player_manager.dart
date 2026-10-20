@@ -3237,6 +3237,14 @@ class PlayerManager {
     if (player is MediaKitAdapter) await player.seekToFraction(fraction, exact: exact);
   }
 
+  /// Suppresses the "cache expired" toast during rapid drag-seek gestures so
+  /// we don't spam the user while they slide the handle. Pass `true` on drag
+  /// start, `false` on drag end. No-op for non-media-kit backends.
+  set suppressSeekToast(bool value) {
+    final player = _currentPlayer;
+    if (player is MediaKitAdapter) player.suppressSeekToast = value;
+  }
+
   Duration get streamStartPosition {
     final player = _currentPlayer;
     if (player is MediaKitAdapter) return player.streamStartPosition;
