@@ -37,15 +37,15 @@ jobs:
       # 无论从哪个分支触发，都固定检出并回写 dev_from_v3.1.4，
       # 避免 schedule 在 master 上触发时误改 master 的上游历史 feed。
       - name: Checkout fork release branch
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
         with:
           ref: dev_from_v3.1.4
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
+          python-version: '3.12'
 
       - name: Regenerate assets/releases.json
         env:
