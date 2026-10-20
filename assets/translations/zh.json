@@ -940,7 +940,6 @@
   "delete_failed": "删除失败，请稍后重试",
   "download_failed": "下载失败，请稍后重试",
   "download_success": "下载成功",
-  "show_danmaku": "显示弹幕",
   "show_danmaku_subtitle": "播放直播时默认开启弹幕显示",
   "global_mute": "全局静音",
   "global_mute_subtitle": "所有直播间统一静音",
