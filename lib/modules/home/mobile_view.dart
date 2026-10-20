@@ -76,6 +76,9 @@ class HomeMobileView extends StatelessWidget {
           activeSelectedIndex = 0;
         }
         return NavigationBar(
+          // 壁纸激活时让底部导航栏背景透明，与左侧 NavigationRail 行为一致，
+          // 露出底层壁纸。未设置壁纸时保持 Theme 默认背景色。
+          backgroundColor: SettingsService.hasWallpaper ? Colors.transparent : null,
           destinations: destinations,
           selectedIndex: activeSelectedIndex,
           onDestinationSelected: (int virtualIndex) {
