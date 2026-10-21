@@ -141,7 +141,7 @@ class _DanmakuInfoCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    '本地',
+                    i18n('local_tag'),
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.w600,
@@ -216,10 +216,13 @@ class _DanmakuInfoCard extends StatelessWidget {
               if (showRepeat)
                 _InfoChip(
                   icon: Icons.repeat_one_rounded,
-                  label: '聚合 ×${message.repeatCount}',
+                  label: i18n('danmaku_aggregated', args: {'count': '${message.repeatCount}'}),
                   color: theme.colorScheme.secondaryContainer,
                   foregroundColor: theme.colorScheme.onSecondaryContainer,
-                  onTap: () => DanmakuMessageActions.copyText(context, '聚合 ×${message.repeatCount}'),
+                  onTap: () => DanmakuMessageActions.copyText(
+                    context,
+                    i18n('danmaku_aggregated', args: {'count': '${message.repeatCount}'}),
+                  ),
                 ),
               if (message.type != LiveMessageType.chat)
                 _InfoChip(
@@ -249,17 +252,17 @@ class _DanmakuInfoCard extends StatelessWidget {
   static String _typeLabel(LiveMessageType type) {
     switch (type) {
       case LiveMessageType.chat:
-        return '聊天';
+        return i18n('danmaku_type_chat');
       case LiveMessageType.gift:
-        return '礼物';
+        return i18n('danmaku_type_gift');
       case LiveMessageType.online:
-        return '在线';
+        return i18n('audience_online');
       case LiveMessageType.superChat:
-        return '醒目留言';
+        return i18n('super_chat');
       case LiveMessageType.notice:
-        return '通知';
+        return i18n('danmaku_type_notice');
       case LiveMessageType.retraction:
-        return '撤回';
+        return i18n('danmaku_type_retraction');
     }
   }
 }

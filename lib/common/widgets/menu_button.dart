@@ -308,146 +308,74 @@ class KeyboardShortcutsDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = Localizations.localeOf(context).languageCode == 'zh';
     final currentRoute = Get.currentRoute;
 
-    final favoriteSection = isZh
-        ? _ShortcutSectionData(
-            title: '关注页',
-            items: [
-              _ShortcutItem(keys: const ['1'], desc: '切换到上一个直播平台'),
-              _ShortcutItem(keys: const ['2'], desc: '切换到下一个直播平台'),
-              _ShortcutItem(keys: const ['F5'], desc: '刷新关注直播间'),
-              _ShortcutItem(keys: const ['Ctrl', 'F'], desc: '聚焦搜索框'),
-              _ShortcutItem(keys: const ['←'], desc: '上一页'),
-              _ShortcutItem(keys: const ['→'], desc: '下一页'),
-              _ShortcutItem(keys: const ['↑'], desc: '向上滚一屏'),
-              _ShortcutItem(keys: const ['↓'], desc: '向下滚一屏'),
-              _ShortcutItem(keys: const ['Mouse Wheel'], desc: '可通过鼠标滚轮在所有页签和页码中翻页'),
-              _ShortcutItem(keys: const ['Ctrl', 'Click'], desc: '按住 Ctrl 点击直播间卡片，在悬浮窗中播放（关注/热门/分区页通用）'),
-            ],
-          )
-        : _ShortcutSectionData(
-            title: 'Favorite Page',
-            items: [
-              _ShortcutItem(keys: const ['1'], desc: 'Previous platform'),
-              _ShortcutItem(keys: const ['2'], desc: 'Next platform'),
-              _ShortcutItem(keys: const ['F5'], desc: 'Refresh all favorite rooms'),
-              _ShortcutItem(keys: const ['Ctrl', 'F'], desc: 'Focus search box'),
-              _ShortcutItem(keys: const ['←'], desc: 'Previous page'),
-              _ShortcutItem(keys: const ['→'], desc: 'Next page'),
-              _ShortcutItem(keys: const ['↑'], desc: 'Scroll up one page'),
-              _ShortcutItem(keys: const ['↓'], desc: 'Scroll down one page'),
-              _ShortcutItem(
-                keys: const ['Ctrl', 'Click'],
-                desc: 'Ctrl-click a room card to play it in a floating window (Favorite/Popular/Area pages)',
-              ),
-            ],
-          );
+    final favoriteSection = _ShortcutSectionData(
+      title: i18n('shortcut_group_favorite'),
+      items: [
+        _ShortcutItem(keys: const ['1'], desc: i18n('shortcut_prev_platform')),
+        _ShortcutItem(keys: const ['2'], desc: i18n('shortcut_next_platform')),
+        _ShortcutItem(keys: const ['F5'], desc: i18n('shortcut_refresh_favorites')),
+        _ShortcutItem(keys: const ['Ctrl', 'F'], desc: i18n('shortcut_focus_search')),
+        _ShortcutItem(keys: const ['←'], desc: i18n('shortcut_prev_page')),
+        _ShortcutItem(keys: const ['→'], desc: i18n('shortcut_next_page')),
+        _ShortcutItem(keys: const ['↑'], desc: i18n('shortcut_scroll_up_page')),
+        _ShortcutItem(keys: const ['↓'], desc: i18n('shortcut_scroll_down_page')),
+        _ShortcutItem(keys: const ['Mouse Wheel'], desc: i18n('shortcut_wheel_paging')),
+        _ShortcutItem(keys: const ['Ctrl', 'Click'], desc: i18n('shortcut_ctrl_click_float_play')),
+      ],
+    );
 
-    final playerSection = isZh
-        ? _ShortcutSectionData(
-            title: '直播播放页',
-            items: [
-              _ShortcutItem(keys: const ['Space'], desc: '播放 / 暂停'),
-              _ShortcutItem(keys: const ['F5'], desc: '刷新当前直播'),
-              _ShortcutItem(keys: const ['Ctrl', 'F'], desc: '窗口全屏切换'),
-              _ShortcutItem(keys: const ['Ctrl', 'E'], desc: '跳到当前直播进度'),
-              _ShortcutItem(keys: const ['Ctrl', 'S'], desc: '截取当前画面并保存'),
-              _ShortcutItem(keys: const ['Ctrl', 'D'], desc: '弹幕显示开关'),
-              _ShortcutItem(keys: const ['Ctrl', 'W'], desc: '全局静音开关'),
-              _ShortcutItem(keys: const ['1'], desc: '切换到上一个 tab'),
-              _ShortcutItem(keys: const ['2'], desc: '切换到下一个 tab'),
-              _ShortcutItem(keys: const ['↑'], desc: '音量 +5%'),
-              _ShortcutItem(keys: const ['↓'], desc: '音量 -5%'),
-              _ShortcutItem(keys: const ['←'], desc: '后退 5 秒'),
-              _ShortcutItem(keys: const ['→'], desc: '前进 5 秒'),
-              _ShortcutItem(keys: const ['shift', '←'], desc: '后退 30 秒'),
-              _ShortcutItem(keys: const ['shift', '→'], desc: '前进 30 秒'),
-              _ShortcutItem(keys: const ['`'], desc: '沉浸模式侧栏开关'),
-              _ShortcutItem(keys: const ['Mouse Wheel'], desc: '调节音量'),
-              _ShortcutItem(keys: const ['Ctrl', 'Mouse Wheel'], desc: '以指针为中心等比缩放画面'),
-              _ShortcutItem(keys: const ['Ctrl', 'Drag'], desc: '画面放大后按住 Ctrl 拖拽移动画面'),
-              _ShortcutItem(keys: const ['Ctrl', 'Click'], desc: '按住 Ctrl 点击侧栏直播间卡片，在小窗中打开'),
-              _ShortcutItem(keys: const ['Ctrl', 'Mouse Wheel'], desc: '在小窗上按住 Ctrl 滚轮缩放小窗尺寸'),
-              _ShortcutItem(keys: const ['Double Click'], desc: '双击小窗将该直播间切换到主窗口并关闭小窗'),
-              _ShortcutItem(keys: const ['Esc'], desc: '退出全屏 / 关闭页面'),
-            ],
-          )
-        : _ShortcutSectionData(
-            title: 'Live Player',
-            items: [
-              _ShortcutItem(keys: const ['Space'], desc: 'Play / Pause'),
-              _ShortcutItem(keys: const ['F5'], desc: 'Refresh current stream'),
-              _ShortcutItem(keys: const ['Ctrl', 'F'], desc: 'Toggle fullscreen'),
-              _ShortcutItem(keys: const ['Ctrl', 'E'], desc: 'Seek to live edge'),
-              _ShortcutItem(keys: const ['Ctrl', 'S'], desc: 'Take screenshot'),
-              _ShortcutItem(keys: const ['Ctrl', 'D'], desc: 'Toggle danmaku display'),
-              _ShortcutItem(keys: const ['Ctrl', 'W'], desc: 'Toggle global mute'),
-              _ShortcutItem(keys: const ['1'], desc: 'Previous room'),
-              _ShortcutItem(keys: const ['2'], desc: 'Next room'),
-              _ShortcutItem(keys: const ['↑'], desc: 'Volume +5%'),
-              _ShortcutItem(keys: const ['↓'], desc: 'Volume -5%'),
-              _ShortcutItem(keys: const ['←'], desc: 'Back 5s (Shift 30s)'),
-              _ShortcutItem(keys: const ['→'], desc: 'Forward 5s (Shift 30s)'),
-              _ShortcutItem(keys: const ['`'], desc: 'Toggle immersive panel'),
-              _ShortcutItem(keys: const ['Mouse Wheel'], desc: 'Adjust volume'),
-              _ShortcutItem(keys: const ['Ctrl', 'Mouse Wheel'], desc: 'Zoom video at the cursor'),
-              _ShortcutItem(keys: const ['Ctrl', 'Drag'], desc: 'Hold Ctrl and drag to pan while zoomed in'),
-              _ShortcutItem(
-                keys: const ['Ctrl', 'Click'],
-                desc: 'Ctrl-click a sidebar room card to open it in a mini window',
-              ),
-              _ShortcutItem(keys: const ['Ctrl', 'Mouse Wheel'], desc: 'Ctrl-scroll over a mini window to resize it'),
-              _ShortcutItem(
-                keys: const ['Double Click'],
-                desc: 'Double-click a mini window to move that room to the main player and close it',
-              ),
-              _ShortcutItem(keys: const ['Esc'], desc: 'Exit fullscreen / Close page'),
-            ],
-          );
+    final playerSection = _ShortcutSectionData(
+      title: i18n('shortcut_group_live_play'),
+      items: [
+        _ShortcutItem(keys: const ['Space'], desc: i18n('shortcut_play_pause')),
+        _ShortcutItem(keys: const ['F5'], desc: i18n('shortcut_refresh_stream')),
+        _ShortcutItem(keys: const ['Ctrl', 'F'], desc: i18n('shortcut_toggle_fullscreen')),
+        _ShortcutItem(keys: const ['Ctrl', 'E'], desc: i18n('shortcut_seek_live_edge')),
+        _ShortcutItem(keys: const ['Ctrl', 'S'], desc: i18n('shortcut_take_screenshot')),
+        _ShortcutItem(keys: const ['Ctrl', 'D'], desc: i18n('shortcut_toggle_danmaku')),
+        _ShortcutItem(keys: const ['Ctrl', 'W'], desc: i18n('shortcut_toggle_global_mute')),
+        _ShortcutItem(keys: const ['1'], desc: i18n('shortcut_prev_tab')),
+        _ShortcutItem(keys: const ['2'], desc: i18n('shortcut_next_tab')),
+        _ShortcutItem(keys: const ['↑'], desc: i18n('shortcut_volume_up')),
+        _ShortcutItem(keys: const ['↓'], desc: i18n('shortcut_volume_down')),
+        _ShortcutItem(keys: const ['←'], desc: i18n('shortcut_back_5s')),
+        _ShortcutItem(keys: const ['→'], desc: i18n('shortcut_forward_5s')),
+        _ShortcutItem(keys: const ['shift', '←'], desc: i18n('shortcut_back_30s')),
+        _ShortcutItem(keys: const ['shift', '→'], desc: i18n('shortcut_forward_30s')),
+        _ShortcutItem(keys: const ['`'], desc: i18n('shortcut_toggle_immersive_panel')),
+        _ShortcutItem(keys: const ['Mouse Wheel'], desc: i18n('shortcut_adjust_volume')),
+        _ShortcutItem(keys: const ['Ctrl', 'Mouse Wheel'], desc: i18n('shortcut_zoom_at_cursor')),
+        _ShortcutItem(keys: const ['Ctrl', 'Drag'], desc: i18n('shortcut_pan_zoomed_video')),
+        _ShortcutItem(keys: const ['Ctrl', 'Click'], desc: i18n('shortcut_open_mini_window')),
+        _ShortcutItem(keys: const ['Ctrl', 'Mouse Wheel'], desc: i18n('shortcut_resize_mini_window')),
+        _ShortcutItem(keys: const ['Double Click'], desc: i18n('shortcut_mini_window_to_main')),
+        _ShortcutItem(keys: const ['Esc'], desc: i18n('shortcut_exit_fullscreen_or_close')),
+      ],
+    );
 
-    final localPlayerSection = isZh
-        ? _ShortcutSectionData(
-            title: '本地播放页',
-            items: [
-              _ShortcutItem(keys: const ['Space'], desc: '播放 / 暂停'),
-              _ShortcutItem(keys: const ['Ctrl', 'F'], desc: '窗口全屏切换'),
-              _ShortcutItem(keys: const ['Ctrl', 'S'], desc: '截取当前画面并保存'),
-              _ShortcutItem(keys: const ['Ctrl', 'D'], desc: '弹幕显示开关'),
-              _ShortcutItem(keys: const ['Ctrl', 'W'], desc: '静音开关'),
-              _ShortcutItem(keys: const ['Ctrl', 'B'], desc: '小窗播放（PiP）'),
-              _ShortcutItem(keys: const ['↑'], desc: '音量 +5%'),
-              _ShortcutItem(keys: const ['↓'], desc: '音量 -5%'),
-              _ShortcutItem(keys: const ['←'], desc: '后退 5 秒'),
-              _ShortcutItem(keys: const ['→'], desc: '前进 5 秒'),
-              _ShortcutItem(keys: const ['shift', '←'], desc: '后退 30 秒'),
-              _ShortcutItem(keys: const ['shift', '→'], desc: '前进 30 秒'),
-              _ShortcutItem(keys: const ['Mouse Wheel'], desc: '调节音量'),
-              _ShortcutItem(keys: const ['Ctrl', 'Mouse Wheel'], desc: '调节播放倍速（0.5x ~ 3.0x）'),
-              _ShortcutItem(keys: const ['Double Click'], desc: '双击视频切换全屏 / 窗口全屏'),
-              _ShortcutItem(keys: const ['Esc'], desc: '退出 PiP / 全屏 / 关闭页面'),
-            ],
-          )
-        : _ShortcutSectionData(
-            title: 'Local Player',
-            items: [
-              _ShortcutItem(keys: const ['Space'], desc: 'Play / Pause'),
-              _ShortcutItem(keys: const ['Ctrl', 'F'], desc: 'Toggle window fullscreen'),
-              _ShortcutItem(keys: const ['Ctrl', 'S'], desc: 'Take screenshot'),
-              _ShortcutItem(keys: const ['Ctrl', 'D'], desc: 'Toggle danmaku display'),
-              _ShortcutItem(keys: const ['Ctrl', 'W'], desc: 'Toggle mute'),
-              _ShortcutItem(keys: const ['Ctrl', 'B'], desc: 'Toggle PiP mode'),
-              _ShortcutItem(keys: const ['↑'], desc: 'Volume +5%'),
-              _ShortcutItem(keys: const ['↓'], desc: 'Volume -5%'),
-              _ShortcutItem(keys: const ['←'], desc: 'Back 5s (Shift 30s)'),
-              _ShortcutItem(keys: const ['→'], desc: 'Forward 5s (Shift 30s)'),
-              _ShortcutItem(keys: const ['Mouse Wheel'], desc: 'Adjust volume'),
-              _ShortcutItem(keys: const ['Ctrl', 'Mouse Wheel'], desc: 'Adjust playback speed (0.5x ~ 3.0x)'),
-              _ShortcutItem(keys: const ['Double Click'], desc: 'Double-click video to toggle fullscreen'),
-              _ShortcutItem(keys: const ['Esc'], desc: 'Exit PiP / fullscreen / Close page'),
-            ],
-          );
+    final localPlayerSection = _ShortcutSectionData(
+      title: i18n('shortcut_group_local_play'),
+      items: [
+        _ShortcutItem(keys: const ['Space'], desc: i18n('shortcut_play_pause')),
+        _ShortcutItem(keys: const ['Ctrl', 'F'], desc: i18n('shortcut_toggle_fullscreen')),
+        _ShortcutItem(keys: const ['Ctrl', 'S'], desc: i18n('shortcut_take_screenshot')),
+        _ShortcutItem(keys: const ['Ctrl', 'D'], desc: i18n('shortcut_toggle_danmaku')),
+        _ShortcutItem(keys: const ['Ctrl', 'W'], desc: i18n('shortcut_toggle_mute')),
+        _ShortcutItem(keys: const ['Ctrl', 'B'], desc: i18n('shortcut_toggle_pip')),
+        _ShortcutItem(keys: const ['↑'], desc: i18n('shortcut_volume_up')),
+        _ShortcutItem(keys: const ['↓'], desc: i18n('shortcut_volume_down')),
+        _ShortcutItem(keys: const ['←'], desc: i18n('shortcut_back_5s')),
+        _ShortcutItem(keys: const ['→'], desc: i18n('shortcut_forward_5s')),
+        _ShortcutItem(keys: const ['shift', '←'], desc: i18n('shortcut_back_30s')),
+        _ShortcutItem(keys: const ['shift', '→'], desc: i18n('shortcut_forward_30s')),
+        _ShortcutItem(keys: const ['Mouse Wheel'], desc: i18n('shortcut_adjust_volume')),
+        _ShortcutItem(keys: const ['Ctrl', 'Mouse Wheel'], desc: i18n('shortcut_adjust_playback_speed')),
+        _ShortcutItem(keys: const ['Double Click'], desc: i18n('shortcut_double_click_fullscreen')),
+        _ShortcutItem(keys: const ['Esc'], desc: i18n('shortcut_exit_pip_fullscreen_or_close')),
+      ],
+    );
 
     final sections = <_ShortcutSectionData>[];
     if (currentRoute == RoutePath.kLocalPlayback) {
@@ -518,7 +446,7 @@ class KeyboardShortcutsDialog extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                   onPressed: () => Navigator.of(context).pop(),
-                  child: Text(isZh ? '知道了' : 'Got it', style: const TextStyle(fontWeight: FontWeight.w700)),
+                  child: Text(i18n('shortcut_got_it'), style: const TextStyle(fontWeight: FontWeight.w700)),
                 ),
               ),
             ),

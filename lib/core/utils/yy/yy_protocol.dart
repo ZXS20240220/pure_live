@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:pure_live/plugins/locale_helper.dart';
+
 /// Current YY H5 service protocol version published by the YY web client.
 const yyH5ServiceProtocolVersion = '3.2.10';
 
@@ -458,7 +460,7 @@ class YyProtocolSession {
     }
     if (message.isEmpty) return null;
     return YyChatMessage(
-      userName: userName.isEmpty ? 'YY用户' : userName,
+      userName: userName.isEmpty ? i18n('danmaku_yy_default_user') : userName,
       message: message,
       topSid: messageTopSid,
       subSid: messageSubSid,

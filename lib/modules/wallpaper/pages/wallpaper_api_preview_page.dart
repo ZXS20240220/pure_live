@@ -79,7 +79,7 @@ class _WallpaperApiPreviewPageState extends State<WallpaperApiPreviewPage> {
     setState(() {
       _loading = false;
       if (bytes == null) {
-        _error = '获取图片失败，请重试或换一个图源';
+        _error = i18n('wallpaper_api_fetch_failed');
       } else {
         _imageBytes = bytes;
       }
@@ -89,14 +89,14 @@ class _WallpaperApiPreviewPageState extends State<WallpaperApiPreviewPage> {
   Future<void> _apply() async {
     final bytes = _imageBytes;
     if (bytes == null) return;
-    SmartDialog.showLoading(msg: '应用中...');
+    SmartDialog.showLoading(msg: i18n('applying'));
     try {
       final ok = await WallpaperSettingsController.to.applyImageBytes(bytes);
       if (ok) {
-        ToastUtil.show('已设为壁纸');
+        ToastUtil.show(i18n('wallpaper_preview_set_done'));
         if (mounted) Get.back<void>();
       } else {
-        ToastUtil.error('应用失败');
+        ToastUtil.error(i18n('wallpaper_preview_apply_failed'));
       }
     } finally {
       SmartDialog.dismiss();
@@ -109,7 +109,7 @@ class _WallpaperApiPreviewPageState extends State<WallpaperApiPreviewPage> {
     final controller = WallpaperSettingsController.to;
     final current = WallpaperFit.toBoxFit(controller.fitIndex.v);
     final picked = await _pickOption<BoxFit>(
-      title: '填充方式',
+      title: i18n('wallpaper_preview_fit_mode'),
       icon: Remix.aspect_ratio_line,
       options: kFitModes,
       current: current,
@@ -122,7 +122,7 @@ class _WallpaperApiPreviewPageState extends State<WallpaperApiPreviewPage> {
     final controller = WallpaperSettingsController.to;
     final current = kBlurSteps[_closestIndex(kBlurSteps, controller.blurRadius.v)];
     final picked = await _pickOption<double>(
-      title: '高斯模糊',
+      title: i18n('wallpaper_preview_blur'),
       icon: Remix.blur_off_line,
       options: kBlurSteps,
       current: current,
@@ -135,7 +135,7 @@ class _WallpaperApiPreviewPageState extends State<WallpaperApiPreviewPage> {
     final controller = WallpaperSettingsController.to;
     final current = kMaskSteps[_closestIndex(kMaskSteps, controller.maskOpacity.v)];
     final picked = await _pickOption<double>(
-      title: '遮罩',
+      title: i18n('wallpaper_preview_mask'),
       icon: Remix.contrast_2_line,
       options: kMaskSteps,
       current: current,
@@ -193,7 +193,7 @@ class _WallpaperApiPreviewPageState extends State<WallpaperApiPreviewPage> {
             },
           ),
         ),
-        actions: [TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('取消'))],
+        actions: [TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: Text(i18n('cancel')))],
       ),
     );
   }
@@ -201,23 +201,23 @@ class _WallpaperApiPreviewPageState extends State<WallpaperApiPreviewPage> {
   String _fitLabel(BoxFit fit) {
     switch (fit) {
       case BoxFit.cover:
-        return '等比覆盖';
+        return i18n('wallpaper_preview_fit_cover');
       case BoxFit.contain:
-        return '等比包含';
+        return i18n('wallpaper_preview_fit_contain');
       case BoxFit.fill:
-        return '拉伸填充';
+        return i18n('wallpaper_preview_fit_fill');
       case BoxFit.fitWidth:
-        return '适应宽度';
+        return i18n('wallpaper_preview_fit_width');
       case BoxFit.fitHeight:
-        return '适应高度';
+        return i18n('wallpaper_preview_fit_height');
       case BoxFit.none:
-        return '原始大小';
+        return i18n('wallpaper_preview_fit_none');
       case BoxFit.scaleDown:
-        return '等比缩小';
+        return i18n('wallpaper_preview_fit_scale_down');
     }
   }
 
-  String _blurLabel(double sigma) => sigma <= 0 ? '关闭' : '${sigma.round()}';
+  String _blurLabel(double sigma) => sigma <= 0 ? i18n('wallpaper_preview_off') : '${sigma.round()}';
 
   String _maskLabel(double step) => '${(step * 100).round()}%';
 
@@ -257,7 +257,7 @@ class _WallpaperApiPreviewPageState extends State<WallpaperApiPreviewPage> {
           ),
           actions: [
             IconButton(
-              tooltip: '换一张',
+              tooltip: i18n('wallpaper_api_shuffle'),
               icon: const Icon(Remix.refresh_line, color: Colors.white),
               onPressed: _loading ? null : _fetchImage,
             ),
@@ -292,13 +292,17 @@ class _WallpaperApiPreviewPageState extends State<WallpaperApiPreviewPage> {
         runSpacing: 10,
         alignment: WrapAlignment.center,
         children: [
-          _ActionButton(icon: Remix.refresh_line, label: '换一张', onPressed: _loading ? null : _fetchImage),
+          _ActionButton(
+            icon: Remix.refresh_line,
+            label: i18n('wallpaper_api_shuffle'),
+            onPressed: _loading ? null : _fetchImage,
+          ),
           _ActionButton(icon: Remix.aspect_ratio_line, label: _fitLabel(fit), onPressed: _pickFit),
           _ActionButton(icon: Remix.blur_off_line, label: _blurLabel(blur), onPressed: _pickBlur),
           _ActionButton(icon: Remix.contrast_2_line, label: _maskLabel(mask), onPressed: _pickMask),
           _ActionButton(
             icon: Remix.check_line,
-            label: '应用为壁纸',
+            label: i18n('wallpaper_api_apply_as_wallpaper'),
             primary: true,
             onPressed: _loading || _imageBytes == null ? null : _apply,
           ),

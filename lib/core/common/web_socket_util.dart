@@ -4,6 +4,8 @@ import 'dart:io' as io;
 import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+import 'package:pure_live/plugins/locale_helper.dart';
+
 typedef WebSocketConnector = WebSocketChannel Function(
   String endpoint, {
   Duration? connectTimeout,
@@ -274,7 +276,7 @@ class WebScoketUtils {
     if (reconnectTime == 0) onReconnect?.call();
 
     if (reconnectTime >= maxReconnectTime) {
-      onClose?.call('重连超过最大次数，与服务器断开连接：$message');
+      onClose?.call(i18n('ws_reconnect_max_exceeded', args: {'message': message}));
       unawaited(close());
       return;
     }

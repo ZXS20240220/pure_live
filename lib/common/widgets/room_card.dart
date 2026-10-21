@@ -984,7 +984,7 @@ class RoomCard extends StatelessWidget {
                                       ),
                                       const SizedBox(height: 6),
                                       Text(
-                                        '刷新中…',
+                                        i18n('room_card_refreshing'),
                                         maxLines: 1,
                                         style: TextStyle(
                                           color: Colors.white,
@@ -1001,7 +1001,7 @@ class RoomCard extends StatelessWidget {
                                       Icon(Remix.archive_line, size: dense ? 20 : 28, color: Colors.white70),
                                       const SizedBox(height: 4),
                                       Text(
-                                        '已弃用',
+                                        i18n('room_card_dormant'),
                                         maxLines: 1,
                                         style: TextStyle(
                                           color: Colors.white,
@@ -1175,7 +1175,7 @@ class RoomCard extends StatelessWidget {
                       top: 0,
                       child: IconButton(
                         key: const ValueKey('room-card-delete'),
-                        tooltip: deleteTooltip ?? (isDormant ? '移出暂时弃用' : i18n('delete')),
+                        tooltip: deleteTooltip ?? (isDormant ? i18n('room_card_remove_dormant') : i18n('delete')),
                         onPressed: onDelete,
                         padding: const EdgeInsets.all(10),
                         constraints: const BoxConstraints(minWidth: 48, minHeight: 48),

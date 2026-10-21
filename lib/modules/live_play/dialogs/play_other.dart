@@ -372,7 +372,7 @@ class _PlayOtherPanelState extends State<PlayOtherPanel> with SingleTickerProvid
                   Obx(() {
                     final isCompact = PanelSizeController.to.isRoomSwitchCompact;
                     return IconButton(
-                      tooltip: isCompact ? '切换为卡片布局' : '切换为列表布局',
+                      tooltip: i18n(isCompact ? 'room_card_layout_card' : 'room_card_layout_list'),
                       visualDensity: VisualDensity.compact,
                       constraints: const BoxConstraints.tightFor(width: 34, height: 34),
                       padding: EdgeInsets.zero,

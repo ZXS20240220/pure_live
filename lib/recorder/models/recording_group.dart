@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:pure_live/plugins/locale_helper.dart';
 import 'package:pure_live/recorder/models/live_record_task.dart';
 
 class Mp4Entry {
@@ -89,6 +90,6 @@ class HostRecordingGroup {
 
   String get latestTitle {
     final latest = mp4s.reduce((a, b) => a.modified.isAfter(b.modified) ? a : b);
-    return latest.title ?? '本地录制';
+    return latest.title ?? i18n('recorder_local_recording');
   }
 }

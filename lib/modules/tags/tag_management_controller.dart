@@ -10,14 +10,15 @@ class TagManagementController extends GetxController {
   final RxMap<String, List<String>> roomTagsMap = <String, List<String>>{}.obs;
   final RxList<LiveTag> tags = <LiveTag>[].obs;
   int _lastGeneratedTagId = 0;
-  static const Map<String, String> allTag = {'all': '全部'};
-  static String get allTagKey => allTag.keys.first;
-  static String get allTagLabel => allTag.values.first;
+  static const String _allTagKey = 'all';
+  static Map<String, String> get allTag => {_allTagKey: i18n('site_all')};
+  static String get allTagKey => _allTagKey;
+  static String get allTagLabel => i18n('site_all');
 
   /// “无标签”虚拟标签 key：永远不会出现在 roomTagsMap 中，
   /// 筛选时按“房间没有任何标签”判断（5.5）。
   static const String untaggedTagKey = '__untagged__';
-  static const String untaggedTagLabel = '无标签';
+  static String get untaggedTagLabel => i18n('tag_untagged');
 
   /// 保留名拦截：这些名字不允许被真实标签占用（5.5/5.6）。
   static const Set<String> reservedTagNames = {'无标签', '全部', 'all', 'untagged'};

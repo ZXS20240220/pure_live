@@ -23,8 +23,8 @@ class WallpaperApiGroupPage extends StatelessWidget {
     }
     if (group == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('随机图源')),
-        body: const Center(child: Text('分组不存在')),
+        appBar: AppBar(title: Text(i18n('wallpaper_api_random_source'))),
+        body: Center(child: Text(i18n('wallpaper_api_group_not_found'))),
       );
     }
     final WallpaperApiGroup resolved = group;

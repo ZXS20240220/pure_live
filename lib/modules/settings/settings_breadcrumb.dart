@@ -213,49 +213,48 @@ class SettingsCrumbs {
   // —— 设置 > 壁纸 ——
   static final SettingsCrumb wallpaper = SettingsCrumb(
     labelKey: 'wallpaper_settings',
-    labelText: '壁纸设置',
     routeName: '/settings/wallpaper',
     pageBuilder: WallpaperSettingsPage.new,
     parents: [root],
   );
   // —— 设置 > 壁纸 > 纯色渐变 ——
   static final SettingsCrumb wallpaperColor = SettingsCrumb(
-    labelText: '纯色渐变',
+    labelKey: 'breadcrumb_wallpaper_color',
     routeName: '/settings/wallpaper/color',
     pageBuilder: WallpaperColorPage.new,
     parents: [root, wallpaper],
   );
   // —— 设置 > 壁纸 > 动态壁纸 ——
   static final SettingsCrumb wallpaperVideo = SettingsCrumb(
-    labelText: '动态壁纸',
+    labelKey: 'breadcrumb_wallpaper_video',
     routeName: '/settings/wallpaper/video',
     pageBuilder: WallpaperVideoPage.new,
     parents: [root, wallpaper],
   );
   // —— 设置 > 壁纸 > 随机图源 ——
   static final SettingsCrumb wallpaperApi = SettingsCrumb(
-    labelText: '随机图源',
+    labelKey: 'breadcrumb_wallpaper_api',
     routeName: '/settings/wallpaper/api',
     pageBuilder: WallpaperApiPage.new,
     parents: [root, wallpaper],
   );
   // —— 设置 > 壁纸 > 壁纸库 ——
   static final SettingsCrumb wallpaperLibrary = SettingsCrumb(
-    labelText: '壁纸库',
+    labelKey: 'breadcrumb_wallpaper_library',
     routeName: '/settings/wallpaper/library',
     pageBuilder: WallpaperLibraryPage.new,
     parents: [root, wallpaper],
   );
   // —— 设置 > 壁纸 > 已保存壁纸 ——
   static final SettingsCrumb wallpaperHistory = SettingsCrumb(
-    labelText: '已保存壁纸',
+    labelKey: 'breadcrumb_wallpaper_history',
     routeName: '/settings/wallpaper/history',
     pageBuilder: WallpaperHistoryPage.new,
     parents: [root, wallpaper],
   );
   // —— 设置 > 壁纸 > PPT 壁纸 ——
   static final SettingsCrumb wallpaperPpt = SettingsCrumb(
-    labelText: 'PPT 壁纸',
+    labelKey: 'breadcrumb_wallpaper_ppt',
     routeName: '/settings/wallpaper/ppt',
     pageBuilder: WallpaperPptPage.new,
     parents: [root, wallpaper],
@@ -515,7 +514,7 @@ class SettingsCrumbs {
     parents: [root, backup],
   );
   static final SettingsCrumb remoteSyncPreview = SettingsCrumb(
-    labelText: '配置预览 / 选择性同步',
+    labelKey: 'breadcrumb_remote_sync_preview',
     routeName: '/settings/backup/remoteSync/preview',
     parents: [root, backup, remoteSync],
   );

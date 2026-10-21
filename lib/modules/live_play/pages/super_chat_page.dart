@@ -83,7 +83,7 @@ class _SuperChatPageState extends State<SuperChatPage> {
                       physics: const AlwaysScrollableScrollPhysics(),
                       child: ConstrainedBox(
                         constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                        child: const Center(child: Text('暂无内容', style: TextStyle(fontSize: 12))),
+                        child: Center(child: Text(i18n('superchat_empty'), style: const TextStyle(fontSize: 12))),
                       ),
                     );
                   },
@@ -167,7 +167,7 @@ class _AiHighlightCompact extends StatelessWidget {
                   Icon(Icons.info_outline, size: 15, color: colorScheme.onPrimaryContainer),
                   const SizedBox(width: 5),
                   Text(
-                    '公告',
+                    i18n('notice'),
                     style: Theme.of(context).textTheme.labelMedium
                         ?.copyWith(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.w600),
                   ),
@@ -213,7 +213,7 @@ class _AiHighlightCompact extends StatelessWidget {
                         Icon(Icons.visibility_outlined, size: 15, color: colorScheme.onPrimaryContainer),
                         const SizedBox(width: 5),
                         Text(
-                          'AI 看点',
+                          i18n('superchat_ai_highlights'),
                           style: Theme.of(context).textTheme.labelMedium
                               ?.copyWith(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.w600),
                         ),
@@ -242,7 +242,7 @@ class _AiHighlightCompact extends StatelessWidget {
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              '${aiHighlights!.length}条',
+                              i18n('superchat_highlight_count', args: {'count': '${aiHighlights!.length}'}),
                               style: Theme.of(context).textTheme.labelSmall
                                   ?.copyWith(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.w600),
                             ),
@@ -312,7 +312,9 @@ class _AiHighlightExpanded extends StatelessWidget {
                   Icon(Icons.visibility_outlined, size: 16, color: colorScheme.onPrimaryContainer),
                   const SizedBox(width: 6),
                   Text(
-                    'AI 看点${count > 0 ? ' · $count条' : ''}',
+                    count > 0
+                        ? '${i18n('superchat_ai_highlights')} · ${i18n('superchat_highlight_count', args: {'count': '$count'})}'
+                        : i18n('superchat_ai_highlights'),
                     style: Theme.of(context).textTheme.labelMedium
                         ?.copyWith(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.w600),
                   ),

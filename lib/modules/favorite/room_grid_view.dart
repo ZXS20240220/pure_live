@@ -198,8 +198,14 @@ class RoomGridView extends GetView<FavoriteController> {
             ),
           ),
           content: Text(
-            '${(refreshed.nick?.trim().isNotEmpty ?? false) ? refreshed.nick! : '该主播'} '
-            '正在直播中，是否将其移出暂时弃用并打开直播间？',
+            i18n(
+              'favorite_dormant_live_confirm',
+              args: {
+                'name': (refreshed.nick?.trim().isNotEmpty ?? false)
+                    ? refreshed.nick!
+                    : i18n('favorite_dormant_default_name'),
+              },
+            ),
             style: AppTextStyles.t13.copyWith(color: Theme.of(dialogCtx).colorScheme.onSurfaceVariant),
           ),
           actions: [

@@ -580,7 +580,7 @@ class LocalPlaybackController extends GetxController {
       }
     } catch (e) {
       debugPrint('LocalPlaybackController.togglePiP error: $e');
-      ToastUtil.show('小窗播放失败');
+      ToastUtil.show(i18n('mini_pip_play_failed'));
     } finally {
       enableController();
     }
@@ -605,7 +605,7 @@ class LocalPlaybackController extends GetxController {
     try {
       final directory = SettingsService.to.app.screenshotDirectory.v;
       if (directory.isEmpty) {
-        ToastUtil.show('请先设置截图保存目录');
+        ToastUtil.show(i18n('please_set_screenshot_directory'));
         return;
       }
       final dir = Directory(directory);
@@ -614,7 +614,7 @@ class LocalPlaybackController extends GetxController {
       }
       final bytes = await _player.screenshot();
       if (bytes == null || bytes.isEmpty) {
-        ToastUtil.show('截图失败');
+        ToastUtil.show(i18n('screenshot_failed'));
         return;
       }
       final now = DateTime.now();
@@ -626,10 +626,10 @@ class LocalPlaybackController extends GetxController {
           : 'screenshot_$ts.png';
       final file = File('$directory${p.separator}$name');
       await file.writeAsBytes(bytes, flush: true);
-      ToastUtil.show('截图已保存');
+      ToastUtil.show(i18n('screenshot_saved'));
     } catch (e) {
       debugPrint('LocalPlaybackController.takeScreenshot error: $e');
-      ToastUtil.show('截图失败');
+      ToastUtil.show(i18n('screenshot_failed'));
     }
   }
 

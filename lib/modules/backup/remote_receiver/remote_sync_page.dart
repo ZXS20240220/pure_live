@@ -78,11 +78,14 @@ class _RemoteSyncPageState extends State<RemoteSyncPage> {
 
     final action = await Get.dialog<String>(
       AlertDialog(
-        title: const Text('收到远端配置'),
-        content: Text('来自 $ip:$port 的同步数据已暂存，是否打开预览并选择要应用的模块？未选中的数据不会被改动。'),
+        title: Text(i18n('remote_sync_received_title')),
+        content: Text(i18n('remote_sync_received_content', args: {'ip': ip, 'port': '$port'})),
         actions: [
           TextButton(onPressed: () => Navigator.of(context).pop('later'), child: Text(i18n('cancel'))),
-          FilledButton(onPressed: () => Navigator.of(context).pop('preview'), child: const Text('打开预览')),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop('preview'),
+            child: Text(i18n('remote_sync_open_preview')),
+          ),
         ],
       ),
     );
@@ -368,13 +371,13 @@ class _RemoteSyncPageState extends State<RemoteSyncPage> {
               )
             else
               Tooltip(
-                message: '拉取对方配置并打开预览：可选择应用到本地或返回配置给对方',
+                message: i18n('remote_sync_selective_hint'),
                 child: SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
                     onPressed: service.isSyncing.value ? null : () => _openSyncPreview(device.ip, device.port),
                     icon: const Icon(Icons.tune),
-                    label: const Text('选择性同步'),
+                    label: Text(i18n('remote_sync_selective')),
                   ),
                 ),
               ),
@@ -423,13 +426,13 @@ class _RemoteSyncPageState extends State<RemoteSyncPage> {
               ),
             ] else
               Tooltip(
-                message: '拉取对方配置并打开预览：可选择应用到本地或返回配置给对方',
+                message: i18n('remote_sync_selective_hint'),
                 child: SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
                     onPressed: service.isSyncing.value ? null : _selectiveSyncManual,
                     icon: const Icon(Icons.tune),
-                    label: const Text('选择性同步'),
+                    label: Text(i18n('remote_sync_selective')),
                   ),
                 ),
               ),

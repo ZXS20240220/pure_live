@@ -16,7 +16,7 @@ class WallpaperGalleryPage extends StatelessWidget {
   SettingsCrumb get _crumb {
     final source = WallpaperRepository.instance.loadCatalog().sourceById(sourceId);
     return SettingsCrumb(
-      labelText: source == null ? '壁纸库' : wallpaperSourceName(source.id),
+      labelText: source == null ? i18n('wallpaper_gallery_title') : wallpaperSourceName(source.id),
       routeName: '/settings/wallpaper/library/gallery',
       pageBuilder: () => this,
       parents: [SettingsCrumbs.root, SettingsCrumbs.wallpaper, SettingsCrumbs.wallpaperLibrary],
@@ -29,7 +29,7 @@ class WallpaperGalleryPage extends StatelessWidget {
     if (source == null) {
       return Scaffold(
         appBar: SettingsBreadcrumbAppBar(node: _crumb),
-        body: const Center(child: Text('未找到该图源')),
+        body: Center(child: Text(i18n('wallpaper_gallery_source_not_found'))),
       );
     }
 
@@ -39,7 +39,7 @@ class WallpaperGalleryPage extends StatelessWidget {
       body: ScrollConfiguration(
         behavior: const MouseDraggableScrollBehavior(),
         child: groups.isEmpty
-            ? const Center(child: Text('暂无分组'))
+            ? Center(child: Text(i18n('wallpaper_gallery_no_groups')))
             : ListView(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
                 children: [

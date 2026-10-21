@@ -39,20 +39,20 @@ class _WallpaperHistoryPageState extends State<WallpaperHistoryPage> {
 
   Future<void> _apply(SavedWallpaperItem item) async {
     await controller.apply(item);
-    if (mounted) ToastUtil.show('已设为壁纸');
+    if (mounted) ToastUtil.show(i18n('wallpaper_history_set_as_wallpaper'));
   }
 
   Future<void> _delete(SavedWallpaperItem item) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('删除壁纸'),
-        content: Text('确定要删除「${item.name}」吗？此操作不可撤销。'),
+        title: Text(i18n('wallpaper_history_delete_title')),
+        content: Text(i18n('wallpaper_history_delete_confirm', args: {'name': item.name})),
         actions: [
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('取消')),
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text(i18n('cancel'))),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text('删除', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            child: Text(i18n('remove'), style: TextStyle(color: Theme.of(context).colorScheme.error)),
           ),
         ],
       ),
@@ -66,20 +66,20 @@ class _WallpaperHistoryPageState extends State<WallpaperHistoryPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('清空所有壁纸'),
-        content: const Text('将删除所有已保存的壁纸文件，并清除当前壁纸。此操作不可撤销。'),
+        title: Text(i18n('wallpaper_history_clear_all_title')),
+        content: Text(i18n('wallpaper_history_clear_all_confirm')),
         actions: [
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('取消')),
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text(i18n('cancel'))),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text('清空', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            child: Text(i18n('wallpaper_history_clear'), style: TextStyle(color: Theme.of(context).colorScheme.error)),
           ),
         ],
       ),
     );
     if (confirmed == true) {
       await controller.clearAll();
-      if (mounted) ToastUtil.show('已清空所有壁纸');
+      if (mounted) ToastUtil.show(i18n('wallpaper_history_cleared_all'));
     }
   }
 
@@ -100,11 +100,15 @@ class _WallpaperHistoryPageState extends State<WallpaperHistoryPage> {
             actions: [
               _ExtensionFilterButton(controller: controller),
               IconButton(
-                tooltip: '打开壁纸目录',
+                tooltip: i18n('wallpaper_history_open_dir'),
                 icon: const Icon(Remix.folder_open_line),
                 onPressed: () => _openWallpaperDir(),
               ),
-              IconButton(tooltip: '清空所有壁纸', icon: const Icon(Remix.delete_bin_line), onPressed: _clearAll),
+              IconButton(
+                tooltip: i18n('wallpaper_history_clear_all_title'),
+                icon: const Icon(Remix.delete_bin_line),
+                onPressed: _clearAll,
+              ),
             ],
           ),
           body: BasePageView<SavedWallpapersController, SavedWallpaperItem>(
@@ -121,12 +125,22 @@ class _WallpaperHistoryPageState extends State<WallpaperHistoryPage> {
             rightPaginationWidget: Obx(() {
               final total = controller.totalCount.value;
               if (total == null) return const SizedBox.shrink();
-              return Center(child: Text('共 $total 张壁纸', style: AppTextStyles.t13Muted));
+              return Center(
+                child: Text(
+                  i18n('wallpaper_history_total_count', args: {'total': total.toString()}),
+                  style: AppTextStyles.t13Muted,
+                ),
+              );
             }),
-            leftPaginationWidget: Center(child: Text('右击壁纸预览', style: AppTextStyles.t13Muted)),
+            leftPaginationWidget: Center(
+              child: Text(i18n('wallpaper_history_right_click_hint'), style: AppTextStyles.t13Muted),
+            ),
             collapseLeftPaginationWidget: false,
-            emptyBuilder: (context) =>
-                const EmptyView(icon: Remix.image_2_line, title: '暂无保存的壁纸', subtitle: '应用过的壁纸会显示在这里'),
+            emptyBuilder: (context) => EmptyView(
+              icon: Remix.image_2_line,
+              title: i18n('wallpaper_history_empty_title'),
+              subtitle: i18n('wallpaper_history_empty_subtitle'),
+            ),
             contentBuilder: (context, displayList, scrollController) {
               return buildCommonPullToRefresh(
                 context: context,
@@ -271,12 +285,16 @@ class _ExtensionFilterButtonState extends State<_ExtensionFilterButton> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _FilterTile(title: '全部', selected: allSelected, onTap: () => widget.controller.selectedExtensions.clear()),
+            _FilterTile(
+              title: i18n('site_all'),
+              selected: allSelected,
+              onTap: () => widget.controller.selectedExtensions.clear(),
+            ),
             if (exts.isNotEmpty) const Divider(height: 1, thickness: 1),
             if (exts.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Text('暂无可用扩展名', style: AppTextStyles.t13Muted),
+                child: Text(i18n('wallpaper_history_no_extensions'), style: AppTextStyles.t13Muted),
               )
             else
               ...exts.map(
@@ -312,10 +330,10 @@ class _ExtensionFilterButtonState extends State<_ExtensionFilterButton> {
         final selected = widget.controller.selectedExtensions;
         final isFiltering = selected.isNotEmpty;
         final label = selected.isEmpty
-            ? '全部'
+            ? i18n('site_all')
             : selected.length == 1
             ? selected.first.toUpperCase()
-            : '${selected.length} 项';
+            : i18n('wallpaper_history_selected_count', args: {'count': selected.length.toString()});
         return InkWell(
           borderRadius: BorderRadius.circular(8),
           onTap: _toggle,

@@ -75,7 +75,10 @@ class FavoriteFloatingButton extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (_fansText.isNotEmpty) ...[
-              Tooltip(message: '订阅数:${room.followers?.trim() ?? ''}', child: Text(_fansText)),
+              Tooltip(
+                message: i18n('live_play_followers_tooltip', args: {'count': room.followers?.trim() ?? ''}),
+                child: Text(_fansText),
+              ),
               const SizedBox(width: 8),
               Container(width: 1, height: 12, color: Colors.white.withValues(alpha: 0.35)),
               const SizedBox(width: 8),

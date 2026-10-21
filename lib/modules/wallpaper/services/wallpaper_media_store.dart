@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:pure_live/common/global/app_path_manager.dart';
 import 'package:pure_live/core/common/core_error.dart';
 import 'package:pure_live/core/common/http_client.dart';
+import 'package:pure_live/plugins/locale_helper.dart';
 
 /// 壁纸媒体文件缓存层。
 ///
@@ -73,7 +74,11 @@ class WallpaperMediaStore {
       try {
         await file.delete();
       } catch (_) {}
-      throw HttpError(format == null ? '下载内容不是可识别的图片' : '下载内容为不支持解码的 $format 图片');
+      throw HttpError(
+        format == null
+            ? i18n('wallpaper_store_unrecognized_image')
+            : i18n('wallpaper_store_undecodable_image', args: {'format': format}),
+      );
     }
 
     final correctExt = '.$format';

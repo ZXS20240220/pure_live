@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:flutter/material.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/modules/wallpaper/controllers/saved_wallpapers_controller.dart';
@@ -106,7 +105,10 @@ class _SavedWallpaperTileState extends State<SavedWallpaperTile> {
                     children: [
                       Icon(Remix.check_line, size: 14, color: theme.colorScheme.onPrimary),
                       const SizedBox(width: 2),
-                      Text('当前', style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onPrimary)),
+                      Text(
+                        i18n('wallpaper_saved_current'),
+                        style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onPrimary),
+                      ),
                     ],
                   ),
                 ),

@@ -77,7 +77,7 @@ class ResolvedRecordStream {
   final HlsSourceQueryPolicy? sourceQueryPolicy;
   final Map<String, String> httpHeaders;
 
-  String get lineLabel => '线路${lineIndex + 1}';
+  String get lineLabel => i18n('toolbox_line', args: {'index': '${lineIndex + 1}'});
 }
 
 typedef RecorderLiveSiteResolver = LiveSite Function(String platform);

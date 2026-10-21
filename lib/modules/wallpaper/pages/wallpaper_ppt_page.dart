@@ -97,7 +97,7 @@ class _WallpaperPptPageState extends State<WallpaperPptPage> {
             node: SettingsCrumbs.wallpaperPpt,
             actions: [
               IconButton(
-                tooltip: '打开壁纸目录',
+                tooltip: i18n('wallpaper_ppt_open_folder'),
                 icon: const Icon(Remix.folder_open_line),
                 onPressed: () async {
                   try {
@@ -126,12 +126,22 @@ class _WallpaperPptPageState extends State<WallpaperPptPage> {
                   rightPaginationWidget: Obx(() {
                     final total = controller.totalCount.value;
                     if (total == null) return const SizedBox.shrink();
-                    return Center(child: Text('共 $total 张图片', style: AppTextStyles.t13Muted));
+                    return Center(
+                      child: Text(
+                        i18n('wallpaper_ppt_total_images', args: {'count': '$total'}),
+                        style: AppTextStyles.t13Muted,
+                      ),
+                    );
                   }),
-                  leftPaginationWidget: Center(child: Text('右键点击壁纸预览', style: AppTextStyles.t13Muted)),
+                  leftPaginationWidget: Center(
+                    child: Text(i18n('wallpaper_ppt_right_click_preview'), style: AppTextStyles.t13Muted),
+                  ),
                   collapseLeftPaginationWidget: false,
-                  emptyBuilder: (context) =>
-                      const EmptyView(icon: Remix.image_2_line, title: '暂无静态图片', subtitle: '先应用一些图片壁纸，它们会保存在这里'),
+                  emptyBuilder: (context) => EmptyView(
+                    icon: Remix.image_2_line,
+                    title: i18n('wallpaper_ppt_empty_title'),
+                    subtitle: i18n('wallpaper_ppt_empty_subtitle'),
+                  ),
                   contentBuilder: (context, displayList, scrollController) {
                     return buildCommonPullToRefresh(
                       context: context,
@@ -173,9 +183,9 @@ class _WallpaperPptPageState extends State<WallpaperPptPage> {
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(4)],
                     decoration: InputDecoration(
                       isDense: true,
-                      labelText: '切换时间',
+                      labelText: i18n('wallpaper_ppt_interval'),
                       border: const OutlineInputBorder(),
-                      suffixText: '秒',
+                      suffixText: i18n('wallpaper_ppt_seconds'),
                       helperText: '1~3600',
                     ),
                     onEditingComplete: _validateInterval,
@@ -188,7 +198,7 @@ class _WallpaperPptPageState extends State<WallpaperPptPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('切换规则', style: AppTextStyles.t12.copyWith(color: theme.hintColor)),
+                    Text(i18n('wallpaper_ppt_order'), style: AppTextStyles.t12.copyWith(color: theme.hintColor)),
                     const SizedBox(height: 6),
                     Row(
                       children: PptMode.values.map((mode) {
@@ -215,13 +225,16 @@ class _WallpaperPptPageState extends State<WallpaperPptPage> {
                 const SizedBox(width: 4),
                 Tooltip(
                   message: selectedCount == 0
-                      ? '请先选择至少 1 张图片'
-                      : (settingsController.isSlideshow ? '关闭 PPT 壁纸' : '启用 PPT 壁纸'),
+                      ? i18n('wallpaper_ppt_select_at_least_one')
+                      : (settingsController.isSlideshow ? i18n('wallpaper_ppt_disable') : i18n('wallpaper_ppt_enable')),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Switch(value: settingsController.isSlideshow, onChanged: selectedCount == 0 ? null : _togglePpt),
-                      Text('启用', style: AppTextStyles.t13.copyWith(color: theme.hintColor)),
+                      Text(
+                        i18n('wallpaper_ppt_enable_label'),
+                        style: AppTextStyles.t13.copyWith(color: theme.hintColor),
+                      ),
                     ],
                   ),
                 ),
@@ -232,7 +245,7 @@ class _WallpaperPptPageState extends State<WallpaperPptPage> {
                       visible.isNotEmpty &&
                       visible.every((item) => settingsController.pptImagePaths.contains(p.basename(item.path)));
                   return Tooltip(
-                    message: allVisibleSelected ? '取消全选' : '全选当前页',
+                    message: allVisibleSelected ? i18n('wallpaper_ppt_deselect_all') : i18n('wallpaper_ppt_select_all'),
                     child: IconButton(
                       icon: Icon(allVisibleSelected ? Remix.checkbox_circle_line : Remix.checkbox_blank_circle_line),
                       onPressed: visible.isEmpty
@@ -252,7 +265,10 @@ class _WallpaperPptPageState extends State<WallpaperPptPage> {
                 }),
                 const SizedBox(width: 6),
                 // 选中数量
-                Text('已选 $selectedCount 张', style: AppTextStyles.t13.copyWith(color: theme.hintColor)),
+                Text(
+                  i18n('wallpaper_ppt_selected_count', args: {'count': '$selectedCount'}),
+                  style: AppTextStyles.t13.copyWith(color: theme.hintColor),
+                ),
               ],
             );
           }),

@@ -53,7 +53,7 @@ class FavoritePage extends GetView<FavoriteController> {
                           Tab(text: '${i18n('online_room_title')} (${controller.onlineRooms.length})'),
                           Tab(text: '${i18n('recording_room_title')} (${controller.replayRooms.length})'),
                           Tab(text: '${i18n('offline_room_title')} (${controller.offlineRooms.length})'),
-                          Tab(text: '暂时弃用 (${controller.dormantRooms.length})'),
+                          Tab(text: '${i18n('favorite_dormant')} (${controller.dormantRooms.length})'),
                         ],
                       ),
                     ),
@@ -423,13 +423,19 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
                       children: [
                         Icon(Remix.archive_line, size: 20, color: Theme.of(context).colorScheme.primary),
                         const SizedBox(width: 8),
-                        Text('编辑暂时弃用列表', style: Theme.of(context).textTheme.titleMedium),
+                        Text(i18n('favorite_edit_dormant'), style: Theme.of(context).textTheme.titleMedium),
                         const Spacer(),
-                        Text('已选 ${selectedKeys.length} / ${allRooms.length}', style: AppTextStyles.t13Muted),
+                        Text(
+                          i18n(
+                            'favorite_dormant_selected',
+                            args: {'selected': '${selectedKeys.length}', 'total': '${allRooms.length}'},
+                          ),
+                          style: AppTextStyles.t13Muted,
+                        ),
                       ],
                     ),
                     const SizedBox(height: 8),
-                    Text('勾选的直播间将被移入暂时弃用分类，不再参与刷新；取消勾选则移出暂时弃用并立即刷新一次最新状态。', style: AppTextStyles.t12Muted),
+                    Text(i18n('favorite_edit_dormant_desc'), style: AppTextStyles.t12Muted),
                     const SizedBox(height: 12),
                     // 搜索栏 + 平台筛选下拉框 + 直播状态筛选下拉框
                     Row(
@@ -441,7 +447,7 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
                             style: AppTextStyles.t12,
                             decoration: InputDecoration(
                               isDense: true,
-                              hintText: '搜索主播名 / 标题 / 房间号',
+                              hintText: i18n('favorite_dormant_search_hint'),
                               hintStyle: AppTextStyles.t12.copyWith(
                                 color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                               ),
@@ -483,7 +489,7 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
                           items: [
                             DropdownMenuItem(
                               value: '',
-                              child: Text('全部平台', style: AppTextStyles.t12),
+                              child: Text(i18n('favorite_all_platforms'), style: AppTextStyles.t12),
                             ),
                             ...platformOptions.map(
                               (p) => DropdownMenuItem(
@@ -498,11 +504,11 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
                         _buildPickerDropdown<int>(
                           context: context,
                           value: statusFilter,
-                          items: const [
-                            DropdownMenuItem(value: 0, child: Text('全部')),
-                            DropdownMenuItem(value: 1, child: Text('直播中')),
-                            DropdownMenuItem(value: 2, child: Text('未直播')),
-                            DropdownMenuItem(value: 3, child: Text('已弃用')),
+                          items: [
+                            DropdownMenuItem(value: 0, child: Text(i18n('recorder_tab_all'))),
+                            DropdownMenuItem(value: 1, child: Text(i18n('live'))),
+                            DropdownMenuItem(value: 2, child: Text(i18n('offline'))),
+                            DropdownMenuItem(value: 3, child: Text(i18n('room_card_dormant'))),
                           ],
                           onChanged: (v) => setState(() => statusFilter = v ?? 0),
                         ),
@@ -514,8 +520,8 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
                           ? Center(
                               child: Text(
                                 statusFilter == 0 && platformFilter.isEmpty && searchText.isEmpty
-                                    ? '暂无关注直播间'
-                                    : '无匹配的直播间',
+                                    ? i18n('favorite_empty_all')
+                                    : i18n('favorite_no_match'),
                                 style: AppTextStyles.t12Muted,
                               ),
                             )
@@ -576,7 +582,9 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
                                                 Text(
                                                   room.nick?.trim().isNotEmpty == true
                                                       ? room.nick!
-                                                      : (room.title?.trim().isNotEmpty == true ? room.title! : '未知主播'),
+                                                      : (room.title?.trim().isNotEmpty == true
+                                                            ? room.title!
+                                                            : i18n('favorite_unknown_anchor')),
                                                   maxLines: 1,
                                                   overflow: TextOverflow.ellipsis,
                                                   style: AppTextStyles.t13.copyWith(fontWeight: FontWeight.w500),
@@ -628,7 +636,7 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
                             Navigator.pop(ctx);
                             _applyDormantChanges(allRooms, selectedKeys, dormantKeys);
                           },
-                          child: const Text('应用'),
+                          child: Text(i18n('apply')),
                         ),
                       ],
                     ),
@@ -724,7 +732,7 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                     onPressed: () => _showDormantRoomPicker(context),
-                    tooltip: '编辑暂时弃用列表',
+                    tooltip: i18n('favorite_edit_dormant'),
                     icon: Icon(Remix.add_line, color: Theme.of(context).colorScheme.primary),
                   );
                 }
@@ -837,7 +845,7 @@ class _FavoriteSiteTabsState extends State<_FavoriteSiteTabs> with SingleTickerP
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                  tooltip: isCompact ? '切换为卡片布局' : '切换为列表布局',
+                  tooltip: i18n(isCompact ? 'room_card_layout_card' : 'room_card_layout_list'),
                   onPressed: () {
                     controller.cardLayoutMode.value = isCompact ? 'standard' : 'compact';
                   },
@@ -1201,8 +1209,8 @@ class _FavoriteEmptyState extends StatelessWidget {
         return AppStatusView(
           type: AppStatusType.empty,
           icon: Remix.archive_line,
-          title: '暂时弃用列表为空',
-          subtitle: '点击工具栏的"+"按钮，选择要移入暂时弃用的直播间',
+          title: i18n('favorite_dormant_empty_title'),
+          subtitle: i18n('favorite_dormant_empty_subtitle'),
         );
       }
 

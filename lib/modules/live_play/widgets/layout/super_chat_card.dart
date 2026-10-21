@@ -96,7 +96,7 @@ class _SuperChatCardState extends State<SuperChatCard> {
   }
 
   /// 倒计时已结束但卡片被锁定时，状态位显示“已锁定”。
-  String get _statusText => _locked && _remainSeconds <= 0 ? '已锁定' : _remainText;
+  String get _statusText => _locked && _remainSeconds <= 0 ? i18n('superchat_locked') : _remainText;
 
   Color _contrastText(Color background) {
     return background.computeLuminance() > 0.55 ? const Color(0xFF18181A) : Colors.white;
@@ -251,7 +251,7 @@ class _SuperChatCardState extends State<SuperChatCard> {
     final locked = _locked;
     final accent = const Color(0xFFFFC107);
     return Tooltip(
-      message: locked ? '解锁' : '锁定',
+      message: i18n(locked ? 'superchat_unlock' : 'superchat_lock'),
       waitDuration: const Duration(milliseconds: 400),
       child: Material(
         color: Colors.transparent,

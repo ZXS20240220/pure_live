@@ -93,7 +93,7 @@ class LocalPlaybackPage extends GetView<LocalPlaybackController> {
                             avatarUrl: entry?.avatar ?? '',
                             title: entry?.title ?? '',
                             subtitle: entry?.displayNick ?? '',
-                            statusText: '纯音频模式',
+                            statusText: i18n('audio_only_mode'),
                             fallbackIcon: Remix.headphone_fill,
                             scrollable: false,
                             opaqueBackground: true,
@@ -134,7 +134,9 @@ class LocalPlaybackPage extends GetView<LocalPlaybackController> {
                               constraints: const BoxConstraints(),
                               padding: const EdgeInsets.all(8),
                               style: IconButton.styleFrom(backgroundColor: Colors.black45),
-                              tooltip: controller.isPipAlwaysOnTop.value ? '取消置顶' : '置顶小窗',
+                              tooltip: controller.isPipAlwaysOnTop.value
+                                  ? i18n('pip_cancel_always_on_top')
+                                  : i18n('local_playback_pip_pin_on_top'),
                               icon: Icon(
                                 controller.isPipAlwaysOnTop.value ? Icons.push_pin : Icons.push_pin_outlined,
                                 color: Colors.white,
@@ -158,7 +160,7 @@ class LocalPlaybackPage extends GetView<LocalPlaybackController> {
                               constraints: const BoxConstraints(),
                               padding: const EdgeInsets.all(8),
                               style: IconButton.styleFrom(backgroundColor: Colors.black45),
-                              tooltip: '退出小窗',
+                              tooltip: i18n('exit_pip'),
                               icon: const Icon(Icons.close, color: Colors.white),
                               onPressed: controller.exitPiP,
                             ),
@@ -257,7 +259,7 @@ class LocalPlaybackPage extends GetView<LocalPlaybackController> {
                           constraints: const BoxConstraints(),
                           padding: const EdgeInsets.all(7),
                           iconSize: 22,
-                          tooltip: muted ? '取消静音' : '静音',
+                          tooltip: muted ? i18n('cancel_mute') : i18n('mute'),
                           icon: Icon(icon, color: Colors.white),
                           onPressed: controller.toggleMute,
                         ),
@@ -544,7 +546,7 @@ class LocalPlaybackPage extends GetView<LocalPlaybackController> {
                         avatarUrl: entry?.avatar ?? '',
                         title: entry?.title ?? '',
                         subtitle: entry?.displayNick ?? '',
-                        statusText: '纯音频模式',
+                        statusText: i18n('audio_only_mode'),
                         fallbackIcon: Remix.headphone_fill,
                         breathing: controller.isPlaying.value,
                       );
@@ -552,7 +554,7 @@ class LocalPlaybackPage extends GetView<LocalPlaybackController> {
                     final hasVideo = controller.currentMp4Path != null;
                     if (!hasVideo) {
                       return Center(
-                        child: Text('加载中…', style: AppTextStyles.t14.copyWith(color: Colors.white54)),
+                        child: Text(i18n('refresh_loading'), style: AppTextStyles.t14.copyWith(color: Colors.white54)),
                       );
                     }
                     final fitIndex = SettingsService.to.player.videoFitIndex.v;
@@ -641,7 +643,7 @@ class LocalPlaybackPage extends GetView<LocalPlaybackController> {
                 onEnter: (_) => controller.holdController(),
                 onExit: (_) => controller.releaseController(),
                 child: IconButton(
-                  tooltip: '截图',
+                  tooltip: i18n('take_screenshot'),
                   onPressed: controller.takeScreenshot,
                   icon: const Icon(Icons.photo_camera_outlined, size: 28),
                   color: Colors.white,
@@ -691,7 +693,7 @@ class LocalPlaybackPage extends GetView<LocalPlaybackController> {
                         ? controller.toggleFullScreen
                         : controller.toggleWindowFullScreen,
                     icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-                    tooltip: '返回',
+                    tooltip: i18n('local_playback_back'),
                   ),
                 _buildTitleChip(),
                 const Spacer(),
@@ -772,12 +774,12 @@ class LocalPlaybackPage extends GetView<LocalPlaybackController> {
             padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
             child: Row(
               children: [
-                Text('播放列表', style: AppTextStyles.t13.copyWith(fontWeight: FontWeight.w700)),
+                Text(i18n('local_playback_playlist'), style: AppTextStyles.t13.copyWith(fontWeight: FontWeight.w700)),
                 const Spacer(),
                 IconButton(
                   onPressed: controller.openCurrentDirectory,
                   icon: const Icon(Remix.folder_open_line, size: 18),
-                  tooltip: '打开所在目录',
+                  tooltip: i18n('local_playback_open_directory'),
                   style: IconButton.styleFrom(
                     minimumSize: const Size(28, 28),
                     padding: EdgeInsets.zero,
@@ -816,8 +818,10 @@ class LocalPlaybackPage extends GetView<LocalPlaybackController> {
                                 context: context,
                                 useRootNavigator: false,
                                 builder: (ctx) => AlertDialog(
-                                  title: const Text('删除视频'),
-                                  content: Text('确定要删除「${p.basename(entry.path)}」吗？此操作不可恢复。'),
+                                  title: Text(i18n('local_playback_delete_video')),
+                                  content: Text(
+                                    i18n('local_playback_delete_video_confirm', args: {'name': p.basename(entry.path)}),
+                                  ),
                                   actions: [
                                     TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(i18n('cancel'))),
                                     FilledButton(
@@ -855,7 +859,7 @@ class _TopRightActions extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
-          tooltip: '键盘快捷键',
+          tooltip: i18n('local_playback_keyboard_shortcuts'),
           visualDensity: VisualDensity.compact,
           iconSize: 21,
           color: Colors.white,
@@ -868,7 +872,7 @@ class _TopRightActions extends StatelessWidget {
         Obx(() {
           final onTop = controller.isAlwaysOnTop.value;
           return IconButton(
-            tooltip: onTop ? '取消窗口置顶' : '窗口置顶',
+            tooltip: onTop ? i18n('local_playback_cancel_window_always_on_top') : i18n('playback_window_always_on_top'),
             visualDensity: VisualDensity.compact,
             iconSize: 21,
             color: onTop ? const Color(0xFFFFD166) : Colors.white,
@@ -882,7 +886,7 @@ class _TopRightActions extends StatelessWidget {
         Obx(() {
           final audioOnly = controller.isAudioOnly.value;
           return IconButton(
-            tooltip: audioOnly ? '恢复视频模式' : '纯音频模式',
+            tooltip: audioOnly ? i18n('local_playback_restore_video_mode') : i18n('audio_only_mode'),
             visualDensity: VisualDensity.compact,
             iconSize: 21,
             color: audioOnly ? const Color(0xFFFFD166) : Colors.white,
@@ -896,7 +900,7 @@ class _TopRightActions extends StatelessWidget {
         Obx(() {
           final disabled = controller.isPipMode.value;
           return IconButton(
-            tooltip: disabled ? '小窗已激活' : '小窗播放',
+            tooltip: disabled ? i18n('local_playback_pip_active') : i18n('float_window_play'),
             color: Colors.white,
             onPressed: disabled
                 ? null
@@ -1094,7 +1098,7 @@ class _LeftActions extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         _IconAction(
-          tooltip: '播放/暂停',
+          tooltip: i18n('local_playback_play_pause'),
           onTap: controller.togglePlayPause,
           icon: Obx(
             () => Icon(
@@ -1105,12 +1109,12 @@ class _LeftActions extends StatelessWidget {
           ),
         ),
         _IconAction(
-          tooltip: '后退 10 秒',
+          tooltip: i18n('local_playback_seek_back_10s'),
           onTap: () => controller.seekRelative(const Duration(seconds: -10)),
           icon: const Icon(Icons.replay_10_rounded, color: Colors.white),
         ),
         _IconAction(
-          tooltip: '前进 10 秒',
+          tooltip: i18n('local_playback_seek_forward_10s'),
           onTap: () => controller.seekRelative(const Duration(seconds: 10)),
           icon: const Icon(Icons.forward_10_rounded, color: Colors.white),
         ),
@@ -1118,7 +1122,7 @@ class _LeftActions extends StatelessWidget {
           Obx(() {
             final canPrev = controller.currentIndex.value > 0;
             return _IconAction(
-              tooltip: '上一段',
+              tooltip: i18n('local_playback_previous_segment'),
               onTap: canPrev ? controller.prevFile : null,
               icon: Icon(Remix.skip_back_line, color: canPrev ? Colors.white : Colors.white38),
             );
@@ -1126,7 +1130,7 @@ class _LeftActions extends StatelessWidget {
           Obx(() {
             final canNext = controller.currentIndex.value < controller.group.value.mp4s.length - 1;
             return _IconAction(
-              tooltip: '下一段',
+              tooltip: i18n('local_playback_next_segment'),
               onTap: canNext ? controller.nextFile : null,
               icon: Icon(Remix.skip_forward_line, color: canNext ? Colors.white : Colors.white38),
             );
@@ -1135,7 +1139,7 @@ class _LeftActions extends StatelessWidget {
         const SizedBox(width: 6),
         _DanmakuToggleButton(controller: controller),
         _IconAction(
-          tooltip: '弹幕设置',
+          tooltip: i18n('danmaku_settings'),
           onTap: () async {
             controller.isMenuOpen.value = true;
             controller.stopHideController();
@@ -1172,7 +1176,7 @@ class _DanmakuToggleButton extends StatelessWidget {
     return Obx(() {
       final enabled = controller.danmakuEnabled.value;
       return Tooltip(
-        message: enabled ? '关闭弹幕' : '开启弹幕',
+        message: enabled ? i18n('hide_danmaku') : i18n('show_danmaku'),
         child: GestureDetector(
           onTap: controller.toggleDanmaku,
           child: Container(
@@ -1213,7 +1217,7 @@ class _RightActions extends StatelessWidget {
           if (controller.isFullscreen.value) return const SizedBox.shrink();
           final expanded = controller.isWindowFullscreen.value;
           return Tooltip(
-            message: expanded ? '退出窗口全屏' : '窗口全屏',
+            message: expanded ? i18n('exit_window_fullscreen') : i18n('enter_window_fullscreen'),
             child: GestureDetector(
               onTap: controller.toggleWindowFullScreen,
               child: Container(
@@ -1235,7 +1239,7 @@ class _RightActions extends StatelessWidget {
           if (controller.isWindowFullscreen.value) return const SizedBox.shrink();
           final expanded = controller.isFullscreen.value;
           return Tooltip(
-            message: expanded ? '退出全屏' : '全屏',
+            message: expanded ? i18n('exit_fullscreen') : i18n('multiview_fullscreen'),
             child: GestureDetector(
               onTap: controller.toggleFullScreen,
               child: Container(

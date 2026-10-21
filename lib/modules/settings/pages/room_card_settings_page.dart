@@ -26,7 +26,7 @@ class _RoomCardSettingsPageState extends State<RoomCardSettingsPage> {
   LiveRoom get _previewOfflineRoom => LiveRoom(
     roomId: 'room-card-preview-offline',
     platform: 'bilibili',
-    title: 'Pure Live · 未直播房间预览',
+    title: 'Pure Live · ${i18n('room_card_preview_offline_title')}',
     nick: i18n('room_card_preview_anchor'),
     cover: '',
     avatar: '',
@@ -117,7 +117,7 @@ class _RoomCardSettingsPageState extends State<RoomCardSettingsPage> {
                   icon: Remix.layout_grid_line,
                   title: i18n('room_card_show_platform'),
                   // 旧 subtitle 描述"自动"模式，现在只有简单开关，更新提示
-                  subtitle: '在卡片上始终显示直播平台徽章',
+                  subtitle: i18n('room_card_show_platform_subtitle'),
                   value: config.showPlatformBadge,
                   onChanged: (v) => controller.updateConfig(config.copyWith(showPlatformBadge: v)),
                 ),

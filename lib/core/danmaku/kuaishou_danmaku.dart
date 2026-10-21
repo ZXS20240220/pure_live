@@ -177,11 +177,11 @@ class KuaishouDanmaku implements LiveDanmaku {
     markDisconnected();
     _reconnectAttempts++;
     if (_reconnectAttempts > _maxReconnectAttempts) {
-      onClose?.call('服务器连接失败：快手弹幕重连超过最大次数');
+      onClose?.call(i18n('danmaku_kuaishou_reconnect_limit'));
       return;
     }
     if (_reconnectAttempts == 1) {
-      onReconnect?.call('与服务器断开连接，正在尝试重连');
+      onReconnect?.call(i18n('danmaku_disconnected_reconnecting'));
     }
     final seconds = 1 << (_reconnectAttempts - 1).clamp(0, 3);
     _schedulePoll(generation, Duration(seconds: seconds));
@@ -278,7 +278,7 @@ class KuaishouDanmaku implements LiveDanmaku {
         messages.add(
           LiveMessage(
             type: LiveMessageType.chat,
-            userName: userName.isEmpty ? '快手用户' : userName,
+            userName: userName.isEmpty ? i18n('danmaku_kuaishou_default_user') : userName,
             userId: userId,
             message: content,
             messageId: 'kuaishou:${rawId.isEmpty ? digest : rawId}',

@@ -636,7 +636,7 @@ class RemoteSyncService extends GetxController {
 
       isSyncing.value = false;
 
-      ToastUtil.show('收到远端配置，请在设备同步页选择应用');
+      ToastUtil.show(i18n('remote_sync_received_toast'));
 
       await _writeResponse(request.response, {'code': 200, 'msg': 'ok', 'data': true});
     } catch (_) {

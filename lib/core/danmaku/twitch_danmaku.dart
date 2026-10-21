@@ -70,11 +70,11 @@ class TwitchDanmaku implements LiveDanmaku {
       },
       onReconnect: () {
         markDisconnected();
-        onReconnect?.call("与服务器断开连接，正在尝试重连");
+        onReconnect?.call(i18n('danmaku_disconnected_reconnecting'));
       },
       onClose: (e) {
         markDisconnected();
-        onClose?.call("服务器连接失败$e");
+        onClose?.call(i18n('danmaku_connect_failed', args: {'error': e.toString()}));
       },
     );
     await webScoketUtils?.connect();

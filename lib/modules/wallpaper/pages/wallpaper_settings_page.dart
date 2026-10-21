@@ -6,7 +6,15 @@ import 'package:pure_live/modules/wallpaper/controllers/wallpaper_settings_contr
 class WallpaperSettingsPage extends StatelessWidget {
   const WallpaperSettingsPage({super.key});
 
-  static const List<String> _fitLabels = ['等比覆盖', '完整包含', '拉伸填充', '适配宽度', '适配高度', '原始大小', '等比缩小'];
+  static List<String> get _fitLabels => [
+    i18n('wallpaper_settings_fit_cover'),
+    i18n('wallpaper_settings_fit_contain'),
+    i18n('wallpaper_settings_fit_fill'),
+    i18n('wallpaper_settings_fit_width'),
+    i18n('wallpaper_settings_fit_height'),
+    i18n('wallpaper_settings_fit_none'),
+    i18n('wallpaper_settings_fit_scale_down'),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +30,7 @@ class WallpaperSettingsPage extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           children: [
             // ===== 显示设置 =====
-            context.buildGroupTitle('显示设置'),
+            context.buildGroupTitle(i18n('wallpaper_settings_display_section')),
             context.buildModernCard([
               // 填充模式：水平按钮组
               Padding(
@@ -30,7 +38,10 @@ class WallpaperSettingsPage extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('填充模式', style: AppTextStyles.t14.copyWith(color: theme.hintColor)),
+                    Text(
+                      i18n('wallpaper_settings_fit_mode'),
+                      style: AppTextStyles.t14.copyWith(color: theme.hintColor),
+                    ),
                     const SizedBox(height: 10),
                     Obx(() {
                       final selected = controller.fitIndex.v;
@@ -62,7 +73,7 @@ class WallpaperSettingsPage extends StatelessWidget {
                 () => context.buildSliderTile(
                   context,
                   icon: Remix.contrast_drop_line,
-                  title: '遮罩强度',
+                  title: i18n('wallpaper_settings_mask_strength'),
                   value: controller.maskOpacity.v,
                   min: 0.0,
                   max: 1.0,
@@ -75,11 +86,13 @@ class WallpaperSettingsPage extends StatelessWidget {
                 () => context.buildSliderTile(
                   context,
                   icon: Remix.blur_off_line,
-                  title: '高斯模糊',
+                  title: i18n('wallpaper_settings_blur'),
                   value: controller.blurRadius.v,
                   min: 0.0,
                   max: 50.0,
-                  displayValue: controller.blurRadius.v <= 0 ? '关闭' : controller.blurRadius.v.toStringAsFixed(1),
+                  displayValue: controller.blurRadius.v <= 0
+                      ? i18n('close')
+                      : controller.blurRadius.v.toStringAsFixed(1),
                   onChanged: (v) => controller.updateBlurRadius(v),
                 ),
               ),
@@ -91,7 +104,7 @@ class WallpaperSettingsPage extends StatelessWidget {
                     context.buildSliderTile(
                       context,
                       icon: Remix.volume_up_line,
-                      title: '视频音量',
+                      title: i18n('wallpaper_settings_video_volume'),
                       value: controller.videoVolume.v,
                       min: 0.0,
                       max: 1.0,
@@ -100,8 +113,8 @@ class WallpaperSettingsPage extends StatelessWidget {
                     ),
                     context.buildSwitchTile(
                       icon: Remix.pause_circle_line,
-                      title: '直播时暂停',
-                      subtitle: '播放直播时自动暂停壁纸视频',
+                      title: i18n('wallpaper_settings_pause_when_live'),
+                      subtitle: i18n('wallpaper_settings_pause_when_live_subtitle'),
                       value: controller.pauseVideoWhenLivePlaying,
                     ),
                   ],
@@ -110,8 +123,8 @@ class WallpaperSettingsPage extends StatelessWidget {
               // 清除背景
               context.buildTile(
                 icon: Icons.close_rounded,
-                title: '清除背景',
-                subtitle: '恢复使用主题底色',
+                title: i18n('wallpaper_settings_clear_background'),
+                subtitle: i18n('wallpaper_settings_clear_background_subtitle'),
                 onTap: () => controller.clearWallpaper(),
               ),
             ]),
@@ -119,42 +132,42 @@ class WallpaperSettingsPage extends StatelessWidget {
             const SizedBox(height: 20),
 
             // ===== 背景来源 =====
-            context.buildGroupTitle('背景来源'),
+            context.buildGroupTitle(i18n('wallpaper_settings_source_section')),
             context.buildModernCard([
               context.buildTile(
                 icon: Remix.palette_line,
-                title: '纯色',
-                subtitle: '纯色与渐变填充',
+                title: i18n('wallpaper_settings_solid_color'),
+                subtitle: i18n('wallpaper_settings_solid_color_subtitle'),
                 onTap: () => SettingsNavigator.open(SettingsCrumbs.wallpaperColor),
               ),
               context.buildTile(
                 icon: Remix.film_line,
-                title: '视频壁纸',
-                subtitle: '动态视频背景',
+                title: i18n('wallpaper_settings_video_wallpaper'),
+                subtitle: i18n('wallpaper_settings_video_wallpaper_subtitle'),
                 onTap: () => SettingsNavigator.open(SettingsCrumbs.wallpaperVideo),
               ),
               context.buildTile(
                 icon: Remix.image_2_line,
-                title: '壁纸库',
-                subtitle: '官方、Wallhaven、必应等图库',
+                title: i18n('wallpaper_settings_gallery'),
+                subtitle: i18n('wallpaper_settings_gallery_subtitle'),
                 onTap: () => SettingsNavigator.open(SettingsCrumbs.wallpaperLibrary),
               ),
               context.buildTile(
                 icon: Remix.shuffle_line,
-                title: '随机图源',
-                subtitle: '必应、栗次元、无铭 API 等随机图片',
+                title: i18n('wallpaper_settings_random_source'),
+                subtitle: i18n('wallpaper_settings_random_source_subtitle'),
                 onTap: () => SettingsNavigator.open(SettingsCrumbs.wallpaperApi),
               ),
               context.buildTile(
                 icon: Remix.history_line,
-                title: '已保存壁纸',
-                subtitle: '应用过的壁纸（图片与视频）',
+                title: i18n('wallpaper_settings_saved_wallpapers'),
+                subtitle: i18n('wallpaper_settings_saved_wallpapers_subtitle'),
                 onTap: () => SettingsNavigator.open(SettingsCrumbs.wallpaperHistory),
               ),
               context.buildTile(
                 icon: Remix.slideshow_line,
-                title: 'PPT 壁纸',
-                subtitle: '多张图片自动切换轮播',
+                title: i18n('wallpaper_settings_ppt_wallpaper'),
+                subtitle: i18n('wallpaper_settings_ppt_wallpaper_subtitle'),
                 onTap: () => SettingsNavigator.open(SettingsCrumbs.wallpaperPpt),
               ),
             ]),
@@ -162,18 +175,18 @@ class WallpaperSettingsPage extends StatelessWidget {
             const SizedBox(height: 20),
 
             // ===== 本机与网络 =====
-            context.buildGroupTitle('本机与网络'),
+            context.buildGroupTitle(i18n('wallpaper_settings_local_network_section')),
             context.buildModernCard([
               context.buildTile(
                 icon: Remix.image_add_line,
-                title: '选择本地图片',
-                subtitle: '从相册或文件中选一张图',
+                title: i18n('wallpaper_settings_pick_local_image'),
+                subtitle: i18n('wallpaper_settings_pick_local_image_subtitle'),
                 onTap: () => controller.pickLocalImage(),
               ),
               context.buildTile(
                 icon: Remix.video_add_line,
-                title: '选择本地视频',
-                subtitle: '静音循环播放，直播播放时自动让位',
+                title: i18n('wallpaper_settings_pick_local_video'),
+                subtitle: i18n('wallpaper_settings_pick_local_video_subtitle'),
                 onTap: () => controller.pickLocalVideo(),
               ),
               // 网络图片地址：内联输入框
@@ -216,7 +229,7 @@ class _NetworkUrlRowState extends State<_NetworkUrlRow> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '网络图片地址',
+            i18n('wallpaper_settings_network_image_url'),
             style: AppTextStyles.t14.copyWith(color: theme.hintColor, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 10),
@@ -226,7 +239,11 @@ class _NetworkUrlRowState extends State<_NetworkUrlRow> {
                 child: TextField(
                   controller: _controller,
                   keyboardType: TextInputType.url,
-                  decoration: const InputDecoration(isDense: true, hintText: '粘贴图片地址', border: OutlineInputBorder()),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    hintText: i18n('wallpaper_settings_network_image_hint'),
+                    border: const OutlineInputBorder(),
+                  ),
                   onSubmitted: (value) {
                     if (value.trim().isNotEmpty) widget.onApply(value);
                   },
@@ -238,7 +255,7 @@ class _NetworkUrlRowState extends State<_NetworkUrlRow> {
                   final url = _controller.text.trim();
                   if (url.isNotEmpty) widget.onApply(url);
                 },
-                child: const Text('应用'),
+                child: Text(i18n('apply')),
               ),
             ],
           ),

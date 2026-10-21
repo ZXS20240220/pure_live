@@ -15,6 +15,7 @@ import 'package:pure_live/core/common/convert_helper.dart';
 import 'package:pure_live/core/common/web_socket_util.dart';
 import 'package:pure_live/common/utils/network_image_url.dart';
 import 'package:pure_live/core/interface/live_danmaku.dart';
+import 'package:pure_live/plugins/locale_helper.dart';
 
 class BiliBiliDanmakuArgs {
   final int roomId;
@@ -117,7 +118,7 @@ class BiliBiliDanmaku implements LiveDanmaku {
         if (attempt < 2) await Future<void>.delayed(Duration(milliseconds: 500 * (attempt + 1)));
       }
       if (_stopped || danmakuArgs.token.isEmpty) {
-        onClose?.call("弹幕连接信息仍在更新，请稍后刷新房间");
+        onClose?.call(i18n('danmaku_bilibili_auth_updating'));
         return;
       }
     }
@@ -148,12 +149,12 @@ class BiliBiliDanmaku implements LiveDanmaku {
       onReconnect: () {
         _authTimer?.cancel();
         markDisconnected();
-        onReconnect?.call("与服务器断开连接，正在尝试重连");
+        onReconnect?.call(i18n('danmaku_disconnected_reconnecting'));
       },
       onClose: (e) {
         _authTimer?.cancel();
         markDisconnected();
-        onClose?.call("服务器连接失败$e");
+        onClose?.call(i18n('danmaku_connect_failed', args: {'error': e.toString()}));
       },
     );
     await webScoketUtils?.connect();

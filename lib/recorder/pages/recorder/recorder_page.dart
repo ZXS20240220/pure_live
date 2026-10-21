@@ -904,8 +904,10 @@ class _CompletedHostCard extends StatelessWidget {
       useRootNavigator: false,
       builder: (ctx) => AlertDialog(
         scrollable: true,
-        title: const Text('删除全部录制'),
-        content: Text('确定要删除「${group.displayNick}」的全部 ${group.mp4s.length} 段录制吗？\n此操作将同时删除磁盘上的视频文件和弹幕文件，不可恢复。'),
+        title: Text(i18n('recorder_delete_all_title')),
+        content: Text(
+          i18n('recorder_delete_all_confirm', args: {'name': group.displayNick, 'count': group.mp4s.length.toString()}),
+        ),
         actionsOverflowDirection: VerticalDirection.down,
         actions: [
           TextButton(
@@ -1013,7 +1015,7 @@ class _CompletedHostCard extends StatelessWidget {
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  '已完成 ${group.mp4s.length} 段录制',
+                                  i18n('recorder_completed_segments', args: {'count': group.mp4s.length.toString()}),
                                   style: AppTextStyles.t12.copyWith(
                                     color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                                   ),
@@ -1068,7 +1070,7 @@ class _CompletedHostCard extends StatelessWidget {
                       size: 18,
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
-                    tooltip: '打开目录',
+                    tooltip: i18n('recorder_open_folder'),
                     splashRadius: 18,
                     constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                     padding: EdgeInsets.zero,
@@ -1076,7 +1078,7 @@ class _CompletedHostCard extends StatelessWidget {
                   IconButton(
                     onPressed: () => _deleteGroup(context),
                     icon: Icon(Remix.delete_bin_line, size: 18, color: Colors.red.withValues(alpha: 0.8)),
-                    tooltip: '删除全部',
+                    tooltip: i18n('recorder_delete_all'),
                     splashRadius: 18,
                     constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                     padding: EdgeInsets.zero,
@@ -1302,12 +1304,16 @@ class _PlatformFilterButtonState extends State<_PlatformFilterButton> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _FilterTile(title: '全部', selected: allSelected, onTap: () => controller.selectedPlatforms.clear()),
+            _FilterTile(
+              title: i18n('recorder_tab_all'),
+              selected: allSelected,
+              onTap: () => controller.selectedPlatforms.clear(),
+            ),
             if (platforms.isNotEmpty) const Divider(height: 1, thickness: 1),
             if (platforms.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Text('暂无平台', style: AppTextStyles.t13Muted),
+                child: Text(i18n('recorder_no_platforms'), style: AppTextStyles.t13Muted),
               )
             else
               ...platforms.map(
@@ -1344,10 +1350,10 @@ class _PlatformFilterButtonState extends State<_PlatformFilterButton> {
         final selected = controller.selectedPlatforms;
         final isFiltering = selected.isNotEmpty;
         final label = selected.isEmpty
-            ? '全部'
+            ? i18n('recorder_tab_all')
             : selected.length == 1
             ? selected.first.toUpperCase()
-            : '${selected.length} 项';
+            : i18n('recorder_filter_selected_count', args: {'count': selected.length.toString()});
         return InkWell(
           borderRadius: BorderRadius.circular(8),
           onTap: _toggle,

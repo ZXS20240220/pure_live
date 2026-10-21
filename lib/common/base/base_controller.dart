@@ -55,7 +55,7 @@ class BaseController extends GetxController {
     final exceptionStr = exception.toString().toLowerCase();
     if (exceptionStr.contains("loginrequired") ||
         exceptionStr.contains("unauthorized") ||
-        exceptionStr.contains("未登录")) {
+        exceptionStr.contains(i18n("not_logged_in").toLowerCase())) {
       notLogin.value = true;
       pageError.value = false;
     } else {
@@ -71,7 +71,7 @@ class BaseController extends GetxController {
     if (exception is String) return exception;
     String msg = exception.toString().replaceAll("Exception:", "").trim();
     if (msg.isEmpty) {
-      msg = "未知错误，请重试";
+      msg = i18n('base_unknown_error');
     }
     return msg;
   }

@@ -29,7 +29,7 @@ class WallpaperLibraryPage extends StatelessWidget {
       body: ScrollConfiguration(
         behavior: const MouseDraggableScrollBehavior(),
         child: sources.isEmpty
-            ? const Center(child: Text('暂无图源'))
+            ? Center(child: Text(i18n('wallpaper_library_empty')))
             : ListView(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
                 children: [
@@ -39,7 +39,10 @@ class WallpaperLibraryPage extends StatelessWidget {
                         icon: _sourceIcon(source.kind),
                         title: wallpaperSourceName(source.id),
                         subtitle: source.categorized && source.visibleGroups.length > 1
-                            ? '${source.visibleGroups.length} 个分类'
+                            ? i18n(
+                                'wallpaper_library_category_count',
+                                args: {'count': '${source.visibleGroups.length}'},
+                              )
                             : null,
                         trailing: const Icon(Remix.arrow_right_s_line),
                         onTap: () => _open(context, source),

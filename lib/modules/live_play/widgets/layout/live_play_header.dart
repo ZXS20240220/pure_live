@@ -171,7 +171,7 @@ class _LivePlayHeaderState extends State<LivePlayHeader> {
                               const SizedBox(width: 4),
                               Flexible(
                                 child: Tooltip(
-                                  message: 'IP属地',
+                                  message: i18n('ip_location'),
                                   verticalOffset: 8,
                                   child: Text(
                                     anchorLocation,
@@ -495,7 +495,7 @@ class _LiveDurationIndicator extends StatelessWidget {
           }
           final text = _formatDuration(durationSeconds);
           return Tooltip(
-            message: '已播时长',
+            message: i18n('live_play_elapsed'),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [

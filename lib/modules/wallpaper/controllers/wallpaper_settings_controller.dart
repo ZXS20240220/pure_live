@@ -14,6 +14,7 @@ import 'package:pure_live/modules/wallpaper/data/wallpaper_models.dart';
 import 'package:pure_live/modules/wallpaper/services/wallpaper_library_service.dart';
 import 'package:pure_live/modules/wallpaper/services/wallpaper_media_store.dart';
 import 'package:pure_live/plugins/file_utils.dart';
+import 'package:pure_live/plugins/locale_helper.dart';
 
 class WallpaperSettingsController extends GetxController {
   static WallpaperSettingsController get to => Get.find<WallpaperSettingsController>();
@@ -201,7 +202,10 @@ class WallpaperSettingsController extends GetxController {
 
   /// 选择本地图片作为壁纸
   Future<void> pickLocalImage() async {
-    final result = await FilePicker.pickFile(type: FileType.image, dialogTitle: '选择壁纸图片');
+    final result = await FilePicker.pickFile(
+      type: FileType.image,
+      dialogTitle: i18n('wallpaper_pick_image_dialog_title'),
+    );
     FileUtils.cancelStalePointerEvents();
     if (result?.path == null) return;
     final path = result!.path!;
@@ -210,7 +214,10 @@ class WallpaperSettingsController extends GetxController {
 
   /// 选择本地视频作为壁纸
   Future<void> pickLocalVideo() async {
-    final result = await FilePicker.pickFile(type: FileType.video, dialogTitle: '选择壁纸视频');
+    final result = await FilePicker.pickFile(
+      type: FileType.video,
+      dialogTitle: i18n('wallpaper_pick_video_dialog_title'),
+    );
     FileUtils.cancelStalePointerEvents();
     if (result?.path == null) return;
     final path = result!.path!;
@@ -224,7 +231,7 @@ class WallpaperSettingsController extends GetxController {
         id: 'color-${DateTime.now().millisecondsSinceEpoch}',
         type: WallpaperType.color,
         url: data.serialize(),
-        name: '纯色壁纸',
+        name: i18n('wallpaper_default_solid_name'),
       ),
     );
   }
@@ -236,7 +243,12 @@ class WallpaperSettingsController extends GetxController {
     try {
       final localPath = await WallpaperMediaStore.download(trimmed);
       await applyWallpaper(
-        WallpaperItem(id: localPath, type: WallpaperType.imageLocal, url: localPath, name: name ?? '在线图片'),
+        WallpaperItem(
+          id: localPath,
+          type: WallpaperType.imageLocal,
+          url: localPath,
+          name: name ?? i18n('wallpaper_default_online_image_name'),
+        ),
       );
       return true;
     } catch (_) {
@@ -251,7 +263,12 @@ class WallpaperSettingsController extends GetxController {
     try {
       final localPath = await WallpaperMediaStore.download(trimmed);
       await applyWallpaper(
-        WallpaperItem(id: localPath, type: WallpaperType.videoLocal, url: localPath, name: name ?? '动态壁纸'),
+        WallpaperItem(
+          id: localPath,
+          type: WallpaperType.videoLocal,
+          url: localPath,
+          name: name ?? i18n('wallpaper_preview_dynamic_wallpaper'),
+        ),
       );
       return true;
     } catch (_) {
@@ -263,7 +280,14 @@ class WallpaperSettingsController extends GetxController {
   Future<bool> applyImageBytes(Uint8List bytes) async {
     try {
       final localPath = await WallpaperMediaStore.saveImageBytes(bytes);
-      await applyWallpaper(WallpaperItem(id: localPath, type: WallpaperType.imageLocal, url: localPath, name: '随机壁纸'));
+      await applyWallpaper(
+        WallpaperItem(
+          id: localPath,
+          type: WallpaperType.imageLocal,
+          url: localPath,
+          name: i18n('wallpaper_default_random_name'),
+        ),
+      );
       return true;
     } catch (_) {
       return false;
@@ -276,7 +300,7 @@ class WallpaperSettingsController extends GetxController {
     final items = await WallhavenService.search(categories: categories, sorting: 'random', page: 1);
     if (items.isEmpty) return false;
     final item = items.first;
-    return applyOnlineImage(item.fullUrl, name: '随机壁纸 ${item.id}');
+    return applyOnlineImage(item.fullUrl, name: i18n('wallpaper_default_random_name_with_id', args: {'id': item.id}));
   }
 
   /// 清除壁纸（恢复使用主题底色）

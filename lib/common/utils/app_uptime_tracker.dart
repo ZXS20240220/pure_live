@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:pure_live/get/get.dart';
+import 'package:pure_live/plugins/locale_helper.dart';
 
 /// 追踪应用自启动以来的运行时间，每秒更新一次 [uptimeText]。
 ///
@@ -55,11 +56,18 @@ class AppUptimeTracker {
     final seconds = totalSeconds % 60;
 
     if (hours > 0) {
-      return '$hours小时${minutes.toString().padLeft(2, '0')}分${seconds.toString().padLeft(2, '0')}秒';
+      return i18n(
+        'uptime_format_hms',
+        args: {
+          'hours': '$hours',
+          'minutes': minutes.toString().padLeft(2, '0'),
+          'seconds': seconds.toString().padLeft(2, '0'),
+        },
+      );
     } else if (minutes > 0) {
-      return '$minutes分${seconds.toString().padLeft(2, '0')}秒';
+      return i18n('uptime_format_ms', args: {'minutes': '$minutes', 'seconds': seconds.toString().padLeft(2, '0')});
     } else {
-      return '$seconds秒';
+      return i18n('uptime_format_s', args: {'seconds': '$seconds'});
     }
   }
 }

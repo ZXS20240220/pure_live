@@ -81,31 +81,37 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
   bool _isApplying = false;
   bool _isPushing = false;
 
-  static const _keyLabels = {
-    'app': '应用设置',
-    'theme': '主题设置',
-    'font': '字体设置',
-    'player': '播放器设置',
-    'danmaku': '弹幕设置',
-    'volume': '音量设置',
-    'favorite': '关注列表',
-    'history': '观看历史',
-    'webdav': 'WebDAV 同步',
-    'iptv': 'IPTV 列表',
-    'cookie': '登录凭据',
-    'proxy': '代理设置',
-    'windowSize': '窗口/悬浮窗尺寸',
-    'exit': '退出行为',
-    'startup': '启动行为',
-    'refresh': '刷新配置',
-    'page': '页面设置',
-    'wallpaper': '壁纸设置',
-    'panelSize': '侧边面板尺寸',
-    'roomCard': '房间卡片样式',
-    'tags': '标签管理',
-    'favoriteCtrl': '关注排序/置顶（扩展）',
-    'backupDirectory': '备份目录路径',
+  /// 数据块键 -> 翻译键；语义与备份分区一致的复用 backup_section_* 现有键。
+  static const _keyLabelKeys = {
+    'app': 'backup_section_app',
+    'theme': 'theme_settings',
+    'font': 'remote_sync_label_font',
+    'player': 'remote_sync_label_player',
+    'danmaku': 'danmaku_settings',
+    'volume': 'remote_sync_label_volume',
+    'favorite': 'backup_section_favorite',
+    'history': 'backup_section_history',
+    'webdav': 'remote_sync_label_webdav',
+    'iptv': 'remote_sync_label_iptv',
+    'cookie': 'remote_sync_label_cookie',
+    'proxy': 'remote_sync_label_proxy',
+    'windowSize': 'remote_sync_label_window_size',
+    'exit': 'backup_section_exit',
+    'startup': 'remote_sync_label_startup',
+    'refresh': 'remote_sync_label_refresh',
+    'page': 'backup_section_page',
+    'wallpaper': 'remote_sync_label_wallpaper',
+    'panelSize': 'backup_section_panelSize',
+    'roomCard': 'remote_sync_label_room_card',
+    'tags': 'tag_management',
+    'favoriteCtrl': 'remote_sync_label_favorite_ctrl',
+    'backupDirectory': 'backup_section_backupDirectory',
   };
+
+  static String _keyLabel(String key) {
+    final labelKey = _keyLabelKeys[key];
+    return labelKey == null ? key : i18n(labelKey);
+  }
 
   static const _extensionKeys = {'favoriteCtrl', 'panelSize', 'wallpaper'};
 
@@ -373,22 +379,24 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
     final allowedKeys = <String>{...checkedKeys, ...editedKeys};
 
     if (allowedKeys.isEmpty) {
-      ToastUtil.show('请至少选择一个数据块，或先在右侧 JSON 中编辑字段值');
+      ToastUtil.show(i18n('remote_sync_apply_no_selection'));
       return;
     }
 
-    final sourceNote = [
-      if (checkedKeys.isNotEmpty) '勾选 ${checkedKeys.length} 个',
-      if (editedKeys.isNotEmpty) '手动编辑 ${editedKeys.length} 个',
-    ].join('，');
+    final sourceNote = checkedKeys.isNotEmpty && editedKeys.isNotEmpty
+        ? i18n(
+            'remote_sync_apply_source_both',
+            args: {'checked': '${checkedKeys.length}', 'edited': '${editedKeys.length}'},
+          )
+        : checkedKeys.isNotEmpty
+        ? i18n('remote_sync_apply_source_checked', args: {'checked': '${checkedKeys.length}'})
+        : i18n('remote_sync_apply_source_edited', args: {'edited': '${editedKeys.length}'});
 
     final confirm = await Get.dialog<bool>(
       AlertDialog(
-        title: const Text('应用选中配置'),
+        title: Text(i18n('remote_sync_apply_title')),
         content: Text(
-          '将把右侧"本地 JSON（应用预览）"中变动的 ${allowedKeys.length} 个模块应用到本地'
-          '（$sourceNote；对应数据被覆盖，包含手动编辑，本端不识别的字段已自动过滤），'
-          '未涉及的模块保持不变。是否继续？',
+          i18n('remote_sync_apply_confirm', args: {'count': '${allowedKeys.length}', 'source': sourceNote}),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.of(context).pop(false), child: Text(i18n('cancel'))),
@@ -424,11 +432,11 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
       }
 
       if (!mounted) return;
-      ToastUtil.show('已应用 ${allowedKeys.length} 项配置');
+      ToastUtil.show(i18n('remote_sync_apply_success', args: {'count': '${allowedKeys.length}'}));
       Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
-      ToastUtil.show('应用失败: $e');
+      ToastUtil.show(i18n('remote_sync_apply_failed', args: {'error': '$e'}));
     } finally {
       if (mounted) {
         setState(() => _isApplying = false);
@@ -449,14 +457,14 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
 
     final confirm = await Get.dialog<bool>(
       AlertDialog(
-        title: const Text('返回配置给对方'),
+        title: Text(i18n('remote_sync_pushback_title')),
         content: Text(
           selectedCount == 0
-              ? '未勾选任何数据块，将把右侧"原始 JSON"中的配置'
-                    '（即对方原始数据，可能包含你的手动编辑）发送到 ${widget.ip}:${widget.port}。是否继续？'
-              : '将把右侧"原始 JSON"中的配置'
-                    '（已按选中的 $selectedCount 个数据块合并本地数据，包含手动编辑；'
-                    '未勾选的数据块保持对方原值）发送到 ${widget.ip}:${widget.port}。是否继续？',
+              ? i18n('remote_sync_pushback_confirm_none', args: {'ip': widget.ip, 'port': '${widget.port}'})
+              : i18n(
+                  'remote_sync_pushback_confirm_some',
+                  args: {'count': '$selectedCount', 'ip': widget.ip, 'port': '${widget.port}'},
+                ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.of(context).pop(false), child: Text(i18n('cancel'))),
@@ -480,17 +488,17 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
       if (!mounted) return;
 
       if (success) {
-        ToastUtil.show('已成功返回配置');
+        ToastUtil.show(i18n('remote_sync_pushback_success'));
         // 若本页数据正是"接收推送"的暂存数据，回传成功后清掉暂存标记。
         if (identical(widget.settings, service.pendingReceivedSettings.value)) {
           service.clearPendingReceivedSettings();
         }
       } else {
-        ToastUtil.show('返回配置失败');
+        ToastUtil.show(i18n('remote_sync_pushback_failed'));
       }
     } catch (e) {
       if (!mounted) return;
-      ToastUtil.show('返回配置失败: $e');
+      ToastUtil.show(i18n('remote_sync_pushback_failed_error', args: {'error': '$e'}));
     } finally {
       if (mounted) {
         setState(() => _isPushing = false);
@@ -551,12 +559,8 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
           Expanded(
             child: Text(
               isApply
-                  ? '来自 ${widget.ip}:${widget.port} · 应用到本地模式：右侧为本地配置预览'
-                        '（初始为 Windows 本地数据），左侧勾选数据块即替换为本端可识别的对方数据'
-                        '（自动过滤未识别字段）；点击值可编辑，"应用到本地"按右侧预览内容生效'
-                  : '来自 ${widget.ip}:${widget.port} · 返回配置模式：右侧为返回内容预览'
-                        '（初始为对方原始数据），左侧勾选数据块即把本地数据合并进对应模块；'
-                        '点击值可编辑，"返回配置给对方"把右侧 JSON 原样发送给对方',
+                  ? i18n('remote_sync_summary_apply', args: {'ip': widget.ip, 'port': '${widget.port}'})
+                  : i18n('remote_sync_summary_pushback', args: {'ip': widget.ip, 'port': '${widget.port}'}),
               maxLines: 3,
               style: Theme.of(context).textTheme.bodySmall,
             ),
@@ -577,12 +581,15 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
             children: [
               Expanded(
                 child: Text(
-                  '数据块（已选 $selectedCount/${_selections.length}）',
+                  i18n(
+                    'remote_sync_blocks_title',
+                    args: {'selected': '$selectedCount', 'total': '${_selections.length}'},
+                  ),
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
-              TextButton(onPressed: () => _selectAll(true), child: const Text('全选')),
-              TextButton(onPressed: () => _selectAll(false), child: const Text('全不选')),
+              TextButton(onPressed: () => _selectAll(true), child: Text(i18n('backup_section_select_all'))),
+              TextButton(onPressed: () => _selectAll(false), child: Text(i18n('backup_section_clear_all'))),
             ],
           ),
         ),
@@ -615,7 +622,7 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    '本端不识别的数据块（保持原样，不可选）',
+                    i18n('remote_sync_unknown_blocks'),
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
@@ -638,7 +645,7 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      _keyLabels[key] ?? key,
+                      _keyLabel(key),
                       style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.outline),
                     ),
                   ),
@@ -656,11 +663,19 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
     final isApply = _mode == _PreviewMode.applyLocal;
     final isExtension = _extensionKeys.contains(key);
     final unknownFields = _unknownFieldsOf(key);
-    final label = _keyLabels[key] ?? key;
+    final label = _keyLabel(key);
     final hasData = widget.settings[key] != null;
 
-    final subtitle = hasData ? _describeValue(widget.settings[key]) : '(空)';
-    final note = unknownFields.isNotEmpty ? '\n未识别: ${unknownFields.join(', ')}（${isApply ? '应用时将被过滤' : '将保持原样'}）' : '';
+    final subtitle = hasData ? _describeValue(widget.settings[key]) : i18n('remote_sync_value_empty');
+    final note = unknownFields.isNotEmpty
+        ? i18n(
+            'remote_sync_unknown_fields_note',
+            args: {
+              'fields': unknownFields.join(', '),
+              'action': i18n(isApply ? 'remote_sync_unknown_filtered' : 'remote_sync_unknown_kept'),
+            },
+          )
+        : '';
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 3),
@@ -691,7 +706,10 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
                                 color: Colors.orange.withAlpha(40),
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: const Text('扩展', style: TextStyle(fontSize: 10, color: Colors.orange)),
+                              child: Text(
+                                i18n('remote_sync_extension_badge'),
+                                style: TextStyle(fontSize: 10, color: Colors.orange),
+                              ),
                             ),
                           ],
                           if (unknownFields.isNotEmpty) ...[
@@ -703,7 +721,7 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                '未识别字段 ${unknownFields.length}',
+                                i18n('remote_sync_unknown_fields_count', args: {'count': '${unknownFields.length}'}),
                                 style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.outline),
                               ),
                             ),
@@ -783,28 +801,31 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
         children: [
           Row(
             children: [
-              Text(isApply ? '本地 JSON（应用预览）' : '原始 JSON（返回内容）', style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text(
+                isApply ? i18n('remote_sync_local_json_title') : i18n('remote_sync_raw_json_title'),
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  isApply ? '勾选数据块即替换为对方对应数据，点击值可编辑' : '点击值可编辑（键与结构不可改）',
+                  isApply ? i18n('remote_sync_local_json_hint') : i18n('remote_sync_raw_json_hint'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
                 ),
               ),
               IconButton(
-                tooltip: '重置选择与 JSON 内容',
+                tooltip: i18n('remote_sync_reset_tooltip'),
                 onPressed: _resetCurrentMode,
                 icon: const Icon(Icons.restart_alt, size: 18),
               ),
               IconButton(
-                tooltip: '全部展开',
+                tooltip: i18n('expand_all'),
                 onPressed: () => _treeKey.currentState?.expandAll(),
                 icon: const Icon(Icons.unfold_more, size: 18),
               ),
               IconButton(
-                tooltip: '全部折叠',
+                tooltip: i18n('collapse_all'),
                 onPressed: () => _treeKey.currentState?.collapseAll(),
                 icon: const Icon(Icons.unfold_less, size: 18),
               ),
@@ -844,22 +865,22 @@ class _RemoteSyncPreviewPageState extends State<RemoteSyncPreviewPage> {
                   ? FilledButton.icon(
                       onPressed: busy ? null : _applySelected,
                       icon: const Icon(Icons.check),
-                      label: Text(_isApplying ? '应用中...' : '应用到本地'),
+                      label: Text(_isApplying ? i18n('remote_sync_applying') : i18n('remote_sync_apply_local')),
                     )
                   : OutlinedButton.icon(
                       onPressed: busy ? null : _pushBackSelected,
                       icon: const Icon(Icons.arrow_back),
-                      label: Text(_isPushing ? '返回中...' : '返回配置给对方'),
+                      label: Text(_isPushing ? i18n('remote_sync_pushing_back') : i18n('remote_sync_pushback_title')),
                     ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Tooltip(
-                message: '切换模式（选择与 JSON 内容将重置）',
+                message: i18n('remote_sync_switch_mode_tooltip'),
                 child: OutlinedButton.icon(
                   onPressed: busy ? null : _switchMode,
                   icon: const Icon(Icons.swap_horiz),
-                  label: Text(isApply ? '切换为返回配置' : '切换为应用到本地'),
+                  label: Text(isApply ? i18n('remote_sync_switch_to_pushback') : i18n('remote_sync_switch_to_apply')),
                 ),
               ),
             ),
@@ -964,10 +985,10 @@ class _LeafEditDialogState extends State<_LeafEditDialog> {
     if (_isBoolMode) return null;
     if (_isStringMode) return null;
     if (_isNumMode) {
-      return _parseNum(_textController.text) == null ? '该字段应为数值' : null;
+      return _parseNum(_textController.text) == null ? i18n('remote_sync_edit_num_required') : null;
     }
     if (_typeChoice == 'num' && _parseNum(_textController.text) == null) {
-      return '所选类型为数值，输入内容无法解析为数值';
+      return i18n('remote_sync_edit_num_parse_error');
     }
     return null;
   }
@@ -998,7 +1019,7 @@ class _LeafEditDialogState extends State<_LeafEditDialog> {
     final current = widget.currentValue;
 
     return AlertDialog(
-      title: const Text('编辑字段值'),
+      title: Text(i18n('remote_sync_edit_value_title')),
       content: SizedBox(
         width: 420,
         child: Column(
@@ -1011,7 +1032,7 @@ class _LeafEditDialogState extends State<_LeafEditDialog> {
             ),
             const SizedBox(height: 4),
             Text(
-              '当前值：${_describe(current)}',
+              i18n('remote_sync_edit_current_value', args: {'value': _describe(current)}),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall,
@@ -1020,7 +1041,11 @@ class _LeafEditDialogState extends State<_LeafEditDialog> {
             if (_isBoolMode)
               DropdownButtonFormField<bool>(
                 initialValue: _boolChoice,
-                decoration: const InputDecoration(border: OutlineInputBorder(), labelText: '值（布尔）', isDense: true),
+                decoration: InputDecoration(
+                  border: const OutlineInputBorder(),
+                  labelText: i18n('remote_sync_edit_value_bool'),
+                  isDense: true,
+                ),
                 items: const [
                   DropdownMenuItem(value: true, child: Text('true')),
                   DropdownMenuItem(value: false, child: Text('false')),
@@ -1030,12 +1055,16 @@ class _LeafEditDialogState extends State<_LeafEditDialog> {
             else if (_isFreeMode) ...[
               DropdownButtonFormField<String>(
                 initialValue: _typeChoice,
-                decoration: const InputDecoration(border: OutlineInputBorder(), labelText: '类型', isDense: true),
-                items: const [
-                  DropdownMenuItem(value: 'null', child: Text('null')),
-                  DropdownMenuItem(value: 'string', child: Text('文本')),
-                  DropdownMenuItem(value: 'num', child: Text('数值')),
-                  DropdownMenuItem(value: 'bool', child: Text('布尔')),
+                decoration: InputDecoration(
+                  border: const OutlineInputBorder(),
+                  labelText: i18n('remote_sync_edit_type'),
+                  isDense: true,
+                ),
+                items: [
+                  const DropdownMenuItem(value: 'null', child: Text('null')),
+                  DropdownMenuItem(value: 'string', child: Text(i18n('remote_sync_type_string'))),
+                  DropdownMenuItem(value: 'num', child: Text(i18n('remote_sync_type_num'))),
+                  DropdownMenuItem(value: 'bool', child: Text(i18n('remote_sync_type_bool'))),
                 ],
                 onChanged: (v) {
                   setState(() {
@@ -1053,7 +1082,9 @@ class _LeafEditDialogState extends State<_LeafEditDialog> {
                   onChanged: (_) => _validate(),
                   decoration: InputDecoration(
                     border: const OutlineInputBorder(),
-                    labelText: _typeChoice == 'num' ? '值（数值）' : '值（文本）',
+                    labelText: i18n(
+                      _typeChoice == 'num' ? 'remote_sync_edit_value_num' : 'remote_sync_edit_value_string',
+                    ),
                     isDense: true,
                     errorText: _errorText,
                   ),
@@ -1067,14 +1098,17 @@ class _LeafEditDialogState extends State<_LeafEditDialog> {
                 onChanged: (_) => _validate(),
                 decoration: InputDecoration(
                   border: const OutlineInputBorder(),
-                  labelText: _isNumMode ? '值（数值）' : '值（文本）',
+                  labelText: i18n(_isNumMode ? 'remote_sync_edit_value_num' : 'remote_sync_edit_value_string'),
                   isDense: true,
                   errorText: _errorText,
                 ),
               ),
             if (_errorText != null) ...[
               const SizedBox(height: 8),
-              Text('可强行保存，但类型不符可能导致对方解析异常或数据丢失。', style: theme.textTheme.bodySmall?.copyWith(color: Colors.orange)),
+              Text(
+                i18n('remote_sync_edit_force_save_hint'),
+                style: theme.textTheme.bodySmall?.copyWith(color: Colors.orange),
+              ),
             ],
           ],
         ),
@@ -1083,14 +1117,14 @@ class _LeafEditDialogState extends State<_LeafEditDialog> {
         if (current != null)
           TextButton(
             onPressed: () => Navigator.of(context).pop(const _LeafEditResult(null)),
-            child: const Text('置为 null'),
+            child: Text(i18n('remote_sync_edit_set_null')),
           ),
         TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(i18n('cancel'))),
         if (_errorText != null)
           OutlinedButton(
             style: OutlinedButton.styleFrom(foregroundColor: Colors.orange),
             onPressed: _save,
-            child: const Text('强行保存'),
+            child: Text(i18n('remote_sync_edit_force_save')),
           ),
         FilledButton(onPressed: _errorText == null ? _save : null, child: Text(i18n('confirm'))),
       ],
@@ -1103,8 +1137,8 @@ class _LeafEditDialogState extends State<_LeafEditDialog> {
       final text = '"$value"';
       return text.length > 60 ? '${text.substring(0, 60)}...' : text;
     }
-    if (value is Map) return 'Map(${value.length} 项)';
-    if (value is List) return 'List(${value.length} 项)';
+    if (value is Map) return i18n('remote_sync_describe_map', args: {'count': '${value.length}'});
+    if (value is List) return i18n('remote_sync_describe_list', args: {'count': '${value.length}'});
     return value.toString();
   }
 }

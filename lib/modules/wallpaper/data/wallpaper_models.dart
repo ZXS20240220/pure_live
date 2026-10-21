@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/painting.dart';
+import 'package:pure_live/plugins/locale_helper.dart';
 
 /// 壁纸类型
 enum WallpaperType {
@@ -60,7 +61,8 @@ enum PptMode {
 }
 
 extension PptModeX on PptMode {
-  String get label => this == PptMode.sequential ? '顺序' : '随机';
+  String get label =>
+      this == PptMode.sequential ? i18n('wallpaper_ppt_mode_sequential') : i18n('wallpaper_ppt_mode_random');
 }
 
 /// 渐变方向

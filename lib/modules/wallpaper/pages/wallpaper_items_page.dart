@@ -90,7 +90,7 @@ class _WallpaperItemsPageState extends State<WallpaperItemsPage> {
         customDesktopBottomPadding: 135,
         customMobileBottomPadding: 85,
         pageSizeOptions: SettingsService.to.page.pageSizeOptions,
-        emptyBuilder: (context) => const EmptyView(icon: Remix.image_2_line, title: '暂无壁纸', subtitle: ''),
+        emptyBuilder: (context) => EmptyView(icon: Remix.image_2_line, title: i18n('wallpaper_items_empty'), subtitle: ''),
         contentBuilder: (context, displayList, scrollController) {
           return buildCommonPullToRefresh(
             context: context,

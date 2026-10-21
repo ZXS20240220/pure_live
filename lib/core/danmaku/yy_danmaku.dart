@@ -108,7 +108,7 @@ class YyDanmaku implements LiveDanmaku {
         _handshakeTimer?.cancel();
         markDisconnected();
         final detail = _lastSocketFailure.isEmpty ? '' : '（${_compactFailure(_lastSocketFailure)}）';
-        onReconnect?.call('与服务器断开连接$detail，正在尝试重连');
+        onReconnect?.call(i18n('danmaku_disconnected_reconnecting_detail', args: {'detail': detail}));
       },
       onFailure: (message) {
         if (generation != _generation) return;
@@ -119,7 +119,7 @@ class YyDanmaku implements LiveDanmaku {
         if (generation != _generation) return;
         _handshakeTimer?.cancel();
         markDisconnected();
-        onClose?.call('服务器连接失败$error');
+        onClose?.call(i18n('danmaku_connect_failed', args: {'error': error.toString()}));
       },
     );
 
@@ -140,7 +140,7 @@ class YyDanmaku implements LiveDanmaku {
     _handshakeTimer = Timer(const Duration(seconds: 15), () {
       if (generation != _generation || isConnected) return;
       CoreLog.error('YY 弹幕协议握手超时，准备重连');
-      onReconnect?.call('YY 弹幕协议握手超时，正在尝试重连');
+      onReconnect?.call(i18n('danmaku_yy_handshake_timeout_reconnecting'));
       webScoketUtils?.reconnect();
     });
   }
@@ -186,7 +186,7 @@ class YyDanmaku implements LiveDanmaku {
       _handshakeTimer?.cancel();
       markDisconnected();
       CoreLog.error(failure);
-      onReconnect?.call('$failure，正在尝试重连');
+      onReconnect?.call(i18n('danmaku_reconnecting_with_reason', args: {'reason': failure}));
       webScoketUtils?.reconnect();
     }
   }

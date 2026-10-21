@@ -55,7 +55,7 @@ class _WallpaperVideoPageState extends State<WallpaperVideoPage> {
         customDesktopBottomPadding: 135,
         customMobileBottomPadding: 85,
         pageSizeOptions: SettingsService.to.page.pageSizeOptions,
-        emptyBuilder: (context) => const EmptyView(icon: Remix.film_line, title: '暂无动态壁纸', subtitle: ''),
+        emptyBuilder: (context) => EmptyView(icon: Remix.film_line, title: i18n('wallpaper_video_empty'), subtitle: ''),
         contentBuilder: (context, displayList, scrollController) {
           return buildCommonPullToRefresh(
             context: context,

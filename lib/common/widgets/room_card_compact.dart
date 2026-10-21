@@ -164,7 +164,7 @@ class RoomCardCompact extends StatelessWidget {
                               visualDensity: VisualDensity.compact,
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                              tooltip: '移出暂时弃用',
+                              tooltip: i18n('room_card_remove_dormant'),
                               onPressed: onDelete,
                               icon: Icon(RemixIcons.archive_line, color: theme.colorScheme.onSurfaceVariant),
                             ),
@@ -225,11 +225,11 @@ class RoomCardCompact extends StatelessWidget {
           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.grey),
         );
       }
-      return _StatusText(text: '已弃用', color: Colors.grey.shade500, theme: theme);
+      return _StatusText(text: i18n('room_card_dormant'), color: Colors.grey.shade500, theme: theme);
     }
     if (statusPending) {
       return _StatusText(
-        text: statusPendingLabel ?? '检测中',
+        text: statusPendingLabel ?? i18n('room_card_checking'),
         color: theme.colorScheme.onSurfaceVariant.withValues(alpha: .7),
         theme: theme,
       );
@@ -272,7 +272,7 @@ class RoomCardCompact extends StatelessWidget {
       final mi = dt.minute.toString().padLeft(2, '0');
       final lastLive = '$y-$mo-$d $h:$mi';
       return Tooltip(
-        message: '上次直播 $lastLive',
+        message: '${i18n('last_live_time_prefix')} $lastLive',
         waitDuration: const Duration(milliseconds: 400),
         // 限宽使截断点落在日期与时间的交界（日期完整、时间被截），
         // 避免挤压中间主播名/标题；调 maxWidth 可增减可见的时间字符。
@@ -295,9 +295,9 @@ class RoomCardCompact extends StatelessWidget {
     // 都没有 —— fallback 状态文字
     final status = room.effectiveLiveStatus;
     final (text, color) = switch (status) {
-      LiveStatus.replay => ('录播', isDark ? Colors.grey.shade500 : Colors.grey.shade400),
-      LiveStatus.offline => ('未直播', isDark ? Colors.grey.shade500 : Colors.grey.shade400),
-      _ => ('未知', isDark ? Colors.grey.shade500 : Colors.grey.shade400),
+      LiveStatus.replay => (i18n('replay'), isDark ? Colors.grey.shade500 : Colors.grey.shade400),
+      LiveStatus.offline => (i18n('offline'), isDark ? Colors.grey.shade500 : Colors.grey.shade400),
+      _ => (i18n('live_status_unknown'), isDark ? Colors.grey.shade500 : Colors.grey.shade400),
     };
     return _StatusText(text: text, color: color, theme: theme);
   }

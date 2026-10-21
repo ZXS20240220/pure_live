@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:pure_live/plugins/locale_helper.dart';
 
 /// JSON 树中的一行：定位路径 + 展示内容。
 class _JsonRow {
@@ -79,8 +80,7 @@ class RemoteSyncJsonTreeState extends State<RemoteSyncJsonTree> {
     super.dispose();
   }
 
-  bool _isExpanded(List<Object> path, int depth) =>
-      _expanded[jsonEncode(path)] ?? depth < initialExpandDepth;
+  bool _isExpanded(List<Object> path, int depth) => _expanded[jsonEncode(path)] ?? depth < initialExpandDepth;
 
   void _toggle(List<Object> path, int depth) {
     setState(() => _expanded[jsonEncode(path)] = !_isExpanded(path, depth));
@@ -105,15 +105,8 @@ class RemoteSyncJsonTreeState extends State<RemoteSyncJsonTree> {
     // 展开会改变行数，等下一帧布局完成后再滚动。
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_verticalController.hasClients) return;
-      final target = (index * rowExtent - 8).clamp(
-        0.0,
-        _verticalController.position.maxScrollExtent,
-      );
-      _verticalController.animateTo(
-        target,
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOutCubic,
-      );
+      final target = (index * rowExtent - 8).clamp(0.0, _verticalController.position.maxScrollExtent);
+      _verticalController.animateTo(target, duration: const Duration(milliseconds: 250), curve: Curves.easeOutCubic);
     });
   }
 
@@ -167,16 +160,7 @@ class RemoteSyncJsonTreeState extends State<RemoteSyncJsonTree> {
           final path = [...prefix, i];
           final v = value[i];
           final isContainer = v is Map || v is List;
-          rows.add(
-            _JsonRow(
-              path: path,
-              depth: depth,
-              key: i,
-              value: v,
-              isContainer: isContainer,
-              isMapEntry: false,
-            ),
-          );
+          rows.add(_JsonRow(path: path, depth: depth, key: i, value: v, isContainer: isContainer, isMapEntry: false));
           if (isContainer && _isExpanded(path, depth)) walk(v, depth + 1, path);
         }
       }
@@ -195,8 +179,8 @@ class RemoteSyncJsonTreeState extends State<RemoteSyncJsonTree> {
   }
 
   String _preview(dynamic value) {
-    if (value is Map) return '{…} ${value.length} 项';
-    if (value is List) return '[…] ${value.length} 项';
+    if (value is Map) return i18n('remote_sync_json_map_preview', args: {'count': '${value.length}'});
+    if (value is List) return i18n('remote_sync_json_list_preview', args: {'count': '${value.length}'});
     if (value is String) return '"$value"';
     if (value == null) return 'null';
     return value.toString();
@@ -244,20 +228,14 @@ class RemoteSyncJsonTreeState extends State<RemoteSyncJsonTree> {
 
     final Widget leading = row.isContainer
         ? Icon(
-            _isExpanded(row.path, row.depth)
-                ? Icons.keyboard_arrow_down
-                : Icons.keyboard_arrow_right,
+            _isExpanded(row.path, row.depth) ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right,
             size: 16,
-            color: isUnknown
-                ? theme.colorScheme.outline.withValues(alpha: 0.5)
-                : theme.colorScheme.outline,
+            color: isUnknown ? theme.colorScheme.outline.withValues(alpha: 0.5) : theme.colorScheme.outline,
           )
         : const SizedBox(width: 16);
 
     // 未识别字段整行降为灰色，与正常数据明显区分（数据双向保持原样）。
-    final Color valueColor = isUnknown
-        ? theme.colorScheme.outline.withValues(alpha: 0.6)
-        : _colorFor(value, theme);
+    final Color valueColor = isUnknown ? theme.colorScheme.outline.withValues(alpha: 0.6) : _colorFor(value, theme);
 
     final Widget valueText = Flexible(
       child: Text(
@@ -272,11 +250,7 @@ class RemoteSyncJsonTreeState extends State<RemoteSyncJsonTree> {
         ? const SizedBox.shrink()
         : Padding(
             padding: const EdgeInsets.only(left: 4),
-            child: Icon(
-              Icons.edit_outlined,
-              size: 11,
-              color: theme.colorScheme.outline.withValues(alpha: 0.5),
-            ),
+            child: Icon(Icons.edit_outlined, size: 11, color: theme.colorScheme.outline.withValues(alpha: 0.5)),
           );
 
     return InkWell(

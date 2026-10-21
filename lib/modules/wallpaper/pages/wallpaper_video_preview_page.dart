@@ -193,7 +193,7 @@ class _WallpaperVideoPreviewPageState extends State<WallpaperVideoPreviewPage> {
     final controller = WallpaperSettingsController.to;
     final current = WallpaperFit.toBoxFit(controller.fitIndex.v);
     final picked = await _pickOption<BoxFit>(
-      title: '填充方式',
+      title: i18n('wallpaper_preview_fit_mode'),
       icon: Remix.aspect_ratio_line,
       options: kFitModes,
       current: current,
@@ -206,7 +206,7 @@ class _WallpaperVideoPreviewPageState extends State<WallpaperVideoPreviewPage> {
     final controller = WallpaperSettingsController.to;
     final current = kBlurSteps[_closestIndex(kBlurSteps, controller.blurRadius.v)];
     final picked = await _pickOption<double>(
-      title: '高斯模糊',
+      title: i18n('wallpaper_preview_blur'),
       icon: Remix.blur_off_line,
       options: kBlurSteps,
       current: current,
@@ -219,7 +219,7 @@ class _WallpaperVideoPreviewPageState extends State<WallpaperVideoPreviewPage> {
     final controller = WallpaperSettingsController.to;
     final current = kMaskSteps[_closestIndex(kMaskSteps, controller.maskOpacity.v)];
     final picked = await _pickOption<double>(
-      title: '遮罩',
+      title: i18n('wallpaper_preview_mask'),
       icon: Remix.contrast_2_line,
       options: kMaskSteps,
       current: current,
@@ -277,7 +277,7 @@ class _WallpaperVideoPreviewPageState extends State<WallpaperVideoPreviewPage> {
             },
           ),
         ),
-        actions: [TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('取消'))],
+        actions: [TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: Text(i18n('cancel')))],
       ),
     );
   }
@@ -287,21 +287,21 @@ class _WallpaperVideoPreviewPageState extends State<WallpaperVideoPreviewPage> {
     final item = _currentItem;
     if (item == null) return;
     setState(() => _applying = true);
-    ToastUtil.show('正在下载壁纸…');
+    ToastUtil.show(i18n('wallpaper_preview_downloading'));
     try {
       final applied = await WallpaperSettingsController.to.applyOnlineVideo(item.url, name: item.name);
       if (!applied) {
-        if (mounted) ToastUtil.show('应用失败');
+        if (mounted) ToastUtil.show(i18n('wallpaper_preview_apply_failed'));
         return;
       }
       // 应用成功后销毁预览播放器，避免与背景层双解码
       _destroyPlayer();
       if (mounted) {
-        ToastUtil.show('已设为壁纸');
+        ToastUtil.show(i18n('wallpaper_preview_set_done'));
         Get.back<void>();
       }
     } catch (e) {
-      if (mounted) ToastUtil.show('应用失败：$e');
+      if (mounted) ToastUtil.show(i18n('wallpaper_preview_apply_failed_detail', args: {'error': '$e'}));
     } finally {
       if (mounted) setState(() => _applying = false);
     }
@@ -312,23 +312,23 @@ class _WallpaperVideoPreviewPageState extends State<WallpaperVideoPreviewPage> {
   String _fitLabel(BoxFit fit) {
     switch (fit) {
       case BoxFit.cover:
-        return '等比覆盖';
+        return i18n('wallpaper_preview_fit_cover');
       case BoxFit.contain:
-        return '等比包含';
+        return i18n('wallpaper_preview_fit_contain');
       case BoxFit.fill:
-        return '拉伸填充';
+        return i18n('wallpaper_preview_fit_fill');
       case BoxFit.fitWidth:
-        return '适应宽度';
+        return i18n('wallpaper_preview_fit_width');
       case BoxFit.fitHeight:
-        return '适应高度';
+        return i18n('wallpaper_preview_fit_height');
       case BoxFit.none:
-        return '原始大小';
+        return i18n('wallpaper_preview_fit_none');
       case BoxFit.scaleDown:
-        return '等比缩小';
+        return i18n('wallpaper_preview_fit_scale_down');
     }
   }
 
-  String _blurLabel(double sigma) => sigma <= 0 ? '关闭' : '${sigma.round()}';
+  String _blurLabel(double sigma) => sigma <= 0 ? i18n('wallpaper_preview_off') : '${sigma.round()}';
 
   String _maskLabel(double step) => '${(step * 100).round()}%';
 
@@ -349,7 +349,7 @@ class _WallpaperVideoPreviewPageState extends State<WallpaperVideoPreviewPage> {
           surfaceTintColor: Colors.transparent,
           foregroundColor: Colors.white,
           title: Text(
-            item?.name ?? '动态壁纸',
+            item?.name ?? i18n('wallpaper_preview_dynamic_wallpaper'),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(color: Colors.white, fontSize: 16),
@@ -424,19 +424,29 @@ class _WallpaperVideoPreviewPageState extends State<WallpaperVideoPreviewPage> {
             children: [
               _ActionButton(
                 icon: _videoPlaying ? Remix.pause_line : Remix.play_line,
-                label: _videoPlaying ? '暂停' : '播放',
+                label: _videoPlaying ? i18n('pause_video') : i18n('play_video'),
                 onPressed: _togglePlay,
               ),
-              _ActionButton(icon: Remix.arrow_left_s_line, label: '上一张', onPressed: _index > 0 ? _previous : null),
+              _ActionButton(
+                icon: Remix.arrow_left_s_line,
+                label: i18n('wallpaper_preview_previous'),
+                onPressed: _index > 0 ? _previous : null,
+              ),
               _ActionButton(
                 icon: Remix.arrow_right_s_line,
-                label: '下一张',
+                label: i18n('wallpaper_preview_next'),
                 onPressed: _index < widget.items.length - 1 ? _next : null,
               ),
               _ActionButton(icon: Remix.aspect_ratio_line, label: _fitLabel(fit), onPressed: _pickFit),
               _ActionButton(icon: Remix.blur_off_line, label: _blurLabel(blur), onPressed: _pickBlur),
               _ActionButton(icon: Remix.contrast_2_line, label: _maskLabel(mask), onPressed: _pickMask),
-              _ActionButton(icon: Remix.check_line, label: '设为背景', primary: true, busy: _applying, onPressed: _apply),
+              _ActionButton(
+                icon: Remix.check_line,
+                label: i18n('wallpaper_preview_set_as_background'),
+                primary: true,
+                busy: _applying,
+                onPressed: _apply,
+              ),
             ],
           ),
         ],

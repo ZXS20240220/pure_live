@@ -54,8 +54,8 @@ class SettingsPage extends GetView<SettingsService> {
               ),
               context.buildTile(
                 icon: Remix.image_line,
-                title: '壁纸设置',
-                subtitle: '自定义全局壁纸背景（图片/视频）',
+                title: i18n("wallpaper_settings"),
+                subtitle: i18n("wallpaper_settings_desc"),
                 onTap: () => SettingsNavigator.open(SettingsCrumbs.wallpaper),
               ),
             ]),

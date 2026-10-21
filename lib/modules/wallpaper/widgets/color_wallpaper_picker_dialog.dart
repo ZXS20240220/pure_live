@@ -51,7 +51,7 @@ class _ColorWallpaperPickerDialogState extends State<ColorWallpaperPickerDialog>
     final picked = await showDialog<Color>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(isFirst ? '选择颜色 1' : '选择颜色 2'),
+        title: Text(isFirst ? i18n('wallpaper_picker_pick_color_1') : i18n('wallpaper_picker_pick_color_2')),
         content: SingleChildScrollView(
           child: ColorPicker(
             color: initial,
@@ -70,14 +70,14 @@ class _ColorWallpaperPickerDialogState extends State<ColorWallpaperPickerDialog>
               ColorPickerType.custom: true,
             },
             customColorSwatchesAndNames: {
-              ColorSwatch<int>(0xFF1A1A2E, const {0: Color(0xFF1A1A2E)}): '深色1',
+              ColorSwatch<int>(0xFF1A1A2E, const {0: Color(0xFF1A1A2E)}): i18n('wallpaper_picker_dark_1'),
             },
             showColorCode: true,
             colorCodeHasColor: true,
             enableShadesSelection: false,
           ),
         ),
-        actions: [TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('完成'))],
+        actions: [TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text(i18n('done')))],
       ),
     );
     if (picked != null) {
@@ -98,7 +98,7 @@ class _ColorWallpaperPickerDialogState extends State<ColorWallpaperPickerDialog>
     final previewGradient = data.toGradient();
 
     return AlertDialog(
-      title: const Text('纯色 / 渐变壁纸'),
+      title: Text(i18n('wallpaper_picker_title')),
       content: SizedBox(
         width: 480,
         child: Column(
@@ -118,15 +118,15 @@ class _ColorWallpaperPickerDialogState extends State<ColorWallpaperPickerDialog>
             // 模式切换
             Row(
               children: [
-                const Text('模式：'),
+                Text(i18n('wallpaper_picker_mode')),
                 ChoiceChip(
-                  label: const Text('纯色'),
+                  label: Text(i18n('wallpaper_picker_solid')),
                   selected: !_isGradient,
                   onSelected: (_) => setState(() => _isGradient = false),
                 ),
                 const SizedBox(width: 8),
                 ChoiceChip(
-                  label: const Text('渐变'),
+                  label: Text(i18n('wallpaper_picker_gradient')),
                   selected: _isGradient,
                   onSelected: (_) => setState(() => _isGradient = true),
                 ),
@@ -155,7 +155,7 @@ class _ColorWallpaperPickerDialogState extends State<ColorWallpaperPickerDialog>
                     style: AppTextStyles.t14,
                   ),
                 ),
-                TextButton(onPressed: () => _pickColor(true), child: const Text('选择')),
+                TextButton(onPressed: () => _pickColor(true), child: Text(i18n('wallpaper_picker_select'))),
               ],
             ),
             if (_isGradient) ...[
@@ -181,12 +181,12 @@ class _ColorWallpaperPickerDialogState extends State<ColorWallpaperPickerDialog>
                       style: AppTextStyles.t14,
                     ),
                   ),
-                  TextButton(onPressed: () => _pickColor(false), child: const Text('选择')),
+                  TextButton(onPressed: () => _pickColor(false), child: Text(i18n('wallpaper_picker_select'))),
                 ],
               ),
               const SizedBox(height: 12),
               // 渐变方向
-              Text('渐变方向', style: AppTextStyles.t14),
+              Text(i18n('wallpaper_picker_gradient_direction'), style: AppTextStyles.t14),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 6,
@@ -232,8 +232,8 @@ class _ColorWallpaperPickerDialogState extends State<ColorWallpaperPickerDialog>
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('取消')),
-        FilledButton(onPressed: () => Navigator.of(context).pop(_buildData()), child: const Text('应用')),
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(i18n('cancel'))),
+        FilledButton(onPressed: () => Navigator.of(context).pop(_buildData()), child: Text(i18n('apply'))),
       ],
     );
   }
@@ -241,23 +241,23 @@ class _ColorWallpaperPickerDialogState extends State<ColorWallpaperPickerDialog>
   String _directionLabel(GradientDirection d) {
     switch (d) {
       case GradientDirection.leftToRight:
-        return '左→右';
+        return i18n('wallpaper_picker_dir_left_to_right');
       case GradientDirection.rightToLeft:
-        return '右→左';
+        return i18n('wallpaper_picker_dir_right_to_left');
       case GradientDirection.topToBottom:
-        return '上→下';
+        return i18n('wallpaper_picker_dir_top_to_bottom');
       case GradientDirection.bottomToTop:
-        return '下→上';
+        return i18n('wallpaper_picker_dir_bottom_to_top');
       case GradientDirection.topLeftToBottomRight:
-        return '左上→右下';
+        return i18n('wallpaper_picker_dir_tl_to_br');
       case GradientDirection.topRightToBottomLeft:
-        return '右上→左下';
+        return i18n('wallpaper_picker_dir_tr_to_bl');
       case GradientDirection.bottomLeftToTopRight:
-        return '左下→右上';
+        return i18n('wallpaper_picker_dir_bl_to_tr');
       case GradientDirection.bottomRightToTopLeft:
-        return '右下→左上';
+        return i18n('wallpaper_picker_dir_br_to_tl');
       case GradientDirection.radial:
-        return '径向';
+        return i18n('wallpaper_picker_dir_radial');
     }
   }
 }

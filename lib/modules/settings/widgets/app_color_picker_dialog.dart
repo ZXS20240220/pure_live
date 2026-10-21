@@ -44,10 +44,10 @@ AppColorPickerLabels buildAppColorPickerLabels({
     opacity: translate('select_opacity'),
     colorCode: translate(enableOpacity ? 'argb_color_code' : 'rgb_color_code'),
     invalidColorCode: translate('invalid_color_code'),
-    primary: isChinese ? '常用色' : 'Primary',
-    accent: isChinese ? '鲜艳色' : 'Accent',
-    custom: isChinese ? '自定义' : 'Custom',
-    wheelPicker: isChinese ? '调色盘' : 'Wheel',
+    primary: translate('color_picker_primary'),
+    accent: translate('color_picker_accent'),
+    custom: translate('preset_custom'),
+    wheelPicker: translate('color_picker_wheel'),
   );
 }
 

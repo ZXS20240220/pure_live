@@ -6,6 +6,7 @@ import 'package:pure_live/core/common/core_error.dart';
 import 'package:pure_live/core/common/custom_interceptor.dart';
 import 'package:pure_live/core/common/proxy_routing.dart';
 import 'package:pure_live/common/services/settings_service.dart';
+import 'package:pure_live/plugins/locale_helper.dart';
 
 class HttpClient {
   static const Duration _connectTimeout = Duration(seconds: 20);
@@ -15,12 +16,12 @@ class HttpClient {
   static const int _downloadSuccessCode1 = 200;
   static const int _downloadSuccessCode2 = 206;
 
-  static const String _errorGet = "发送GET请求失败";
-  static const String _errorPost = "发送POST请求失败";
-  static const String _errorHead = "发送HEAD请求失败";
-  static const String _errorDownload = "下载请求失败";
-  static const String _errorDownloadFailed = "下载失败";
-  static const String _errorDownloadCancel = "下载已取消";
+  static String get _errorGet => i18n('http_get_failed');
+  static String get _errorPost => i18n('http_post_failed');
+  static String get _errorHead => i18n('http_head_failed');
+  static String get _errorDownload => i18n('http_download_request_failed');
+  static String get _errorDownloadFailed => i18n('http_download_failed');
+  static String get _errorDownloadCancel => i18n('http_download_cancelled');
 
   HttpClient._();
   static final HttpClient instance = HttpClient._();

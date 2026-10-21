@@ -1,5 +1,6 @@
 import 'package:pure_live/core/iptv/models/channel.dart';
 import 'package:pure_live/core/iptv/parsers/playlist_parse_result.dart';
+import 'package:pure_live/plugins/locale_helper.dart';
 
 /// Parses TXT playlists in genre format.
 class TxtParser {
@@ -40,7 +41,9 @@ class TxtParser {
         for (final url in urlList) {
           final trimmedUrl = url.trim();
           if (trimmedUrl.isEmpty || !_isValidStreamUrl(trimmedUrl)) continue;
-          final finalName = urlList.length > 1 ? '$name (线路$sourceIndex)' : name;
+          final finalName = urlList.length > 1
+              ? i18n('iptv_channel_with_line', args: {'name': name, 'index': '$sourceIndex'})
+              : name;
           final channel = _createChannel(name: finalName, url: trimmedUrl, group: currentGroup, providerId: providerId);
           channels.add(channel);
           sourceIndex++;

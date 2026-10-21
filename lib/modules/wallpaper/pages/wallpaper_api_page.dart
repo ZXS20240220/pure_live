@@ -25,7 +25,7 @@ class WallpaperApiPage extends StatelessWidget {
                 context.buildTile(
                   icon: Remix.sparkling_2_line,
                   title: group.name,
-                  subtitle: '${group.sources.length} 个来源',
+                  subtitle: i18n('wallpaper_api_source_count', args: {'count': '${group.sources.length}'}),
                   trailing: const Icon(Remix.arrow_right_s_line),
                   onTap: () => SettingsNavigator.open(
                     SettingsCrumb(

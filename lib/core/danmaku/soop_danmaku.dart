@@ -61,7 +61,7 @@ class SoopDanmaku implements LiveDanmaku {
   Future<void> start(dynamic args) async {
     CoreLog.d("SoopDanmaku start");
     if (args == null) {
-      onClose?.call("服务器连接失败");
+      onClose?.call(i18n('danmaku_connect_failed', args: {'error': ''}));
       return;
     }
     danmakuArgs = args as SoopDanmakuArgs;
@@ -102,11 +102,11 @@ class SoopDanmaku implements LiveDanmaku {
       },
       onReconnect: () {
         markDisconnected();
-        onReconnect?.call("与服务器断开连接，正在尝试重连");
+        onReconnect?.call(i18n('danmaku_disconnected_reconnecting'));
       },
       onClose: (e) {
         markDisconnected();
-        onClose?.call("服务器连接失败 $e");
+        onClose?.call(i18n('danmaku_connect_failed', args: {'error': ' $e'}));
       },
     );
     webScoketUtils?.connect();

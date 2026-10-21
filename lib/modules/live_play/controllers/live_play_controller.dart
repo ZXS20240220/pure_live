@@ -421,7 +421,7 @@ class LivePlayController extends GetxController
       addBatchSuperChat(sc);
     } catch (e) {
       if (!isClosed && !_ownerClosed && _isRoomLoadCurrent(loadEpoch, roomId, platform)) {
-        addSystemMessage("SC读取失败");
+        addSystemMessage(i18n('live_play_sc_load_failed'));
       }
     }
   }
@@ -629,7 +629,7 @@ class LivePlayController extends GetxController
       _scheduleAiHighlightRefresh();
     } catch (e) {
       if (!_isRoomLoadCurrent(loadEpoch, roomId, platform)) return;
-      addSystemMessage('刷新失败');
+      addSystemMessage(i18n('live_play_refresh_failed'));
     }
   }
 

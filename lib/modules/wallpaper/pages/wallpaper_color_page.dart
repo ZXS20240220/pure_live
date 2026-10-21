@@ -47,7 +47,8 @@ class _WallpaperColorPageState extends State<WallpaperColorPage> {
         customDesktopBottomPadding: 135,
         customMobileBottomPadding: 85,
         pageSizeOptions: SettingsService.to.page.pageSizeOptions,
-        emptyBuilder: (context) => const EmptyView(icon: Icons.palette_outlined, title: '暂无色板', subtitle: ''),
+        emptyBuilder: (context) =>
+            EmptyView(icon: Icons.palette_outlined, title: i18n('wallpaper_color_empty'), subtitle: ''),
         contentBuilder: (context, displayList, scrollController) {
           return buildCommonPullToRefresh(
             context: context,
@@ -104,7 +105,7 @@ class _WallpaperColorPageState extends State<WallpaperColorPage> {
 
   Future<void> _apply(ColorEntry entry) async {
     await WallpaperSettingsController.to.applyColorWallpaper(entry.toColorData());
-    ToastUtil.show('已设为壁纸');
+    ToastUtil.show(i18n('wallpaper_preview_set_done'));
   }
 }
 
