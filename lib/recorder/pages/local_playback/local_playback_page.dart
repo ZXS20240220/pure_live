@@ -1371,16 +1371,17 @@ class _OverlayVolumeControlState extends State<_OverlayVolumeControl> {
   }
 
   Widget _buildBarUI() {
+    final colorScheme = Theme.of(context).colorScheme;
     return Material(
       color: Colors.transparent,
       child: Padding(
         padding: const EdgeInsets.only(bottom: 12),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.black.withAlpha(220),
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: Colors.white10),
-          ),
+        child: Material(
+          color: colorScheme.surface,
+          elevation: 8,
+          shadowColor: Colors.black45,
+          borderRadius: BorderRadius.circular(22),
+          clipBehavior: Clip.antiAlias,
           child: LayoutBuilder(
             builder: (context, constraints) {
               final trackHeight = constraints.maxHeight - 65;
@@ -1390,7 +1391,7 @@ class _OverlayVolumeControlState extends State<_OverlayVolumeControl> {
                   const SizedBox(height: 12),
                   Text(
                     '$percentage%',
-                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                    style: TextStyle(color: colorScheme.onSurface, fontSize: 11, fontWeight: FontWeight.bold),
                   ),
                   Expanded(
                     child: GestureDetector(
@@ -1401,14 +1402,20 @@ class _OverlayVolumeControlState extends State<_OverlayVolumeControl> {
                           Container(
                             width: 4,
                             margin: const EdgeInsets.only(top: 10, bottom: 20),
-                            decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
+                            decoration: BoxDecoration(
+                              color: colorScheme.onSurface.withValues(alpha: 0.24),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
                           ),
                           Positioned(
                             bottom: 20,
                             child: Container(
                               width: 4,
                               height: _volume * trackHeight,
-                              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(2)),
+                              decoration: BoxDecoration(
+                                color: colorScheme.primary,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
                             ),
                           ),
                           Positioned(
@@ -1416,7 +1423,7 @@ class _OverlayVolumeControlState extends State<_OverlayVolumeControl> {
                             child: Container(
                               width: 12,
                               height: 12,
-                              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                              decoration: BoxDecoration(color: colorScheme.primary, shape: BoxShape.circle),
                             ),
                           ),
                         ],
@@ -1588,16 +1595,17 @@ class _SpeedControlState extends State<_SpeedControl> {
 
   Widget _buildBarUI() {
     final frac = _speedToFrac(_currentSpeed);
+    final colorScheme = Theme.of(context).colorScheme;
     return Material(
       color: Colors.transparent,
       child: Padding(
         padding: const EdgeInsets.only(bottom: 12),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.black.withAlpha(220),
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: Colors.white10),
-          ),
+        child: Material(
+          color: colorScheme.surface,
+          elevation: 8,
+          shadowColor: Colors.black45,
+          borderRadius: BorderRadius.circular(22),
+          clipBehavior: Clip.antiAlias,
           child: LayoutBuilder(
             builder: (context, constraints) {
               final trackHeight = constraints.maxHeight - 65;
@@ -1606,7 +1614,7 @@ class _SpeedControlState extends State<_SpeedControl> {
                   const SizedBox(height: 12),
                   Text(
                     '${_currentSpeed.toStringAsFixed(1)}x',
-                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                    style: TextStyle(color: colorScheme.onSurface, fontSize: 11, fontWeight: FontWeight.bold),
                   ),
                   Expanded(
                     child: Listener(
@@ -1623,14 +1631,20 @@ class _SpeedControlState extends State<_SpeedControl> {
                           Container(
                             width: 4,
                             margin: const EdgeInsets.only(top: 10, bottom: 20),
-                            decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
+                            decoration: BoxDecoration(
+                              color: colorScheme.onSurface.withValues(alpha: 0.24),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
                           ),
                           Positioned(
                             bottom: 20,
                             child: Container(
                               width: 4,
                               height: frac * trackHeight,
-                              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(2)),
+                              decoration: BoxDecoration(
+                                color: colorScheme.primary,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
                             ),
                           ),
                           Positioned(
@@ -1638,7 +1652,7 @@ class _SpeedControlState extends State<_SpeedControl> {
                             child: Container(
                               width: 12,
                               height: 12,
-                              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                              decoration: BoxDecoration(color: colorScheme.primary, shape: BoxShape.circle),
                             ),
                           ),
                         ],

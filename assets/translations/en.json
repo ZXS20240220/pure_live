@@ -2821,6 +2821,5 @@
   "uptime_format_hms": "{hours}h {minutes}m {seconds}s",
   "uptime_format_ms": "{minutes}m {seconds}s",
   "uptime_format_s": "{seconds}s",
-  "iptv_channel_with_line": "{name} (Line {index})",
   "danmaku_yy_default_user": "YY User"
 }
