@@ -54,6 +54,7 @@ class PlatformTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final label = suffix == null || suffix!.isEmpty ? site.name : '${site.name} $suffix';
     return Tab(
+      height: 44,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[

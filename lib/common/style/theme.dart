@@ -114,6 +114,7 @@ class MyTheme {
       splashFactory: NoSplash.splashFactory,
       pageTransitionsTheme: appPageTransitionsTheme,
       appBarTheme: AppBarTheme(
+        toolbarHeight: 48,
         elevation: 0.0,
         scrolledUnderElevation: 0.0,
         surfaceTintColor: Colors.transparent,
