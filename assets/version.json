@@ -1,37 +1,37 @@
 {
-  "version": "1.1.2",
+  "version": "1.1.3",
   "build_number": 314,
-  "version_num": 10102314,
-  "version_desc": "**version: 1.1.2 (build 314)**\n\n- 直播时移到过期的时间轴时，添加 toast 提示并回到当前直播\n- 标题栏中显示程序的运行时间\n- 沉浸模式中，点击右侧热区可触发侧栏显示\n- 优化底部导航栏透明度\n- 设置壁纸时，对于明暗主题添加更易于辨认的文字效果\n- 播放器在宽度过窄时自动隐藏部分控件\n- 本地播放器控件渐隐优化\n- 纯音频模式的头像呼吸动画在暂停时不播放\n- 优化壁纸渲染性能并修复视频壁纸循环设置失效\n- 统一程序中的消息 dialog 样式\n- 补齐部分缺失的英文翻译\n- 修复其他已知问题\n- 使用 console.cron-job.org 来定时更新历史版本记录 (GitHub Schedule 失效)",
+  "version_num": 10103314,
+  "version_desc": "**version: 1.1.3 (build 314)**\n\n- 播放页支持画面亮度调节：左半区调亮度、右半区调音量，支持鼠标手势和滚轮，退出播放页后亮度恢复默认\n- 其他微调",
   "prerelease": false,
   "download_url": "https://github.com/ZXS20240220/pure_live/releases",
   "platforms": {
     "windows": {
       "windows_setup_available": false,
       "windows_msix_available": false,
-      "version": "1.1.2",
+      "version": "1.1.3",
       "build_number": 314,
-      "version_num": 10102314,
-      "version_desc": "**version: 1.1.2 (build 314)**\n\n- 直播时移到过期的时间轴时，添加 toast 提示并回到当前直播\n- 标题栏中显示程序的运行时间\n- 沉浸模式中，点击右侧热区可触发侧栏显示\n- 优化底部导航栏透明度\n- 设置壁纸时，对于明暗主题添加更易于辨认的文字效果\n- 播放器在宽度过窄时自动隐藏部分控件\n- 本地播放器控件渐隐优化\n- 纯音频模式的头像呼吸动画在暂停时不播放\n- 优化壁纸渲染性能并修复视频壁纸循环设置失效\n- 统一程序中的消息 dialog 样式\n- 补齐部分缺失的英文翻译\n- 修复其他已知问题\n- 使用 console.cron-job.org 来定时更新历史版本记录 (GitHub Schedule 失效)",
+      "version_num": 10103314,
+      "version_desc": "**version: 1.1.3 (build 314)**\n\n- 播放页支持画面亮度调节：左半区调亮度、右半区调音量，支持鼠标手势和滚轮，退出播放页后亮度恢复默认\n- 其他微调",
       "prerelease": false,
       "download_url": "https://github.com/ZXS20240220/pure_live/releases"
     }
   },
   "latest_stable": {
-    "version": "1.1.2",
+    "version": "1.1.3",
     "build_number": 314,
-    "version_num": 10102314,
-    "version_desc": "**version: 1.1.2 (build 314)**\n\n- 直播时移到过期的时间轴时，添加 toast 提示并回到当前直播\n- 标题栏中显示程序的运行时间\n- 沉浸模式中，点击右侧热区可触发侧栏显示\n- 优化底部导航栏透明度\n- 设置壁纸时，对于明暗主题添加更易于辨认的文字效果\n- 播放器在宽度过窄时自动隐藏部分控件\n- 本地播放器控件渐隐优化\n- 纯音频模式的头像呼吸动画在暂停时不播放\n- 优化壁纸渲染性能并修复视频壁纸循环设置失效\n- 统一程序中的消息 dialog 样式\n- 补齐部分缺失的英文翻译\n- 修复其他已知问题\n- 使用 console.cron-job.org 来定时更新历史版本记录 (GitHub Schedule 失效)",
+    "version_num": 10103314,
+    "version_desc": "**version: 1.1.3 (build 314)**\n\n- 播放页支持画面亮度调节：左半区调亮度、右半区调音量，支持鼠标手势和滚轮，退出播放页后亮度恢复默认\n- 其他微调",
     "prerelease": false,
     "download_url": "https://github.com/ZXS20240220/pure_live/releases",
     "platforms": {
       "windows": {
         "windows_setup_available": false,
         "windows_msix_available": false,
-        "version": "1.1.2",
+        "version": "1.1.3",
         "build_number": 314,
-        "version_num": 10102314,
-        "version_desc": "**version: 1.1.2 (build 314)**\n\n- 直播时移到过期的时间轴时，添加 toast 提示并回到当前直播\n- 标题栏中显示程序的运行时间\n- 沉浸模式中，点击右侧热区可触发侧栏显示\n- 优化底部导航栏透明度\n- 设置壁纸时，对于明暗主题添加更易于辨认的文字效果\n- 播放器在宽度过窄时自动隐藏部分控件\n- 本地播放器控件渐隐优化\n- 纯音频模式的头像呼吸动画在暂停时不播放\n- 优化壁纸渲染性能并修复视频壁纸循环设置失效\n- 统一程序中的消息 dialog 样式\n- 补齐部分缺失的英文翻译\n- 修复其他已知问题\n- 使用 console.cron-job.org 来定时更新历史版本记录 (GitHub Schedule 失效)",
+        "version_num": 10103314,
+        "version_desc": "**version: 1.1.3 (build 314)**\n\n- 播放页支持画面亮度调节：左半区调亮度、右半区调音量，支持鼠标手势和滚轮，退出播放页后亮度恢复默认\n- 其他微调",
         "prerelease": false,
         "download_url": "https://github.com/ZXS20240220/pure_live/releases"
       }
