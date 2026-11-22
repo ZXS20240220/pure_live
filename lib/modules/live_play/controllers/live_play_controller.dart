@@ -1409,6 +1409,8 @@ class LivePlayController extends GetxController
     WidgetsBinding.instance.removeObserver(this);
     // 退出/返回播放页：恢复进入前的窗口置顶状态（不持久化，换台时不触发）。
     unawaited(_restoreWindowAlwaysOnTopBeforePlay());
+    // 退出/返回播放页：亮度只在本次播放会话有效，回到默认画面。
+    unawaited(GlobalPlayerService.instance.player.resetBrightness());
     // 退出/返回播放页：所有进程内小窗与其独立播放器/弹幕会话一并销毁。
     miniPip.disposeAll();
     _pipStateWorker?.dispose();

@@ -2015,7 +2015,9 @@ class _VolumeDragAreaState extends State<_VolumeDragArea> {
   Timer? _activateTimer;
   bool _hideBVStuff = true;
   bool _isActivated = false;
+  bool _isBrightness = false;
   double _updateDargVarVal = 1.0;
+  double _cachedBrightness = 0.0;
   Worker? _volumeWorker;
 
   static const Duration _activateDelay = Duration(milliseconds: 300);
@@ -2024,12 +2026,20 @@ class _VolumeDragAreaState extends State<_VolumeDragArea> {
   static const double _wheelDyPerStep = 120.0;
   static const double _wheelStepRatio = 0.05;
 
+  // 亮度采用 mpv 视频均衡器语义：0 为默认画面，负数变暗，正数变亮，
+  // 取值范围 -100 ~ 100，滑块拖满 560px 走完整个区间。
+  static const double _brightnessLimit = 100.0;
+  static const double _wheelStepBrightness = 2.0;
+
   @override
   void initState() {
     super.initState();
     _updateDargVarVal = controller.volume.value;
+    _cachedBrightness = controller.brightness.value;
     _volumeWorker = ever(controller.volume, (v) {
       if (!mounted) return;
+      // 外部音量变化（快捷键/静音按钮）时切回音量 HUD，避免覆盖亮度数值。
+      _isBrightness = false;
       _updateDargVarVal = v;
       setState(() {});
       _cancelAndRestartHideBVTimer();
@@ -2053,47 +2063,86 @@ class _VolumeDragAreaState extends State<_VolumeDragArea> {
     setState(() => _hideBVStuff = false);
   }
 
-  void _syncBaseValue() {
-    _updateDargVarVal = controller.volume.value;
+  void _syncBaseValue(Offset localPosition) {
+    // 用控件自身宽度判断左右半区，避免窗口大小变化导致分界偏移。
+    final width = context.size?.width ?? MediaQuery.sizeOf(context).width;
+    final isLeft = localPosition.dx <= (width / 2);
+    _isBrightness = isLeft;
+    _updateDargVarVal = _isBrightness ? _cachedBrightness : controller.volume.value;
   }
 
   void _applyVerticalDelta(double dy) {
-    double deltaValue = -(dy / _dragPixelsPerFullRange);
-    double nextValue = (_updateDargVarVal + deltaValue).clamp(0.0, 1.0);
+    final double deltaValue = _isBrightness
+        ? -(dy / _dragPixelsPerFullRange) * (_brightnessLimit * 2)
+        : -(dy / _dragPixelsPerFullRange);
+    final double nextValue = _isBrightness
+        ? (_updateDargVarVal + deltaValue).clamp(-_brightnessLimit, _brightnessLimit)
+        : (_updateDargVarVal + deltaValue).clamp(0.0, 1.0);
 
-    if ((nextValue - _updateDargVarVal).abs() < 0.001) return;
+    // 亮度的单像素步进约 0.357（200 / 560），阈值必须远小于它，
+    // 否则慢速拖动时每个事件的增量都会被丢弃，出现“拖不动/一格一格跳”。
+    if ((nextValue - _updateDargVarVal).abs() < (_isBrightness ? 0.01 : 0.001)) return;
 
     _updateDargVarVal = nextValue;
-    controller.setVolume(nextValue);
+    if (_isBrightness) {
+      _cachedBrightness = nextValue;
+      controller.setBrightness(nextValue);
+    } else {
+      controller.setVolume(nextValue);
+    }
     setState(() {});
   }
 
   void _applyScrollDelta(double dy) {
-    double deltaValue = -(dy / _wheelDyPerStep) * _wheelStepRatio;
-    double nextValue = (_updateDargVarVal + deltaValue).clamp(0.0, 1.0);
+    final double deltaValue = _isBrightness
+        ? -(dy / _wheelDyPerStep) * _wheelStepBrightness
+        : -(dy / _wheelDyPerStep) * _wheelStepRatio;
+    final double nextValue = _isBrightness
+        ? (_updateDargVarVal + deltaValue).clamp(-_brightnessLimit, _brightnessLimit)
+        : (_updateDargVarVal + deltaValue).clamp(0.0, 1.0);
 
-    if ((nextValue - _updateDargVarVal).abs() < 0.001) return;
+    if ((nextValue - _updateDargVarVal).abs() < (_isBrightness ? 0.01 : 0.001)) return;
 
     _updateDargVarVal = nextValue;
-    controller.setVolume(nextValue);
+    if (_isBrightness) {
+      _cachedBrightness = nextValue;
+      controller.setBrightness(nextValue);
+    } else {
+      controller.setVolume(nextValue);
+    }
     setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
-    IconData iconData = _updateDargVarVal <= 0
-        ? Icons.volume_mute
-        : _updateDargVarVal < 0.5
-        ? Icons.volume_down
-        : Icons.volume_up;
+    IconData iconData;
+    if (_isBrightness) {
+      iconData = _updateDargVarVal < -0.5
+          ? Icons.brightness_low
+          : _updateDargVarVal > 0.5
+          ? Icons.brightness_high
+          : Icons.brightness_medium;
+    } else {
+      iconData = _updateDargVarVal <= 0
+          ? Icons.volume_mute
+          : _updateDargVarVal < 0.5
+          ? Icons.volume_down
+          : Icons.volume_up;
+    }
 
     final int percentage = (_updateDargVarVal * 100).round();
+    final double progress = _isBrightness
+        ? (_updateDargVarVal + _brightnessLimit) / (_brightnessLimit * 2)
+        : _updateDargVarVal;
+    final String valueText = _isBrightness
+        ? (_updateDargVarVal > 0 ? '+${_updateDargVarVal.round()}' : '${_updateDargVarVal.round()}')
+        : '$percentage%';
 
     return Listener(
       onPointerDown: (event) {
         if (event.buttons == kPrimaryButton && HardwareKeyboard.instance.isControlPressed) return;
         if (event.buttons != kPrimaryButton) return;
-        _syncBaseValue();
+        _syncBaseValue(event.localPosition);
         _activateTimer?.cancel();
         _isActivated = false;
         _activateTimer = Timer(_activateDelay, () {
@@ -2119,7 +2168,7 @@ class _VolumeDragAreaState extends State<_VolumeDragArea> {
       onPointerSignal: (event) {
         if (event is PointerScrollEvent) {
           if (HardwareKeyboard.instance.isControlPressed) return;
-          _syncBaseValue();
+          _syncBaseValue(event.localPosition);
           _applyScrollDelta(event.scrollDelta.dy);
           _cancelAndRestartHideBVTimer();
         }
@@ -2146,7 +2195,7 @@ class _VolumeDragAreaState extends State<_VolumeDragArea> {
                         width: 100,
                         height: 20,
                         child: LinearProgressIndicator(
-                          value: _updateDargVarVal,
+                          value: progress,
                           backgroundColor: Colors.white38,
                           valueColor: const AlwaysStoppedAnimation(Colors.white),
                         ),
@@ -2154,7 +2203,7 @@ class _VolumeDragAreaState extends State<_VolumeDragArea> {
                     ),
                   ),
                   Text(
-                    '$percentage%',
+                    valueText,
                     style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
                   ),
                 ],

@@ -141,6 +141,16 @@ abstract interface class DecoderRecoveryAwarePlayer {
   Future<bool> prepareSoftwareDecoderFallback(PlayerException error);
 }
 
+/// Optional capability for native adapters that can adjust the rendered video
+/// brightness without replacing the current source.
+///
+/// [value] uses the engine's signed video-equalizer unit: `0` is the default
+/// picture, negative values darken and positive values brighten. Adapters must
+/// treat out-of-range values as a no-op rather than a playback failure.
+abstract interface class VideoBrightnessAwarePlayer {
+  Future<void> setBrightness(double value);
+}
+
 /// Optional capability for adapters that can prove that video frames reached
 /// the presentation surface, rather than merely reporting that the transport
 /// is in a `playing` state.

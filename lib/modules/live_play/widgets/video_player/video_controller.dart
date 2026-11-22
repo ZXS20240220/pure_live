@@ -935,10 +935,20 @@ class VideoController with ChangeNotifier implements DanmakuSettingsBinding {
     }
   }
 
-  // 亮度管理（仅移动端手势使用；桌面端为空实现）
-  Future<double> brightness() async => 1.0;
+  // 亮度管理：与音量一样是临时会话值，退出播放页后恢复默认。
+  // 采用 mpv 视频均衡器语义：0 为默认画面，负数变暗，正数变亮。
+  static const double neutralBrightness = 0.0;
 
-  void setBrightness(double value) {}
+  Future<double> brightness() async {
+    if (!Platform.isWindows) return neutralBrightness;
+    return _playerManager.brightness;
+  }
+
+  void setBrightness(double value) {
+    if (!Platform.isWindows || !value.isFinite) return;
+    final resolved = value.clamp(-100.0, 100.0).toDouble();
+    unawaited(_playerManager.setBrightness(resolved));
+  }
 
   // 控制器显示管理
   void enableController() {

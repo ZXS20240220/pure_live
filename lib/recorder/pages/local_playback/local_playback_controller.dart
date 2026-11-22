@@ -22,6 +22,10 @@ class LocalPlaybackController extends GetxController {
   final Rx<Duration> currentPosition = Duration.zero.obs;
   final Rx<Duration> totalDuration = Duration.zero.obs;
   final RxDouble volume = 1.0.obs;
+
+  /// 视频画面亮度，采用 mpv 视频均衡器语义：0 为默认画面，负数变暗，
+  /// 正数变亮，取值 -100 ~ 100。仅本页面会话有效，退出后恢复默认。
+  final RxDouble brightness = 0.0.obs;
   final RxDouble playbackSpeed = 1.0.obs;
   final RxBool danmakuEnabled = false.obs;
 
@@ -295,6 +299,23 @@ class LocalPlaybackController extends GetxController {
   Future<void> setVolume(double v) async {
     volume.value = v.clamp(0.0, 1.0);
     await _player.setVolume(volume.value * 100);
+  }
+
+  /// mpv 视频均衡器亮度范围，0 表示默认画面。
+  static const double _brightnessLimit = 100.0;
+
+  Future<void> setBrightness(double v) async {
+    if (!v.isFinite) return;
+    final resolved = v.clamp(-_brightnessLimit, _brightnessLimit).toDouble();
+    brightness.value = resolved;
+    final native = _player.platform;
+    if (native is! NativePlayer) return;
+    try {
+      await native.setProperty('brightness', resolved.toStringAsFixed(2));
+    } catch (e) {
+      // 亮度写入失败不应影响正常播放。
+      debugPrint('LocalPlaybackController.setBrightness error: $e');
+    }
   }
 
   double? _preMuteVolume;
@@ -655,6 +676,8 @@ class LocalPlaybackController extends GetxController {
       ..isWindowFullscreen.value = false
       ..isPipMode.value = false;
     unawaited(_restoreWindowState());
+    // 亮度仅当前页面会话有效，退出后回到默认画面。
+    brightness.value = 0.0;
     _player.dispose();
     super.onClose();
   }

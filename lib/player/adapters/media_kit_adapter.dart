@@ -42,7 +42,8 @@ class MediaKitAdapter
         SourceTransitionAwarePlayer,
         PrivateInputAwarePlayer,
         DecoderRecoveryAwarePlayer,
-        VideoFrameProgressAwarePlayer {
+        VideoFrameProgressAwarePlayer,
+        VideoBrightnessAwarePlayer {
   MediaKitAdapter() {
     _audioModeTransitions = LatestAsyncValueQueue<bool>(_applyAudioOnly);
   }
@@ -1431,6 +1432,24 @@ class MediaKitAdapter
     final vol = (volume * 100).clamp(0.0, 100.0);
 
     await _player.setVolume(vol);
+  }
+
+  /// mpv `brightness` equalizer range: 0 is the default picture, negative
+  /// darkens and positive brightens.
+  static const double _brightnessLimit = 100.0;
+
+  @override
+  Future<void> setBrightness(double value) async {
+    if (!value.isFinite) return;
+    final clamped = value.clamp(-_brightnessLimit, _brightnessLimit).toDouble();
+    final native = _player.platform;
+    if (native is! NativePlayer) return;
+    try {
+      await native.setProperty('brightness', clamped.toStringAsFixed(2));
+    } catch (error) {
+      // A brightness write must never fail the active playback session.
+      debugPrint('[Brightness] set brightness failed: $error');
+    }
   }
 
   // =========================

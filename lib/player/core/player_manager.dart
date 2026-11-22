@@ -1818,6 +1818,16 @@ class PlayerManager {
           log('Restore room volume failed: $error', name: 'PlayerManager', error: error, stackTrace: stackTrace);
         }
       }
+      // Brightness is session-scoped, but a new/recreated native player starts
+      // at the mpv default. Re-apply the session value so switching rooms or
+      // recovering a decoder within the same page keeps the user's choice.
+      if (_sessionBrightness != neutralBrightness && player is VideoBrightnessAwarePlayer) {
+        try {
+          await (player as VideoBrightnessAwarePlayer).setBrightness(_sessionBrightness);
+        } catch (error, stackTrace) {
+          log('Reapply brightness failed: $error', name: 'PlayerManager', error: error, stackTrace: stackTrace);
+        }
+      }
       if (!_isSessionValid(mySessionId) || !_isPlaybackCommandCurrent(sourceIntentRevision)) return;
       // Opening the source can finish before the native cache has refilled.
       // Keep that buffering episode authoritative for both UI and recovery.
@@ -3085,6 +3095,28 @@ class PlayerManager {
   Future<void> setVolume(double volume) async {
     await _currentPlayer?.setVolume(volume.clamp(0.0, 1.0));
   }
+
+  /// Ephemeral video brightness for the current playback session.
+  ///
+  /// Uses the mpv equalizer unit: 0 is the default picture, negative darkens
+  /// and positive brightens. It is intentionally never persisted; the live
+  /// page resets it when the page closes.
+  static const double neutralBrightness = 0.0;
+
+  double _sessionBrightness = neutralBrightness;
+
+  double get brightness => _sessionBrightness;
+
+  Future<void> setBrightness(double value) async {
+    if (!value.isFinite) return;
+    _sessionBrightness = value.clamp(-100.0, 100.0).toDouble();
+    final player = _currentPlayer;
+    if (player is VideoBrightnessAwarePlayer) {
+      await (player as VideoBrightnessAwarePlayer).setBrightness(_sessionBrightness);
+    }
+  }
+
+  Future<void> resetBrightness() => setBrightness(neutralBrightness);
 
   Future<void> setPlaybackSpeed(double speed) async {
     final player = _currentPlayer;

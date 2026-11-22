@@ -781,7 +781,7 @@ class BrightnessVolumnDargAreaState extends State<BrightnessVolumnDargArea> {
   bool _isBrightness = false;
   bool _isActivated = false;
   double _updateDargVarVal = 1.0;
-  double _cachedBrightness = 0.5;
+  double _cachedBrightness = 0.0;
 
   static const Duration _activateDelay = Duration(milliseconds: 300);
 
@@ -789,10 +789,19 @@ class BrightnessVolumnDargAreaState extends State<BrightnessVolumnDargArea> {
   static const double _wheelDyPerStep = 120.0;
   static const double _wheelStepRatio = 0.05;
 
+  // 亮度采用 mpv 视频均衡器语义：0 为默认画面，负数变暗，正数变亮，
+  // 取值范围 -100 ~ 100，滑块拖满 560px 走完整个区间。
+  static const double _brightnessLimit = 100.0;
+  static const double _wheelStepBrightness = 2.0;
+
+  // Windows 通过 mpv 属性调节画面亮度；移动端维持原有的屏幕亮度分支
+  // （当前为空实现），其它桌面平台仍保持左半区调音量的旧行为。
+  bool get _supportsBrightnessGesture => Platform.isWindows || PlatformUtils.isMobile;
+
   @override
   void initState() {
     super.initState();
-    if (PlatformUtils.isMobile) {
+    if (_supportsBrightnessGesture) {
       controller.brightness().then((v) {
         if (mounted) _cachedBrightness = v;
       });
@@ -823,17 +832,12 @@ class BrightnessVolumnDargAreaState extends State<BrightnessVolumnDargArea> {
     setState(() => _hideBVStuff = false);
   }
 
-  void _syncBaseValue(Offset position) {
-    final size = MediaQuery.of(context).size;
-    final isLeft = position.dx <= (size.width / 2);
+  void _syncBaseValue(Offset localPosition) {
+    // 用控件自身的宽度判断左右半区，避免窗口化 / 侧边弹幕面板导致的分界偏移。
+    final width = context.size?.width ?? MediaQuery.sizeOf(context).width;
+    final isLeft = localPosition.dx <= (width / 2);
 
-    if (Platform.isWindows && isLeft) {
-      _isBrightness = false;
-      _updateDargVarVal = controller.currentVolume.value;
-      return;
-    }
-
-    final newIsBrightness = isLeft && PlatformUtils.isMobile;
+    final newIsBrightness = isLeft && _supportsBrightnessGesture;
 
     if (newIsBrightness != _isBrightness) {
       _isBrightness = newIsBrightness;
@@ -846,10 +850,16 @@ class BrightnessVolumnDargAreaState extends State<BrightnessVolumnDargArea> {
   void _applyVerticalDelta(double dy) {
     if (controller.showLocked.value) return;
 
-    double deltaValue = -(dy / _dragPixelsPerFullRange);
-    double nextValue = (_updateDargVarVal + deltaValue).clamp(0.0, 1.0);
+    final double deltaValue = _isBrightness
+        ? -(dy / _dragPixelsPerFullRange) * (_brightnessLimit * 2)
+        : -(dy / _dragPixelsPerFullRange);
+    final double nextValue = _isBrightness
+        ? (_updateDargVarVal + deltaValue).clamp(-_brightnessLimit, _brightnessLimit)
+        : (_updateDargVarVal + deltaValue).clamp(0.0, 1.0);
 
-    if ((nextValue - _updateDargVarVal).abs() < 0.001) return;
+    // 亮度的单像素步进约 0.357（200 / 560），阈值必须远小于它，
+    // 否则慢速拖动时每个事件的增量都会被丢弃，出现“拖不动/一格一格跳”。
+    if ((nextValue - _updateDargVarVal).abs() < (_isBrightness ? 0.01 : 0.001)) return;
 
     _updateDargVarVal = nextValue;
     if (_isBrightness) {
@@ -864,10 +874,14 @@ class BrightnessVolumnDargAreaState extends State<BrightnessVolumnDargArea> {
   void _applyScrollDelta(double dy) {
     if (controller.showLocked.value) return;
 
-    double deltaValue = -(dy / _wheelDyPerStep) * _wheelStepRatio;
-    double nextValue = (_updateDargVarVal + deltaValue).clamp(0.0, 1.0);
+    final double deltaValue = _isBrightness
+        ? -(dy / _wheelDyPerStep) * _wheelStepBrightness
+        : -(dy / _wheelDyPerStep) * _wheelStepRatio;
+    final double nextValue = _isBrightness
+        ? (_updateDargVarVal + deltaValue).clamp(-_brightnessLimit, _brightnessLimit)
+        : (_updateDargVarVal + deltaValue).clamp(0.0, 1.0);
 
-    if ((nextValue - _updateDargVarVal).abs() < 0.001) return;
+    if ((nextValue - _updateDargVarVal).abs() < (_isBrightness ? 0.01 : 0.001)) return;
 
     _updateDargVarVal = nextValue;
     if (_isBrightness) {
@@ -883,11 +897,11 @@ class BrightnessVolumnDargAreaState extends State<BrightnessVolumnDargArea> {
   Widget build(BuildContext context) {
     IconData iconData;
     if (_isBrightness) {
-      iconData = _updateDargVarVal <= 0
+      iconData = _updateDargVarVal < -0.5
           ? Icons.brightness_low
-          : _updateDargVarVal < 0.5
-          ? Icons.brightness_medium
-          : Icons.brightness_high;
+          : _updateDargVarVal > 0.5
+          ? Icons.brightness_high
+          : Icons.brightness_medium;
     } else {
       iconData = _updateDargVarVal <= 0
           ? Icons.volume_mute
@@ -897,14 +911,19 @@ class BrightnessVolumnDargAreaState extends State<BrightnessVolumnDargArea> {
     }
 
     final int percentage = (_updateDargVarVal * 100).round();
+    final double progress = _isBrightness
+        ? (_updateDargVarVal + _brightnessLimit) / (_brightnessLimit * 2)
+        : _updateDargVarVal;
+    final String valueText = _isBrightness
+        ? (_updateDargVarVal > 0 ? '+${_updateDargVarVal.round()}' : '${_updateDargVarVal.round()}')
+        : '$percentage%';
 
     return Listener(
       onPointerDown: (event) {
         // Ctrl+左键拖拽是画面平移手势，不启动音量/亮度竖向调节。
         if (event.buttons == kPrimaryButton && HardwareKeyboard.instance.isControlPressed) return;
         if (event.buttons != kPrimaryButton) return;
-        _syncBaseValue(event.position);
-        if (Platform.isWindows && _isBrightness) return;
+        _syncBaseValue(event.localPosition);
         _activateTimer?.cancel();
         _isActivated = false;
         _activateTimer = Timer(_activateDelay, () {
@@ -929,10 +948,9 @@ class BrightnessVolumnDargAreaState extends State<BrightnessVolumnDargArea> {
       },
       onPointerSignal: (event) {
         if (event is PointerScrollEvent) {
-          // Ctrl+滚轮用于等比例缩放画面，此处跳过，音量保持不变。
+          // Ctrl+滚轮用于等比例缩放画面，此处跳过，音量/亮度保持不变。
           if (HardwareKeyboard.instance.isControlPressed) return;
-          _syncBaseValue(event.position);
-          if (Platform.isWindows && _isBrightness) return;
+          _syncBaseValue(event.localPosition);
           _applyScrollDelta(event.scrollDelta.dy);
           _cancelAndRestartHideBVTimer();
         }
@@ -959,7 +977,7 @@ class BrightnessVolumnDargAreaState extends State<BrightnessVolumnDargArea> {
                         width: 100,
                         height: 20,
                         child: LinearProgressIndicator(
-                          value: _updateDargVarVal,
+                          value: progress,
                           backgroundColor: Colors.white38,
                           valueColor: const AlwaysStoppedAnimation(Colors.white),
                         ),
@@ -967,7 +985,7 @@ class BrightnessVolumnDargAreaState extends State<BrightnessVolumnDargArea> {
                     ),
                   ),
                   Text(
-                    '$percentage%',
+                    valueText,
                     style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
                   ),
                 ],
